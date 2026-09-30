@@ -444,7 +444,9 @@ Infraestrutura real do usuário, no repositório `wawa-irc` (irmão deste), para
 
 | Peça | Endereço | Observação |
 | --- | --- | --- |
-| Relay Nostr (strfry 1.0.4) | `wss://nostr.wawasoft.net` (origem local no Pi: `127.0.0.1:7777`) | Verificado vivo em 2026-09-29 pelo NIP-11: `supported_nips` 1,2,4,9,11,22,28,40,70,77; leitura pública; escrita pública limitada aos kinds 0,1,3,5,6,7,10002 com rate limit |
+| Relay Nostr (strfry 1.0.4) | `wss://nostr.wawasoft.net` (origem local no Pi: `127.0.0.1:7777`) | Verificado vivo em 2026-09-29 pelo NIP-11: `supported_nips` 1,2,4,9,11,22,28,40,70,77; leitura pública; **escrita pública só nos kinds 0,1,3,5,6,7,10002**; qualquer outro exige a pubkey na allowlist do operador |
+
+**Correção medida em 2026-09-30:** `supported_nips` listar NIP-4 **não** significa que o relay aceite gravar kind 4. Com um escritor fora da allowlist, o strfry responde literalmente `PERMISSION: blocked: kind not permitted for public writers`, e o próprio NIP-11 confirma que só os kinds acima são públicos. Consequência para a sinalização: o canal privado por kind 4 exige uma pubkey de teste na allowlist do Pi — alteração de produção, que **não** foi feita. Até que o operador faça isso, a sinalização verificada de verdade é a **manual** (tarefa 8), e a recusa do relay é afirmada pelo relay, não presumida.
 | Homeserver Matrix | `http://127.0.0.1:6167` (Conduit) + appservice em `127.0.0.1:9009` | Configuração em `wawa-irc/ops/wawa-matrix.md` |
 | Ergo IRC / XMPP | ver `wawa-irc/ops/wawa-xmpp.md` e `README.md` | Não é necessário para este plano |
 
