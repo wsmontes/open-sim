@@ -324,4 +324,4 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
-| 1 | `feat: add portable world bundles and versioned wire codec` | 7 testes em `tests/world-bundle.test.ts` (vetores RFC 8785, recusas de chave repetida/versão/limite/UTF-8, preservação do espaço de extensões, verificação de endereço por hash), `npx tsc -p tsconfig.world.json` limpo e camada `world` no teste de arquitetura. Suíte: 113 testes. |
+| 1 | `ee3e77e` | 7 testes em `tests/world-bundle.test.ts` (vetores RFC 8785, recusas de chave repetida/versão/limite/UTF-8, preservação do espaço de extensões, verificação de endereço por hash), `npx tsc -p tsconfig.world.json` limpo e camada `world` no teste de arquitetura. Suíte: 113 testes. |
