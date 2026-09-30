@@ -242,6 +242,30 @@ export function checkCoreComponent(key: string, value: unknown): WorldResult<Rec
    for (const name of Object.keys(value)) if (typeof value[name] !== 'string' || !SCHEME.test(value[name] as string)) return failed('MALFORMED', `Relação inválida: ${name}`);
    return ok({...value});
   }
+  case 'osim.geometry': {
+   // §9.2: geometry is referenced, not embedded — and the reference is content-addressed like everything durable
+   // (§21), so another provider can serve the same bytes.
+   const asset = value['asset'], mediaType = value['mediaType'];
+   if (typeof asset !== 'string' || !SCHEME.test(asset) || !URI_CHARS.test(asset)) return failed('MALFORMED', 'osim.geometry precisa de um asset endereçado');
+   if (typeof mediaType !== 'string' || !mediaType.length) return failed('MALFORMED', 'osim.geometry precisa de um tipo de mídia');
+   return ok({...value});
+  }
+  case 'osim.behavior': {
+   // §36: a client is never required to execute behavior to understand the entity, so only the reference and the
+   // interface it claims to implement are validated here.
+   const module_ = value['module'], mediaType = value['mediaType'], face = value['interface'];
+   if (typeof module_ !== 'string' || !SCHEME.test(module_) || !URI_CHARS.test(module_)) return failed('MALFORMED', 'osim.behavior precisa de um módulo endereçado');
+   if (typeof mediaType !== 'string' || !mediaType.length) return failed('MALFORMED', 'osim.behavior precisa de um tipo de mídia');
+   if (typeof face !== 'string' || !SCHEME.test(face)) return failed('MALFORMED', 'osim.behavior precisa de uma interface nomeada');
+   return ok({...value});
+  }
+  case 'osim.space': {
+   // §10: a space is an entity, and its reference system is what its coordinates mean. A room does not need a
+   // latitude; only the chain to Earth does.
+   const system = value['referenceSystem'];
+   if (typeof system !== 'string' || !system.length) return failed('MALFORMED', 'osim.space precisa de um sistema de referência');
+   return ok({...value});
+  }
   case 'osim.layer': {
    if (typeof value['source'] !== 'string' || !value['source'].length) return failed('MALFORMED', 'Camada precisa de uma fonte');
    const priority = value['priority'];

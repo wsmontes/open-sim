@@ -121,6 +121,15 @@ describe('the core component vocabulary is validated without rejecting what a ne
   expect(checkCoreComponent('osim.relations', {inside:42}).ok).toBe(false);
   expect(checkCoreComponent('osim.layer', {source:'weather-provider', priority:20}).ok).toBe(true);
  });
+ test('geometry and behavior are references, and a space says what its coordinates mean',()=>{
+  expect(checkCoreComponent('osim.geometry', {asset:'sha256:6f29', mediaType:'model/gltf-binary'}).ok).toBe(true);
+  expect(checkCoreComponent('osim.geometry', {asset:'6f29', mediaType:'model/gltf-binary'}).ok).toBe(false);
+  expect(checkCoreComponent('osim.geometry', {asset:'sha256:6f29'}).ok).toBe(false);
+  expect(checkCoreComponent('osim.behavior', {module:'sha256:a924', mediaType:'application/wasm', interface:'osim:door:1'}).ok).toBe(true);
+  expect(checkCoreComponent('osim.behavior', {module:'sha256:a924', mediaType:'application/wasm', interface:'door'}).ok).toBe(false);
+  expect(checkCoreComponent('osim.space', {referenceSystem:'EPSG:4978'}).ok).toBe(true);
+  expect(checkCoreComponent('osim.space', {}).ok).toBe(false);
+ });
  test('a namespace that is not the protocol is JSON and nothing more',()=>{
   expect(checkCoreComponent('lifesim.residence', {anything:{deep:[1,2,3]}}).ok).toBe(true);
   expect(checkCoreComponent('lifesim.residence', {f:()=>1}).ok).toBe(false);
