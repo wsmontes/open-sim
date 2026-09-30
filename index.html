@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Open Sim</title>
+<link rel="stylesheet" href="/src/browser/style.css">
+</head>
+<body>
+<main id="app">
+<canvas id="game" width="600" height="400" aria-label="Cidade isométrica"></canvas>
+<section id="hud">
+<header id="hud-top">
+<span id="hud-place">—</span>
+<dl id="hud-stats">
+<div><dt>Dinheiro</dt><dd id="hud-money">0</dd></div>
+<div><dt>População</dt><dd id="hud-population">0</dd></div>
+<div><dt>Energia</dt><dd id="hud-energy">0/0</dd></div>
+<div><dt>Felicidade</dt><dd id="hud-happiness">0%</dd></div>
+</dl>
+<div id="hud-speed" role="group" aria-label="Velocidade da partida">
+<button type="button" data-speed="0" aria-label="Pausar" title="Pausar">&#10074;&#10074;</button>
+<button type="button" data-speed="1" aria-label="Velocidade 1×" title="Velocidade 1×">1×</button>
+<button type="button" data-speed="2" aria-label="Velocidade 2×" title="Velocidade 2×">2×</button>
+</div>
+</header>
+<nav id="hud-tools" aria-label="Ferramentas">
+<button type="button" data-tool="explore" title="Explorar a cidade"><span class="tool-name">Explorar</span></button>
+<button type="button" data-tool="road" title="Construir rua"><span class="tool-name">Rua</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="residential" title="Zoneamento residencial"><span class="tool-name">Residencial</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="commercial" title="Zoneamento comercial"><span class="tool-name">Comércio</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="industrial" title="Zoneamento industrial"><span class="tool-name">Indústria</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="power" title="Usina de energia"><span class="tool-name">Energia</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="park" title="Parque"><span class="tool-name">Parque</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="demolish" title="Demolir construção"><span class="tool-name">Demolir</span><span class="tool-cost"></span></button>
+</nav>
+<div id="hud-places" role="group" aria-label="Lugares">
+<button type="button" data-place="Vancouver">Vancouver</button>
+<button type="button" data-place="São Paulo">São Paulo</button>
+<button type="button" data-place="Lisboa">Lisboa</button>
+<form id="place-form">
+<label for="place-lat">Latitude</label>
+<input id="place-lat" name="lat" inputmode="decimal" size="9" placeholder="-23.5505" autocomplete="off">
+<label for="place-lon">Longitude</label>
+<input id="place-lon" name="lon" inputmode="decimal" size="9" placeholder="-46.6333" autocomplete="off">
+<button type="submit">Ir</button>
+</form>
+<p id="place-error" role="alert" hidden></p>
+</div>
+<footer id="hud-bottom">
+<span id="cost-preview"></span>
+<span id="map-message" role="status" hidden></span>
+<button id="map-retry" type="button" hidden>Tentar novamente</button>
+<span id="save-status" role="status"></span>
+<button id="save-overwrite" type="button" hidden>Sobrescrever save incompatível</button>
+<a id="hud-attribution" target="_blank" rel="noopener" href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>
+</footer>
+</section>
+</main>
+<script type="module" src="/src/browser/main.ts"></script>
+</body>
+</html>
