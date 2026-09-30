@@ -418,7 +418,12 @@ Infraestrutura real do usuário, no repositório `wawa-irc` (irmão deste), para
 | Homeserver Matrix | `http://127.0.0.1:6167` (Conduit) + appservice em `127.0.0.1:9009` | Configuração em `wawa-irc/ops/wawa-matrix.md` |
 | Ergo IRC / XMPP | ver `wawa-irc/ops/wawa-xmpp.md` e `README.md` | Não é necessário para este plano |
 
-Nada disso está rodando nesta máquina: o stack roda no Raspberry Pi e sai por Cloudflare Tunnel, então **o endereço público é o caminho**. Para escrever um kind que não seja da lista pública, a pubkey de teste precisa entrar em `/etc/wawa-nostr/allowed-pubkeys.txt` no Pi (só o operador faz isso) — enquanto isso, use kind 1 e kind 4 (mensagem direta cifrada, suportada pelo relay) ou o caminho manual de copiar e colar, que o plano já permite.
+Nada disso está rodando nesta máquina: o stack roda no Raspberry Pi em **192.168.1.89** (ping 5,7 ms em 2026-09-29) e sai por
+Cloudflare Tunnel. Sondagem da LAN nessa data: abertas **6667** e **6697** (Ergo IRC, texto e TLS); fechadas 7777 (relay), 6167
+(homeserver), 9009 (appservice), 5222 (XMPP) e 8787 (wall) — estão em loopback no Pi, exatamente como a operação documenta.
+Consequência prática: **Nostr caminha pelo endereço público** `wss://nostr.wawasoft.net` (verificado vivo), e o IRC da LAN serve
+para qualquer verificação que precise de um par de chat. Matrix exige um caminho até o loopback do Pi — túnel SSH
+(`ssh -L 6167:127.0.0.1:6167`) ou publicação pelo operador — antes de poder ser exercitado de verdade. Para escrever um kind que não seja da lista pública, a pubkey de teste precisa entrar em `/etc/wawa-nostr/allowed-pubkeys.txt` no Pi (só o operador faz isso) — enquanto isso, use kind 1 e kind 4 (mensagem direta cifrada, suportada pelo relay) ou o caminho manual de copiar e colar, que o plano já permite.
 
 Regra que continua valendo: registrar o que foi exercitado contra o serviço real e **não** afirmar mais do que isso (nada de declarar compatibilidade ampla de NAT ou federação validada sem prova).
 
