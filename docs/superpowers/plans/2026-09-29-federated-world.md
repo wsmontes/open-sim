@@ -205,11 +205,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** mesmas portas `IdentityProvider`, `InviteService` e `Signaling`; `RoomBinding` associa conta autenticada, sala, chave de sessão e prova de aprovação do convite. Nenhum campo Matrix entra em `GameState` ou na regra econômica.
 
-- [ ] Testar evento de sala indevida, membro sem grant, chave de sessão trocada, evento criptografado não decifrável e duplicação entre transportes; `expect(matrixResult.semanticHash).toBe(nostrResult.semanticHash)` para o mesmo cenário/ordem de operações.
-- [ ] Rodar `npx vitest run tests/matrix-adapter.test.ts tests/federated-adapters.test.ts`; confirmar RED.
-- [ ] Implementar sala privada com SDK e criptografia existentes; eventos próprios só sob namespace configurado/controlado. Convite estabelece vínculo verificável; power level não vira permissão de jogo. Permitir convidados de Nostr e Matrix na mesma sessão WebRTC sem ponte de chats.
-- [ ] Exigir testes PASS e prova de integração com duas contas em homeservers distintos de teste; desligar a sinalização após conexão e observar a continuidade da partida. Se infraestrutura de teste faltar, registrar essa verificação como pendente, sem afirmar federação validada.
-- [ ] Commit: `feat: add Matrix community and signaling adapters`.
+- [x] Testar evento de sala indevida, membro sem grant, chave de sessão trocada, evento criptografado não decifrável e duplicação entre transportes; `expect(matrixResult.semanticHash).toBe(nostrResult.semanticHash)` para o mesmo cenário/ordem de operações.
+- [x] Rodar `npx vitest run tests/matrix-adapter.test.ts tests/federated-adapters.test.ts`; confirmar RED.
+- [x] Implementar sala privada com SDK e criptografia existentes; eventos próprios só sob namespace configurado/controlado. Convite estabelece vínculo verificável; power level não vira permissão de jogo. Permitir convidados de Nostr e Matrix na mesma sessão WebRTC sem ponte de chats.
+- [x] Exigir testes PASS e prova de integração com duas contas em homeservers distintos de teste; desligar a sinalização após conexão e observar a continuidade da partida. Se infraestrutura de teste faltar, registrar essa verificação como pendente, sem afirmar federação validada.
+- [x] Commit: `feat: add Matrix community and signaling adapters`.
 
 ### Tarefa 12: cópias privadas, retenção e provedores de objetos
 
@@ -322,6 +322,10 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 ## Desvios registrados
 
+- **Tarefa 11:** nenhum SDK entrou: o client-server API cabe em `fetch` puro, e a única parte específica do Synapse é o registro por segredo compartilhado,
+  documentada no cabeçalho do adaptador. `signaling.ts` segue adiado pela mesma razão da tarefa 10 (a porta `Signaling` é da tarefa 8, que já aterrissou —
+  fica como continuação explícita, não como contrato adivinhado). O laboratório `opensim-matrix-lab` que eu havia subido morreu antes da tarefa começar
+  (o contêiner dono do netns saiu com "bootstrap state timeout"); o agente reconstruiu um projeto descartável próprio em `~/.opensim-matrix-port`.
 - **Tarefa 8:** o adaptador implementa **duas** portas, porque são classes de tráfego diferentes: mensagem (envelope de fio v2, sinalização e controle) e
   objeto (envelope do protocolo, §30). A prova destacada cobre tudo menos ela mesma, então o texto que a pessoa copia é o documento enquadrado mais a prova; a
   verificação recusa tamanho, UTF-8, documento fechado, sessão/mundo/ramificação, época, ator vinculado, assinatura e repetição, nessa ordem. `sequence` fica
@@ -472,6 +476,7 @@ Regra que continua valendo: registrar o que foi exercitado contra o serviço rea
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 11 | `TASK11_SHA` | 21 testes (`matrix-adapter` 19 + `federated-adapters` 2), mais o de rede: evento de sala indevida recusado, membro sem concessão, chave de sessão trocada, evento cifrado não decifrável, duplicação entre transportes aplicada uma vez, hash semântico igual entre Matrix e Nostr no mesmo cenário e ordem. **Prova real** contra Synapse `v1.157.1` local (o agente reconstruiu o laboratório quando o meu caiu): duas contas registradas pelo segredo compartilhado, sala privada criada, convidada e ingressada, objetos do protocolo publicados e lidos de volta. Cinco defeitos reais corrigidos no ciclo, entre eles a leitura de `/messages` voltando em ordem inversa (um replay aplicaria o mundo na ordem errada) e o teto de evento medido no servidor real, que recusa acima de 64 KiB — o teto virou 60 KiB e 413 virou LIMIT.
 | 8 | `85df03b` | 26 testes novos (`webrtc-adapter` 12, `object-transfer` 14) e 42 com a sessão da tarefa 7: sinal de outra sessão, oferta de época anterior e oferta mais nova recusadas com mensagens distintas, assinatura verificada sobre os bytes do corpo com a prova destacada, janela de replay por id, objeto truncado e adulterado recusados por hash, offset que salta em conflito, payload acima do teto negociado em LIMIT, backpressure e desconexão no meio com retomada pelo prefixo contíguo guardado no dispositivo. Três defeitos reais corrigidos: texto colado sem a prova destacada, candidato de ICE chegando antes da descrição sendo perdido, e fakes de teste comparando megabytes.
 | 16 | `afc62a4` | 14 testes (`world-entities` 6, `materialization` 5, `cross-profile` 3): entidade cruzando trechos e o antimeridiano contada uma vez, feição dividida ou fundida ambígua recusada em vez de adivinhada, id estável em fork, namespace desconhecido preservado, e o invariante populacional 4 = 2 + 2 ao materializar e 3 + 1 ao devolver, com reserva repetida devolvendo o mesmo estado em vez de criar gente. O explorador de referência abre, materializa, escreve o próprio namespace e exporta sem tocar a UI de cidade: cidade → explorador → cidade conserva total, histórico, procedência e o que a cidade não entende. Suíte de 17 arquivos: 156 testes; build limpo.
 | 15 | `bf8573d` | 16 testes (`gtfs-source` 9, `external-input` 7): transporte sem linha ou parada referenciada, ids iguais de fornecedores diferentes em conflito, ZIP acima do limite recusado antes de expandir, unidade inválida, horário com fuso declarado (24:15:00 preservado) e revisão posterior de previsão; replay sem rede igual à execução original e chegada fora de ordem sem tocar ticks passados. **Feed real exercitado**: GTFS marítimo da Martinique (Licence Ouverte 2.0, 29.515 bytes) importado em 23 ms com 10 paradas, 4 linhas, 209 viagens e procedência endereçada; um segundo feed (libéA, ODbL) foi lido e a associação entre fornecedores diferentes foi recusada, assim como a cópia do mesmo feed com um id trocado na mesma posição. Fixtures commitadas continuam sintéticas.
