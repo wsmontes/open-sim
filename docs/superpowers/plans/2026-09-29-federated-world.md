@@ -421,7 +421,14 @@ Infraestrutura real do usuário, no repositório `wawa-irc` (irmão deste), para
 Nada disso está rodando nesta máquina: o stack roda no Raspberry Pi em **192.168.1.89** (ping 5,7 ms em 2026-09-29) e sai por
 Cloudflare Tunnel. Sondagem da LAN nessa data: abertas **6667** e **6697** (Ergo IRC, texto e TLS); fechadas 7777 (relay), 6167
 (homeserver), 9009 (appservice), 5222 (XMPP) e 8787 (wall) — estão em loopback no Pi, exatamente como a operação documenta.
-Consequência prática: **Nostr caminha pelo endereço público** `wss://nostr.wawasoft.net` (verificado vivo), e o IRC da LAN serve
+Acesso por chave existe: `ssh -i ~/.ssh/pi_ed25519 wawa@192.168.1.89` entra no host `rasp` (verificado). Lá:
+`wawa-nostr.service` **active** com strfry escutando em `127.0.0.1:7777`; `wawa-realtime-fabric.service` (appservice Matrix)
+**inactive** e nenhum homeserver em 6167 — ou seja, **não há Matrix rodando** para a tarefa 11 até o operador subir um.
+Para testar contra o relay sem depender do túnel público, a ponte local é
+`ssh -N -L 7777:127.0.0.1:7777 -i ~/.ssh/pi_ed25519 wawa@192.168.1.89` (o processo `nostr-relay` do harness já sobe isso, e
+`http://127.0.0.1:7777` responde o NIP-11 do relay real). Mudar a allowlist do Pi é alteração de produção: só com pedido explícito.
+
+Consequência prática: **Nostr caminha pelo endereço público** `wss://nostr.wawasoft.net` ou pelo túnel local, e o IRC da LAN serve
 para qualquer verificação que precise de um par de chat. Matrix exige um caminho até o loopback do Pi — túnel SSH
 (`ssh -L 6167:127.0.0.1:6167`) ou publicação pelo operador — antes de poder ser exercitado de verdade. Para escrever um kind que não seja da lista pública, a pubkey de teste precisa entrar em `/etc/wawa-nostr/allowed-pubkeys.txt` no Pi (só o operador faz isso) — enquanto isso, use kind 1 e kind 4 (mensagem direta cifrada, suportada pelo relay) ou o caminho manual de copiar e colar, que o plano já permite.
 
