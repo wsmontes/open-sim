@@ -3,12 +3,16 @@
 // plan asks for — Criar versão, Exportar, Importar e Histórico — and every string the player reads is Portuguese,
 // with the states the spec names ("Salvo neste dispositivo").
 export type HistoryEntry = {generation:number;hash:string;label:string;current:boolean};
-export type HistoryInfo = {worldId:string;branchId:string;status:string;entries:readonly HistoryEntry[];message:string};
+export type CompareOption = {hash:string;label:string};
+export type CompareInfo = {summary:string;regions:readonly {id:string;label:string}[]};
+export type HistoryInfo = {worldId:string;branchId:string;status:string;entries:readonly HistoryEntry[];message:string;compareOptions:readonly CompareOption[];compare:CompareInfo|null};
 export type HistoryActions = {
  onCreateVersion(name:string):void;
  onExport():void;
  onImport(file:File):void;
  onBranch(branchId:string):void;
+ onCompare(commitHash:string):void;
+ onRegion(chunkId:string):void;
 };
 export type WorldHistoryPanel = {
  update(info:HistoryInfo):void;
@@ -79,7 +83,22 @@ export function createWorldHistory(root:HTMLElement,actions:HistoryActions):Worl
  fileInput.hidden=true;
  actionsRow.append(nameLabel,nameInput,createButton,exportButton,importButton,fileInput);
  const checkpoints=make('ol','history-checkpoints');
- body.append(versionRow,status,message,actionsRow,checkpoints);
+ // Comparing two versions is a read-only review: the player picks another checkpoint of this branch and sees how many
+ // cells came from the real data, how many are their own work and what redoing that work would cost. A region button
+ // moves the camera to it, so the difference is visible in the city and not only in the panel.
+ const compareRow=make('div','history-compare');
+ const compareLabel=make('label',undefined,'Comparar com');
+ compareLabel.setAttribute('for','history-compare-choice');
+ const compareSelect=doc.createElement('select');
+ compareSelect.id='history-compare-choice';
+ compareSelect.setAttribute('aria-label','Versão do histórico para comparar');
+ const compareButton=button('Comparar');
+ compareRow.append(compareLabel,compareSelect,compareButton);
+ const compareSummary=make('p');
+ compareSummary.id='history-compare-summary';
+ compareSummary.hidden=true;
+ const compareRegions=make('div','history-compare-regions');
+ body.append(versionRow,status,message,actionsRow,checkpoints,compareRow,compareSummary,compareRegions);
  panel.append(head,body);
  root.append(panel);
  const onCreate=()=>actions.onCreateVersion(nameInput.value);
@@ -91,11 +110,15 @@ export function createWorldHistory(root:HTMLElement,actions:HistoryActions):Worl
   fileInput.value='';
  };
  const onBranch=()=>actions.onBranch(branches.value);
+ const onCompare=()=>{if(compareSelect.value)actions.onCompare(compareSelect.value);};
+ // The select keeps a choice the history still offers instead of jumping back to the first option on every refresh.
+ let chosen='';
  createButton.addEventListener('click',onCreate);
  exportButton.addEventListener('click',onExport);
  importButton.addEventListener('click',onImport);
  fileInput.addEventListener('change',onFile);
  branches.addEventListener('change',onBranch);
+ compareButton.addEventListener('click',onCompare);
  return {
   update(info){
    status.textContent=`${info.worldId}/${info.branchId} · ${info.status}`;
@@ -104,6 +127,23 @@ export function createWorldHistory(root:HTMLElement,actions:HistoryActions):Worl
    checkpoints.replaceChildren(...info.entries.map(entry=>{
     const item=make('li',entry.current?'current':undefined,`#${entry.generation} ${entry.hash.slice(0,7)} ${entry.label}`);
     return item;
+   }));
+   if(!info.compareOptions.some(option=>option.hash===chosen))chosen=info.compareOptions[0]?.hash??'';
+   compareSelect.replaceChildren(...info.compareOptions.map(option=>{
+    const item=doc.createElement('option');
+    item.value=option.hash;
+    item.textContent=option.label;
+    item.selected=option.hash===chosen;
+    return item;
+   }));
+   compareSelect.disabled=!info.compareOptions.length;
+   compareButton.disabled=!info.compareOptions.length;
+   compareSummary.textContent=info.compare?.summary??'';
+   compareSummary.hidden=!info.compare;
+   compareRegions.replaceChildren(...(info.compare?.regions??[]).map(region=>{
+    const open=button(region.label);
+    open.addEventListener('click',()=>actions.onRegion(region.id));
+    return open;
    }));
   },
   branches(ids,selected){
@@ -122,6 +162,7 @@ export function createWorldHistory(root:HTMLElement,actions:HistoryActions):Worl
    importButton.removeEventListener('click',onImport);
    fileInput.removeEventListener('change',onFile);
    branches.removeEventListener('change',onBranch);
+   compareButton.removeEventListener('click',onCompare);
    panel.remove();
   },
  };

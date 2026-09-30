@@ -1,6 +1,8 @@
 import type {Action,BaseChunk,Command,CommandResult,GameState,SavedGame,ViewState} from '../core/model';
 import type {MapLevel} from './ports';
 import {applyCommand,createGame} from '../core/commands';
+import {describeChange} from '../world/changes';
+import type {ChangeSet} from '../world/changes';
 import {SAVE_VERSION,decodeSave} from '../core/snapshot';
 import type {ChunkStatus,MapSource,SaveStore} from './ports';
 // Fields the codec preserved but this client does not implement, kept exactly as they arrived.
@@ -18,6 +20,9 @@ export type LocalSession = {
  loadVisible(ids: readonly string[], level?: MapLevel): Promise<void>;
  retainVisible(ids: readonly string[]): void;
  dispatch(action: Action): CommandResult;
+ // What the last accepted command did, in the world's own terms: intention, fields read and written, preconditions and
+ // dependencies. A rejected or repeated command changes nothing, so the record keeps describing the last real change.
+ lastChange(): ChangeSet|null;
  save(view: ViewState): Promise<void>;
  getState(): GameState;
  getChunk(id: string): ChunkStatus|undefined;
@@ -33,6 +38,7 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
  const visible = new Set<string>(), tickets = new Map<string,number>();
  let issued = 0;
  let state: GameState|null = null, restored: ViewState|null = null, saveStatus: SaveStatus = {status:'idle',blocked:false};
+ let change: ChangeSet|null = null;
  // Metadata written by another client (an envelope field, a view field) travels through this session untouched: the
  // save it writes keeps carrying it, because a client that drops it silently would erase another profile's data.
  let envelopeExtras: Record<string,unknown> = {}, viewExtras: Record<string,unknown> = {};
@@ -131,7 +137,13 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
    // in an overview region is refused, and the client answers by loading that region at detail level.
    for (const chunk of chunks.values()) if (chunk.status === 'ready' && chunk.level === 'detail') available.push(chunk.base);
    const result = applyCommand(state,command,available);
-   if (result.status === 'applied') {state = result.state;notify();}
+   if (result.status === 'applied') {
+    // The intention is recorded where it still means something: a save written later cannot reconstruct it, and a
+    // proposal that travels without it would be an opaque cell replacement.
+    change = describeChange(state,command,result.state);
+    state = result.state;
+    notify();
+   }
    return result;
   },
   save(view: ViewState): Promise<void> {
@@ -145,6 +157,7 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
    });
   },
   getState(): GameState {if (!state) throw new Error('Sessão não iniciada');return state;},
+  lastChange(): ChangeSet|null {return change;},
   getChunk(id: string) {return chunks.get(id);},
   getSaveStatus(): SaveStatus {return {...saveStatus};},
   enableSaving() {saveStatus = {status:'idle',blocked:false};},

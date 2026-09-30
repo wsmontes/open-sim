@@ -13,7 +13,8 @@ import {SAVE_VERSION} from '../core/snapshot';
 import {decodeBundle,encodeBundle} from '../world/codec';
 import type {Head} from '../world/model';
 import {createWorldHistory,downloadBundle,readBundleFile} from '../presentation/world-history';
-import {chunkId,toCell} from '../core/coordinates';
+import {diffWorlds} from '../presentation/world-diff';
+import {CHUNK,chunkId,chunkOrigin,toCell} from '../core/coordinates';
 import {quoteAction} from '../core/quote';
 import {summarize} from '../core/simulation';
 import type {Camera,Viewport} from '../presentation/camera';
@@ -61,13 +62,16 @@ const session=createSession({maps,saves:createIndexedDbStore(),worldId:WORLD_ID,
 const codec=createJcsCodec(),hasher=bytesHasher();
 const worlds=createWorldRepository({storage:createIndexedDbWorldStorage(),codec,hasher});
 // The panel exists before the hud so the hud picks it up as one more card the player can drag and collapse.
-const history=createWorldHistory(hudRoot,{onCreateVersion,onExport,onImport,onBranch});
+const history=createWorldHistory(hudRoot,{onCreateVersion,onExport,onImport,onBranch,onCompare,onRegion});
 const hud=createHud(hudRoot,{onTool,onSpeed,onPlace,onRetryMap,onOverwriteSave,onOverview,onZoomStep,onNorth});
 const clock=createTickClock(()=>{session.dispatch({type:'tick'});});
 const requested=new Set<string>();
 // The live branch the game commits to, the version the panel is showing, and the queue that keeps one publication at
 // a time: two actions arriving together must not both compare the same head.
 let worldHead:Head|null=null,shownHead:Head|null=null,branchHeads:Head[]=[],shownVersions:WorldVersion[]=[],worldMessage='',worldBusy=false;
+// The last comparison the player asked for. It lives next to the panel because it describes two restored versions, not
+// the live branch: a new checkpoint or branch makes it stale and it is cleared with the next history refresh.
+let compareSummary='',compareRegions:readonly {id:string;label:string}[]=[];
 let worldQueue:Promise<void>=Promise.resolve();
 let camera:Camera={x:0,y:0,zoom:1,rotation:0};
 let speed:Speed=0,tool:SelectedTool='explore',place=START,hover:CellCoord|null=null,stroke:readonly CellCoord[]|null=null;
@@ -184,10 +188,13 @@ function updateHistoryPanel():void{
   status:worldBusy?'Salvando versão…':shownHead?(live?'Salvo neste dispositivo':'Versão salva neste dispositivo'):'Sem versão salva neste dispositivo',
   entries:shownVersions.map(version=>({generation:version.head.generation,hash:version.head.commit.hash,label:version.accepted.length?version.accepted.join(' · '):'Início',current:version.head.commit.hash===shownHead?.commit.hash})),
   message:worldMessage,
+  compareOptions:shownVersions.filter(version=>version.head.commit.hash!==shownHead?.commit.hash).map(version=>({hash:version.head.commit.hash,label:`#${version.head.generation} ${version.head.commit.hash.slice(0,7)} ${version.accepted.length?version.accepted.join(' · '):'Início'}`})),
+  compare:compareSummary?{summary:compareSummary,regions:compareRegions}:null,
  });
  history.branches(branchHeads.map(head=>head.branchId),shownHead?.branchId??BRANCH_ID);
 }
 async function refreshHistory():Promise<void>{
+ compareSummary='';compareRegions=[];
  const known=await worlds.branches(WORLD_ID);
  if(!known.ok){worldMessage=known.error.message;return;}
  branchHeads=known.value;
@@ -229,7 +236,10 @@ function checkpoint(state:GameState,label:string):void{
  queueWorld(async()=>{
   const expected=worldHead;
   if(!expected)return;
-  const result=await worlds.commit(expected,{id:`local-${state.revision}`,state,operations:[label],objects:[],author:'local-player'});
+  // The version records the typed operations the command produced, not only the sentence the panel shows: a comparison
+  // or a compensation later reads the intention instead of guessing it from the overlay.
+  const operations=[label,...(session.lastChange()?.operations.map(operation=>operation.id)??[])];
+  const result=await worlds.commit(expected,{id:`local-${state.revision}`,state,operations,objects:[],author:'local-player'});
   if(!result.ok){
    if(result.error.code!=='CONFLICT')worldMessage=result.error.message;
    return;
@@ -297,6 +307,35 @@ function onBranch(branchId:string):void{
  if(!chosen)return;
  shownHead=chosen;
  queueWorld(async()=>{await refreshHistory();});
+}
+// Comparing two versions of the same branch: both are restored from this device, the older one is the base, and what
+// the panel shows separates data the provider published from work the player did, with the cost of redoing that work.
+function onCompare(commitHash:string):void{
+ queueWorld(async()=>{
+  const left=shownHead??worldHead;
+  if(!left){worldMessage='Nenhuma versão aberta para comparar.';return;}
+  const right=shownVersions.find(version=>version.head.commit.hash===commitHash)?.head;
+  if(!right){worldMessage='Versão não encontrada no histórico.';return;}
+  const restored=[await worlds.checkout(left),await worlds.checkout(right)];
+  const failedRestore=restored.find(result=>!result.ok);
+  if(failedRestore&&!failedRestore.ok){worldMessage=failedRestore.error.message;return;}
+  const points=restored.flatMap(result=>result.ok?[result.value]:[]);
+  const [first,second]=points;
+  if(!first||!second)return;
+  const older=first.head.generation<=second.head.generation?first:second;
+  const newer=older===first?second:first;
+  const diff=diffWorlds(older,newer);
+  const counts=diff.counts;
+  const regions=diff.regions.slice(0,12).map(region=>({id:region.chunkId,label:`${region.chunkId} · ${region.real} real, ${region.player} jogador`}));
+  compareSummary=`#${older.head.generation} → #${newer.head.generation} · Real: ${counts.real} · Jogador: ${counts.player} (custo ~${diff.estimate.cost}) · Simulação: ${counts.simulation} · Metadados: ${counts.metadata}${diff.regions.length?'':' · Sem diferenças'}`;
+  compareRegions=regions;
+ });
+}
+// A difference is only visible if the player can see the place it is in: the region button centres the camera on the
+// region the comparison pointed at.
+function onRegion(chunkId:string):void{
+ const origin=chunkOrigin(chunkId);
+ setCamera(centerOn({x:origin.x+CHUNK/2,y:origin.y+CHUNK/2},camera,viewport()));
 }
 function onOverview(){setCamera(zoomTo(camera,viewport(),MIN_ZOOM));}
 function onZoomStep(direction:1|-1){setCamera(zoomTo(camera,viewport(),camera.zoom*(direction>0?1.25:.8)));}
