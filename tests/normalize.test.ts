@@ -1,0 +1,6 @@
+import {expect,test} from 'vitest';
+import {normalizeChunk,type MapFeature} from '../src/adapters/osm/normalize';
+const polygon=(layer:string,rings:number[][][]):MapFeature=>({layer,kind:'',bridge:false,geometry:rings.map(r=>r.map(([x,y])=>({x,y}))),type:3});
+test('polygon holes and ocean coast preserve land inside the hole',()=>{const b=normalizeChunk('0:0',[polygon('ocean',[[[0,0],[32,0],[32,32],[0,32],[0,0]],[[2,2],[4,2],[4,4],[2,4],[2,2]]])]);expect(b.cells[0].terrain).toBe('water');expect(b.cells[2*32+2].terrain).toBe('land');});
+test('a footprint crossing regions preserves occupation at both edges',()=>{const f=polygon('buildings',[[[30,2],[34,2],[34,4],[30,4],[30,2]]]);expect(normalizeChunk('0:0',[f]).cells[2*32+31].building).toBeTruthy();expect(normalizeChunk('1:0',[f]).cells[2*32].building).toBeTruthy();});
+test('only an explicit bridge may carry a street over water',()=>{const ocean=polygon('ocean',[[[0,0],[32,0],[32,32],[0,32],[0,0]]]);const road:MapFeature={layer:'streets',kind:'residential',bridge:false,type:2,geometry:[[{x:0,y:.5},{x:32,y:.5}]]};expect(normalizeChunk('0:0',[ocean,road]).cells[0].road).toBeUndefined();expect(normalizeChunk('0:0',[ocean,{...road,bridge:true}]).cells[0].road).toBe(true);});
