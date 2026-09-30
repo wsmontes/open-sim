@@ -91,11 +91,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** `DatasetRevision`, `SourceClaim`, `Coverage`, `CaptureContext` conforme §3 da spec; `captureBase(base: BaseChunk, context: CaptureContext, hash: ContentHasher): Promise<CapturedBase>`, onde `CapturedBase = {base: BaseChunk; revision: DatasetRevision; claims: SourceClaim[]; objects: WorldObject[]}`. `RealitySource.capture(region: GeoRegion, request: CaptureRequest): Promise<WorldResult<CapturedBase[]>>`; contexto recebe horário e versão de transformação pelo chamador.
 
-- [ ] Testar `expect(captured.base).toEqual(input)`; `observedAt` ausente quando só há data de download; ausência de ID de origem não ganha um ID OSM; fonte/atribuição/extras sobrevivem ao pacote; falha de fonte não vira terreno.
-- [ ] Rodar `npx vitest run tests/reality.test.ts` e confirmar RED.
-- [ ] Implementar captura por trecho normalizado, marcada como tal; guardar hash e parâmetros. Não prometer que tiles obtidos em momentos diferentes formem um snapshot global do OSM. Fixtures sintéticas representam estacionamento→edifício e mudança de fonte sem licença de redistribuição declarada.
-- [ ] Rodar `npx vitest run tests/reality.test.ts tests/map-provider.test.ts tests/normalize.test.ts`; exigir PASS e atribuição intacta.
-- [ ] Commit: `feat: preserve source revisions and geographic provenance`.
+- [x] Testar `expect(captured.base).toEqual(input)`; `observedAt` ausente quando só há data de download; ausência de ID de origem não ganha um ID OSM; fonte/atribuição/extras sobrevivem ao pacote; falha de fonte não vira terreno.
+- [x] Rodar `npx vitest run tests/reality.test.ts` e confirmar RED.
+- [x] Implementar captura por trecho normalizado, marcada como tal; guardar hash e parâmetros. Não prometer que tiles obtidos em momentos diferentes formem um snapshot global do OSM. Fixtures sintéticas representam estacionamento→edifício e mudança de fonte sem licença de redistribuição declarada.
+- [x] Rodar `npx vitest run tests/reality.test.ts tests/map-provider.test.ts tests/normalize.test.ts`; exigir PASS e atribuição intacta.
+- [x] Commit: `feat: preserve source revisions and geographic provenance`.
 
 ### Tarefa 3: repositório local, branches e cópias completas
 
@@ -324,4 +324,5 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 2 | `TASK2_SHA` | 10 testes em `tests/reality.test.ts` (base intocada, cobertura em coordenadas nomeadas, `observedAt` ausente quando só há download, nenhum ID OSM inventado, fonte/atribuição/extensões sobrevivendo ao pacote, região indisponível sem terreno inventado, endpoint/normalizador/zoom reais). Fixtures sintéticas em `tests/fixtures/federated-world/base-a.json` e `base-b.json`. Atribuição intacta em `map-provider` e `normalize`.
 | 1 | `ee3e77e` | 7 testes em `tests/world-bundle.test.ts` (vetores RFC 8785, recusas de chave repetida/versão/limite/UTF-8, preservação do espaço de extensões, verificação de endereço por hash), `npx tsc -p tsconfig.world.json` limpo e camada `world` no teste de arquitetura. Suíte: 113 testes. |

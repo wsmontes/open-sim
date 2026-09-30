@@ -1,9 +1,28 @@
 import {VectorTile} from '@mapbox/vector-tile';
 import {PbfReader} from 'pbf';
+import type {BaseChunk} from '../../core/model';
 import {CHUNK,WORLD,chunkOrigin} from '../../core/coordinates';
 import type {MapLevel,MapSource} from '../../session/ports';
 import {normalizeChunk,type MapFeature} from './normalize';
 export type OsmConfig={tileUrl?:string;fetcher?:typeof fetch;timeoutMs?:number;overviewZoom?:number};
+// What a capture has to record to be honest about where the bytes came from. It is all metadata this adapter already
+// knows, so exposing it costs no request and changes no behaviour.
+export type OsmSourceMetadata={
+ source:{id:string;dataset:string;url:string};
+ zooms:{detail:number;overview:number};
+ normalizer:{name:string;version:BaseChunk['normalizerVersion']};
+ attribution:{text:string;url:string};
+};
+export type OsmSource=MapSource&{metadata:OsmSourceMetadata};
+const DEFAULT_TILE_URL='https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt';
+// The label a captured chunk carries; it is also the dataset identity a revision names, so both are derived from one
+// constant instead of drifting apart.
+const DATASET='OpenStreetMap · Shortbread v1';
+const DETAIL_ZOOM=14,DEFAULT_OVERVIEW_ZOOM=11;
+const ATTRIBUTION={text:'© OpenStreetMap contributors',url:'https://www.openstreetmap.org/copyright'};
+// Typing the version as the chunk's own `normalizerVersion` keeps this metadata and the normalizer in lockstep: a new
+// normalizer version fails to compile here instead of being recorded wrongly.
+const NORMALIZER:OsmSourceMetadata['normalizer']={name:'osm-shortbread',version:1};
 const layers=new Set(['land','sites','ocean','water_polygons','water_lines','buildings','streets','street_polygons']);
 const WORLD_SIDE=WORLD;
 // The same grid serves every zoom: a tile of zoom Z covers 2^(22-Z) cells per side and one tile pixel is therefore
@@ -35,10 +54,10 @@ function bucket(tileX:number,tileY:number,cellsPerSide:number,features:MapFeatur
  }
  return byChunk;
 }
-export function createOsmSource(config:OsmConfig={}):MapSource {
- const template=config.tileUrl??'https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt';
+export function createOsmSource(config:OsmConfig={}):OsmSource {
+ const template=config.tileUrl??DEFAULT_TILE_URL;
  const fetcher=config.fetcher??fetch;
- const overviewZoom=config.overviewZoom??11;
+ const overviewZoom=config.overviewZoom??DEFAULT_OVERVIEW_ZOOM;
  const cache=new Map<string,TileData>(),pending=new Map<string,Promise<TileData>>();
  const queue:Array<()=>void>=[];let active=0;
  async function limited<T>(job:()=>Promise<T>):Promise<T>{if(active>=4)await new Promise<void>(resolve=>queue.push(resolve));else active++;try{return await job();}finally{const next=queue.shift();if(next)next();else active--;}}
@@ -64,10 +83,13 @@ export function createOsmSource(config:OsmConfig={}):MapSource {
    }finally{clearTimeout(timer);}
   });pending.set(key,promise);try{return await promise;}finally{pending.delete(key);}
  }
- return{attribution:{text:'© OpenStreetMap contributors',url:'https://www.openstreetmap.org/copyright'},async loadChunk(id,level:MapLevel='detail'){
-  const p=chunkOrigin(id),zoom=level==='overview'?overviewZoom:14,cellsPerSide=cellsPerTile(zoom);
+ return{
+  attribution:{...ATTRIBUTION},
+  metadata:{source:{id:'openstreetmap-shortbread-v1',dataset:DATASET,url:template},zooms:{detail:DETAIL_ZOOM,overview:overviewZoom},normalizer:{...NORMALIZER},attribution:{...ATTRIBUTION}},
+  async loadChunk(id,level:MapLevel='detail'){
+  const p=chunkOrigin(id),zoom=level==='overview'?overviewZoom:DETAIL_ZOOM,cellsPerSide=cellsPerTile(zoom);
   const data=await tile(zoom,tileOf(p.x,cellsPerSide),tileOf(p.y,cellsPerSide));
-  const source=level==='overview'?`OpenStreetMap · Shortbread v1 (aproximação z${zoom})`:'OpenStreetMap · Shortbread v1';
+  const source=level==='overview'?`${DATASET} (aproximação z${zoom})`:DATASET;
   return normalizeChunk(id,data.byChunk.get(id)??[],source);
  }};
 }
