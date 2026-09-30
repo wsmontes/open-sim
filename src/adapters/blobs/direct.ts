@@ -6,7 +6,9 @@ import type {ContentHasher} from '../../world/ports';
 // address. The contract separates two failures that look alike and are not — the store answered that it does not have
 // the object, or the store itself is unavailable — because the caller's reaction differs: try another copy, or stop
 // pretending this provider is a copy. Nothing here implies a daemon: a shelf in memory, a folder, a peer that already
-// handed the bytes over and a remote service all satisfy the same two calls.
+// handed the bytes over and a remote service all satisfy the same two calls. IPFS stays a later adapter on purpose —
+// a CID is another address format and pinning is a provider capability, so it earns its place after these contracts are
+// proven instead of imposing a daemon on a game that must open offline.
 export interface ObjectStore {
  get(ref:ObjectRef):Promise<WorldResult<Uint8Array>>;
  put(bytes:Uint8Array):Promise<WorldResult<ObjectRef>>;

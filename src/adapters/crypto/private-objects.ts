@@ -64,20 +64,22 @@ export function createWebCryptoPort(options:{random?:(bytes:number)=>Uint8Array}
   },
   async seal(key,nonce,plain,context) {
    const imported=await importAeadKey(key,'encrypt');
-   return new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv:copy(nonce),additionalData:copy(context)},imported,copy(plain)));
+   return new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv:viewOf(nonce),additionalData:viewOf(context)},imported,viewOf(plain)));
   },
   async open(key,nonce,ciphertext,context) {
    const imported=await importAeadKey(key,'decrypt');
-   return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:copy(nonce),additionalData:copy(context)},imported,copy(ciphertext)));
+   return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:viewOf(nonce),additionalData:viewOf(context)},imported,viewOf(ciphertext)));
   },
  };
 }
 async function importAeadKey(key:ObjectKey,usage:'encrypt'|'decrypt'):Promise<CryptoKey> {
  if(key.bytes.byteLength!==KEY_BYTES)throw new Error(`Uma chave de objeto precisa de ${KEY_BYTES} bytes`);
- return crypto.subtle.importKey('raw',copy(key.bytes),{name:'AES-GCM'},false,[usage]);
+ return crypto.subtle.importKey('raw',viewOf(key.bytes),{name:'AES-GCM'},false,[usage]);
 }
-// WebCrypto accepts only buffers it can own, and a view into a larger reply would otherwise be rejected or copied again.
-const copy=(bytes:Uint8Array)=>bytes.slice();
+// WebCrypto types a buffer source as `ArrayBufferView<ArrayBuffer>` while a `Uint8Array` defaults to
+// `ArrayBufferLike`: the view is rebuilt over the buffer the caller already owns, so a 32 MiB object is never copied
+// just to satisfy a type.
+const viewOf=(bytes:Uint8Array):ArrayBufferView<ArrayBuffer>=>new Uint8Array(bytes.buffer as ArrayBuffer,bytes.byteOffset,bytes.byteLength);
 // Canonical JSON for the authenticated context: two runtimes cannot disagree about the bytes the tag covers.
 const contextCodec:WorldCodec=createJcsCodec();
 export function sealedContext(sealed:Pick<SealedObject,'format'|'world'|'keyId'>):Uint8Array {
@@ -112,7 +114,8 @@ export function decodeSealed(bytes:Uint8Array):WorldResult<SealedObject> {
  if(nonceBytes!==NONCE_BYTES||typeof cipherBytes!=='number'||!Number.isSafeInteger(cipherBytes)||cipherBytes<0)return failed('MALFORMED','Cabeçalho do objeto selado inválido');
  if(bytes.byteLength!==start+NONCE_BYTES+cipherBytes)return failed('MALFORMED','Objeto selado com bytes a mais ou a menos');
  if(cipherBytes>MAX_OBJECT_BYTES)return failed('LIMIT',`Objeto de ${cipherBytes} bytes excede o limite de ${MAX_OBJECT_BYTES}`);
- return ok({kind:SEALED_KIND,format:SEALED_FORMAT,world:value['world'],keyId:value['keyId'],nonce:bytes.slice(start,start+NONCE_BYTES),ciphertext:bytes.slice(start+NONCE_BYTES)});
+ // Views into the reply, not copies: the nonce and the ciphertext are read once and the object is never re-encoded.
+ return ok({kind:SEALED_KIND,format:SEALED_FORMAT,world:value['world'],keyId:value['keyId'],nonce:bytes.subarray(start,start+NONCE_BYTES),ciphertext:bytes.subarray(start+NONCE_BYTES)});
 }
 // Sealing a local object has no result channel in the contract: it transforms bytes the caller already holds, and the
 // object limit belongs to whoever decides to keep them (the store, which refuses before hashing).
@@ -167,6 +170,8 @@ export function createPrivateCopies(options:{world:string;key:ObjectKey;crypto:C
   async put(plain) {
    if(options.key.world!==options.world)return failed('PERMISSION',`A chave é do mundo ${options.key.world} e a cópia é de ${options.world}`);
    if(options.key.bytes.byteLength!==KEY_BYTES)return failed('MALFORMED',`Uma chave de objeto precisa de ${KEY_BYTES} bytes`);
+   // A key with no id would seal a copy that nobody can open again, because the id is what a rotation is recognised by.
+   if(!options.key.id)return failed('MALFORMED','A chave de objeto precisa de um identificador');
    if(plain.byteLength>limit)return failed('LIMIT',`Objeto de ${plain.byteLength} bytes excede o limite de ${limit}`);
    const sealed=await sealObject(plain,options.key,options.crypto);
    const sealedBytes=encodeSealed(sealed);
@@ -186,6 +191,7 @@ export function createPrivateCopies(options:{world:string;key:ObjectKey;crypto:C
    if(copy.kind!=='private-copy')return failed('MALFORMED','Cópia privada desconhecida');
    if(copy.format!==SEALED_FORMAT)return failed('MALFORMED',`Formato de cópia desconhecido: ${String(copy.format)}`);
    if(copy.world!==options.world||copy.keyId!==options.key.id)return failed('PERMISSION',`Esta cópia é de ${copy.world} com a chave ${copy.keyId}, e não deste mundo`);
+   if(!copy.stores.length)return failed('MISSING_OBJECT',`A cópia de ${copy.sealed.hash.slice(0,12)}… não tem nenhum provedor anotado`);
    const attempts:{store:string;error:WorldError}[]=[];
    for(const id of copy.stores){
     const candidate=options.stores.find(entry=>entry.id===id);

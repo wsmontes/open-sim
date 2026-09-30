@@ -90,6 +90,7 @@ export function planRetention(roots:readonly RetainedRoot[],inventory:ObjectInve
   missing.push(ref);
  };
  for(const ref of inventory.missing)rememberMissing(ref);
+ if(inventory.missing.length)notes.push(`O inventário não conseguiu ler ${inventory.missing.length} objeto(s) que este dispositivo declara ter.`);
  // The walk follows what a retained reference needs, not what points at it: a head needs its commit, which needs its
  // tree and first parent. So a successor that was abandoned does not keep its ancestors alive, which is exactly what
  // makes an abandoned branch collectable while everything it inherited from a retained version stays.
@@ -101,13 +102,16 @@ export function planRetention(roots:readonly RetainedRoot[],inventory:ObjectInve
   if(!entry){
    rememberMissing(root.ref);
    const label=root.label??root.kind;
-   if(!noted.has(label)){noted.add(label);notes.push(`${label}: a referência retida não está neste dispositivo; peça outra cópia antes de coletar.`);}
+   if(!noted.has(label)){noted.add(label);notes.push(`${label} não está neste dispositivo; peça outra cópia antes de coletar.`);}
    continue;
   }
   keepHashes.add(entry.ref.hash);
   keep.push(entry.ref);
   if(entry.references===null){opaque.push(entry.ref);continue;}
-  for(const next of entry.references)queue.push({kind:root.kind,ref:next});
+  // A missing address further down the walk is reported under the version that needed it, so the player knows which
+  // copy to ask for instead of reading a bare hash.
+  const trail=root.label??root.kind;
+  for(const next of entry.references)queue.push({kind:root.kind,ref:next,label:`${trail} → ${next.hash.slice(0,12)}…`});
  }
  for(const ref of opaque)notes.push(`Objeto de tipo desconhecido ${ref.hash.slice(0,12)}… é alcançável: a coleta fica suspensa até esta versão saber que objetos ele carrega.`);
  const incomplete=missing.length>0||opaque.length>0;

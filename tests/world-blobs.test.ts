@@ -111,6 +111,10 @@ test('the sealed bytes are addressed by the ciphertext while the readable hash s
  expect(textOf(sealedBytes)).not.toContain('praça');
  expect(contains(sealedBytes,material.bytes)).toBe(false);
  expect(contains(first.ciphertext,material.bytes)).toBe(false);
+ // The framing is bounded: a truncated object, or one whose header promises more bytes than it carries, is refused
+ // before any of it reaches the AEAD.
+ expect(decodeSealed(new Uint8Array(3))).toMatchObject({ok:false,error:{code:'MALFORMED'}});
+ expect(decodeSealed(sealedBytes.subarray(0,sealedBytes.byteLength-1))).toMatchObject({ok:false,error:{code:'MALFORMED'}});
  const decoded=decodeSealed(sealedBytes);
  expect(decoded).toMatchObject({ok:true});
  if(!decoded.ok)return;
@@ -140,6 +144,9 @@ test('the sealed bytes are addressed by the ciphertext while the readable hash s
  if(!heldSealed.ok)return;
  expect(contains(heldSealed.value,plain)).toBe(false);
  expect(JSON.stringify(copy)).not.toContain(hex(material.bytes));
+ // A key without an identifier would seal a copy nobody could open again: the id says which key sealed it.
+ const anonymous=createPrivateCopies({world:'victoria',key:{...material,id:''},crypto:createWebCryptoPort(),hasher,stores:[{id:'local',store:local}]});
+ expect(await anonymous.put(plain)).toMatchObject({ok:false,error:{code:'MALFORMED'}});
  const restored=await copies.get(copy);
  expect(restored).toMatchObject({ok:true,value:{store:'local',plaintext:readable}});
 });
@@ -286,6 +293,8 @@ test('a store that answers distinguishes an absent object from an unavailable pr
  expect(await down.get(absent)).toMatchObject({ok:false,error:{code:'NOT_FOUND'}});
  const empty=fakeServer({});
  expect(await createHttpObjectStore({base:'https://exemplo.test/blobs',hasher,fetcher:empty.fetcher}).get(absent)).toMatchObject({ok:false,error:{code:'MISSING_OBJECT'}});
+ const lying=new Map<string,Uint8Array>([[absent.hash,utf8('outros bytes')]]);
+ expect(await createDirectObjectStore({hasher,shelf:lying}).get(absent)).toMatchObject({ok:false,error:{code:'HASH_MISMATCH'}});
  const truncated=fakeServer({});
  truncated.held.set(absent.hash,utf8('outros bytes'));
  expect(await createHttpObjectStore({base:'https://exemplo.test/blobs',hasher,fetcher:truncated.fetcher}).get(absent)).toMatchObject({ok:false,error:{code:'HASH_MISMATCH'}});
