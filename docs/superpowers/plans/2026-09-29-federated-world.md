@@ -229,11 +229,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** `prepareHandover(session: HostSession, successor: Principal): Promise<WorldResult<HandoverOffer>>`; `acceptHandover(offer: HandoverOffer, grant: EpochGrant, repository: WorldRepository): Promise<WorldResult<Head>>`; `recoverBranch(candidates: RecoveryCandidate[], decision: RecoveryDecision): WorldResult<RecoveryPlan>`. EpochGrant liga proprietário, sucessor, branch, sessão, época e último head; recuperação nunca escolhe apenas pelo timestamp.
 
-- [ ] Testar queda antes/depois de ACK, concessão de época antiga, duas concessões concorrentes, proprietário ausente, novo host sem todos os objetos e recibo antigo após checkpoint; `expect(activeWritersForBranch).toBe(1)` na transferência válida e `0` na divergência não resolvida.
-- [ ] Rodar `npx vitest run tests/host-recovery.test.ts`; confirmar RED.
-- [ ] Implementar pausa, barreira, persistência/replicação final e nova época autorizada; recuperação explícita ou fork. Respeitar head confirmado conhecido localmente, preservando evidências quando candidato disponível for anterior. Não prometer restauração de bytes que nenhuma cópia reteve.
-- [ ] Exigir PASS no cenário de três participantes; encerrar o host no browser durante obra e durante transferência; conferir hash, saldo, contador e mensagem de pausa/recuperação.
-- [ ] Commit: `feat: transfer and recover player-hosted world sessions`.
+- [x] Testar queda antes/depois de ACK, concessão de época antiga, duas concessões concorrentes, proprietário ausente, novo host sem todos os objetos e recibo antigo após checkpoint; `expect(activeWritersForBranch).toBe(1)` na transferência válida e `0` na divergência não resolvida.
+- [x] Rodar `npx vitest run tests/host-recovery.test.ts`; confirmar RED.
+- [x] Implementar pausa, barreira, persistência/replicação final e nova época autorizada; recuperação explícita ou fork. Respeitar head confirmado conhecido localmente, preservando evidências quando candidato disponível for anterior. Não prometer restauração de bytes que nenhuma cópia reteve.
+- [x] Exigir PASS no cenário de três participantes; encerrar o host no browser durante obra e durante transferência; conferir hash, saldo, contador e mensagem de pausa/recuperação.
+- [x] Commit: `feat: transfer and recover player-hosted world sessions`.
 
 ## E — Realidade e dimensões
 
@@ -322,6 +322,10 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 ## Desvios registrados
 
+- **Tarefa 13:** a transferência publica uma capability (§27) com época explícita, e `EpochGrant` liga proprietário, sucessor, branch, sessão, época e
+  último head; `acceptHandover` recusa quando qualquer um desses divergir ou quando a concessão interna não traz a ação de anfitrião. Recuperação nunca
+  ordena por timestamp: o instante observado é contexto, e escolher uma cópia anterior a um head confirmado exige reconhecimento explícito. Em `stop`
+  nada é adotado e a exibição nunca regride. A fixture de caos ganhou um bloco aditivo `handover`, com os passos originais intactos.
 - **Tarefa 11:** nenhum SDK entrou: o client-server API cabe em `fetch` puro, e a única parte específica do Synapse é o registro por segredo compartilhado,
   documentada no cabeçalho do adaptador. `signaling.ts` segue adiado pela mesma razão da tarefa 10 (a porta `Signaling` é da tarefa 8, que já aterrissou —
   fica como continuação explícita, não como contrato adivinhado). O laboratório `opensim-matrix-lab` que eu havia subido morreu antes da tarefa começar
@@ -476,6 +480,7 @@ Regra que continua valendo: registrar o que foi exercitado contra o serviço rea
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 13 | `8640270` | 10 testes em `tests/host-recovery.test.ts`: transferência válida, novo anfitrião sem todos os objetos (pede o que falta em vez de adotar estado incompleto), concessão de época antiga, queda antes e depois do ACK, duas concessões concorrentes (mesma época com head ou escritor diferente é CONFLICT), regressão contra o relógio (nunca se escolhe pelo timestamp), recibo compactado e réplica seguindo a época nova. `activeWritersForBranch` é 1 na transferência válida e 0 na divergência não resolvida. Suíte inteira: **42 arquivos e 393 testes**. Defeito real corrigido no caminho: os quadros de identidade chegavam ao anfitrião depois de ele ordenar a proposta, então o enlace do anfitrião não fechava pela UI.
 | 17 | `fe04877` | 23 testes (`world-conformance` + `world-links`): visita sem herdar permissão, link fixo versus móvel, origem indisponível com cópia válida, informação privada ausente do cartão, ponte deduplicando id original e limite de encaminhamento. O replay reproduz **endereço a endereço** (stateRef, head.commit, geração, bases e lista aceita) para três casos — merge, fontes e múltiplos perfis — com o mesmo hash semântico no Node e no Chromium real; todo objeto lido é re-encodado em JCS e re-hasheado antes do uso, e um byte alterado vira HASH_MISMATCH. A fixture é regenerável pela própria suíte, e o pacote público saiu em `docs/protocol/` com dez esquemas em `schemas/world-v2/`.
 | 9 | `3c62d38` | 10 testes em `tests/multiplayer-ui.test.ts` (réplica não agenda tick, aba oculta indica pausa, rejeição restaura a prévia sem perder a seleção, convite não sobrescreve o save pessoal, fila cheia preserva estado, presença não muda identidade durável), 41 com a suíte de aceitação. No navegador: criar sessão (branch `sessao-9`, `Você é o anfitrião`, descritor `osim:session:open-sim-sessao-9`), convidar (documento §23 de 428 bytes), sair (versão compartilhada preservada, partida na pessoal, convite revogado) e entrar colando o descritor, resolvido por `join`. Descobertas do ciclo: o corpo de controle de fio é o documento achatado, a réplica precisa dos grants do anfitrião para verificar commits alheios e `cost = 0` numa recusa significa não orçado, não grátis.
 | 11 | `a21eebf` | 21 testes (`matrix-adapter` 19 + `federated-adapters` 2), mais o de rede: evento de sala indevida recusado, membro sem concessão, chave de sessão trocada, evento cifrado não decifrável, duplicação entre transportes aplicada uma vez, hash semântico igual entre Matrix e Nostr no mesmo cenário e ordem. **Prova real** contra Synapse `v1.157.1` local (o agente reconstruiu o laboratório quando o meu caiu): duas contas registradas pelo segredo compartilhado, sala privada criada, convidada e ingressada, objetos do protocolo publicados e lidos de volta. Cinco defeitos reais corrigidos no ciclo, entre eles a leitura de `/messages` voltando em ordem inversa (um replay aplicaria o mundo na ordem errada) e o teto de evento medido no servidor real, que recusa acima de 64 KiB — o teto virou 60 KiB e 413 virou LIMIT.
