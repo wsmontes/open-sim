@@ -75,6 +75,14 @@ export type PreparedChange={
  moneyAfter:number;
  tick:number;
  requires:readonly Precondition[];
+ // A project is a recipe the destination replays under its own rules, so it names the actions and no state. A merge or
+ // a base update composes two versions the caller already holds by comparing cells, and names the state it produces;
+ // exactly one of the two is the authority of a prepared change, and the repository never replays actions when the
+ // state is present.
+ state?:GameState;
+ // What the version records about this change besides its operations: a base adoption, an overlay preserved over new
+ // real data, a compensation. They are what a history reader sees, and they never authorize anything.
+ records?:readonly string[];
 };
 // Importing a project is the destination's own action, so it never borrows the sequence of whoever produced the file.
 export const PROJECT_ACTOR='project';

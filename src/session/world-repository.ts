@@ -3,6 +3,9 @@ import type {ContentHasher,WorldCodec} from '../world/ports';
 import type {DatasetTerm,Head,JsonValue,ObjectRef,WorldAddress,WorldBundle,WorldDefinition,WorldObject,WorldResult} from '../world/model';
 import {MAX_OBJECT_BYTES,WIRE_VERSION,WORLD_PROTOCOL,failed,isRef,ok,sameRef} from '../world/model';
 import {decodeUtf8,parseStrictJson,verifyBundle} from '../world/codec';
+import {PROJECT_ACTOR} from '../world/changes';
+import type {PreparedChange} from '../world/changes';
+import {integrateProject} from '../world/city-profile';
 import {sameHead} from './world-ports';
 import type {ChangeReceipt,StoredObject,WorldStorage} from './world-ports';
 // A world keeps its history the way the spec asks: immutable objects addressed by content, trees and commits that
@@ -39,6 +42,9 @@ export type WorldRepository = {
  create(bundle:WorldBundle):Promise<WorldResult<Head>>;
  fork(head:Head,target:WorldAddress):Promise<WorldResult<Head>>;
  commit(expected:Head,change:AcceptedChange):Promise<WorldResult<Head>>;
+ // A prepared change is committed against the version it was prepared against: a candidate based on an older head is
+ // refused instead of landing on top of somebody else's work.
+ commitPrepared(expected:Head,prepared:PreparedChange):Promise<WorldResult<Head>>;
  checkout(head:Head):Promise<WorldResult<Checkpoint>>;
  export(head:Head):Promise<WorldResult<WorldBundle>>;
  history(head:Head,limit?:number):Promise<WorldResult<WorldVersion[]>>;
@@ -287,6 +293,40 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
   const next:Head={worldId:expected.worldId,branchId:expected.branchId,commit:commitObject.ref,generation};
   return publish(expected,next,[snapshot,...carried.value,treeObject,commitObject],{id:change.id,digest,head:next});
  }
+ // A prepared change is re-checked against the version it says it rests on, never against what its preview promised:
+ // the head has to be the one it was prepared against, a composed state may not create money nor move the tick, and
+ // the cost it approved has to be the cost the version actually paid. The change addresses itself, so delivering the
+ // same prepared change twice answers the same version instead of merging it twice.
+ async function commitPrepared(expected:Head,prepared:PreparedChange):Promise<WorldResult<Head>> {
+  if(!sameHead(expected,prepared.target))return failed('CONFLICT','A versão avançou desde a prévia');
+  const point=await checkout(expected);
+  if(!point.ok)return point;
+  const current=point.value.state;
+  let state=current;
+  if(prepared.state){
+   const composed=prepared.state;
+   if(composed.worldId!==expected.worldId)return failed('MALFORMED','O estado da prévia é de outro mundo');
+   if(composed.formatVersion!==current.formatVersion||composed.rulesVersion!==current.rulesVersion)return failed('CONFLICT','O estado da prévia segue outras regras');
+   if(composed.tick!==current.tick||composed.tick!==prepared.tick)return failed('CONFLICT','A prévia mudaria o tick: o tempo entra pelo relógio da sessão, não por um arquivo');
+   if(composed.revision<current.revision)return failed('MALFORMED','A prévia não avança a revisão desta versão');
+   if(composed.money>current.money)return failed('CONFLICT','A prévia criaria dinheiro a partir de dados que chegaram agora');
+   if(current.money-composed.money!==prepared.cost)return failed('CONFLICT',`A prévia aprova o custo ${prepared.cost} e a mudança move ${current.money-composed.money}`);
+   state=composed;
+  }else{
+   if(prepared.cost>current.money)return failed('CONFLICT',`O projeto custa ${prepared.cost} e esta versão tem ${current.money}`);
+   const integrated=integrateProject(current,prepared);
+   if(!integrated.ok)return integrated;
+   state=integrated.value;
+   if(state.tick!==prepared.tick)return failed('CONFLICT','A prévia mudaria o tick: o tempo entra pelo relógio da sessão, não por um arquivo');
+   if(state.money!==prepared.moneyAfter)return failed('CONFLICT',`A prévia promete o saldo ${prepared.moneyAfter} e a integração chegou a ${state.money}`);
+  }
+  // The captures an update rests on stay reachable from the version it produced, and a version's data references are
+  // how a later reader knows which revision its ground came from.
+  const datasets=prepared.bases.filter(object=>record(object.value)&&object.value['kind']==='capture').map(object=>object.ref);
+  const operations=[...prepared.operations.map(operation=>operation.id),...(prepared.records??[])];
+  const digest=(await hasher.ref(codec.encode({kind:'world-prepared',target:prepared.target as unknown as JsonValue,selection:[...prepared.selection],cost:prepared.cost,operations:[...operations]}))).hash;
+  return commit(expected,{id:`prepared-${digest.slice(0,32)}`,state,operations,objects:prepared.bases,author:PROJECT_ACTOR,datasets});
+ }
  async function checkout(head:Head):Promise<WorldResult<Checkpoint>> {
   const loaded=await loadVersion(storageSource,head);
   if(!loaded.ok)return loaded;
@@ -369,6 +409,7 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
   create,
   fork,
   commit,
+  commitPrepared,
   checkout,
   export:exportVersion,
   history,

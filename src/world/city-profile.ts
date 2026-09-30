@@ -133,6 +133,10 @@ export function prepareProject(target:ProjectTarget,changes:ChangeSet,selection:
 // the ordinary command path, so the economy, the terrain rules and the adoption of a carried base are the same ones a
 // local player gets; a refusal anywhere returns the destination untouched.
 export function integrateProject(target:GameState,prepared:PreparedChange,available:readonly BaseChunk[]=[]):WorldResult<GameState>{
+ // A composed change already names the state it produces: two versions the caller holds are compared cell by cell, not
+ // replayed through somebody else's actions. The state still has to belong to the same world, so a prepared change can
+ // never move a version into another identity.
+ if(prepared.state)return prepared.state.worldId===target.worldId?ok(prepared.state):failed('MALFORMED','O estado da prévia é de outro mundo');
  const pool=[...available,...carriedBases(prepared).map(entry=>entry.base)];
  let state=target;
  for(const operation of prepared.operations){

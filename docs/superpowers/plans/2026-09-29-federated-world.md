@@ -129,11 +129,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** `previewMerge(ancestor: Checkpoint, target: Checkpoint, source: Checkpoint, selection: string[]): MergePreview`; `resolveMerge(preview: MergePreview, choices: ConflictChoice[]): WorldResult<PreparedChange>`; `previewBaseUpdate(target: Checkpoint, captured: CapturedBase[]): MergePreview`; `applyBaseUpdate(state: GameState, update: ApprovedBaseUpdate): CommandResult`; `prepareCompensation(target: Checkpoint, commit: WorldCommit): WorldResult<PreparedChange>`. `ApprovedBaseUpdate` contém head/revisão esperados, bases verificadas e resolução por célula; `commitPrepared(expected: Head, prepared: PreparedChange): Promise<WorldResult<Head>>` no repositório.
 
-- [ ] Testar estacionamento→parque do jogador versus estacionamento→prédio real: conflito obrigatório; preservar parque mantém overlay e adota origem B com divergência registrada. Testar gasto conjunto acima do saldo, remoção versus edição, namespace crítico desconhecido, candidato baseado em head antigo e ausência de ancestral.
-- [ ] Rodar `npx vitest run tests/world-merge.test.ts tests/base-update.test.ts`; confirmar RED.
-- [ ] Implementar merge de três vias por campos conhecidos e dependências do perfil; relações desconhecidas conflitam. Integração de projeto reexecuta ações selecionadas atomicamente. Atualização de base preserva `money`, `tick`, edições e estágios resolvidos; recalcula capacidade/base e indicadores, sem renda retroativa. A prévia mostra a população/capacidade resultante antes do aceite. Desfazer prepara compensação pelas regras atuais; testar usina já utilizada, sem apagar história ou devolver dinheiro indevido.
-- [ ] Rodar novos testes e suíte de simulação/comandos. Demonstrar duas propostas por arquivos e uma atualização com fixtures A/B, sem rede pública. Registrar conflitos e hashes antes/depois.
-- [ ] Commit: `feat: review semantic merges and real-map updates`.
+- [x] Testar estacionamento→parque do jogador versus estacionamento→prédio real: conflito obrigatório; preservar parque mantém overlay e adota origem B com divergência registrada. Testar gasto conjunto acima do saldo, remoção versus edição, namespace crítico desconhecido, candidato baseado em head antigo e ausência de ancestral.
+- [x] Rodar `npx vitest run tests/world-merge.test.ts tests/base-update.test.ts`; confirmar RED.
+- [x] Implementar merge de três vias por campos conhecidos e dependências do perfil; relações desconhecidas conflitam. Integração de projeto reexecuta ações selecionadas atomicamente. Atualização de base preserva `money`, `tick`, edições e estágios resolvidos; recalcula capacidade/base e indicadores, sem renda retroativa. A prévia mostra a população/capacidade resultante antes do aceite. Desfazer prepara compensação pelas regras atuais; testar usina já utilizada, sem apagar história ou devolver dinheiro indevido.
+- [x] Rodar novos testes e suíte de simulação/comandos. Demonstrar duas propostas por arquivos e uma atualização com fixtures A/B, sem rede pública. Registrar conflitos e hashes antes/depois.
+- [x] Commit: `feat: review semantic merges and real-map updates`.
 
 ## C — Multiplayer inicial
 
@@ -322,6 +322,9 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 ## Desvios registrados
 
+- **Tarefa 5:** `PreparedChange` ganhou `state?: GameState` e `records?: readonly string[]` (um merge compõe estado, não
+  reexecuta ações, e precisa nomear o que a versão registra); `MergeVersion` é estrutural, então um `Checkpoint` o satisfaz
+  sem criar `world -> session`; a prévia de merge/atualização é o próprio `MergePreview`, sem tocar `world-diff`.
 - **Tarefa 6:** `authorize(grant, proposal, context)` devolve `Promise<WorldResult<AuthorizedProposal>>` — o plano escrevia
   síncrono, mas a verificação de assinatura e o digest do ator são assíncronos. As provas são **destacadas**: os bytes
   canônicos de proposta, concessão e identidade excluem o campo `proof`, então o digest é estável e a assinatura não cria ciclo.
@@ -389,6 +392,7 @@ Consequências para as tarefas 8–17, que passam a ser executadas com este cont
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 5 | `TASK5_SHA` | 14 testes novos (`world-merge` 9, `base-update` 5): estacionamento do jogador versus prédio real conflita, preservar o parque adota a origem nova com divergência registrada, gasto conjunto acima do saldo, remoção versus edição, namespace crítico desconhecido conflita em vez de ser resolvido em silêncio, candidato de head antigo e ausência de ancestral recusados com código próprio, atualização de base sem renda retroativa e compensação de usina já utilizada sem devolver dinheiro indevido. Conflitos são tipados por campo/célula e uma decisão inexistente ou repetida é recusada.
 | 12 | `761852f` | 13 testes novos (9 em `world-blobs`, 4 em `world-retention`): hash do cifrado diferente do texto claro, recusa por nonce/contexto/ciphertext alterados, mundo ou keyId diferentes recusados antes de decifrar, ausência de chave, provedor indisponível com queda para a cópia local, 413/429/507 mapeados, arquivo de 32 MiB+1 recusado antes de decifrar, e retenção que **não** recolhe nada quando o inventário está incompleto ou tem aresta de tipo desconhecido. Formato de fio do objeto selado é binário (cabeçalho JCS + nonce + ciphertext crus): 32 MiB não viram 43 MiB de base64. Suíte: 175 testes, `tsc --noEmit` limpo.
 | 4 | `eadffcb` | 9 testes em `tests/world-changes.test.ts`: campos independentes vs mesma célula, rua atravessando borda de trecho e o antimeridiano, namespace desconhecido preservado, prévia com `quote`/regras do destino (saldo e tick da origem nunca entram), cota por operação e soma sem aplicação parcial, autor declarado não vira ator, edição sem intenção e `tick` recusados como conflito. No navegador: painel de comparação "Real: 0 · Jogador: 2 (custo ~20) · Simulação: 1 · Metadados: 2" com região clicável, e construir pela UI gravou o checkpoint "Rua em 1 célula(s) · build:road@48557:74362#618". Cinco defeitos reais corrigidos no ciclo RED→GREEN.
 | 6 | `dd58ebe` | 22 testes novos (15 em `world-permissions`, 7 em `world-wire`) com vetores da RFC 8032: principal falso, assinatura de 1 bit trocado, comprimento 126, chave de outro vetor, grant expirado/revogado/fora de região, replay noutra branch/época, namespace crítico desconhecido => `spectator`, `actorId.length === 66`, proposta recusada sem abrir lacuna na sequência do core. Três defeitos reais corrigidos no ciclo: leitura de `algorithm` no lugar errado, `Capabilities` sem discriminador e um vetor cujo "chave trocada" era a própria chave. Corrente de delegação não amplia escopo. Compilação pura limpa; suíte 166 testes (só falham os arquivos em voo da Tarefa 12).
