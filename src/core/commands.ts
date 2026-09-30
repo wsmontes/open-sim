@@ -2,9 +2,10 @@ import {stepSimulation} from './simulation';
 import type {Action,BaseChunk,Command,CommandResult,GameState} from './model';
 import {COST} from './model';
 import {adopt,getCell} from './world';
+import {assertJsonSafe,cloneJson,isComponentKey,isEntityId} from './protocol';
 import {cellIndex,chunkId,validCell} from './coordinates';
 export function createGame(worldId:string,seed:number,initial:BaseChunk):GameState {
- return {formatVersion:1,rulesVersion:1,worldId,seed,revision:0,tick:0,money:20000,chunks:{[initial.id]:adopt(initial)},actors:{}};
+ return {formatVersion:1,rulesVersion:1,worldId,seed,revision:0,tick:0,money:20000,chunks:{[initial.id]:adopt(initial)},actors:{},components:{}};
 }
 export function applyCommand(state:GameState,c:Command,available:readonly BaseChunk[]):CommandResult {
  const reject=(reason:string):CommandResult=>({state,status:'rejected',reason});
@@ -13,9 +14,18 @@ export function applyCommand(state:GameState,c:Command,available:readonly BaseCh
  if(c.sequence<=last)return{state,status:'duplicate'};
  if(c.sequence!==last+1||c.expectedRevision!==state.revision)return reject('A partida mudou. Tente novamente.');
  const a:Action=c.action;
- if(!a||!['build','demolish','tick'].includes(a.type))return reject('Ação inválida');
+ if(!a||!['build','demolish','tick','component'].includes(a.type))return reject('Ação inválida');
  let next:GameState={...state,chunks:{...state.chunks},actors:{...state.actors}};
  if(a.type==='tick')return {status:'applied',state:{...stepSimulation(state),revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
+ if(a.type==='component'){
+  if(!isComponentKey(a.key))return reject('Namespace inválido');
+  if(!isEntityId(a.entity))return reject('Identificador inválido');
+  try{assertJsonSafe(a.value,'Valor do componente');}catch(error){return reject((error as Error).message);}
+  const namespace={...next.components[a.key]};
+  if(a.value===null)delete namespace[a.entity];else namespace[a.entity]=cloneJson(a.value);
+  next={...next,components:{...next.components,[a.key]:namespace}};
+  return {status:'applied',state:{...next,revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
+ }
  if(!Array.isArray(a.cells)||!a.cells.length||a.cells.length>1024||a.cells.some(p=>!p||!validCell(p)))return reject('Seleção inválida');
  if(a.type==='build'&&!Object.hasOwn(COST,a.tool))return reject('Ferramenta inválida');
  const unique=[...new Map(a.cells.map(p=>[`${p.x}:${p.y}`,p])).values()];

@@ -1,5 +1,5 @@
 import {replayScenario} from '../../src/core/replay';
-import {canonicalJson} from '../../src/core/snapshot';
+import {canonicalJson} from '../../src/core/protocol';
 
 const output = document.getElementById('resultado');
 const failure = document.getElementById('erro');

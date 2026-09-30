@@ -65,6 +65,7 @@ Indicadores: dinheiro, população, energia (usada/fornecida) e felicidade.
 ## Estado das entregas
 
 - **Pronto**: núcleo portátil (grade, comandos, economia, crescimento); adaptador de mapa real isolado; sessão local com snapshots versionados, autosave e IndexedDB; cliente browser jogável com arte isométrica própria; prova de portabilidade rodando o mesmo cenário em Node e no navegador com estado canônico idêntico.
+- **Contrato portátil em andamento**: o estado durável já aceita componentes com namespace (`lifesim.residence`, `vehicle.transform`…) que outros clientes escrevem e este preserva sem entender, um manifesto identifica mundo/regra/base/linhagem e existe identidade durável por endereço de conteúdo. Falta a materialização com invariante (agregado 64 = 60 + 4), o endereçamento geodésico dos fatos portáveis e a prova com um segundo perfil — o plano de cada um está em `docs/world-protocol.md`.
 - **Fora deste ciclo**: empacotamento desktop (Electron/Tauri), multiplayer e Nostr, contas e permissões, relevo real, redes de água, trânsito com rotas, desastres, busca mundial por nome e fachadas específicas.
 - O executor Node (`npm run replay`) é uma prova de portabilidade, não um aplicativo desktop.
 

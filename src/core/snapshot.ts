@@ -1,6 +1,7 @@
-import type {BaseChunk,Cell,GameState,ManagedChunk,SavedGame,ViewState} from './model';
+import type {BaseChunk,Cell,Components,GameState,ManagedChunk,SavedGame,ViewState} from './model';
 import {CHUNK,chunkOrigin} from './coordinates';
 import {VIEW_ZOOM_MAX,VIEW_ZOOM_MIN} from './model';
+import {assertJsonSafe,canonicalJson,cloneJson,isComponentKey,isEntityId} from './protocol';
 export const SAVE_VERSION = 1;
 const RESERVED = ['__proto__','constructor','prototype'];
 const TERRAIN = ['land','water','green'];
@@ -12,23 +13,41 @@ const plain = (value: unknown): value is Record<string,unknown> => {
  return proto === Object.prototype || proto === null;
 };
 export function encodeSave(value: SavedGame): string {return canonicalJson(value);}
-// Object keys sorted, no whitespace, trailing newline: the same text for the same value in any runtime.
-export function canonicalJson(value: unknown): string {return canonical(value) + '\n';}
-function canonical(value: unknown): string {
- if (value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') return JSON.stringify(value);
- if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
- if (typeof value === 'object') {
-  const source = value as Record<string,unknown>;
-  return `{${Object.keys(source).filter(k=>source[k]!==undefined).sort().map(k=>`${JSON.stringify(k)}:${canonical(source[k])}`).join(',')}}`;
- }
- throw new Error('Valor não serializável');
-}
 export function decodeSave(value: unknown): SavedGame {
  let raw = value;
  if (typeof raw === 'string') {try {raw = JSON.parse(raw);} catch {throw new Error('Save ilegível');}}
  if (!plain(raw)) throw new Error('Save inválido');
  if (raw.version !== SAVE_VERSION) throw new Error('Versão de save desconhecida');
- return {version:1, state:gameState(raw.state), view:viewState(raw.view)};
+ return {...extras(raw,['version','state','view']), version:1, state:gameState(raw.state), view:viewState(raw.view)};
+}
+// Anything this client does not implement is carried through untouched: another profile's fields must survive a
+// load-and-save cycle here, which is what lets two clients share one world without agreeing on every component.
+function extras(source: Record<string,unknown>, known: readonly string[]): Record<string,unknown> {
+ const kept: Record<string,unknown> = {};
+ for (const key of Object.keys(source)) {
+  if (RESERVED.includes(key)) throw new Error(`Campo reservado: ${key}`);
+  if (known.includes(key)) continue;
+  assertJsonSafe(source[key], `Campo ${key}`);
+  kept[key] = cloneJson(source[key]);
+ }
+ return kept;
+}
+function components(value: unknown): Components {
+ if (!plain(value)) throw new Error('Componentes inválidos');
+ const rebuilt: Components = {};
+ for (const key of Object.keys(value)) {
+  if (!isComponentKey(key)) throw new Error(`Namespace inválido: ${key}`);
+  const namespace = value[key];
+  if (!plain(namespace)) throw new Error(`Namespace inválido: ${key}`);
+  const entities: Record<string,unknown> = {};
+  for (const entity of Object.keys(namespace)) {
+   if (!isEntityId(entity)) throw new Error(`Identificador inválido: ${entity}`);
+   assertJsonSafe(namespace[entity], `Componente ${key}/${entity}`);
+   entities[entity] = cloneJson(namespace[entity]);
+  }
+  rebuilt[key] = entities;
+ }
+ return rebuilt;
 }
 function safeCount(value: unknown, label: string): number {
  if (!Number.isSafeInteger(value) || (value as number) < 0) throw new Error(`${label} inválido`);
@@ -50,7 +69,7 @@ function cell(value: unknown, label: string): Cell {
  if (value.building !== undefined) rebuilt.building = value.building as NonNullable<Cell['building']>;
  if (value.stage !== undefined) rebuilt.stage = value.stage as number;
  if (value.origin !== undefined) rebuilt.origin = value.origin as NonNullable<Cell['origin']>;
- return rebuilt;
+ return {...extras(value,['terrain','road','building','stage','origin']), ...rebuilt} as Cell;
 }
 function managedChunk(id: string, value: unknown): ManagedChunk {
  try {chunkOrigin(id);} catch {throw new Error('Endereço de trecho inválido');}
@@ -67,7 +86,7 @@ function managedChunk(id: string, value: unknown): ManagedChunk {
   rebuilt[key] = cell(edits[key], `Edição ${key}`);
  }
  const frozen: BaseChunk = {id, source:base.source, normalizerVersion:1, cells:base.cells.map((c,i)=>cell(c,`Célula ${i}`))};
- return {base:frozen, edits:rebuilt, baseEnergy:safeCount(value.baseEnergy,'Energia de base'), balanceAdjustment:safeInteger(value.balanceAdjustment,'Ajuste de saldo')};
+ return {...extras(value,['base','edits','baseEnergy','balanceAdjustment']), base:{...extras(base,['id','source','normalizerVersion','cells']), ...frozen}, edits:rebuilt, baseEnergy:safeCount(value.baseEnergy,'Energia de base'), balanceAdjustment:safeInteger(value.balanceAdjustment,'Ajuste de saldo')};
 }
 function actors(value: unknown): Record<string,number> {
  if (!plain(value)) throw new Error('Atores inválidos');
@@ -89,7 +108,7 @@ function gameState(value: unknown): GameState {
  if (value.formatVersion !== 1) throw new Error('Versão de formato desconhecida');
  if (value.rulesVersion !== 1) throw new Error('Versão de regras desconhecida');
  if (typeof value.worldId !== 'string' || !value.worldId.length || value.worldId.length > 80) throw new Error('Mundo inválido');
- return {formatVersion:1, rulesVersion:1, worldId:value.worldId, seed:safeInteger(value.seed,'Semente'), revision:safeCount(value.revision,'Revisão'), tick:safeCount(value.tick,'Relógio'), money:safeCount(value.money,'Saldo'), chunks:chunks(value.chunks), actors:actors(value.actors)};
+ return {...extras(value,['formatVersion','rulesVersion','worldId','seed','revision','tick','money','chunks','actors','components']), formatVersion:1, rulesVersion:1, worldId:value.worldId, seed:safeInteger(value.seed,'Semente'), revision:safeCount(value.revision,'Revisão'), tick:safeCount(value.tick,'Relógio'), money:safeCount(value.money,'Saldo'), chunks:chunks(value.chunks), actors:actors(value.actors), components:components(value.components ?? {})};
 }
 function viewState(value: unknown): ViewState {
  if (!plain(value)) throw new Error('Visão inválida');
@@ -97,7 +116,7 @@ function viewState(value: unknown): ViewState {
  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) throw new Error('Posição da câmera inválida');
  if (!Number.isFinite(value.zoom) || (value.zoom as number) < VIEW_ZOOM_MIN || (value.zoom as number) > VIEW_ZOOM_MAX) throw new Error('Zoom inválido');
  if (value.speed !== 0 && value.speed !== 1 && value.speed !== 2) throw new Error('Velocidade inválida');
- return {x:value.x as number, y:value.y as number, zoom:value.zoom as number, speed:value.speed as ViewState['speed'], place:value.place, rotation:viewRotation(value.rotation)};
+ return {...extras(value,['x','y','zoom','speed','place','rotation']), x:value.x as number, y:value.y as number, zoom:value.zoom as number, speed:value.speed as ViewState['speed'], place:value.place, rotation:viewRotation(value.rotation)};
 }
 // Saves written before the view could be turned carry no bearing at all and simply mean north up. A stored one has to
 // be a real bearing inside (-PI, PI]. The camera folds its angles into that same window, but running the fold again

@@ -4,7 +4,8 @@ import type {Scenario} from '../src/core/replay';
 import {applyCommand} from '../src/core/commands';
 import {COST} from '../src/core/model';
 import type {SavedGame,ViewState} from '../src/core/model';
-import {canonicalJson,decodeSave,encodeSave} from '../src/core/snapshot';
+import {decodeSave,encodeSave} from '../src/core/snapshot';
+import {canonicalJson} from '../src/core/protocol';
 import fixture from './fixtures/portable-scenario.json';
 
 // Synthetic scenario: invented streets and buildings, never a real city.

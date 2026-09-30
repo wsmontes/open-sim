@@ -1,6 +1,6 @@
 import {readFileSync} from 'node:fs';
 import {replayScenario} from '../src/core/replay';
-import {canonicalJson} from '../src/core/snapshot';
+import {canonicalJson} from '../src/core/protocol';
 
 // Independent replay executor: it holds no simulation logic.
 function fail(message: string): never {

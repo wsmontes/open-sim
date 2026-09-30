@@ -1,8 +1,9 @@
 import {expect,test} from 'vitest';
 import {decodeSave,encodeSave} from '../src/core/snapshot';
+import {canonicalJson} from '../src/core/protocol';
 import {applyCommand,createGame} from '../src/core/commands';
 import {blank,command} from './fixtures/world';
-import type {SavedGame} from '../src/core/model';
+import type {GameState,SavedGame} from '../src/core/model';
 import {VIEW_ZOOM_MAX,VIEW_ZOOM_MIN} from '../src/core/model';
 function saved():SavedGame{
  const b=blank();b.cells[0]={terrain:'land',road:true,origin:'imported'};b.cells[33]={terrain:'land',building:'residential',stage:2,origin:'imported'};
@@ -113,4 +114,35 @@ test('the snapshot stores a bearing in (-PI, PI] and a round trip never moves it
   expect(decodeSave(encodeSave(decoded)),name).toEqual(decoded);
  }
  for(const rotation of [Math.PI+0.001,-Math.PI-0.001,2*Math.PI,-7]){const x=saved();x.view={...x.view,rotation};expect(()=>decodeSave(x),`rotation ${rotation}`).toThrow('Rotação inválida');}
+});
+test('a save written by another profile survives a load and save here',()=>{
+ const x=saved(),state=x.state as GameState & Record<string,unknown>;
+ state.components={'lifesim.residence':{'household-1':{residents:4}},'vehicle.identity':{'car-9':{plate:'ABC'}}};
+ state['city.extra']={note:'written by a client that knows more than this one'};
+ (state.chunks['0:0'] as unknown as Record<string,unknown>)['chunk.extra']=7;
+ (state.chunks['0:0']!.base.cells[0] as unknown as Record<string,unknown>)['cell.extra']='kept';
+ (x.view as unknown as Record<string,unknown>)['view.extra']={a:[1,2]};
+ const text=encodeSave(x);
+ const decoded=decodeSave(text);
+ expect(decoded).toEqual(x);
+ expect(encodeSave(decoded)).toBe(text);
+ const copy=decoded.state.components['lifesim.residence']!['household-1'] as {residents:number};
+ copy.residents=99;
+ expect(encodeSave(x)).toBe(text);
+});
+test('components and unknown fields still have to be plain JSON',()=>{
+ const cases:[string,(x:any)=>void][]=[
+  ['component namespace without a dot',x=>{x.state.components={city:{a:1}};}],
+  ['component namespace with capitals',x=>{x.state.components={'City.zone':{a:1}};}],
+  ['component entity reserved',x=>{x.state.components={'city.zone':{['__proto__']:1}};}],
+  ['component payload not finite',x=>{x.state.components={'city.zone':{a:{value:NaN}}};}],
+  ['component payload with a function',x=>{x.state.components={'city.zone':{a:{f:()=>1}}};}],
+  ['component payload undefined',x=>{x.state.components={'city.zone':{a:{value:undefined}}};}],
+  ['component namespace as a list',x=>{x.state.components={'city.zone':[1,2]};}],
+  ['unknown field not finite',x=>{x.state['extra']=Infinity;}],
+ ];
+ for(const [name,mutate] of cases){const x:any=saved();mutate(x);expect(()=>decodeSave(x),name).toThrow();}
+ // A save that carries a reserved key can only come from outside: refuse it instead of dropping it silently.
+ const text=encodeSave(saved()),tampered=`{"__proto__":1,${text.slice(1)}`;
+ expect(()=>decodeSave(tampered)).toThrow('Campo reservado');
 });

@@ -2,11 +2,18 @@ import type {Action,BaseChunk,GameState,ManagedChunk} from './model';
 import {COST} from './model';
 import {cellIndex,chunkId,validCell} from './coordinates';
 import {adopt} from './world';
+import {assertJsonSafe,isComponentKey,isEntityId} from './protocol';
 export type Quote = {status:'ok'|'blocked';cost:number;reason?:string};
 // Mirrors applyCommand: same order of checks, same dedupe, same partial adoption of available bases.
 export function quoteAction(state:GameState,action:Action,available:readonly BaseChunk[]):Quote {
  const blocked=(cost:number,reason:string):Quote=>({status:'blocked',cost,reason});
  if(action.type==='tick')return {status:'ok',cost:0};
+ if(action.type==='component'){
+  if(!isComponentKey(action.key))return blocked(0,'Namespace inválido');
+  if(!isEntityId(action.entity))return blocked(0,'Identificador inválido');
+  try{assertJsonSafe(action.value,'Valor do componente');}catch(error){return blocked(0,(error as Error).message);}
+  return {status:'ok',cost:0};
+ }
  if(!Array.isArray(action.cells)||!action.cells.length||action.cells.length>1024||action.cells.some(p=>!p||!validCell(p)))return blocked(0,'Seleção inválida');
  if(action.type==='build'&&!Object.hasOwn(COST,action.tool))return blocked(0,'Ferramenta inválida');
  const chunks:Record<string,ManagedChunk>={...state.chunks};

@@ -16,6 +16,10 @@ Este documento descreve o que existe hoje no repositório: contratos, limites en
 
 A direção das dependências é única: o núcleo nunca conhece sessão, adaptador, apresentação ou browser. Um futuro host desktop pode reutilizar o cliente atual ou escrever outro; nenhuma regra econômica mora na interface.
 
+## Contrato portátil
+
+O que um cliente diferente precisa saber para conviver com este aqui está em `docs/world-protocol.md`: manifesto do mundo (`src/core/protocol.ts`), componentes com namespace no estado durável, preservação do que o cliente não entende ao ler e gravar (`src/core/snapshot.ts`) e identidade durável por texto canônico (`durableJson`, endereçável com `sha256` pelo adaptador em `src/adapters/hash/content.ts`). O perfil cidade continua dono do seu próprio estado (`chunks`, `money`, `tick`) e outro perfil anexa o dele sem editar este código.
+
 ## Formatos portáteis
 
 Todos os dados são objetos JSON, sem `Map`, `Set`, função ou valor não finito, com versão explícita.

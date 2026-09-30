@@ -4,8 +4,11 @@ export type Tool = Building | 'road';
 export type Cell = { terrain: 'land' | 'water' | 'green'; road?: boolean; building?: Building; stage?: number; origin?: 'imported' | 'player' };
 export type BaseChunk = { id: string; source: string; normalizerVersion: 1; cells: Cell[] };
 export type ManagedChunk = { base: BaseChunk; edits: Record<string, Cell>; baseEnergy: number; balanceAdjustment: number };
-export type GameState = { formatVersion: 1; rulesVersion: 1; worldId: string; seed: number; revision: number; tick: number; money: number; chunks: Record<string, ManagedChunk>; actors: Record<string, number> };
-export type Action = { type: 'build'; tool: Tool; cells: CellCoord[] } | { type: 'demolish'; cells: CellCoord[] } | { type: 'tick' };
+// Namespaced components: the city profile writes its own state directly, and other profiles (a life simulator, a
+// driving game) attach theirs under a namespace this client does not have to understand. See docs/world-protocol.md.
+export type Components = Record<string, Record<string, unknown>>;
+export type GameState = { formatVersion: 1; rulesVersion: 1; worldId: string; seed: number; revision: number; tick: number; money: number; chunks: Record<string, ManagedChunk>; actors: Record<string, number>; components: Components };
+export type Action = { type: 'build'; tool: Tool; cells: CellCoord[] } | { type: 'demolish'; cells: CellCoord[] } | { type: 'tick' } | { type: 'component'; key: string; entity: string; value: unknown };
 export type Command = { version: 1; worldId: string; actorId: string; sequence: number; expectedRevision: number; action: Action };
 export type CommandResult = { state: GameState; status: 'applied' | 'duplicate' | 'rejected'; reason?: string };
 export type CityStats = { money: number; population: number; jobs: number; energySupply: number; energyUsed: number; happiness: number; income: number; managed: number };

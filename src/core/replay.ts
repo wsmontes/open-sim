@@ -1,6 +1,6 @@
 import {applyCommand,createGame} from './commands';
 import type {BaseChunk,Command,GameState} from './model';
-import {canonicalJson} from './snapshot';
+import {canonicalJson} from './protocol';
 import {CHUNK,chunkOrigin} from './coordinates';
 
 // A scenario is a portable, re-executable document: initial chunk, seed and ordered
