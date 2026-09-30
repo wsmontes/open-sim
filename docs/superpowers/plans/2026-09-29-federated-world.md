@@ -243,11 +243,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** `composeWorld(definition: Composition, objects: ResolvedObjects): WorldResult<ComposedWorld>`; `compareScenarios(a: ScenarioRun, b: ScenarioRun): ScenarioComparison`. `Composition` fixa base, commits das camadas, regras, parâmetros e política temporal; cada `LayerContract` declara leituras/escritas, dependências e efeito visual ou durável. `ScenarioRun` inclui estado inicial, intervalo de ticks e entradas externas, além dos indicadores.
 
-- [ ] Testar dependência ausente/cíclica, duas camadas escrevendo o mesmo campo, troca de ordem visual sem mudar resultado, camada visual fora da identidade durável e regras incompatíveis. `expect(comparison.comparable).toBe(false)` se diferem intervalo ou premissas sem declaração.
-- [ ] Rodar `npx vitest run tests/world-composition.test.ts`; confirmar RED.
-- [ ] Implementar composição explícita e preview; hipóteses duráveis só mudam por commit, ou nova branch quando há migração. Não inserir política genérica “última camada vence”. Mostrar cenários lado a lado com dados reais fixados, decisões e indicadores explicáveis.
-- [ ] Exigir PASS; demonstrar mesma base com projeto de parque e projeto industrial, rodando o mesmo intervalo/entradas. Bases devem compartilhar hashes; simulações não compartilhar saldo mutável.
-- [ ] Commit: `feat: compose versioned world scenarios`.
+- [x] Testar dependência ausente/cíclica, duas camadas escrevendo o mesmo campo, troca de ordem visual sem mudar resultado, camada visual fora da identidade durável e regras incompatíveis. `expect(comparison.comparable).toBe(false)` se diferem intervalo ou premissas sem declaração.
+- [x] Rodar `npx vitest run tests/world-composition.test.ts`; confirmar RED.
+- [x] Implementar composição explícita e preview; hipóteses duráveis só mudam por commit, ou nova branch quando há migração. Não inserir política genérica “última camada vence”. Mostrar cenários lado a lado com dados reais fixados, decisões e indicadores explicáveis.
+- [x] Exigir PASS; demonstrar mesma base com projeto de parque e projeto industrial, rodando o mesmo intervalo/entradas. Bases devem compartilhar hashes; simulações não compartilhar saldo mutável.
+- [x] Commit: `feat: compose versioned world scenarios`.
 
 ### Tarefa 15: segunda família de dados e entradas temporais gravadas
 
@@ -322,6 +322,10 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 ## Desvios registrados
 
+- **Tarefa 14:** o chamador resolve o material (`ResolvedObjects.states`), então `world` não precisa importar `session`; a composição
+  carrega `actor` porque o envelope §48 exige um principal; e o que a camada escreveu é derivado do material (`layerWrites`), com a
+  declaração valendo como teto — escrever sem declarar, fora das áreas, ou trocar a base congelada é recusado. Campo desconhecido dentro
+  de um componente atravessa intacto (§2.3).
 - **Tarefa 7:** `AcceptedCommit` carrega só as entradas (comando, autorização, objetos, refs de base, lista aceita) e nunca o
   estado resultante: a réplica reproduz a versão e concorda pelo endereço do commit. O livro-razão da sessão é a própria lista
   `accepted` do commit (`p.<epoch>.<id>@<digest>` / `t.<epoch>.<generation>`), relida do histórico, então um anfitrião reaberto
@@ -438,6 +442,7 @@ Regra que continua valendo: registrar o que foi exercitado contra o serviço rea
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 14 | `TASK14_SHA` | 15 testes em `tests/world-composition.test.ts`: dependência ausente e cíclica, duas camadas escrevendo o mesmo campo, ordem visual sem mudar identidade durável, camada visual fora da identidade, regras incompatíveis, e comparação não comparável quando intervalo ou premissas divergem sem declaração. Composição é tudo-ou-nada e a base é conferida por identidade durável (durableJson). No navegador: duas colunas com a mesma base (5 trechos, commit 54e8323), nove indicadores por lado e tabela de deltas — e um defeito real de determinismo corrigido (os dois futuros derivavam de quadros diferentes porque cada um chamava `new Date()`).
 | 7 | `dd10223` | 16 testes em `tests/multiplayer-session.test.ts` + fixture `session-chaos.json` (14 passos): duas obras no mesmo saldo, commit repetido e invertido, pai ausente, proposta recusada seguida de válida, base de fonte diferente entre peers (a réplica pede e espera, com `stopped` e evidência nomeando a região em vez de substituir em silêncio), queda entre persistir e responder sem aplicação dupla, cobrança única após reenvio e reabertura a partir de checkpoint e recibos. Sete defeitos reais corrigidos no ciclo, incluindo um commit descartado em silêncio e um auto-deadlock na promoção de commit em buffer.
 | 5 | `6394ba1` | 14 testes novos (`world-merge` 9, `base-update` 5): estacionamento do jogador versus prédio real conflita, preservar o parque adota a origem nova com divergência registrada, gasto conjunto acima do saldo, remoção versus edição, namespace crítico desconhecido conflita em vez de ser resolvido em silêncio, candidato de head antigo e ausência de ancestral recusados com código próprio, atualização de base sem renda retroativa e compensação de usina já utilizada sem devolver dinheiro indevido. Conflitos são tipados por campo/célula e uma decisão inexistente ou repetida é recusada.
 | 12 | `761852f` | 13 testes novos (9 em `world-blobs`, 4 em `world-retention`): hash do cifrado diferente do texto claro, recusa por nonce/contexto/ciphertext alterados, mundo ou keyId diferentes recusados antes de decifrar, ausência de chave, provedor indisponível com queda para a cópia local, 413/429/507 mapeados, arquivo de 32 MiB+1 recusado antes de decifrar, e retenção que **não** recolhe nada quando o inventário está incompleto ou tem aresta de tipo desconhecido. Formato de fio do objeto selado é binário (cabeçalho JCS + nonce + ciphertext crus): 32 MiB não viram 43 MiB de base64. Suíte: 175 testes, `tsc --noEmit` limpo.

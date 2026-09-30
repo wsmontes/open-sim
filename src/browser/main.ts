@@ -14,7 +14,15 @@ import {decodeBundle,encodeBundle} from '../world/codec';
 import type {Head} from '../world/model';
 import {createWorldHistory,downloadBundle,readBundleFile} from '../presentation/world-history';
 import {diffWorlds} from '../presentation/world-diff';
-import {CHUNK,chunkId,chunkOrigin,toCell} from '../core/coordinates';
+import {createWorldComposition,describeScenarios,emptyComposition} from '../presentation/world-composition';
+import {CHUNK,chunkId,chunkOrigin,coordAt,toCell} from '../core/coordinates';
+import {applyCommand} from '../core/commands';
+import {getCell} from '../core/world';
+import {durableJson} from '../core/protocol';
+import type {ExtensionDeclaration} from '../core/protocol';
+import type {JsonValue,ObjectRef} from '../world/model';
+import {compareScenarios,layerWrites,runScenario} from '../world/composition';
+import type {Composition,ScenarioRun} from '../world/composition';
 import {quoteAction} from '../core/quote';
 import {summarize} from '../core/simulation';
 import type {Camera,Viewport} from '../presentation/camera';
@@ -26,7 +34,7 @@ import type {Speed} from '../presentation/clock';
 import {createHud} from '../presentation/hud';
 import type {SelectedTool} from '../presentation/hud';
 import {attachInput} from '../presentation/input';
-const WORLD_ID='open-sim',BRANCH_ID='main',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,OVERVIEW_BUDGET=512,DETAIL_BUDGET=120;
+const WORLD_ID='open-sim',BRANCH_ID='main',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,OVERVIEW_BUDGET=512,DETAIL_BUDGET=120,FUTURE_TICKS=60;
 // The terms the frozen base travels under (spec R12): a world exported from here says where its data came from.
 const WORLD_TERMS=[{source:'OpenStreetMap · Shortbread v1',attribution:'© OpenStreetMap contributors',license:'ODbL'}];
 const TOOL_LABELS:Record<Tool,string>={road:'Rua',residential:'Residencial',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'};
@@ -63,6 +71,10 @@ const codec=createJcsCodec(),hasher=bytesHasher();
 const worlds=createWorldRepository({storage:createIndexedDbWorldStorage(),codec,hasher});
 // The panel exists before the hud so the hud picks it up as one more card the player can drag and collapse.
 const history=createWorldHistory(hudRoot,{onCreateVersion,onExport,onImport,onBranch,onCompare,onRegion});
+// The scenarios panel is one more card, created before the hud so the hud picks it up as a draggable panel like the
+// others (src/presentation/hud.ts).
+const scenarios=createWorldComposition(hudRoot,{onCompare:compareFutures,onRegion});
+scenarios.update(emptyComposition('Compare dois futuros do lugar sob a câmera.'));
 const hud=createHud(hudRoot,{onTool,onSpeed,onPlace,onRetryMap,onOverwriteSave,onOverview,onZoomStep,onNorth});
 const clock=createTickClock(()=>{session.dispatch({type:'tick'});});
 const requested=new Set<string>();
@@ -336,6 +348,82 @@ function onCompare(commitHash:string):void{
 function onRegion(chunkId:string):void{
  const origin=chunkOrigin(chunkId);
  setCamera(centerOn({x:origin.x+CHUNK/2,y:origin.y+CHUNK/2},camera,viewport()));
+}
+// A project a scenario proposes goes through the profile's own rules and the regions this device already holds, so a
+// scenario can never build what the player could not build.
+function appliedProject(state:GameState,action:Action):GameState{
+ const result=applyCommand(state,{version:1,worldId:state.worldId,actorId:'scenario',sequence:(state.actors['scenario']??0)+1,expectedRevision:state.revision,action},availableBases());
+ if(result.status!=='applied')throw new Error(result.reason??'O projeto do cenário foi recusado');
+ return result.state;
+}
+// Five free cells of land in one row of a managed region: two streets, a house, the plant that pays for the growth and
+// the cell where the two futures disagree. The row nearest the camera is the block the player is looking at.
+function freeBlock(state:GameState,region:string,focus:CellCoord):readonly CellCoord[]|null{
+ let best:readonly CellCoord[]|null=null,bestDistance=Infinity;
+ for(let index=0;index+4<CHUNK*CHUNK;index++){
+  if(index%CHUNK>CHUNK-5)continue;
+  const row=[0,1,2,3,4].map(step=>coordAt(region,index+step));
+  if(!row.every(cell=>{const found=getCell(state,cell);return !!found&&found.terrain==='land'&&!found.road&&!found.building;}))continue;
+  const distance=Math.abs(row[0]!.x-focus.x)+Math.abs(row[0]!.y-focus.y);
+  if(distance<bestDistance){bestDistance=distance;best=row;}
+ }
+ return best;
+}
+// The commit of a layer is the content address of the state it produced — the same address the repository gives that
+// snapshot (src/session/world-repository.ts) — so a scenario pins exactly the future it ran.
+const commitOf=async(state:GameState):Promise<ObjectRef>=>hasher.ref(codec.encode({kind:'city-state',state:state as unknown as JsonValue}));
+// Two futures of the place under the camera: one frozen ground, two projects, the same interval and the same declared
+// inputs. This is the profile running two decisions, not a forecast of the real city.
+async function compareFutures():Promise<void>{
+ const state=stateOf();
+ if(!state){scenarios.update(emptyComposition('Sem cidade aberta para comparar.'));return;}
+ const focus=pick({x:canvas.width/2,y:canvas.height/2},camera),region=chunkId(focus);
+ if(!state.chunks[region]){scenarios.update(emptyComposition(`O trecho ${region} ainda não é administrado; carregue o mapa e tente de novo.`));return;}
+ const block=freeBlock(state,region,focus);
+ if(!block){scenarios.update(emptyComposition(`Não há cinco células de terra livres no trecho ${region}.`));return;}
+ const [street,street2,house,target,plant]=block;
+ const project=(tool:Tool):GameState=>{
+  let next=appliedProject(state,{type:'build',tool:'road',cells:[street,street2]});
+  next=appliedProject(next,{type:'build',tool:'residential',cells:[house]});
+  next=appliedProject(next,{type:'build',tool:'power',cells:[plant]});
+  return appliedProject(next,{type:'build',tool,cells:[target]});
+ };
+ // The ground is the player's own city: the composition declares every namespace it composes and pins the frozen
+ // regions by content, so both futures rest on exactly these bytes. Moving the camera or changing the art is not a
+ // dimension, and neither changes this identity.
+ const extensions:ExtensionDeclaration[]=Object.keys(state.components).sort().map(key=>({key,version:1,durable:true}));
+ const ground=durableJson(state,extensions);
+ const baseCommit=await commitOf(state);
+ // Both futures fork at the same instant: two scenarios of the same place are two frames derived from one, and a
+ // millisecond of difference would make the comparison refuse to explain itself.
+ const forkAt=new Date().toISOString();
+ const bases=await Promise.all(Object.keys(state.chunks).sort().map(async id=>({id,ref:await hasher.ref(codec.encode({kind:'base-chunk',base:state.chunks[id]!.base as unknown as JsonValue}))})));
+ const future=async(id:string,tool:Tool,premise:string):Promise<ScenarioRun>=>{
+  const projected=project(tool);
+  const commit=await commitOf(projected);
+  const writes=layerWrites(state,projected);
+  if(!writes.ok)throw new Error(writes.error.message);
+  const composition:Composition={
+   worldId:state.worldId,branchId:`cenario-${id}`,actor:'did:key:local-player',rules:{family:'city',version:1},
+   base:{commit:baseCommit,identity:ground,bases},
+   layers:[{commit,contract:{id,source:`jogador local · futuro ${id}`,priority:10,effect:'durable',rules:{family:'city',version:1},reads:[],writes:writes.value,dependsOn:[],areas:[region],capabilities:[]}}],
+   parameters:{},
+   // §11: a scenario is a derived timeline, and both futures derive from the same frame at the same instant.
+   temporal:{timeline:`osim:timeline:cenario-${id}`,parent:'osim:timeline:local',forkAt,rate:1},
+   extensions,
+  };
+  // The same interval and the same external inputs on both sides. A recorded observation that moved the economy would
+  // need a versioned rule, which is Task 15; until then an input is compared, not applied.
+  const run=runScenario(composition,{states:{[baseCommit.hash]:state,[commit.hash]:projected}},{id,interval:{fromTick:state.tick,toTick:state.tick+FUTURE_TICKS},inputs:[],premises:[premise]});
+  if(!run.ok)throw new Error(run.error.message);
+  return run.value;
+ };
+ try{
+  const [parque,industria]=await Promise.all([future('parque','park','projeto de parque no bloco livre'),future('industria','industrial','projeto industrial no bloco livre')]);
+  scenarios.update(describeScenarios(parque,industria,compareScenarios(parque,industria)));
+ }catch(error){
+  scenarios.update(emptyComposition(describeWorldError(error)));
+ }
 }
 function onOverview(){setCamera(zoomTo(camera,viewport(),MIN_ZOOM));}
 function onZoomStep(direction:1|-1){setCamera(zoomTo(camera,viewport(),camera.zoom*(direction>0?1.25:.8)));}
