@@ -324,5 +324,5 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
-| 2 | `TASK2_SHA` | 10 testes em `tests/reality.test.ts` (base intocada, cobertura em coordenadas nomeadas, `observedAt` ausente quando só há download, nenhum ID OSM inventado, fonte/atribuição/extensões sobrevivendo ao pacote, região indisponível sem terreno inventado, endpoint/normalizador/zoom reais). Fixtures sintéticas em `tests/fixtures/federated-world/base-a.json` e `base-b.json`. Atribuição intacta em `map-provider` e `normalize`.
+| 2 | `0b4faac` | 10 testes em `tests/reality.test.ts` (base intocada, cobertura em coordenadas nomeadas, `observedAt` ausente quando só há download, nenhum ID OSM inventado, fonte/atribuição/extensões sobrevivendo ao pacote, região indisponível sem terreno inventado, endpoint/normalizador/zoom reais). Fixtures sintéticas em `tests/fixtures/federated-world/base-a.json` e `base-b.json`. Atribuição intacta em `map-provider` e `normalize`.
 | 1 | `ee3e77e` | 7 testes em `tests/world-bundle.test.ts` (vetores RFC 8785, recusas de chave repetida/versão/limite/UTF-8, preservação do espaço de extensões, verificação de endereço por hash), `npx tsc -p tsconfig.world.json` limpo e camada `world` no teste de arquitetura. Suíte: 113 testes. |

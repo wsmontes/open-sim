@@ -43,10 +43,12 @@ function dependencies(file:string):Dependency[]{
 function filesIn(dir:string):string[]{
  return readdirSync(dir).sort().flatMap(name=>{const path=join(dir,name);return statSync(path).isDirectory()?filesIn(path):path.endsWith('.ts')?[path]:[];});
 }
-const layerOf=(file:string)=>(['core','world','session','adapters','presentation','browser'] as const).find(name=>file.startsWith(join(root,'src',name)))??'other';
+const layerOf=(file:string)=>(['core','world','session','adapters','presentation','profiles','browser'] as const).find(name=>file.startsWith(join(root,'src',name)))??'other';
 // The portable world contract may only lean on the core; everything else may lean on it, never the other way.
-const ALLOWED:Record<string,readonly string[]>={core:['core'],world:['core','world'],session:['core','world','session'],adapters:['core','world','session','adapters'],presentation:['core','world','session','presentation'],browser:['core','world','session','adapters','presentation','browser'],other:['core','world','session','adapters','presentation','browser']};
-const ALLOWED_PACKAGES:Record<string,readonly string[]>={core:[],world:[],session:[],adapters:['@mapbox/vector-tile','pbf'],presentation:[],browser:[],other:[]};
+const ALLOWED:Record<string,readonly string[]>={core:['core'],world:['core','world'],session:['core','world','session'],adapters:['core','world','session','adapters','profiles'],presentation:['core','world','session','presentation','profiles'],profiles:['core','world','profiles'],browser:['core','world','session','adapters','presentation','profiles','browser'],other:['core','world','session','adapters','presentation','profiles','browser']};
+// Only the pure layers are package-free by construction; an adapter is exactly the place where a platform API or an
+// SDK is allowed to live (the map decoders, and later the storage, crypto, network and social adapters).
+const ALLOWED_PACKAGES:Record<string,readonly string[]|null>={core:[],world:[],session:[],profiles:[],presentation:[],browser:[],adapters:null,other:null};
 function resolved(from:string,specifier:string):string|'package'{
  if(!specifier.startsWith('.'))return 'package';
  const base=resolve(dirname(from),specifier);
@@ -63,7 +65,8 @@ test('every relative import resolves to a file and the modules never look the wr
   for(const {specifier,line} of dependencies(file)){
    const target=resolved(file,specifier);
    if(target==='package'){
-    if(!ALLOWED_PACKAGES[owner].includes(specifier))problems.push(`${file}:${line} imports package ${specifier}`);
+    const allowed=ALLOWED_PACKAGES[owner];
+    if(allowed!==null&&!allowed.includes(specifier))problems.push(`${file}:${line} imports package ${specifier}`);
     continue;
    }
    if(!existsSync(target)){problems.push(`${file}:${line} imports ${specifier}, which does not resolve to a file`);continue;}
@@ -72,12 +75,15 @@ test('every relative import resolves to a file and the modules never look the wr
  }
  expect(problems).toEqual([]);
 });
-test('no source file reaches for a platform, a Nostr client or a UI framework',()=>{
+test('only an adapter may reach for a platform, a Nostr client or a UI framework',()=>{
  const platform=new Set([...builtinModules,'electron','tauri','nostr']);
- const problems=filesIn(join(root,'src')).flatMap(file=>dependencies(file).flatMap(({specifier,line})=>{
-  const name=specifier.replace(/^node:/,'').split('/')[0]!;
-  return platform.has(name)||/^nostr/i.test(name)?[`${file}:${line} imports ${specifier}`]:[];
- }));
+ const problems=filesIn(join(root,'src')).flatMap(file=>{
+  if(layerOf(file)==='adapters')return [];
+  return dependencies(file).flatMap(({specifier,line})=>{
+   const name=specifier.replace(/^node:/,'').split('/')[0]!;
+   return platform.has(name)||/^nostr|^matrix|^@matrix/i.test(name)?[`${file}:${line} imports ${specifier}`]:[];
+  });
+ });
  expect(problems).toEqual([]);
 });
 test('the core never reads the clock or the global random generator',()=>{
