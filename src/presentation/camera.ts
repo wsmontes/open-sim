@@ -1,9 +1,10 @@
 import type {CellCoord} from '../core/model';
 import {CHUNK,WORLD,chunkId,chunkOrigin} from '../core/coordinates';
+import {VIEW_ZOOM_MAX,VIEW_ZOOM_MIN} from '../core/model';
 export type Point = {x:number;y:number};
 export type Camera = {x:number;y:number;zoom:number};
 export type Viewport = {width:number;height:number};
-export const TILE_W=32,TILE_H=16,MIN_ZOOM=.05,MAX_ZOOM=3;
+export const TILE_W=32,TILE_H=16,MIN_ZOOM=VIEW_ZOOM_MIN,MAX_ZOOM=VIEW_ZOOM_MAX;
 // Below this step (buffer pixels per cell) one diamond per cell stops being legible or cheap, and the renderer
 // switches to a mosaic of blocks per region. 0.05 still lets the whole city and its surroundings fit on screen.
 export const COARSE_STEP=6;

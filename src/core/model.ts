@@ -11,4 +11,7 @@ export type CommandResult = { state: GameState; status: 'applied' | 'duplicate' 
 export type CityStats = { money: number; population: number; jobs: number; energySupply: number; energyUsed: number; happiness: number; income: number; managed: number };
 export type ViewState = { x: number; y: number; zoom: number; speed: 0 | 1 | 2; place: string };
 export type SavedGame = { version: 1; state: GameState; view: ViewState };
+// Zoom limits of a saved view. They live in the core because the snapshot format validates them; the isometric
+// camera is presentation and only reuses these numbers.
+export const VIEW_ZOOM_MIN = .05, VIEW_ZOOM_MAX = 3;
 export const COST: Record<Tool | 'demolish', number> = {road:10,residential:40,commercial:60,industrial:80,park:30,power:500,demolish:5};

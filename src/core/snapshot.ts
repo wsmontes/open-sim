@@ -1,5 +1,6 @@
 import type {BaseChunk,Cell,GameState,ManagedChunk,SavedGame,ViewState} from './model';
 import {CHUNK,chunkOrigin} from './coordinates';
+import {VIEW_ZOOM_MAX,VIEW_ZOOM_MIN} from './model';
 export const SAVE_VERSION = 1;
 const RESERVED = ['__proto__','constructor','prototype'];
 const TERRAIN = ['land','water','green'];
@@ -94,7 +95,7 @@ function viewState(value: unknown): ViewState {
  if (!plain(value)) throw new Error('Visão inválida');
  if (typeof value.place !== 'string') throw new Error('Lugar inválido');
  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) throw new Error('Posição da câmera inválida');
- if (!Number.isFinite(value.zoom) || (value.zoom as number) < 0.5 || (value.zoom as number) > 3) throw new Error('Zoom inválido');
+ if (!Number.isFinite(value.zoom) || (value.zoom as number) < VIEW_ZOOM_MIN || (value.zoom as number) > VIEW_ZOOM_MAX) throw new Error('Zoom inválido');
  if (value.speed !== 0 && value.speed !== 1 && value.speed !== 2) throw new Error('Velocidade inválida');
  return {x:value.x as number, y:value.y as number, zoom:value.zoom as number, speed:value.speed as ViewState['speed'], place:value.place};
 }

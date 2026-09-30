@@ -3,6 +3,7 @@ import {decodeSave,encodeSave} from '../src/core/snapshot';
 import {applyCommand,createGame} from '../src/core/commands';
 import {blank,command} from './fixtures/world';
 import type {SavedGame} from '../src/core/model';
+import {VIEW_ZOOM_MAX,VIEW_ZOOM_MIN} from '../src/core/model';
 function saved():SavedGame{
  const b=blank();b.cells[0]={terrain:'land',road:true,origin:'imported'};b.cells[33]={terrain:'land',building:'residential',stage:2,origin:'imported'};
  const game=createGame('mundo',7,b);
@@ -38,7 +39,7 @@ test('decodeSave rejects every malformed snapshot',()=>{
   ['empty world id',x=>{x.state.worldId='';}],
   ['long world id',x=>{x.state.worldId='m'.repeat(81);}],
   ['zoom out of range',x=>{x.view.zoom=9;}],
-  ['tiny zoom',x=>{x.view.zoom=0.4;}],
+  ['tiny zoom',x=>{x.view.zoom=0.01;}],
   ['unknown speed',x=>{x.view.speed=3;}],
   ['infinite camera',x=>{x.view.x=Infinity;}],
   ['non finite seed',x=>{x.state.seed=NaN;}],
@@ -80,4 +81,12 @@ test('a decoded save keeps working with the core commands',()=>{
  const restored=decodeSave(encodeSave(saved())), before=restored.state.money;
  const replay=applyCommand(restored.state,{version:1,worldId:'mundo',actorId:'local-player',sequence:3,expectedRevision:restored.state.revision,action:{type:'build',tool:'park',cells:[{x:3,y:3}]}},[]);
  expect(replay.status).toBe('applied');expect(replay.state.money).toBe(before-30);
+});
+
+test('the snapshot accepts exactly the zoom range the camera can produce',()=>{
+ for(const zoom of [VIEW_ZOOM_MIN,0.2,0.5,1.25,VIEW_ZOOM_MAX]){
+  const x=saved();x.view={...x.view,zoom};
+  expect(decodeSave(JSON.parse(encodeSave(x))).view.zoom,`zoom ${zoom}`).toBe(zoom);
+ }
+ for(const zoom of [VIEW_ZOOM_MIN/2,VIEW_ZOOM_MAX+0.01]){const x=saved();x.view={...x.view,zoom};expect(()=>decodeSave(x),`zoom ${zoom}`).toThrow('Zoom inválido');}
 });

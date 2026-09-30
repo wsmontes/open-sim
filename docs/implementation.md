@@ -28,6 +28,8 @@ Todos os dados são objetos JSON, sem `Map`, `Set`, função ou valor não finit
 - **`SavedGame` / `ViewState`**: `{version, state, view}`; a câmera, o zoom, a velocidade e o lugar ficam no `view`, fora do estado compartilhável da cidade.
 - **`canonicalJson`** (`src/core/snapshot.ts`): chaves ordenadas, sem espaços, terminador `\n`. É o mesmo texto para o mesmo valor em qualquer runtime — é o que permite comparar o replay do Node com o do browser byte a byte.
 
+Os limites de zoom da visão salva (`VIEW_ZOOM_MIN`/`VIEW_ZOOM_MAX`, 0,05 a 3) ficam no núcleo porque o snapshot precisa validá-los; a câmera isométrica é apresentação e apenas reutiliza as mesmas constantes. Sem isso, ampliar a faixa de zoom tornaria ilegível todo save existente — e o jogador veria "save incompatível" depois de uma mudança de código.
+
 Versões: `formatVersion` e `rulesVersion` descrevem o estado; `SAVE_VERSION` o envelope; `normalizerVersion` a conversão do mapa. Mudar regra de simulação exige subir `rulesVersion`; `decodeSave` recusa versões que não conhece em vez de adivinhar.
 
 ## Sessão local
