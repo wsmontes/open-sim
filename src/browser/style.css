@@ -32,6 +32,12 @@ body{background:#16222f;color:var(--ink);font:13px/1.35 "Lucida Grande",Verdana,
 #hud-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px}
 #hud-tools button{display:flex;justify-content:space-between;gap:6px;text-align:left}
 #hud-now{margin:0;color:#6d5f49;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+/* What the real city is, next to what the player built: two different orders of magnitude, said plainly. */
+#city-facts{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:0}
+#city-facts dt{margin:0;color:#6d5f49;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+#city-facts dd{margin:0;font-variant-numeric:tabular-nums;font-weight:700}
+#city-scale{margin:0;color:#4c5f74;font-size:11px}
+#city-source{margin:0;font-size:11px}
 #hud-place{color:var(--ink);font-size:13px;font-weight:700;text-transform:none;letter-spacing:0}
 #hud-places{display:flex;gap:4px;flex-wrap:wrap}
 #place-form{display:flex;align-items:center;gap:4px;flex-wrap:wrap}

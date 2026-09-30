@@ -1,5 +1,7 @@
 import {createOsmSource} from '../adapters/osm/provider';
 import {createIndexedDbTileCache} from '../adapters/osm/tile-cache';
+import {createWikidataDirectory} from '../adapters/reality/wikidata';
+import type {CityFacts} from '../adapters/reality/wikidata';
 import {createIndexedDbStore} from '../adapters/storage/indexed-db';
 import {createIndexedDbWorldStorage} from '../adapters/storage/world-indexed-db';
 import {createJcsCodec} from '../adapters/codec/jcs';
@@ -54,7 +56,56 @@ const WORLD_ID='open-sim',BRANCH_ID='main',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNC
 // The terms the frozen base travels under (spec R12): a world exported from here says where its data came from.
 const WORLD_TERMS=[{source:'OpenStreetMap · Shortbread v1',attribution:'© OpenStreetMap contributors',license:'ODbL'}];
 const TOOL_LABELS:Record<Tool,string>={road:'Rua',residential:'Residencial',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'};
-const PLACES:Record<string,{lat:number;lon:number}>={Vancouver:{lat:49.2827,lon:-123.1207},'São Paulo':{lat:-23.5505,lon:-46.6333},Lisboa:{lat:38.7223,lon:-9.1393}};
+// The places the client ships with, each carrying the population Wikidata states for it — read on 2026-09-30 from the
+// QID beside it, and only the values that were actually read: a number nobody fetched is absent, never remembered.
+// A curated starting point is not a claim of permanence, which is why the live lookup below refreshes it.
+const PLACES:Record<string,{lat:number;lon:number;facts:CityFacts}>={
+ Vancouver:{lat:49.2827,lon:-123.1207,facts:{id:'Q24639',label:'Vancouver',population:662248,populationYear:2021,source:{dataset:'Wikidata',url:'https://www.wikidata.org/wiki/Q24639',license:'CC0'}}},
+ 'São Paulo':{lat:-23.5505,lon:-46.6333,facts:{id:'Q174',label:'São Paulo',country:'Brasil',population:11904961,populationYear:2025,source:{dataset:'Wikidata',url:'https://www.wikidata.org/wiki/Q174',license:'CC0'}}},
+ Lisboa:{lat:38.7223,lon:-9.1393,facts:{id:'Q597',label:'Lisboa',population:545796,populationYear:2021,source:{dataset:'Wikidata',url:'https://www.wikidata.org/wiki/Q597',license:'CC0'}}},
+};
+// What the real city is, next to what the player built. The two are different orders of magnitude on purpose: the
+// game is a neighbourhood inside a real place, and saying so is more interesting than pretending the simulation
+// accounts for eleven million people.
+const cityDirectory=createWikidataDirectory();
+let cityFacts:CityFacts|null=null;
+const slugOf=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'cidade';
+const rowOf=(element:HTMLElement|null,value:string|null)=>{
+ if(!element)return;
+ const row=element.parentElement;
+ if(row)row.hidden=value===null;
+ element.textContent=value??'';
+};
+const updateCityScale=()=>{
+ if(!cityScaleEl)return;
+ if(!cityFacts?.population){cityScaleEl.textContent='';cityScaleEl.hidden=true;return;}
+ const built=session.getState().components['city.census'];
+ const fact=(built?Object.values(built)[0]:null) as Record<string,unknown>|null;
+ const simPopulation=summarize(session.getState()).population;
+ cityScaleEl.hidden=false;
+ cityScaleEl.textContent=fact?`Sua cidade reúne ${simPopulation.toLocaleString('pt-BR')} moradores simulados; a cidade real tem ${cityFacts.population.toLocaleString('pt-BR')} — o que você constrói é um bairro dentro dela.`:'';
+};
+const showCityFacts=(facts:CityFacts|null)=>{
+ cityFacts=facts;
+ if(cityFactsEl)cityFactsEl.hidden=!facts;
+ rowOf(cityPopulationEl,facts?.population!==undefined?`${facts.population.toLocaleString('pt-BR')}${facts.populationYear?` · ${facts.populationYear}`:''}`:null);
+ rowOf(cityCountryEl,facts?.country??null);
+ rowOf(cityAreaEl,facts?.areaKm2!==undefined?`${facts.areaKm2.toLocaleString('pt-BR')} km²`:null);
+ if(citySourceEl)citySourceEl.textContent=facts?`${facts.source.dataset} · ${facts.source.license} · ${facts.source.url}`:'';
+ updateCityScale();
+};
+// The census travels into the world as a component of the city profile, so a shared session sees the same figure the
+// screen shows instead of each client asking again.
+const publishCityFacts=(facts:CityFacts)=>{
+ void sessions.submitAction({type:'component',key:'city.census',entity:slugOf(facts.label),value:{population:facts.population??null,year:facts.populationYear??null,country:facts.country??null,dataset:facts.source.dataset,url:facts.source.url}});
+};
+const lookUpCity=async(lat:number,lon:number,name?:string)=>{
+ const live=name?await cityDirectory.named(name,'pt'):null;
+ const facts=live??await cityDirectory.near(lat,lon,25);
+ if(!facts)return;
+ showCityFacts(facts);
+ publishCityFacts(facts);
+};
 const EMPTY_STATS:CityStats={money:0,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:0,income:0,managed:0};
 // One pending run per window: a burst coalesces into a single run that reads the newest state when it
 // fires, so a periodic tick arriving every `wait` ms can never starve the save or the map load.
@@ -77,6 +128,12 @@ const hudRoot=element<HTMLElement>('#hud');
 const ctx=canvas.getContext('2d');
 if(!ctx)throw new Error('Canvas 2D indisponível neste navegador.');
 const costEl=hudRoot.querySelector<HTMLElement>('#cost-preview');
+const cityFactsEl=hudRoot.querySelector<HTMLElement>('#city-facts');
+const cityPopulationEl=hudRoot.querySelector<HTMLElement>('#city-population');
+const cityCountryEl=hudRoot.querySelector<HTMLElement>('#city-country');
+const cityAreaEl=hudRoot.querySelector<HTMLElement>('#city-area');
+const cityScaleEl=hudRoot.querySelector<HTMLElement>('#city-scale');
+const citySourceEl=hudRoot.querySelector<HTMLElement>('#city-source');
 const tileCacheInfo=hudRoot.querySelector<HTMLElement>('#tile-cache');
 const placeError=hudRoot.querySelector<HTMLElement>('#place-error');
 const placeForm=hudRoot.querySelector<HTMLFormElement>('#place-form');
@@ -261,7 +318,15 @@ const moveTo=(lat:number,lon:number,label:string)=>{
 };
 function onTool(next:SelectedTool){tool=next;stroke=null;refreshPreview();updateHud();}
 function onSpeed(next:Speed){speed=next;clock.setSpeed(next);scheduleSave();updateHud();}
-function onPlace(name:string){const target=PLACES[name];if(target)moveTo(target.lat,target.lon,name);}
+function onPlace(name:string){
+ const target=PLACES[name];
+ if(!target)return;
+ moveTo(target.lat,target.lon,name);
+ // The bundled figure is on screen before the network answers, and the live one replaces it when it does.
+ showCityFacts(target.facts);
+ publishCityFacts(target.facts);
+ void lookUpCity(target.lat,target.lon,name);
+}
 function onRetryMap(){if(active){void loadVisible();return;}void start();}
 function onOverwriteSave(){session.enableSaving();saveNow();}
 function describeWorldError(error:unknown):string{
@@ -721,6 +786,8 @@ attachInput(canvas,{camera:()=>camera,tool:()=>tool,strokeShape:()=>BOX_TOOLS.ha
   }
   if(placeError)placeError.hidden=true;
   moveTo(lat,lon,`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+ // Anywhere the player goes, the city they are standing in is asked for by coordinates.
+ void lookUpCity(lat,lon);
  });
  document.addEventListener('visibilitychange',()=>{
   clock.setHidden(document.hidden);
