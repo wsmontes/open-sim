@@ -388,6 +388,21 @@ Consequências para as tarefas 8–17, que passam a ser executadas com este cont
 5. **Nada de evento por quadro.** Movimento e tráfego de sessão continuam efêmeros; só resultados significativos são
    publicados como eventos (§24).
 
+### Deltas das tarefas 8–17 na fronteira do protocolo
+
+O conteúdo de cada tarefa continua o do checklist; esta tabela só fixa o que muda agora que o protocolo é a fronteira.
+
+| Tarefa | Delta |
+| --- | --- |
+| 8 WebRTC | O adaptador implementa **duas** portas, porque são classes de tráfego diferentes (§24): `SessionTransport` (mensagem, controle/durável/efêmero) e `KernelTransport` (objeto: `publish`/`query`/`subscribe`/`resolve`, §30). O descritor da sessão é publicado como objeto `session` (§23) e `join` o resolve. Sinalização continua manual/assinada; oferta antiga é recusada por época. |
+| 9 Experiência | A UI distingue salvamento local, replicado, pendente e pausado, e mostra o descritor da sessão e os participantes. Só **resultados** significativos viram eventos; movimento continua efêmero (§24). |
+| 10 Nostr | Identidade por NIP-07 vira ator do protocolo (`nostr:npub…` é a URI do ator); convite é objeto `capability` + descritor de sessão por mensagem privada, e possuir o link não concede escrita (§28). O adaptador de relay implementa `KernelTransport` (§30). NIP-78 nunca para descoberta pública. |
+| 11 Matrix | Mesmas portas do 10; conta autenticada, sala e aprovação entram no vínculo verificável, e power level de sala **não** é permissão de jogo. `matrix:…` é a URI do ator. `matrixResult.semanticHash` = `nostrResult.semanticHash` no mesmo cenário. |
+| 13 Recuperação | `prepareHandover` publica uma `capability` com emissor, sucessor, branch, época e último head; o sucessor entra por `join`. Recuperação nunca escolhe só pelo mais recente (§28: autoridade é escopada, e `activeWritersForBranch` é 1 na transferência válida e 0 na divergência não resolvida). |
+| 15 Dados e observações | Observação é componente do perfil com `validTime`/`observedTime` vindos de `osimTimeFrom` (§13) — nunca a data de download como data do fato. GTFS vira `DatasetRevision` (tarefa 2) + entidades de parada/linha com `osim.transform`; replay sem rede é requisito. |
+| 16 Entidades e segundo perfil | Entidade genérica usa `osim.transform`, `osim.existence` e `osim.name` do vocabulário central; a célula continua endereço do motor, nunca do contrato (§5 do world-protocol). O segundo perfil prova `§47` na prática: entende só o que implementa e preserva o resto. |
+| 17 Conformidade e links | O checklist do §47 vira verificação pública; `osim://` de navegação (§40) identifica uma vista, não um servidor; o documento de conformidade aponta `docs/kernel.md` como pseudocódigo de referência. |
+
 ## Execução
 
 | Tarefa | Commit | Evidência registrada |
