@@ -31,7 +31,8 @@ type WorldManifest = {
 type Components = Record<string, Record<string, unknown>>;   // namespace -> entidade -> valor
 ```
 
-O perfil cidade escreve o seu próprio estado (`chunks`, `money`, `tick`, `actors`) e qualquer outro perfil anexa o dele sob um namespace que este cliente não precisa entender: `lifesim.residence`, `vehicle.transform`, `population.aggregate`. Regras do namespace: `perfil.nome`, minúsculas, sem palavra reservada em nenhum segmento; identificadores de entidade `[-\w]{1,80}`; payload apenas JSON simples (sem `undefined`, `NaN`, função, instância de classe, e com limites de profundidade e tamanho).
+O perfil cidade escreve o seu próprio estado (`chunks`, `money`, `tick`, `actors`) e qualquer outro perfil anexa o dele sob um namespace que este cliente não precisa entender: `lifesim.residence`, `vehicle.transform`, `population.aggregate`. Regras do namespace (`OpenSim Protocol 0.1` §8): `perfil.nome`, primeira letra de cada segmento minúscula e o resto
+livre (`x.wagner.experimentalTrafficModel` é legal), sem palavra reservada em nenhum segmento; identificadores de entidade `[-\w]{1,80}`; payload apenas JSON simples (sem `undefined`, `NaN`, função, instância de classe, e com limites de profundidade e tamanho).
 
 Um componente é escrito pelo comando normal, com o mesmo envelope, sequência, revisão e deduplicação:
 
@@ -74,6 +75,20 @@ Regras de schema decididas aqui: os objetos críticos (envelope, definição, ca
 Desvio registrado do plano: a assinatura `importLegacy(save)` não podia funcionar sem as duas portas que a própria tarefa define (um `ObjectRef` exige hash), então a função recebe `hasher` e `codec` além do save. `decodeBundle` também aceita limites injetáveis, para os testes exercitarem as recusas sem alocar dezenas de megabytes.
 
 Verificação: `npx vitest run tests/world-bundle.test.ts` (7 testes, incluindo os vetores publicados da RFC 8785), `npx tsc -p tsconfig.world.json` e o teste de arquitetura, que agora exige `world → core/world` e nenhum DOM/Node nesse módulo.
+
+## Fronteira com o OpenSim Protocol 0.1
+
+Decidido em 2026-09-29: o protocolo geral (`docs/OpenSim-Protocol-0.1.txt`, `osim/0.1`) passa a ser a fronteira de
+interoperabilidade. O manifesto e os componentes deste documento continuam sendo o estado durável **local**; o que sai
+para outro ecossistema sai no envelope do protocolo, com identificadores URI e as quatro operações de estado
+(`set`/`merge`/`remove`/`delete`). O contrato vive em `src/world/osim.ts`, compilado sem DOM e sem Node, e
+`tests/osim-boundary.test.ts` verifica inclusive o checklist de conformidade do §47 do protocolo.
+
+Duas políticas convivem, e a diferença é o ponto: **registro de protocolo é fechado** (envelope, cabeça, referências,
+completude recusam campo que não conhecem, e acrescentar um exige versão nova), **componente é aberto** (campo e
+namespace desconhecidos atravessam intactos, como já acontece no save e no manifesto).
+
+O que ainda depende desta decisão está nas tarefas 8–17 do [plano](superpowers/plans/2026-09-29-federated-world.md#reconciliação-com-o-opensim-protocol-01).
 
 ## O que ainda falta, em ordem
 

@@ -344,6 +344,47 @@ Limpeza a fazer quando ninguém estiver escrevendo: repartir esses dois commits,
 republicar com `--force-with-lease`. Desde então o stage é sempre por caminho explícito e cada commit é conferido com
 `git show --stat`.
 
+## Reconciliação com o OpenSim Protocol 0.1
+
+Decisão do usuário (2026-09-29): **o protocolo é a fronteira de interoperabilidade** (`docs/OpenSim-Protocol-0.1.txt`,
+`osim/0.1`). O manifesto e os componentes do núcleo (`src/core/protocol.ts`) continuam sendo o estado durável local; o
+pacote v2 passa a ser um formato de transporte internos, e tudo o que sai deste cliente para outro ecossistema sai no
+envelope do protocolo.
+
+O contrato da fronteira está em `src/world/osim.ts` (puro, sem DOM/Node, com `tests/osim-boundary.test.ts` como
+verificação, incluindo o checklist de conformidade §47 como teste):
+
+| Peça do protocolo | Neste cliente |
+| --- | --- |
+| Envelope `{osim:'0.1', type, id, actor, body}` (§48) | `checkEnvelope`/`envelopeOf`; envelope **fechado**, `body` aberto |
+| Identificadores `osim:<kind>:<id>` e URIs alheias (§4) | `parseOsimUri`, `entityUri`, `timelineUri`, `entityIdOf`; `did:key:…`, `https://…`, `sha256:…` passam intactos |
+| `set` / `merge` / `remove` / `delete` (§15) | `applyEvent` puro sobre `Components`; `merge` preserva campo que este cliente não escreveu; `delete` devolve tombstone |
+| Vocabulário central `osim.*` (§9) | `checkCoreComponent` valida `osim.transform`, `existence`, `name`, `bounds`, `relations`, `layer` **sem rejeitar campo novo**, e namespace central não implementado é carregado |
+| Tempo: quando aconteceu ≠ quando soubemos (§13) | `osimTimeFrom`: `time` = instante do registro, `observedTime` = quando soubemos, `validTime` = só se a fonte nomeou um instante, período continua período |
+| Espaços nomeados (§10) | `osim.transform.space` aponta para `osim:space:earth`; a grade `2^22 × 32` continua endereço do motor |
+| Camadas (§19) | `osim.layer` no vocabulário central; a composição da Tarefa 14 publica camadas como entidades |
+| Capacidades (§27–28) | o `Grant` da Tarefa 6 já é escopado por namespace/entidade/região; `epoch` e `spendLimit` viajam como extensão |
+| Linhas do tempo (§11–12) | branch ↔ `osim:timeline:<branchId>`, com `parent`/`forkAt` no manifesto; o armazenamento por divergência continua na Tarefa 3 |
+| Assets (§21–22) | Tarefa 12 (direto/HTTP/Blossom, endereçados por conteúdo, vários provedores) |
+| Sessão (§23–26) | Tarefas 7–9; tráfego de sessão não vira evento durável |
+| Operações `resolve/query/publish/subscribe/join` (§39) | nomes expostos na camada de sessão sobre o que já existe (resolver objeto, consultar região/tempo, publicar, assinar, entrar na sessão) |
+
+Consequências para as tarefas 8–17, que passam a ser executadas com este contrato e não com o anterior:
+
+1. **Regra de duas políticas.** Registro de protocolo (envelope, cabeça, referências, completude) é fechado e recusa
+   campo desconhecido; **componente é aberto e sempre preservado**, em qualquer nível. A frase "campo desconhecido é
+   recusado" de `docs/world-protocol.md` vale só para o primeiro caso.
+2. **Namespace.** A regra local era minúsculas; o protocolo §8 documenta `x.wagner.experimentalTrafficModel`. A regra
+   passou a aceitar maiúscula depois da primeira letra de cada segmento (`src/core/protocol.ts`), e é isso que permite
+   carregar os exemplos do próprio protocolo.
+3. **Identidade.** O `actorId` interno de 66 caracteres continua endereço do núcleo; o ator do protocolo é a URI do
+   principal. Toda mensagem publicada carrega `actor` com esquema (`did:key:…`, `nostr:…`, `matrix:…`), e um ator sem
+   esquema é recusado.
+4. **Intenção do perfil.** As ações do jogo (construir, demolir, tick) não entram no protocolo: elas são intenção do
+   perfil cidade e viram eventos sobre os componentes do próprio perfil. É o teste de desenho do §51 aplicado.
+5. **Nada de evento por quadro.** Movimento e tráfego de sessão continuam efêmeros; só resultados significativos são
+   publicados como eventos (§24).
+
 ## Execução
 
 | Tarefa | Commit | Evidência registrada |

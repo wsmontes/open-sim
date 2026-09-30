@@ -16,7 +16,10 @@ function canonical(value: unknown): string {
  }
  throw new Error('Valor não serializável');
 }
-const COMPONENT_KEY = /^[a-z][a-z0-9]*(\.[a-z][a-z0-9_]*)+$/;
+// Namespace rule from the OpenSim protocol §8: a lowercase first letter per segment, then letters, digits or
+// underscore — which is what the protocol's own examples need (`org.openstreetmap.*`, `x.wagner.experimentalTrafficModel`).
+// Mixed case inside a segment is therefore legal: refusing it would refuse the protocol's examples verbatim.
+const COMPONENT_KEY = /^[a-z][a-zA-Z0-9]*(\.[a-z][a-zA-Z0-9_]*)+$/;
 const ENTITY_ID = /^[-\w]{1,80}$/;
 const RESERVED = ['__proto__', 'constructor', 'prototype'];
 const MAX_NODES = 8192, MAX_DEPTH = 16;

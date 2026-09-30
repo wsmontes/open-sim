@@ -1,0 +1,1926 @@
+# OpenSim Protocol 0.1
+
+**Status:** Draft  
+**Version:** 0.1  
+**Protocol identifier:** `osim/0.1`
+
+## 1. Purpose
+
+OpenSim is a local-first protocol for interoperable simulated realities.
+
+It defines a minimal common language through which independent applications can:
+
+- describe entities;
+- place them in space and time;
+- attach independently understood components;
+- publish changes;
+- compose multiple sources of reality;
+- participate in synchronous sessions;
+- continue operating offline;
+- synchronize through arbitrary federated infrastructure.
+
+OpenSim does **not** define a game engine, rendering engine, physics engine, social network, asset server, authoritative backend, or virtual world.
+
+A city builder, driving game, life simulator, astronomy simulator, geographic viewer, digital twin, and other applications MAY all interpret the same OpenSim world differently.
+
+The protocol models **reality state**, not game genres.
+
+---
+
+# 2. Constitutional principles
+
+An OpenSim-compatible implementation follows these principles.
+
+## 2.1 Local-first
+
+The local device is a first-class holder of world state.
+
+An application MUST remain capable of reading and modifying locally available state when disconnected whenever the semantics of the operation permit it.
+
+Network infrastructure is primarily used for:
+
+- discovery;
+- replication;
+- publication;
+- synchronization;
+- signalling;
+- persistence;
+- asset retrieval.
+
+A specific server MUST NOT be required for the continued existence of a world.
+
+---
+
+## 2.2 Transport independence
+
+OpenSim does not require a specific federation protocol.
+
+The same OpenSim object MAY be transported over:
+
+- Nostr;
+- Matrix;
+- AT Protocol;
+- ActivityPub;
+- WebRTC;
+- HTTP;
+- Bluetooth;
+- local files;
+- removable media;
+- future transports.
+
+Transport adapters MUST NOT change the semantic meaning of an OpenSim object.
+
+---
+
+## 2.3 Partial understanding
+
+Applications are not expected to understand every component.
+
+An implementation receiving an unknown component:
+
+```text
+osim.example.quantumDragonMood
+```
+
+MUST be allowed to ignore it without rejecting the entity containing it.
+
+Interoperability therefore grows incrementally.
+
+---
+
+## 2.4 Independent component authority
+
+Authority MAY apply to individual components rather than entire entities.
+
+For example:
+
+```text
+building.geometry     city simulator
+building.address      geographic dataset
+building.interior     resident
+building.damage       current game session
+building.weather      weather source
+```
+
+No application is required to own the whole object.
+
+---
+
+## 2.5 Space and time are coordinates
+
+OpenSim treats space and time as first-class dimensions.
+
+An entity is not merely:
+
+```text
+something
+```
+
+but potentially:
+
+```text
+something
+at a place
+on a timeline
+at a time
+according to a source
+```
+
+---
+
+## 2.6 Reality is compositional
+
+A world is not necessarily stored as one canonical document.
+
+A world view can be composed from layers:
+
+```text
+Earth geography
++ player modifications
++ current weather
++ traffic
++ race session
++ private household state
+```
+
+Different applications MAY compose different views of the same underlying world.
+
+---
+
+# 3. Core model
+
+OpenSim 0.1 defines six primary objects:
+
+```text
+Entity
+Component
+Event
+Timeline
+Snapshot
+Session
+```
+
+and one auxiliary object:
+
+```text
+Capability
+```
+
+Only five core operations exist:
+
+```text
+resolve()
+query()
+publish()
+subscribe()
+join()
+```
+
+Everything else is implementation detail.
+
+---
+
+# 4. Identifiers
+
+All globally referenceable OpenSim resources use URIs.
+
+Recommended form:
+
+```text
+osim:<kind>:<identifier>
+```
+
+Examples:
+
+```text
+osim:entity:7f3a91...
+osim:timeline:earth-main
+osim:session:race-a92d
+osim:snapshot:c8821...
+osim:component:transform
+```
+
+An implementation MAY also reference external resources directly:
+
+```text
+https://...
+did:key:...
+urn:...
+ipfs:...
+nostr:...
+```
+
+OpenSim MUST NOT require a central identifier registry.
+
+Globally created identifiers SHOULD contain enough entropy to avoid coordination between creators.
+
+---
+
+# 5. Actors
+
+An actor represents an identity capable of publishing signed state.
+
+Examples:
+
+```text
+person
+game
+simulation
+organization
+dataset
+device
+sensor
+AI agent
+weather service
+```
+
+Actor identifiers MUST be URIs.
+
+Example:
+
+```json
+{
+  "actor": "did:key:z6Mk..."
+}
+```
+
+OpenSim does not require human-readable accounts or usernames.
+
+---
+
+# 6. Entity
+
+An Entity represents anything that has persistent identity.
+
+Examples include:
+
+```text
+person
+road
+building
+tree
+vehicle
+room
+planet
+weather system
+business
+animal
+race
+city
+```
+
+Minimal representation:
+
+```json
+{
+  "type": "entity",
+  "id": "osim:entity:7f3a91",
+  "components": {}
+}
+```
+
+An entity MAY contain zero or more components.
+
+Entities intentionally have no required class hierarchy.
+
+There is no protocol-level distinction such as:
+
+```text
+Vehicle extends Machine
+Car extends Vehicle
+```
+
+Meaning comes from components.
+
+---
+
+# 7. Component
+
+A Component describes one independent aspect of an Entity.
+
+Example:
+
+```json
+{
+  "osim.transform": {
+    "space": "osim:space:earth",
+    "position": {
+      "lat": 48.4284,
+      "lon": -123.3656,
+      "alt": 14.2
+    }
+  }
+}
+```
+
+Another application may add:
+
+```json
+{
+  "osim.vehicle": {
+    "class": "car"
+  }
+}
+```
+
+And another:
+
+```json
+{
+  "example.insurance": {
+    "status": "insured"
+  }
+}
+```
+
+An application that understands only `osim.transform` can still use the entity.
+
+---
+
+# 8. Component namespaces
+
+Core components use:
+
+```text
+osim.*
+```
+
+Community or application-specific components SHOULD use stable namespaces.
+
+Examples:
+
+```text
+org.openstreetmap.*
+com.example.racing.*
+net.wawasoft.sim.*
+```
+
+Experimental components MAY use:
+
+```text
+x.*
+```
+
+Example:
+
+```text
+x.wagner.experimentalTrafficModel
+```
+
+---
+
+# 9. Core components
+
+OpenSim 0.1 defines only a very small core vocabulary.
+
+## 9.1 `osim.transform`
+
+Where something exists.
+
+```json
+{
+  "space": "osim:space:earth",
+  "position": {
+    "lat": 48.4284,
+    "lon": -123.3656,
+    "alt": 12.5
+  },
+  "orientation": {
+    "yaw": 122.4,
+    "pitch": 0,
+    "roll": 0
+  }
+}
+```
+
+Coordinate representations MAY vary according to the referenced space.
+
+---
+
+## 9.2 `osim.geometry`
+
+Visual or physical geometry.
+
+```json
+{
+  "asset": "sha256:6f29...",
+  "mediaType": "model/gltf-binary"
+}
+```
+
+The protocol does not transport large geometry inline.
+
+---
+
+## 9.3 `osim.bounds`
+
+Spatial extent.
+
+```json
+{
+  "shape": "sphere",
+  "radius": 2.1
+}
+```
+
+or:
+
+```json
+{
+  "shape": "bbox",
+  "min": [-2.1, 0, -4.5],
+  "max": [2.1, 3.2, 4.5]
+}
+```
+
+---
+
+## 9.4 `osim.name`
+
+Human-readable labels.
+
+```json
+{
+  "default": "Johnson Street",
+  "translations": {
+    "pt": "Rua Johnson"
+  }
+}
+```
+
+---
+
+## 9.5 `osim.relations`
+
+Relationships between entities.
+
+```json
+{
+  "inside": "osim:entity:building-32",
+  "owner": "osim:entity:actor-99"
+}
+```
+
+Relations MAY themselves be represented as entities when richer semantics are required.
+
+---
+
+## 9.6 `osim.existence`
+
+Defines the available resolution of an entity.
+
+```json
+{
+  "level": "materialized"
+}
+```
+
+Core levels:
+
+```text
+abstract
+simulated
+materialized
+observed
+```
+
+Meaning:
+
+**abstract**  
+The entity is represented only symbolically or statistically.
+
+**simulated**  
+It has independently evolving state.
+
+**materialized**  
+Detailed representation exists for current interaction.
+
+**observed**  
+Its state comes from an external observation of reality.
+
+These levels are descriptive rather than strictly hierarchical.
+
+---
+
+# 10. Space
+
+Space is itself modeled as an entity.
+
+Example:
+
+```json
+{
+  "type": "entity",
+  "id": "osim:space:earth",
+  "components": {
+    "osim.space": {
+      "referenceSystem": "EPSG:4978"
+    }
+  }
+}
+```
+
+Nested spaces can exist.
+
+```text
+Earth
+└── Victoria
+    └── Building
+        └── Apartment
+            └── Room
+```
+
+An interior therefore does not need meaningful latitude/longitude for every object.
+
+A chair MAY have coordinates relative to:
+
+```text
+osim:space:living-room-42
+```
+
+while the room has a transform relative to:
+
+```text
+osim:space:apartment-303
+```
+
+and the apartment ultimately resolves to Earth coordinates.
+
+---
+
+# 11. Timeline
+
+A Timeline defines a temporal frame.
+
+Minimal example:
+
+```json
+{
+  "type": "timeline",
+  "id": "osim:timeline:earth-main",
+  "clock": "utc",
+  "rate": 1
+}
+```
+
+A derived timeline:
+
+```json
+{
+  "type": "timeline",
+  "id": "osim:timeline:wagner-city",
+  "parent": "osim:timeline:earth-main",
+  "forkAt": "2026-09-29T20:00:00Z",
+  "rate": 120
+}
+```
+
+`rate` means:
+
+```text
+1       normal real-time
+10      ten simulated seconds per reference second
+0       paused
+0.5     half-speed
+```
+
+Negative rates MAY be supported by applications for replay, but OpenSim does not require reverse simulation.
+
+---
+
+# 12. Multiple timelines
+
+The same entity MAY exist on multiple timelines.
+
+For example:
+
+```text
+earth-main
+earth-yesterday-replay
+city-player-A
+city-player-B
+race-2026-09-29
+historical-1945
+```
+
+A timeline MAY fork from another timeline.
+
+This makes alternate realities a native operation rather than a special game mechanic.
+
+---
+
+# 13. Time coordinates
+
+Events SHOULD identify:
+
+```json
+{
+  "timeline": "osim:timeline:earth-main",
+  "time": "2026-09-29T22:30:00Z"
+}
+```
+
+Observed real-world information MAY additionally carry:
+
+```json
+{
+  "validTime": "2026-09-29T22:20:00Z",
+  "observedTime": "2026-09-29T22:23:41Z"
+}
+```
+
+This allows OpenSim to distinguish:
+
+> when something happened
+
+from:
+
+> when the network learned that it happened.
+
+---
+
+# 14. Event
+
+An Event represents a change.
+
+Events are immutable.
+
+Minimal form:
+
+```json
+{
+  "type": "event",
+  "id": "osim:event:a92f...",
+  "entity": "osim:entity:car-42",
+  "component": "osim.damage",
+  "op": "set",
+  "value": {
+    "amount": 0.42
+  },
+  "timeline": "osim:timeline:earth-main",
+  "time": "2026-09-29T22:33:18.402Z",
+  "actor": "did:key:z6Mk..."
+}
+```
+
+---
+
+# 15. Core event operations
+
+OpenSim 0.1 defines only four state operations.
+
+```text
+set
+merge
+remove
+delete
+```
+
+## `set`
+
+Replace the component value.
+
+```json
+{
+  "op": "set",
+  "component": "osim.damage",
+  "value": {
+    "amount": 0.42
+  }
+}
+```
+
+## `merge`
+
+Merge fields into a structured component.
+
+```json
+{
+  "op": "merge",
+  "component": "osim.vehicle",
+  "value": {
+    "fuel": 0.7
+  }
+}
+```
+
+## `remove`
+
+Remove a component from an entity.
+
+```json
+{
+  "op": "remove",
+  "component": "osim.damage"
+}
+```
+
+## `delete`
+
+Mark the entity as deleted on the specified timeline.
+
+```json
+{
+  "op": "delete"
+}
+```
+
+Deletion SHOULD normally be tombstone-based rather than destructive.
+
+---
+
+# 16. Event ordering
+
+OpenSim does not assume that network delivery order equals simulation order.
+
+An event MAY include:
+
+```json
+{
+  "time": "...",
+  "sequence": 184,
+  "previous": "osim:event:..."
+}
+```
+
+Applications MUST tolerate:
+
+- duplicated events;
+- delayed events;
+- reordered events.
+
+Event IDs SHOULD allow duplicate detection.
+
+---
+
+# 17. Conflict handling
+
+OpenSim deliberately does not mandate one universal conflict strategy.
+
+A component schema MAY declare its merge semantics.
+
+Possible strategies include:
+
+```text
+last-writer
+CRDT
+highest-authority
+simulation-authority
+append-only
+manual
+domain-specific
+```
+
+Example component declaration:
+
+```json
+{
+  "component": "osim.name",
+  "merge": "last-writer"
+}
+```
+
+A banking balance and a collaborative object position obviously require different semantics.
+
+The protocol therefore separates:
+
+```text
+replication
+```
+
+from:
+
+```text
+domain conflict resolution
+```
+
+---
+
+# 18. Snapshot
+
+A Snapshot represents materialized world state at a known point.
+
+```json
+{
+  "type": "snapshot",
+  "id": "osim:snapshot:98fa...",
+  "timeline": "osim:timeline:earth-main",
+  "time": "2026-09-29T22:30:00Z",
+  "entities": [
+    "osim:entity:...",
+    "osim:entity:..."
+  ],
+  "previousEvent": "osim:event:..."
+}
+```
+
+Large snapshots SHOULD use external content-addressed blobs rather than inline entities.
+
+Conceptually:
+
+```text
+current state =
+snapshot
++
+subsequent events
+```
+
+Snapshots are optimization.
+
+Events remain the semantic history.
+
+---
+
+# 19. Layers
+
+A Layer is represented using an entity carrying `osim.layer`.
+
+Example:
+
+```json
+{
+  "type": "entity",
+  "id": "osim:layer:weather",
+  "components": {
+    "osim.layer": {
+      "source": "weather-provider",
+      "priority": 20
+    }
+  }
+}
+```
+
+A world view MAY request:
+
+```text
+base geography
++ municipal simulation
++ player construction
++ weather
++ current session
+```
+
+Layer order MAY influence which state is visible.
+
+Layers are composition mechanisms, not necessarily storage containers.
+
+---
+
+# 20. Sources and provenance
+
+Components and events MAY identify their source.
+
+```json
+{
+  "source": "https://example.org/dataset/123"
+}
+```
+
+or:
+
+```json
+{
+  "source": "osim:entity:weather-provider-x"
+}
+```
+
+Applications MAY use provenance to choose between conflicting observations.
+
+OpenSim itself does not determine which source is true.
+
+---
+
+# 21. Assets
+
+Large binary data is referenced rather than embedded.
+
+Recommended form:
+
+```json
+{
+  "asset": {
+    "hash": "sha256:6f29...",
+    "mediaType": "model/gltf-binary",
+    "size": 842983
+  }
+}
+```
+
+Potential content includes:
+
+```text
+3D models
+textures
+terrain tiles
+audio
+animation
+WASM modules
+large snapshots
+procedural datasets
+```
+
+An asset's identity SHOULD be content-addressed.
+
+The same hash MAY be retrievable from multiple independent providers.
+
+---
+
+# 22. Asset discovery
+
+Transport adapters MAY resolve a content hash through:
+
+```text
+Blossom
+IPFS
+HTTP mirrors
+peer-to-peer exchange
+local cache
+filesystem
+```
+
+OpenSim does not require a specific asset network.
+
+Clients SHOULD prefer already cached content.
+
+---
+
+# 23. Session
+
+A Session represents temporary high-frequency interaction between participants.
+
+Examples:
+
+```text
+race
+battle
+football match
+concert
+meeting
+shared editing session
+```
+
+Example:
+
+```json
+{
+  "type": "session",
+  "id": "osim:session:race-8291",
+  "space": "osim:space:victoria-road-42",
+  "timeline": "osim:timeline:race-8291",
+  "participants": [
+    "did:key:alice",
+    "did:key:bob"
+  ],
+  "mode": "realtime",
+  "startedAt": "2026-09-29T22:30:00Z"
+}
+```
+
+---
+
+# 24. Session state
+
+Session traffic SHOULD NOT normally be persisted as global OpenSim events.
+
+For example:
+
+```text
+steering angle
+every car position
+animation frame
+mouse movement
+physics impulses
+voice packets
+```
+
+MAY remain session-local.
+
+Meaningful results MAY later become persistent events.
+
+For example:
+
+```text
+race completed
+vehicle damaged
+new record
+object destroyed
+property transferred
+```
+
+---
+
+# 25. Session networking
+
+OpenSim does not mandate networking technology.
+
+A session MAY use:
+
+```text
+WebRTC
+QUIC
+WebTransport
+LAN multicast
+Bluetooth
+custom P2P networking
+```
+
+A federation transport MAY be used only for discovery and signalling.
+
+The actual simulation traffic MAY bypass federation infrastructure entirely.
+
+---
+
+# 26. Synchrony and asynchrony
+
+OpenSim treats synchronous and asynchronous interaction as complementary.
+
+Example:
+
+```text
+TODAY
+
+Alice and Bob race synchronously.
+
+AFTERWARD
+
+The race publishes:
+- final result
+- lap record
+- replay reference
+
+TOMORROW
+
+Carol enters the same road asynchronously.
+
+Her game can display:
+- Alice's ghost
+- Bob's ghost
+- previous record
+```
+
+The historical event becomes an **echo** of a previously synchronous experience.
+
+---
+
+# 27. Capability
+
+A Capability grants permission to perform an action.
+
+Minimal example:
+
+```json
+{
+  "type": "capability",
+  "issuer": "did:key:owner",
+  "subject": "did:key:alice",
+  "entity": "osim:entity:house-42",
+  "component": "osim.furniture",
+  "actions": [
+    "set",
+    "merge"
+  ]
+}
+```
+
+Capabilities MAY be delegated.
+
+OpenSim 0.1 does not mandate a specific capability-token implementation.
+
+---
+
+# 28. Authority
+
+When an event modifies shared state, an implementation MAY evaluate:
+
+```text
+Who signed it?
+What capability exists?
+Which component is affected?
+Which timeline is affected?
+Which simulation currently has authority?
+```
+
+Authority MAY change over time.
+
+Example:
+
+```text
+Normally:
+car.damage → vehicle owner
+
+During race:
+car.damage → race simulation
+
+After race:
+race publishes resulting damage → world timeline
+```
+
+---
+
+# 29. Signing
+
+Persistent OpenSim Events SHOULD be cryptographically signed.
+
+Conceptually:
+
+```json
+{
+  "actor": "did:key:z6Mk...",
+  "signature": "..."
+}
+```
+
+The exact cryptographic profile is intentionally outside the mandatory 0.1 core.
+
+A deployment profile SHOULD specify:
+
+```text
+canonical serialization
+signature algorithm
+public-key representation
+hash algorithm
+```
+
+This allows Nostr-oriented, DID-oriented, or other ecosystems to reuse their native cryptography.
+
+---
+
+# 30. Federation
+
+Federated infrastructure is treated as interchangeable transport.
+
+An OpenSim client MAY simultaneously connect to several networks:
+
+```text
+Nostr relays
+Matrix homeservers
+ATProto PDSes
+P2P peers
+```
+
+Adapters implement a common conceptual interface:
+
+```text
+publish(object)
+query(filter)
+subscribe(filter)
+resolve(id)
+```
+
+---
+
+# 31. Redundancy
+
+Clients SHOULD support multiple providers.
+
+Example:
+
+```text
+Relay A
+Relay B
+Relay C
+```
+
+If A disappears:
+
+```text
+B and C continue.
+```
+
+The same applies to asset providers.
+
+Provider identity and world identity are distinct concepts.
+
+---
+
+# 32. Local World Store
+
+OpenSim assumes applications maintain a local world store.
+
+Conceptually:
+
+```text
+local world
+├── entities
+├── components
+├── timelines
+├── events
+├── snapshots
+├── assets
+└── indexes
+```
+
+The physical implementation may be:
+
+```text
+SQLite
+IndexedDB
+OPFS
+RocksDB
+native files
+in-memory structures
+```
+
+The storage engine is not part of the protocol.
+
+---
+
+# 33. Intelligent storage
+
+Clients MAY decide what to retain based on relevance.
+
+Example:
+
+```text
+0–100 m       detailed entities
+100 m–1 km    interaction-level state
+1–10 km       infrastructure
+10–100 km     aggregate state
+planet-wide   indexes only
+```
+
+This is semantic level-of-detail.
+
+It applies not only to rendering but to the actual locally materialized reality.
+
+---
+
+# 34. Materialization
+
+An application MAY dynamically transform abstract state into detailed state.
+
+Example:
+
+```text
+City population:
+1,020,000
+```
+
+becomes, near the player:
+
+```text
+District population model
+```
+
+then:
+
+```text
+243 simulated pedestrians
+```
+
+then:
+
+```text
+one fully materialized NPC
+```
+
+These representations MAY all describe different resolutions of the same underlying reality.
+
+---
+
+# 35. Local intelligence
+
+AI is not part of the wire protocol.
+
+Local intelligence MAY be used to:
+
+- interpret unknown schemas;
+- generate missing geometry;
+- summarize distant simulations;
+- materialize NPCs;
+- decide cache relevance;
+- translate semantic representations;
+- generate animation;
+- perform procedural completion;
+- reconcile equivalent schemas.
+
+Such generated state SHOULD be distinguishable from authoritative received state when provenance matters.
+
+---
+
+# 36. Behavior
+
+Entities MAY reference executable behavior.
+
+Example:
+
+```json
+{
+  "osim.behavior": {
+    "module": "sha256:a924...",
+    "mediaType": "application/wasm",
+    "interface": "osim:door:1"
+  }
+}
+```
+
+A client MUST NOT be required to execute arbitrary behavior to understand the entity.
+
+Behavior execution is optional and sandboxed by the host implementation.
+
+---
+
+# 37. Interfaces
+
+Behaviors SHOULD expose semantic interfaces.
+
+Examples:
+
+```text
+osim:door:1
+osim:vehicle:1
+osim:elevator:1
+osim:traffic-light:1
+osim:container:1
+```
+
+This enables applications written in unrelated technologies to operate compatible objects.
+
+---
+
+# 38. Discovery
+
+Applications need a way to discover relevant entities.
+
+The protocol exposes:
+
+```text
+query(space, time, filter)
+```
+
+Example conceptual query:
+
+```json
+{
+  "space": {
+    "center": [48.4284, -123.3656],
+    "radius": 500
+  },
+  "timeline": "osim:timeline:earth-main",
+  "components": [
+    "osim.transform",
+    "osim.vehicle"
+  ]
+}
+```
+
+The transport adapter decides how that query is mapped to its underlying infrastructure.
+
+---
+
+# 39. Core operations
+
+## 39.1 `resolve(uri)`
+
+Resolve one globally identified object.
+
+```text
+resolve("osim:entity:house-42")
+```
+
+Returns the best locally or remotely available representation.
+
+---
+
+## 39.2 `query(space, time, filter)`
+
+Discover state matching constraints.
+
+```text
+query(
+    Victoria,
+    now,
+    has(osim.vehicle)
+)
+```
+
+---
+
+## 39.3 `publish(object)`
+
+Publish:
+
+```text
+event
+entity declaration
+timeline
+snapshot
+session
+capability
+```
+
+Example:
+
+```text
+publish(event)
+```
+
+Publishing SHOULD update local state immediately before remote replication.
+
+---
+
+## 39.4 `subscribe(query)`
+
+Receive future matching changes.
+
+```text
+subscribe(
+    space = downtownVictoria
+    components = osim.vehicle
+)
+```
+
+Subscriptions are advisory network mechanisms.
+
+They are not required for world correctness.
+
+---
+
+## 39.5 `join(session)`
+
+Join a synchronous interaction.
+
+```text
+join("osim:session:race-8291")
+```
+
+The returned session descriptor provides enough information for the application to negotiate realtime networking.
+
+---
+
+# 40. URI navigation
+
+OpenSim MAY expose navigable world URIs.
+
+Example:
+
+```text
+osim://earth
+```
+
+```text
+osim://earth/ca/bc/victoria
+```
+
+```text
+osim://earth/ca/bc/victoria
+?timeline=osim:timeline:earth-main
+&time=2026-09-29T22:00:00Z
+```
+
+A URI identifies a requested world view.
+
+It does not identify a particular server.
+
+---
+
+# 41. Game interoperability example
+
+Consider one building in Victoria.
+
+Its entity is:
+
+```text
+osim:entity:building-8272
+```
+
+A city simulator publishes:
+
+```text
+osim.transform
+osim.geometry
+city.zoning
+city.population
+```
+
+A household simulator publishes:
+
+```text
+home.interior
+home.furniture
+home.residents
+```
+
+A driving game understands only:
+
+```text
+osim.transform
+osim.geometry
+osim.collision
+```
+
+A weather service publishes:
+
+```text
+weather.conditions
+```
+
+The four systems never need direct integration.
+
+They merely understand overlapping portions of the entity.
+
+---
+
+# 42. Cross-game example
+
+A player builds a house in a city-building application.
+
+That produces:
+
+```text
+Entity House
++ Transform
++ Geometry
++ Building
+```
+
+Another player enters the city using a driving game.
+
+That game renders the house because it understands:
+
+```text
+Transform
+Geometry
+Collision
+```
+
+The player enters the house.
+
+The interior space was created by a life simulator.
+
+The driving game now resolves:
+
+```text
+House
+└── Interior Space
+    ├── Room
+    ├── Door
+    ├── Table
+    └── Chair
+```
+
+The driving game ignores:
+
+```text
+relationships
+career
+happiness
+household finance
+```
+
+because those components are irrelevant.
+
+No custom GTA↔SimCity↔Sims bridge exists.
+
+---
+
+# 43. Real-world composition example
+
+A driving game requests:
+
+```text
+space = Victoria
+timeline = earth-main
+time = now
+```
+
+Its view might compose:
+
+```text
+OpenStreetMap roads
++ Overture buildings
++ player-created modifications
++ weather
++ traffic
++ active multiplayer sessions
+```
+
+Another client MAY choose:
+
+```text
+OpenStreetMap roads
++ player-created modifications
+```
+
+Both are valid OpenSim views.
+
+---
+
+# 44. Offline example
+
+Alice modifies her house while disconnected.
+
+Her local client creates:
+
+```text
+Event A
+Event B
+Event C
+```
+
+The local world immediately reflects those changes.
+
+Hours later connectivity returns.
+
+The federation adapter publishes A, B, and C.
+
+Bob's client receives them.
+
+If Bob independently changed another component, both changes coexist.
+
+If he changed the same component, its merge policy determines reconciliation.
+
+No centralized server had to authorize Alice's local reality before the action existed.
+
+---
+
+# 45. Realtime example
+
+Four players start a race.
+
+The federation layer publishes:
+
+```text
+Session Race-42
+```
+
+Players discover the session.
+
+They connect peer-to-peer.
+
+For five minutes they exchange thousands of realtime inputs.
+
+Those inputs need not become permanent OpenSim events.
+
+At completion, only:
+
+```text
+race result
+lap record
+vehicle damage
+replay asset hash
+```
+
+are published into persistent world history.
+
+---
+
+# 46. World branching example
+
+A city exists at:
+
+```text
+osim:timeline:earth-main
+```
+
+A player creates:
+
+```text
+osim:timeline:earth-alternate-42
+```
+
+with:
+
+```text
+parent = earth-main
+forkAt = 2026-09-29
+```
+
+Everything before the fork is inherited.
+
+Only divergent events need storage.
+
+The alternate reality therefore costs approximately the size of its differences rather than another entire world.
+
+---
+
+# 47. Compatibility rule
+
+An implementation is **OpenSim 0.1 Core Compatible** if it can:
+
+1. parse the core envelope;
+2. identify entities;
+3. retain unknown components;
+4. process core event operations;
+5. identify timeline and time;
+6. resolve globally referenceable objects;
+7. publish and receive objects through at least one transport adapter.
+
+It does not need:
+
+```text
+3D rendering
+physics
+AI
+WebRTC
+Nostr
+geographic coordinates
+multiplayer
+```
+
+---
+
+# 48. Minimal envelope
+
+Every OpenSim object MAY use the common envelope:
+
+```json
+{
+  "osim": "0.1",
+  "type": "event",
+  "id": "osim:event:...",
+  "actor": "did:key:...",
+  "body": {}
+}
+```
+
+This is deliberately boring.
+
+That is desirable.
+
+---
+
+# 49. Absolute minimum implementation
+
+A tiny OpenSim implementation could contain approximately:
+
+```text
+EntityStore
+EventLog
+TimelineStore
+TransportAdapter
+```
+
+with:
+
+```text
+resolve()
+query()
+publish()
+subscribe()
+join()
+```
+
+Everything else can grow around that.
+
+---
+
+# 50. Non-goals for 0.1
+
+OpenSim 0.1 intentionally does NOT standardize:
+
+- graphics APIs;
+- physics engines;
+- shaders;
+- avatar appearance;
+- game rules;
+- economies;
+- currency;
+- networking topology;
+- account providers;
+- moderation systems;
+- asset hosting;
+- voice chat;
+- AI models;
+- database engines;
+- world ownership models;
+- commercial marketplaces;
+- scripting languages;
+- rendering quality;
+- collision algorithms.
+
+These belong to higher-level specifications or applications.
+
+---
+
+# 51. Design test
+
+Every addition to the core protocol should be tested with the question:
+
+> Could this instead be a component?
+
+If yes, it SHOULD NOT enter the core protocol.
+
+Examples:
+
+```text
+Weather           component
+Economy           component
+Health            component
+Vehicle           component
+Building          component
+Relationship      component
+Quest             component
+Inventory         component
+News              component
+Traffic           component
+```
+
+The core remains generic.
+
+---
+
+# 52. OpenSim 0.1 in one page
+
+```text
+WORLD
+    = entities
+    + components
+    + events
+
+ENTITY
+    = stable identity
+    + arbitrary components
+
+COMPONENT
+    = one independently understandable aspect
+
+EVENT
+    = immutable change
+
+SPACE
+    = entity/reference frame
+
+TIME
+    = timeline + coordinate
+
+SNAPSHOT
+    = cached materialized state
+
+SESSION
+    = temporary high-frequency shared simulation
+
+ASSET
+    = content-addressed external blob
+
+AUTHORITY
+    = capability over entity/component/timeline
+
+FEDERATION
+    = replaceable transport
+
+LOCAL DEVICE
+    = primary simulation + storage + intelligence
+```
+
+Network API:
+
+```text
+resolve(uri)
+query(space, time, filter)
+publish(object)
+subscribe(query)
+join(session)
+```
+
+And the fundamental equation:
+
+```text
+World View
+=
+Base Reality
++ Selected Layers
++ Local State
++ Persistent Events
++ Active Sessions
+```
+
+---
+
+# 53. Core invariant
+
+The most important OpenSim invariant is:
+
+> **Identity and meaning belong to the world objects, not to the servers carrying them and not to the applications rendering them.**
+
+A road is not a GTA road.
+
+A house is not a Sims house.
+
+A city is not a SimCity city.
+
+They are entities.
+
+Applications interpret them.
+
+---
+
+# 54. OpenSim Protocol 0.1
+
+The entire protocol can therefore be summarized as:
+
+```text
+Everything is an entity.
+Entities have components.
+Events change components.
+Entities exist in spaces and timelines.
+Views compose multiple sources.
+Sessions handle realtime interaction.
+Assets live outside the event stream.
+Authority can be component-specific.
+State is local-first.
+Federation transports it.
+Applications decide what it means.
+```
+
+**End of OpenSim Protocol 0.1 Draft.**
