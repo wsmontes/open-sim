@@ -78,13 +78,16 @@ export function decodeManifest(value: unknown): WorldManifest {
  if (!plain(value.authority) || (value.authority.kind !== 'local' && value.authority.kind !== 'host')) throw new Error('Autoridade inválida');
  if (value.authority.actorId !== undefined && !isEntityId(value.authority.actorId as string)) throw new Error('Ator da autoridade inválido');
  if (!Array.isArray(value.extensions)) throw new Error('Extensões inválidas');
+ const extensions = value.extensions.map((entry: unknown, index: number) => extension(entry, `Extensão ${index + 1}`));
+ const declared = extensions.map(entry => entry.key);
+ if (new Set(declared).size !== declared.length) throw new Error('Extensão declarada duas vezes');
  const manifest: WorldManifest = {
   protocol: 1,
   worldId: value.worldId,
-  rules: {family: value.rules.family, version: value.rules.version as number},
-  base: {source: value.base.source, normalizerVersion: 1},
-  authority: value.authority.actorId === undefined ? {kind: value.authority.kind} : {kind: value.authority.kind, actorId: value.authority.actorId as string},
-  extensions: value.extensions.map((entry: unknown, index: number) => extension(entry, `Extensão ${index + 1}`)),
+  rules: {...extras(value.rules, ['family', 'version']), family: value.rules.family, version: value.rules.version as number} as WorldManifest['rules'],
+  base: {...extras(value.base, ['source', 'normalizerVersion']), source: value.base.source, normalizerVersion: 1} as WorldManifest['base'],
+  authority: {...extras(value.authority, ['kind', 'actorId']), ...(value.authority.actorId === undefined ? {kind: value.authority.kind} : {kind: value.authority.kind, actorId: value.authority.actorId as string})} as WorldManifest['authority'],
+  extensions,
  };
  if (value.snapshot !== undefined) manifest.snapshot = snapshotRef(value.snapshot);
  if (value.parent !== undefined) manifest.parent = parentRef(value.parent);
@@ -94,6 +97,7 @@ function extension(value: unknown, label: string): ExtensionDeclaration {
  assertJsonSafe(value, label);
  if (!plain(value)) throw new Error(`${label}: declaração inválida`);
  if (!isComponentKey(String(value.key)) || !Number.isSafeInteger(value.version) || (value.version as number) < 1) throw new Error(`${label}: declaração inválida`);
+ if (value.durable !== undefined && typeof value.durable !== 'boolean') throw new Error(`${label}: durabilidade inválida`);
  const declaration = {key: value.key as string, version: value.version as number, durable: value.durable !== false};
  // Unknown fields survive, since another profile may have written them.
  return {...extras(value, ['key', 'version', 'durable']), ...declaration};
@@ -101,12 +105,12 @@ function extension(value: unknown, label: string): ExtensionDeclaration {
 function snapshotRef(value: unknown): {hash: string; bytes: number} {
  assertJsonSafe(value, 'Snapshot');
  if (!plain(value) || typeof value.hash !== 'string' || !/^[0-9a-f]{16,128}$/.test(value.hash) || !Number.isSafeInteger(value.bytes) || (value.bytes as number) < 0) throw new Error('Snapshot inválido');
- return {hash: value.hash, bytes: value.bytes as number};
+ return {...extras(value, ['hash', 'bytes']), hash: value.hash, bytes: value.bytes as number};
 }
 function parentRef(value: unknown): {worldId: string; manifestHash?: string} {
  assertJsonSafe(value, 'Mundo de origem');
  if (!plain(value) || typeof value.worldId !== 'string' || !value.worldId.length) throw new Error('Mundo de origem inválido');
- const parent: {worldId: string; manifestHash?: string} = {worldId: value.worldId as string};
+ const parent: {worldId: string; manifestHash?: string} = {...extras(value, ['worldId', 'manifestHash']), worldId: value.worldId as string};
  if (value.manifestHash !== undefined) {
   if (typeof value.manifestHash !== 'string' || !/^[0-9a-f]{16,128}$/.test(value.manifestHash)) throw new Error('Hash do mundo de origem inválido');
   parent.manifestHash = value.manifestHash;

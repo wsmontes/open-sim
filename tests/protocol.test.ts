@@ -86,3 +86,32 @@ test('a snapshot has a content address any client can compare',async()=>{
  expect(ref.hash).toMatch(/^[0-9a-f]{64}$/);
  expect((await contentRef(text)).hash).toBe(ref.hash);
 });
+test('every known object of the manifest keeps the fields it does not implement',()=>{
+ const source=JSON.parse(encodeManifest(manifest())) as Record<string,unknown>;
+ const rules=source.rules as Record<string,unknown>,base=source.base as Record<string,unknown>;
+ const authority=source.authority as Record<string,unknown>,snapshot=source.snapshot as Record<string,unknown>,parent=source.parent as Record<string,unknown>;
+ rules['future']={tuning:2};base['future']='from a later protocol';authority['future']={delegates:['a']};
+ snapshot['future']={algorithm:'sha-256'};parent['future']=[1,2,3];
+ const decoded=decodeManifest(source) as unknown as Record<string,Record<string,unknown>>;
+ expect(decoded.rules!['future']).toEqual({tuning:2});
+ expect(decoded.base!['future']).toBe('from a later protocol');
+ expect(decoded.authority!['future']).toEqual({delegates:['a']});
+ expect(decoded.snapshot!['future']).toEqual({algorithm:'sha-256'});
+ expect(decoded.parent!['future']).toEqual([1,2,3]);
+ expect(encodeManifest(decodeManifest(source))).toBe(encodeManifest(decodeManifest(JSON.parse(JSON.stringify(decoded)))));
+ // the copy never aliases the input
+ (decoded.rules!['future'] as {tuning:number}).tuning=99;
+ expect((source.rules as Record<string,unknown>)['future']).toEqual({tuning:2});
+});
+test('manifest fields keep strict types and namespaces cannot repeat',()=>{
+ const cases:[string,unknown][]=[
+  ['durability not boolean',{...manifest(),extensions:[{key:'city.zone',version:1,durable:'yes'}]}],
+  ['authority actor with a space',{...manifest(),authority:{kind:'local',actorId:'two words'}}],
+  ['extension key reserved',{...manifest(),extensions:[{key:'__proto__.x',version:1}]}],
+  ['repeated namespace',{...manifest(),extensions:[{key:'city.zone',version:1},{key:'city.zone',version:2}]}],
+  ['unknown field inside rules is not JSON',{...manifest(),rules:{family:'city',version:1,bad:Number.NaN}}],
+  ['unknown field inside base is a function',{...manifest(),base:{source:'x',normalizerVersion:1,bad:()=>1}}],
+  ['unknown field inside parent is not finite',{...manifest(),parent:{worldId:'earth',bad:Infinity}}],
+ ];
+ for(const [name,value] of cases)expect(()=>decodeManifest(value),name).toThrow();
+});

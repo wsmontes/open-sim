@@ -192,3 +192,27 @@ test('a detail region is never downgraded by a later coarse request',async()=>{
  expect(m.levels.length).toBe(before);
  expect(s.getChunk('2:0')).toMatchObject({status:'ready',level:'detail'});
 });
+test('metadata written by another client survives a full restore, play and save cycle',async()=>{
+ const store=createMemoryStore(),{s}=await boot(store);
+ expect(s.dispatch({type:'tick'}).status).toBe('applied');
+ await s.save(view('Vancouver'));
+ // the save this session writes is the one another client had extended before handing it back
+ const stored=JSON.parse(store.slots.get('open-sim')!) as {view:Record<string,unknown>};
+ (stored as unknown as Record<string,unknown>)['manifest']={worldId:'victoria',protocol:1};
+ stored.view['lifesim.ui']={panel:'houses',zoomHints:[1,2]};
+ store.slots.set('open-sim',JSON.stringify(stored));
+ const later=fakeMaps(),restored=createSession({maps:later.source,saves:store,worldId:'mundo',seed:7});
+ await restored.initialize('9:9');
+ expect(later.calls).toEqual([]);
+ expect(restored.getState().tick).toBe(1);
+ expect(restored.dispatch({type:'tick'}).status).toBe('applied');
+ await restored.save(view('Lisboa'));
+ const written=JSON.parse(store.slots.get('open-sim')!) as Record<string,unknown>;
+ const writtenView=written.view as Record<string,unknown>;
+ expect(written['manifest']).toEqual({worldId:'victoria',protocol:1});
+ expect(writtenView['lifesim.ui']).toEqual({panel:'houses',zoomHints:[1,2]});
+ // the known fields are the session's current ones, not the restored ones
+ expect(writtenView['place']).toBe('Lisboa');
+ expect(writtenView['x']).toBe(view('Lisboa').x);
+ expect((written.state as {tick:number}).tick).toBe(2);
+});
