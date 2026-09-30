@@ -12,6 +12,9 @@ import {integrateProject,prepareProject} from '../src/world/city-profile';
 import {diffWorlds} from '../src/presentation/world-diff';
 import {createWorldRepository} from '../src/session/world-repository';
 import type {Checkpoint,WorldRepository} from '../src/session/world-repository';
+import {createSession} from '../src/session/local-session';
+import {createMemoryStore} from '../src/adapters/storage/memory';
+import type {MapSource} from '../src/session/ports';
 import {importLegacy} from '../src/session/world-bundle';
 import type {BaseChunk,CellCoord,GameState,SavedGame,ViewState} from '../src/core/model';
 import type {Head,JsonValue} from '../src/world/model';
@@ -97,6 +100,10 @@ test('independent cells have no dependency and different fields, the same cell d
  expect(stacked.operations).toHaveLength(2);
  expect(stacked.operations[0]!.id).not.toBe(stacked.operations[1]!.id);
  expect(stacked.operations[1]!.dependsOn).toEqual([stacked.operations[0]!.id]);
+ // Carrying the same proposal twice renames the second copy, and its dependencies point inside that copy.
+ const twice=combineChanges(stacked,stacked);
+ expect(ids(twice)).toEqual([stacked.operations[0]!.id,stacked.operations[1]!.id,`${stacked.operations[0]!.id}~2`,`${stacked.operations[1]!.id}~2`]);
+ expect(twice.operations[3]!.dependsOn).toEqual([`${stacked.operations[0]!.id}~2`]);
 });
 
 test('a road over a region seam and over the antimeridian stays one operation per cell',async()=>{
@@ -302,4 +309,18 @@ test('the diff separates real data, player work, simulation and metadata',async(
  expect(workDiff.counts.simulation).toBe(1);
  expect(workDiff.metadata.actors).toEqual([{actorId:'local-player',before:0,after:1}]);
  expect(workDiff.metadata.revision).toEqual({before:0,after:1});
+});
+
+test('the session records the intention of the last accepted command and keeps it when one is refused',async()=>{
+ const maps:MapSource={attribution:{text:'© OpenStreetMap',url:'https://www.openstreetmap.org/copyright'},loadChunk:async(id:string)=>blank(id)};
+ const session=createSession({maps,saves:createMemoryStore(),worldId:WORLD_ID,seed:1});
+ await session.initialize('0:0');
+ expect(session.lastChange()).toBeNull();
+ const applied=session.dispatch({type:'build',tool:'park',cells:[{x:4,y:0}]});
+ expect(applied.status).toBe('applied');
+ const described=session.lastChange();
+ expect(described?.operations[0]?.intent).toEqual({kind:'build',tool:'park'});
+ expect(session.dispatch({type:'build',tool:'park',cells:[{x:4,y:0}]}).status).toBe('rejected');
+ // Nothing changed, so the record still describes the change that did happen instead of vanishing.
+ expect(session.lastChange()).toBe(described);
 });

@@ -61,6 +61,10 @@ export type ChangeSet={
 // The destination side of a proposal. `Checkpoint` satisfies this shape structurally, so a prepared project can be
 // computed against a restored version without this layer knowing the repository.
 export type ProjectTarget={head:Head;state:GameState;bases?:readonly {id:string;ref:ObjectRef}[]};
+// The destination side of a proposal. `Checkpoint` satisfies this shape structurally, so a prepared project can be
+// computed against a restored version without this layer knowing the repository. The digest of the preview is not
+// here on purpose: preparing is synchronous and hash-free, and the commit step that persists the change is the one that
+// can address it by content.
 export type PreparedChange={
  origins:readonly ChangeOrigin[];
  target:Head;
@@ -172,7 +176,8 @@ export function describeEdits(state:GameState,origin?:ChangeOrigin):ChangeSet{
 }
 
 // Combining proposals is where order becomes explicit: an operation that writes a cell, a region or a component an
-// earlier operation already wrote depends on it, and two operations over different cells stay independent.
+// earlier operation already wrote depends on it, and two operations over different cells stay independent. Unknown
+// extension fields merge shallowly with the later set winning.
 export function combineChanges(...sets:readonly ChangeSet[]):ChangeSet{
  const origins:ChangeOrigin[]=[],seenOrigins=new Set<string>(),operations:ChangeOperation[]=[],bases:WorldObject[]=[],seenBases=new Set<string>(),extensions:Record<string,JsonValue>={};
  const taken=new Set<string>(),writtenBy=new Map<string,string>();
@@ -182,12 +187,17 @@ export function combineChanges(...sets:readonly ChangeSet[]):ChangeSet{
   for(const object of set.bases){if(seenBases.has(object.ref.hash))continue;seenBases.add(object.ref.hash);bases.push(object);}
   author=set.author??author;
   for(const [key,value] of Object.entries(set.extensions))extensions[key]=value;
+  // Two sets can carry an operation with the same name (the same change twice, or a cell built again after a
+  // demolish). The second one gets a distinct id, and its dependencies follow that renaming instead of pointing at the
+  // operation of the other set.
+  const renamed=new Map<string,string>();
   for(const operation of set.operations){
    let id=operation.id,suffix=2;
    while(taken.has(id))id=`${operation.id}~${suffix++}`;
    taken.add(id);
+   renamed.set(operation.id,id);
    const targets=operation.places.length?operation.places.map(place=>`${place.chunkId}#${place.index}`):operation.writes.filter(field=>field.scope==='component').map(field=>`${field.key}/${field.entity}`);
-   const dependsOn=new Set<string>(operation.dependsOn);
+   const dependsOn=new Set(operation.dependsOn.map(dependency=>renamed.get(dependency)??dependency));
    for(const target of targets){const writer=writtenBy.get(target);if(writer&&writer!==id)dependsOn.add(writer);}
    for(const target of targets)writtenBy.set(target,id);
    operations.push({...operation,id,dependsOn:[...dependsOn]});

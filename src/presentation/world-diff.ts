@@ -2,7 +2,7 @@
 // frozen data a provider published, the overlay a player decided, the simulation, or the metadata of the version
 // itself. Keeping those apart is the whole point — a cell a later capture drew can never be presented as work somebody
 // did here, and a player's park can never pass as provider data.
-import type {Cell,GameState,ManagedChunk,Tool} from '../core/model';
+import type {Cell,ManagedChunk,Tool} from '../core/model';
 import type {ObjectRef,JsonValue} from '../world/model';
 import type {Checkpoint} from '../session/world-repository';
 import {CITY_PROFILE} from '../world/city-profile';
