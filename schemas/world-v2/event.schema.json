@@ -1,0 +1,31 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://open-sim.local/schemas/world-v2/event.schema.json",
+ "title": "OpenSim 0.1 event (§14, §15, §16)",
+ "description": "An event is an envelope of type `event` that changes one component of one entity on one timeline. The four state operations are `set`, `merge`, `remove` and `delete`, and there is no fifth: a game action is intent of a profile and is recorded as an event over that profile's components, never as a new operation here. `value` is required by `set` and `merge` (and is what `merge` merges into); a client that does not implement the component's namespace still applies the operation and keeps the rest of the component (§2.3).",
+ "type": "object",
+ "required": ["osim", "type", "id", "actor", "body"],
+ "additionalProperties": false,
+ "properties": {
+  "osim": {"const": "0.1"},
+  "type": {"const": "event"},
+  "id": {"type": "string", "pattern": "^osim:event:[^\\s]{1,120}$"},
+  "actor": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s\\u0000-\\u001f]{1,220}$"},
+  "body": {
+   "type": "object",
+   "additionalProperties": true,
+   "required": ["entity", "component", "op", "timeline", "time"],
+   "properties": {
+    "entity": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s]{1,220}$"},
+    "component": {"type": "string", "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9_]*)+$"},
+    "op": {"enum": ["set", "merge", "remove", "delete"]},
+    "value": {},
+    "timeline": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s]{1,220}$"},
+    "time": {"type": "string"},
+    "observedTime": {"type": "string"},
+    "validTime": {"type": "string"},
+    "interval": {"type": "object", "required": ["from", "to"], "properties": {"from": {"type": "string"}, "to": {"type": "string"}}}
+   }
+  }
+ }
+}

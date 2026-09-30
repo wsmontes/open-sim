@@ -1,0 +1,70 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://open-sim.local/schemas/world-v2/world-link.schema.json",
+ "title": "World link",
+ "description": "A shareable pointer to a world. It is not a protocol kind — OpenSim 0.1 defines seven and a link is not one of them — it is this client's own document around a view URI (§40) and capability declarations (§27). Holding a link is not a grant: resolving one produces a visit and nothing else, so `capabilities` here is what the issuer is willing to declare, never a token. `target` says whether the version is fixed (`commit`) or the branch moves; a document that carries both would be two promises, so it is refused. The document is closed: a field nobody declared is a newer version of this document, not something to forward.",
+ "type": "object",
+ "required": ["kind", "version", "id", "world", "target", "arrival", "capabilities", "actor", "sources"],
+ "additionalProperties": false,
+ "properties": {
+  "kind": {"const": "world-link"},
+  "version": {"const": 1},
+  "id": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s\\u0000-\\u001f]{1,220}$"},
+  "world": {"$ref": "world-address.schema.json"},
+  "target": {
+   "oneOf": [
+    {
+     "type": "object",
+     "required": ["kind", "commit"],
+     "additionalProperties": false,
+     "properties": {
+      "kind": {"const": "commit"},
+      "commit": {"$ref": "snapshot.schema.json#/$defs/ref"}
+     }
+    },
+    {
+     "type": "object",
+     "required": ["kind"],
+     "additionalProperties": false,
+     "properties": {"kind": {"const": "branch"}}
+    }
+   ]
+  },
+  "arrival": {
+   "type": "object",
+   "required": ["kind", "uri"],
+   "additionalProperties": false,
+   "properties": {
+    "kind": {"enum": ["view", "entity", "session"]},
+    "uri": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s\\u0000-\\u001f]{1,220}$"}
+   }
+  },
+  "capabilities": {"type": "array", "items": {"$ref": "capability.schema.json"}},
+  "actor": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s\\u0000-\\u001f]{1,220}$"},
+  "sources": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "type": "object",
+    "required": ["copy", "transport"],
+    "additionalProperties": false,
+    "properties": {
+     "copy": {"type": "string", "minLength": 1, "maxLength": 200},
+     "transport": {"type": "string", "pattern": "^[a-z][a-z0-9.+-]{1,31}$"}
+    }
+   }
+  },
+  "bridge": {
+   "type": "object",
+   "required": ["bridge", "hops", "origin"],
+   "additionalProperties": false,
+   "properties": {
+    "bridge": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s\\u0000-\\u001f]{1,220}$"},
+    "hops": {"type": "integer", "minimum": 1, "maximum": 64},
+    "origin": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s\\u0000-\\u001f]{1,220}$"}
+   }
+  },
+  "publishedAt": {"type": "string", "minLength": 10, "maxLength": 40},
+  "title": {"type": "string", "minLength": 1, "maxLength": 600}
+ }
+}

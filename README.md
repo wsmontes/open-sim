@@ -22,9 +22,12 @@ npm run typecheck:core   # só o núcleo, sem DOM e sem tipos de Node
 npm run build        # typecheck + build de produção em dist/
 npm run preview      # serve o build
 npm run replay -- tests/fixtures/portable-scenario.json   # executor independente do núcleo
+npx tsx tools/world-replay.ts    # conformidade OpenSim 0.1: replay do pacote público + checklist do §47
 ```
 
 Para conferir a portabilidade no navegador, rode `npm run dev` e abra `http://127.0.0.1:5173/tests/browser/replay.html`: a página executa o mesmo cenário sintético com o mesmo núcleo e imprime exatamente o mesmo texto canônico que o executor Node.
+
+Para conferir a conformidade com o protocolo de outra forma, abra `http://127.0.0.1:5173/tests/browser/world-replay.html`: a página busca o mesmo pacote sintético que o executor Node lê do disco, roda o mesmo replay e imprime o texto canônico inteiro — o endereço e o hash semântico de cada caso têm de ser idênticos nos dois runtimes. O contrato dessa fronteira está em [`docs/protocol/world-v2.md`](docs/protocol/world-v2.md) e a API dos adaptadores, com a matriz de capacidades comprovadas, em [`docs/protocol/adapters.md`](docs/protocol/adapters.md).
 
 ## Controles
 
@@ -60,17 +63,20 @@ Indicadores: dinheiro, população, energia (usada/fornecida) e felicidade.
 | `tests/snapshot.test.ts`, `tests/session.test.ts` | validação de snapshot, restauração sem OSM, retorno tardio de mapa, save corrompido sem sobrescrita, falha de escrita, fila serial |
 | `tests/presentation.test.ts` | projeção e seleção (inclusive no antimeridiano), traço de rua deduplicado, relógio pausado/oculto sem rajada, prévia de custo igual ao núcleo |
 | `tests/replay.test.ts` | cenário sintético executável, reenvio tolerado, equivalência depois de salvar e restaurar |
+| `tests/world-conformance.test.ts` | pacote público de conformidade (merge, fontes e múltiplos perfis) reproduzido byte a byte: endereço do estado e da versão idênticos aos do repositório, mesmos bytes canônicos e mesmo hash semântico em Node e no navegador, recusas por bytes/digest/limite, e os schemas publicados conferem com o que o cliente emite |
+| `tests/world-links.test.ts` | link fixo versus ramificação móvel, origem indisponível sobrevivida por uma cópia válida, visita que não herda permissão, cartão que recusa chave/estado por nome e ponte que deduplica pelo id original e para no limite de saltos |
 | `tests/architecture.test.ts` | limites de importação entre camadas, nenhuma dependência de plataforma ou Nostr no `src`, nenhum `Date`/`Math.random` no núcleo, núcleo compilando sem DOM/Node |
 
 ## Estado das entregas
 
 - **Pronto**: núcleo portátil (grade, comandos, economia, crescimento); adaptador de mapa real isolado; sessão local com snapshots versionados, autosave e IndexedDB; cliente browser jogável com arte isométrica própria; prova de portabilidade rodando o mesmo cenário em Node e no navegador com estado canônico idêntico.
+- **Pacote público de conformidade**: o cliente publica a fronteira de interoperabilidade do **OpenSim Protocol 0.1** — envelope fechado, componentes abertos, quatro operações de estado, cinco operações de kernel, esquemas JSON em `schemas/world-v2/`, links entre mundos (versão fixa ou ramificação móvel, com lugar de chegada e capacidades declaradas) e cartões públicos que recusam chave e estado por nome. `tests/fixtures/federated-world/conformance.json` (CC0-1.0, sintético) é reproduzido com o mesmo endereço de estado e o mesmo hash semântico em Node e no navegador, e `tools/world-replay.ts` roda o pacote mais o checklist do §47.
 - **Contrato portátil em andamento**: o estado durável já aceita componentes com namespace (`lifesim.residence`, `vehicle.transform`…) que outros clientes escrevem e este preserva sem entender, um manifesto identifica mundo/regra/base/linhagem e existe identidade durável por endereço de conteúdo. Falta a materialização com invariante (agregado 64 = 60 + 4), o endereçamento geodésico dos fatos portáveis e a prova com um segundo perfil — o plano de cada um está em `docs/world-protocol.md`.
 - **Fora deste ciclo**: empacotamento desktop (Electron/Tauri), multiplayer e Nostr, contas e permissões, relevo real, redes de água, trânsito com rotas, desastres, busca mundial por nome e fachadas específicas.
 - O executor Node (`npm run replay`) é uma prova de portabilidade, não um aplicativo desktop.
 
-`docs/implementation.md` descreve os contratos, os limites entre módulos e como trocar a fonte de mapa, o armazenamento e o renderizador. `docs/architecture.md` é a carta de arquitetura de longo prazo (mundos interoperáveis, autoridade e transporte).
+`docs/implementation.md` descreve os contratos, os limites entre módulos e como trocar a fonte de mapa, o armazenamento e o renderizador. `docs/architecture.md` é a carta de arquitetura de longo prazo (mundos interoperáveis, autoridade e transporte). A fronteira pública está em `docs/protocol/world-v2.md` e a API dos adaptadores, com a matriz de capacidades comprovadas (implementado, exercitado contra serviço real, contrato e futuro), em `docs/protocol/adapters.md`.
 
 ## Próxima etapa: mundos versionados e colaboração
 
-A [especificação de mundos reais e colaboração federada](docs/superpowers/specs/2026-09-29-federated-world-design.md) propõe procedência dos dados reais, cenários e ramificações inspiradas em Git, integração de alterações e multiplayer sem servidor dedicado de simulação. O [plano de implementação](docs/superpowers/plans/2026-09-29-federated-world.md) divide o trabalho em seis entregas: arquivos/histórico, colaboração assíncrona, multiplayer, federação, novas fontes/perfis e interoperabilidade. São documentos de planejamento; essas capacidades ainda não estão implementadas.
+A [especificação de mundos reais e colaboração federada](docs/superpowers/specs/2026-09-29-federated-world-design.md) propõe procedência dos dados reais, cenários e ramificações inspiradas em Git, integração de alterações e multiplayer sem servidor dedicado de simulação. O [plano de implementação](docs/superpowers/plans/2026-09-29-federated-world.md) divide o trabalho em seis entregas e registra, tarefa por tarefa, o commit e a evidência real de cada uma; é o documento que diz o que está pronto, o que é experimental e o que é futuro.

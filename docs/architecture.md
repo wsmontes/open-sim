@@ -316,6 +316,22 @@ Before calling the protocol viable, prove these scenarios:
 - transport adapters can be swapped without changing core rules;
 - a second game profile can interact with the same place without importing city-builder rendering or UI code.
 
+### 12.1 The published interoperability package
+
+The boundary these scenarios are tested against is the **OpenSim 0.1** protocol; what this client publishes there, and
+what a third party can repeat, is written down in [`docs/protocol/world-v2.md`](protocol/world-v2.md):
+
+- `schemas/world-v2/*.schema.json` describe the objects this client emits (envelope, entity, event, session,
+  capability, version objects, link, card), and `tests/world-conformance.test.ts` checks the code against them;
+- `tests/fixtures/federated-world/conformance.json` (CC0-1.0, synthetic) is reproduced byte for byte — same state
+  address and same semantic hash — by the Node runner and by the browser page, and `tools/world-replay.ts` runs the
+  package plus the §47 checklist;
+- [`docs/protocol/adapters.md`](protocol/adapters.md) lists every port, who implements it and which capabilities were
+  exercised against a real service, which are contract only and which are future.
+
+The §47 checklist (`tests/osim-boundary.test.ts`, `tools/world-replay.ts`) is the enumeration of those scenarios that
+this client can already answer for itself; the plan's execution table records, per task, the evidence for the rest.
+
 ## 13. Relevant precedents
 
 Open Sim should learn from, not clone, several prior systems:

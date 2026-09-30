@@ -1,0 +1,13 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://open-sim.local/schemas/world-v2/world-address.schema.json",
+ "title": "World and branch address",
+ "description": "A world and a branch are different things: a fork gets a new world id and a branch stays inside one. The address is the pair, and a link, a card and a head all name the same pair.",
+ "type": "object",
+ "required": ["worldId", "branchId"],
+ "additionalProperties": false,
+ "properties": {
+  "worldId": {"type": "string", "minLength": 1, "maxLength": 80},
+  "branchId": {"type": "string", "minLength": 1, "maxLength": 80}
+ }
+}

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Conformidade OpenSim 0.1 — replay</title>
+</head>
+<body>
+<h1>O mesmo pacote, os mesmos bytes, o mesmo endereço</h1>
+<p>
+Esta página executa o pacote <strong>sintético</strong> de
+<code>tests/fixtures/federated-world/conformance.json</code> com o replay de conformidade
+(<code>/src/world/world-replay.ts</code>) sobre o mesmo codec canônico (JCS) e o mesmo SHA-256 do
+navegador, e mostra o relatório inteiro: por caso, a geração, o endereço do estado e o hash semântico.
+Ele deve ser idêntico ao do executor Node (<code>npx tsx tools/world-replay.ts</code>), que também
+imprime o checklist do §47.
+</p>
+<p>Nada aqui sai para a rede além de buscar a própria fixture servida pelo Vite: as regiões congeladas
+vêm de um provedor sintético (<code>synthetic-test</code>), não do OSM.</p>
+<pre id="resultado">executando…</pre>
+<pre id="erro"></pre>
+<script type="module" src="/tests/browser/world-replay.ts"></script>
+</body>
+</html>

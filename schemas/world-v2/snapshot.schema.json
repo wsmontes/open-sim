@@ -1,0 +1,125 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://open-sim.local/schemas/world-v2/snapshot.schema.json",
+ "title": "Versioned world objects (snapshot, tree, commit, base)",
+ "description": "The objects a v2 package carries and a checkpoint restores. `city-state` is the durable state (never the camera); `world-tree` is the branch's identity plus the state it produced; `world-commit` is one version, with its parents, its generation and the operations it records; `base-chunk` is a frozen region a version rests on, addressed so two worlds can share it. Each is closed: a field nobody declared is a newer wire version, and an older client refuses it instead of dropping it.",
+ "oneOf": [
+  {"$ref": "#/$defs/city-state"},
+  {"$ref": "#/$defs/world-tree"},
+  {"$ref": "#/$defs/world-commit"},
+  {"$ref": "#/$defs/base-chunk"}
+ ],
+ "$defs": {
+  "ref": {
+   "type": "object",
+   "required": ["hash", "bytes"],
+   "additionalProperties": false,
+   "properties": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{16,128}$"},
+    "bytes": {"type": "integer", "minimum": 0}
+   }
+  },
+  "rules": {
+   "type": "object",
+   "required": ["family", "version"],
+   "additionalProperties": false,
+   "properties": {
+    "family": {"type": "string", "minLength": 1},
+    "version": {"type": "integer", "minimum": 1}
+   }
+  },
+  "origin": {
+   "type": "object",
+   "required": ["kind"],
+   "additionalProperties": false,
+   "properties": {
+    "kind": {"enum": ["legacy-save", "new", "fork"]},
+    "note": {"type": "string"},
+    "parent": {"$ref": "world-address.schema.json"}
+   }
+  },
+  "definition": {
+   "type": "object",
+   "required": ["worldId", "branchId", "origin", "profiles", "rules"],
+   "additionalProperties": false,
+   "properties": {
+    "worldId": {"type": "string", "minLength": 1, "maxLength": 80},
+    "branchId": {"type": "string", "minLength": 1, "maxLength": 80},
+    "origin": {"$ref": "#/$defs/origin"},
+    "profiles": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "rules": {"$ref": "#/$defs/rules"}
+   }
+  },
+  "city-state": {
+   "type": "object",
+   "required": ["kind", "state"],
+   "additionalProperties": false,
+   "properties": {
+    "kind": {"const": "city-state"},
+    "state": {
+     "type": "object",
+     "required": ["formatVersion", "rulesVersion", "worldId", "seed", "revision", "tick", "money", "chunks", "actors", "components"],
+     "additionalProperties": false,
+     "properties": {
+      "formatVersion": {"const": 1},
+      "rulesVersion": {"const": 1},
+      "worldId": {"type": "string", "minLength": 1, "maxLength": 80},
+      "seed": {"type": "integer"},
+      "revision": {"type": "integer", "minimum": 0},
+      "tick": {"type": "integer", "minimum": 0},
+      "money": {"type": "integer"},
+      "chunks": {"type": "object", "additionalProperties": true},
+      "actors": {"type": "object", "additionalProperties": true},
+      "components": {"type": "object", "additionalProperties": true}
+     }
+    }
+   }
+  },
+  "world-tree": {
+   "type": "object",
+   "required": ["kind", "definition", "terms", "state", "attached"],
+   "additionalProperties": false,
+   "properties": {
+    "kind": {"const": "world-tree"},
+    "definition": {"$ref": "#/$defs/definition"},
+    "terms": {"type": "array", "items": {"$ref": "dataset-term.schema.json"}},
+    "state": {"$ref": "#/$defs/ref"},
+    "attached": {"type": "array", "items": {"$ref": "#/$defs/ref"}}
+   }
+  },
+  "world-commit": {
+   "type": "object",
+   "required": ["kind", "parents", "tree", "generation", "rules", "datasets", "accepted"],
+   "additionalProperties": false,
+   "properties": {
+    "kind": {"const": "world-commit"},
+    "parents": {"type": "array", "items": {"$ref": "#/$defs/ref"}},
+    "tree": {"$ref": "#/$defs/ref"},
+    "generation": {"type": "integer", "minimum": 1},
+    "rules": {"$ref": "#/$defs/rules"},
+    "datasets": {"type": "array", "items": {"$ref": "#/$defs/ref"}},
+    "accepted": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "author": {"type": "string", "minLength": 1}
+   }
+  },
+  "base-chunk": {
+   "type": "object",
+   "required": ["kind", "base"],
+   "additionalProperties": false,
+   "properties": {
+    "kind": {"const": "base-chunk"},
+    "base": {
+     "type": "object",
+     "required": ["id", "source", "normalizerVersion", "cells"],
+     "additionalProperties": false,
+     "properties": {
+      "id": {"type": "string", "minLength": 1, "maxLength": 80},
+      "source": {"type": "string", "minLength": 1, "maxLength": 600},
+      "normalizerVersion": {"const": 1},
+      "cells": {"type": "array", "items": {"type": "object", "additionalProperties": true}}
+     }
+    }
+   }
+  }
+ }
+}

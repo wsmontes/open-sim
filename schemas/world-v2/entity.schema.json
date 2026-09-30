@@ -1,0 +1,23 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://open-sim.local/schemas/world-v2/entity.schema.json",
+ "title": "OpenSim 0.1 entity declaration (§6)",
+ "description": "An entity is an envelope of type `entity` whose body carries its components as namespace -> value. The body is open: a client that does not implement a namespace carries it unchanged (§2.3). `identifier` is the local id the durable state indexes the entity by, and it is what `osim:entity:<identifier>` names.",
+ "type": "object",
+ "required": ["osim", "type", "id", "actor", "body"],
+ "additionalProperties": false,
+ "properties": {
+  "osim": {"const": "0.1"},
+  "type": {"const": "entity"},
+  "id": {"type": "string", "pattern": "^osim:entity:[A-Za-z0-9_-]{1,80}$"},
+  "actor": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s\\u0000-\\u001f]{1,220}$"},
+  "body": {
+   "type": "object",
+   "additionalProperties": true,
+   "properties": {
+    "components": {"type": "object", "additionalProperties": true},
+    "extensions": {"type": "object", "additionalProperties": true}
+   }
+  }
+ }
+}

@@ -90,6 +90,17 @@ namespace desconhecidos atravessam intactos, como já acontece no save e no mani
 
 O que ainda depende desta decisão está nas tarefas 8–17 do [plano](superpowers/plans/2026-09-29-federated-world.md#reconciliação-com-o-opensim-protocol-01).
 
+O que já saiu desta decisão (tarefa 17, verificado por testes):
+
+- **Esquemas publicados**: `schemas/world-v2/*.schema.json` descrevem o envelope, a entidade, o evento, a sessão, a
+  capacidade, os objetos de versão (`city-state`/`world-tree`/`world-commit`/`base-chunk`), o link e o cartão.
+  `tests/world-conformance.test.ts` valida contra eles o que o cliente realmente emite.
+- **Pacote de conformidade**: `tests/fixtures/federated-world/conformance.json` (CC0-1.0, sintético) é reproduzido
+  byte a byte — mesmo endereço de estado e mesmo hash semântico em Node e no navegador — e `npx tsx tools/world-replay.ts`
+  roda o pacote mais o checklist do §47. O contrato está em [`docs/protocol/world-v2.md`](protocol/world-v2.md).
+- **Cartões e links**: `docs/protocol/adapters.md` registra a API dos adaptadores e a matriz de capacidades comprovadas;
+  link fixo distingue-se de ramificação móvel, visita não herda permissão e o cartão recusa chave e estado por nome.
+
 ## O que ainda falta, em ordem
 
 | # | Item da carta | Estado |
@@ -150,4 +161,6 @@ npx vitest run tests/protocol.test.ts   # manifesto, namespaces, identidade dur�
 npx vitest run tests/snapshot.test.ts   # preservação do desconhecido, recusa de campo reservado
 npx vitest run tests/commands.test.ts   # comando de componente: atômico, deduplicado, sem dinheiro
 npx vitest run tests/architecture.test.ts  # limites de importação, nenhum acesso a plataforma no núcleo
+npx vitest run tests/world-conformance.test.ts tests/world-links.test.ts  # pacote público de conformidade e links entre mundos
+npx tsx tools/world-replay.ts            # o mesmo pacote pelo executor Node, com o checklist do §47
 ```

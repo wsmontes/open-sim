@@ -1,0 +1,14 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://open-sim.local/schemas/world-v2/dataset-term.schema.json",
+ "title": "Dataset term",
+ "description": "Where a world's data came from and under which terms it travels (§20, and the licence requirement of the plan). A source without attribution or licence is allowed, because a synthetic fixture has neither; a term that lies about a real provider is not, which is why the fields are the provider's own words.",
+ "type": "object",
+ "required": ["source"],
+ "additionalProperties": false,
+ "properties": {
+  "source": {"type": "string", "minLength": 1, "maxLength": 600},
+  "attribution": {"type": "string", "minLength": 1, "maxLength": 600},
+  "license": {"type": "string", "minLength": 1, "maxLength": 600}
+ }
+}

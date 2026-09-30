@@ -1,0 +1,16 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://open-sim.local/schemas/world-v2/envelope.schema.json",
+ "title": "OpenSim 0.1 envelope (§48)",
+ "description": "The common envelope. It is the registry: it is closed, and a field it does not declare is a newer version of the envelope that an older client must refuse instead of dropping. `body` is open by design — that is where a component, an event or a session descriptor travels.",
+ "type": "object",
+ "required": ["osim", "type", "id", "actor", "body"],
+ "additionalProperties": false,
+ "properties": {
+  "osim": {"const": "0.1"},
+  "type": {"enum": ["entity", "component", "event", "timeline", "snapshot", "session", "capability"]},
+  "id": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s\\u0000-\\u001f]{1,220}$"},
+  "actor": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*:[^\\s\\u0000-\\u001f]{1,220}$"},
+  "body": {"type": "object"}
+ }
+}
