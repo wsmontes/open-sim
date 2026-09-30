@@ -255,11 +255,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** `importTransit(bytes: Uint8Array, context: CaptureContext): WorldResult<TransitDataset>`; `normalizeObservation(input: RawObservation, policy: ObservationPolicy): WorldResult<ExternalInput>`; `applyExternalInput(state: GameState, input: ExternalInput): CommandResult`. `ExternalInput` inclui ID, dataset/revisão, tipo observado/previsão, instante/intervalo representado, unidade, payload e tick de efeito. `TransitDataset` contém procedência, linhas/paradas e calendário/fuso declarados, sem fingir cálculo de rotas completo.
 
-- [ ] Testar transporte sem linha/parada referenciada, duplicação de IDs de fornecedores diferentes, ZIP expandido acima do limite, unidade inválida, horário com fuso e revisão posterior de previsão. `expect(replayWithoutNetwork).toEqual(originalRun)` e chegada fora de ordem não altera ticks passados.
-- [ ] Rodar `npx vitest run tests/gtfs-source.test.ts tests/external-input.test.ts`; confirmar RED.
-- [ ] Implementar GTFS Schedule por arquivo/região como primeira família nova; preservar licença e associar componentes `transit.*` com geometria. Implementar importação de observações de clima normalizadas e política fixada de ausência. Perfil pode exibir esses dados antes de lhes dar efeito econômico; qualquer efeito exige regra versionada, não inferência do adaptador.
-- [ ] Exigir PASS; comparar dois pacotes da mesma fonte e rejeitar associação ambígua. Exercitar ao menos um pacote real pequeno redistribuível com origem/termos documentados; fixtures unitárias permanecem sintéticas. Chuva gravada deve reproduzir sem API. Relevo/GeoTIFF/STAC será adaptador adicional, depois dessa prova, com datum/resolução explícitos.
-- [ ] Commit: `feat: import transit data and replay external observations`.
+- [x] Testar transporte sem linha/parada referenciada, duplicação de IDs de fornecedores diferentes, ZIP expandido acima do limite, unidade inválida, horário com fuso e revisão posterior de previsão. `expect(replayWithoutNetwork).toEqual(originalRun)` e chegada fora de ordem não altera ticks passados.
+- [x] Rodar `npx vitest run tests/gtfs-source.test.ts tests/external-input.test.ts`; confirmar RED.
+- [x] Implementar GTFS Schedule por arquivo/região como primeira família nova; preservar licença e associar componentes `transit.*` com geometria. Implementar importação de observações de clima normalizadas e política fixada de ausência. Perfil pode exibir esses dados antes de lhes dar efeito econômico; qualquer efeito exige regra versionada, não inferência do adaptador.
+- [x] Exigir PASS; comparar dois pacotes da mesma fonte e rejeitar associação ambígua. Exercitar ao menos um pacote real pequeno redistribuível com origem/termos documentados; fixtures unitárias permanecem sintéticas. Chuva gravada deve reproduzir sem API. Relevo/GeoTIFF/STAC será adaptador adicional, depois dessa prova, com datum/resolução explícitos.
+- [x] Commit: `feat: import transit data and replay external observations`.
 
 ### Tarefa 16: entidades geográficas e segundo perfil
 
@@ -322,6 +322,10 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 ## Desvios registrados
 
+- **Tarefa 15:** o adaptador declara o que **não** faz (`capabilities {routing:'not-computed', realtime:'not-included'}`) em vez de fingir rota, e
+  parada/linha viram entidades com `osim.transform`/`osim.name`/`transit.*` — linha sem geometria declarada não ganha `osim.transform` inventado. Um
+  `SourceClaim` de feição usa `subject {kind:'capture'}` porque o union de `reality.ts` (tarefa 2) só tem `cell` e `capture`, e aquele arquivo é de outro
+  dono: a alternativa seria editar contrato alheio, então ficou registrado aqui.
 - **Tarefa 10:** identidade vem sempre da chave do assinador (um assinador tipo bunker com outra chave não consegue vincular o npub do usuário), NIP-07
   e chave local coexistem, e o relay implementa só a porta de objeto do §30 — a sinalização fica com a tarefa 8. Dependência acrescentada:
   `nostr-tools` **2.25.2** fixado (Unlicense; transitivas MIT), confinada a `src/adapters/nostr/**`; secp256k1/BIP-340, NIP-19 e NIP-04 não se escrevem à mão.
@@ -459,6 +463,7 @@ Regra que continua valendo: registrar o que foi exercitado contra o serviço rea
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 15 | `TASK15_SHA` | 16 testes (`gtfs-source` 9, `external-input` 7): transporte sem linha ou parada referenciada, ids iguais de fornecedores diferentes em conflito, ZIP acima do limite recusado antes de expandir, unidade inválida, horário com fuso declarado (24:15:00 preservado) e revisão posterior de previsão; replay sem rede igual à execução original e chegada fora de ordem sem tocar ticks passados. **Feed real exercitado**: GTFS marítimo da Martinique (Licence Ouverte 2.0, 29.515 bytes) importado em 23 ms com 10 paradas, 4 linhas, 209 viagens e procedência endereçada; um segundo feed (libéA, ODbL) foi lido e a associação entre fornecedores diferentes foi recusada, assim como a cópia do mesmo feed com um id trocado na mesma posição. Fixtures commitadas continuam sintéticas.
 | 10 | `fa45ff4` | 20 testes (+1 de relay real, pulado por padrão) em `tests/nostr-adapter.test.ts`: ausência e recusa de assinador, identidade do usuário distinta do bunker, relay recusando mensagem com a resposta literal carregada, replay de convite como CONFLICT, acesso sem grant recusado por `authorize` (um pedido verificado não autoriza nada), e o payload público sem chave nem estado. **Verificado contra o relay real do usuário** (`OSIM_NOSTR_RELAY=ws://127.0.0.1:7777`, túnel para o strfry do Pi): 21 testes passam, com publicação e leitura de volta. Cinco defeitos reais corrigidos no ciclo. `signaling.ts` ficou para depois da tarefa 8, por não adivinhar contrato.
 | 14 | `e3ad0b0` | 15 testes em `tests/world-composition.test.ts`: dependência ausente e cíclica, duas camadas escrevendo o mesmo campo, ordem visual sem mudar identidade durável, camada visual fora da identidade, regras incompatíveis, e comparação não comparável quando intervalo ou premissas divergem sem declaração. Composição é tudo-ou-nada e a base é conferida por identidade durável (durableJson). No navegador: duas colunas com a mesma base (5 trechos, commit 54e8323), nove indicadores por lado e tabela de deltas — e um defeito real de determinismo corrigido (os dois futuros derivavam de quadros diferentes porque cada um chamava `new Date()`).
 | 7 | `dd10223` | 16 testes em `tests/multiplayer-session.test.ts` + fixture `session-chaos.json` (14 passos): duas obras no mesmo saldo, commit repetido e invertido, pai ausente, proposta recusada seguida de válida, base de fonte diferente entre peers (a réplica pede e espera, com `stopped` e evidência nomeando a região em vez de substituir em silêncio), queda entre persistir e responder sem aplicação dupla, cobrança única após reenvio e reabertura a partir de checkpoint e recibos. Sete defeitos reais corrigidos no ciclo, incluindo um commit descartado em silêncio e um auto-deadlock na promoção de commit em buffer.

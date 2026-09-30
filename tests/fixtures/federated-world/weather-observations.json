@@ -1,0 +1,36 @@
+{
+  "format": "opensim-observations-v1",
+  "source": {
+    "id": "fixture-weather-v1",
+    "dataset": "Fixture sintética de observações (não é clima real)",
+    "url": "https://example.invalid/fixture/weather-observations.json",
+    "providerRevision": "2026-09-29T09:00:00Z"
+  },
+  "terms": {
+    "attribution": "Fixture sintética de observações",
+    "license": "CC0-1.0"
+  },
+  "observations": [
+    {
+      "id": "centro-0900",
+      "kind": "observed",
+      "unit": "mm",
+      "times": {"retrievedAt": "2026-09-29T09:05:00Z", "observedAt": "2026-09-29T09:00:00Z"},
+      "values": {"station": "centro", "rain": 12.5}
+    },
+    {
+      "id": "norte-1000",
+      "kind": "observed",
+      "unit": "mm",
+      "times": {"retrievedAt": "2026-09-29T10:05:00Z", "observedAt": "2026-09-29T10:00:00Z"},
+      "values": null
+    },
+    {
+      "id": "centro-1200",
+      "kind": "forecast",
+      "unit": "mm",
+      "times": {"retrievedAt": "2026-09-29T09:10:00Z", "observedAt": "2026-09-29T12:00:00Z"},
+      "values": {"station": "centro", "rain": 2.0}
+    }
+  ]
+}
