@@ -375,3 +375,33 @@ test('a prepared merge is refused when the version moved since the preview, and 
  if(!versionsNow.ok)return;
  expect(versionsNow.value).toHaveLength(5);
 });
+
+test('a merged state is plain JSON: a field nobody decided is absent instead of undefined',async()=>{
+ const worlds=device();
+ const shared=createGame(WORLD_ID,1,mapA);
+ const {head,point:ancestor}=await open(worlds,shared);
+ // One arm keeps the player's park over the old ground, the other adopts the real ground: composing the two decides
+ // some fields and leaves others to whatever the cell already had. A field nobody decided must be **absent** -- the
+ // canonical writer has no bytes for `undefined`, so a state carrying `road: undefined` could not be committed at all.
+ const ana=await arm(worlds,head,'ana',overlay(shared,REGION,PARKED,{terrain:'land',building:'park',stage:1,origin:'player'}),'parque-1');
+ const real=await arm(worlds,head,'real',{...shared,chunks:{...shared.chunks,[REGION]:adopt(mapB)}},'base-b');
+ const preview=previewMerge(ancestor,ana,real,[]);
+ const kept=resolveMerge(preview,choicesFor(preview,'target'));
+ expect(kept.ok).toBe(true);
+ if(!kept.ok)return;
+ const state=kept.value.state!;
+ // The regression: JSON round-trips the state exactly. Before the fix this failed, because the composed cell carried
+ // own keys whose value is undefined and the canonical encoder refused the whole state.
+ expect(JSON.parse(JSON.stringify(state))).toEqual(state);
+ for(const chunk of Object.values(state.chunks)){
+  for(const cell of Object.values(chunk.edits)) expect(Object.values(cell).includes(undefined)).toBe(false);
+ }
+ // And the composed merge is committable through the real path, not only inspectable.
+ const committed=await worlds.commitPrepared(ana.head,kept.value);
+ expect(committed.ok).toBe(true);
+ if(!committed.ok)return;
+ const point=await worlds.checkout(committed.value);
+ expect(point.ok).toBe(true);
+ if(!point.ok)return;
+ expect(getCell(point.value.state,PARK)?.building).toBe('park');
+});

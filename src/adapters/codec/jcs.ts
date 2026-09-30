@@ -15,6 +15,10 @@ export function createJcsCodec(): WorldCodec {
  return {encode: encodeJcs};
 }
 function write(value: JsonValue): string {
+ // A canonical writer must never invent bytes for a value JSON has no syntax for. `undefined` used to fall through to
+ // the object branch and die inside Object.keys with a TypeError that named neither the value nor its owner; refusing
+ // it here says what is wrong, and the caller can fix the state instead of hunting a canonicalizer bug.
+ if (value === undefined) throw new Error('Valor ausente não é JSON');
  if (value === null) return 'null';
  if (typeof value === 'boolean') return value ? 'true' : 'false';
  if (typeof value === 'number') {

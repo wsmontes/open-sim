@@ -90,13 +90,16 @@ const record=(value:JsonValue|undefined):value is {[key:string]:JsonValue}=>!!va
 // A cell is written field by field through one record, so a merge can compose exactly the fields the two sides
 // changed instead of replacing the whole cell and losing what only one of them decided.
 const partsOf=(cell:Cell):Record<CellField,CellPart>=>({terrain:cell.terrain,road:cell.road,building:cell.building,stage:cell.stage,origin:cell.origin});
-const cellOf=(parts:Record<CellField,CellPart>):Cell=>({
- terrain:parts.terrain as Cell['terrain'],
- road:parts.road as boolean|undefined,
- building:parts.building as Cell['building'],
- stage:parts.stage as number|undefined,
- origin:parts.origin as Cell['origin'],
-});
+// A field nobody decided is absent, not present-and-undefined: carrying `road: undefined` as an own key would put a
+// value the JSON contract does not have into the world state, and the canonical writer is right to refuse it.
+const cellOf=(parts:Record<CellField,CellPart>):Cell=>{
+ const cell:Cell={terrain:parts.terrain as Cell['terrain']};
+ if(parts.road!==undefined)cell.road=parts.road as boolean;
+ if(parts.building!==undefined)cell.building=parts.building as Cell['building'];
+ if(parts.stage!==undefined)cell.stage=parts.stage as number;
+ if(parts.origin!==undefined)cell.origin=parts.origin as Cell['origin'];
+ return cell;
+};
 
 type Composition={
  candidate:GameState;
