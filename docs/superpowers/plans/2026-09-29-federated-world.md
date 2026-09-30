@@ -167,11 +167,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** `Signaling.send(peer: string, signal: SignedSignal): Promise<void>` e `subscribe(listener): () => void`; `createWebRtcTransport(config: WebRtcConfig): SessionTransport`; config declara sinalização, verificação do vínculo, STUN/TURN e política direta/relay. `transferObject(ref: ObjectRef, peer: string, ports: TransferPorts): Promise<WorldResult<Uint8Array>>`; mensagem recebida nunca excede limites negociados.
 
-- [ ] Testar sinal de outra sessão, oferta antiga, objeto truncado/adulterado, backpressure e desconexão no meio; limites 64 KiB/16 KiB/32 MiB e total concorrente de 64 MiB; bytes inválidos não chegam a `receive`.
-- [ ] Rodar `npx vitest run tests/webrtc-adapter.test.ts tests/object-transfer.test.ts`; confirmar RED com portas WebRTC falsas, sem rede pública.
-- [ ] Implementar canais separados e retomada por segmentos; suspender envio ao atingir 1 MiB no buffer e retomar abaixo de 256 KiB, reduzindo conforme acordo. Sinalização manual por copiar/colar mensagem autenticada primeiro. TURN usa credenciais temporárias configuradas, nunca segredo permanente no bundle do app.
-- [ ] Exigir testes PASS; verificar dois browsers/dispositivos, conexão direta e modo relay num ambiente de teste configurado. Registrar ambientes e falhas; não declarar compatibilidade NAT ampla a partir de duas abas na mesma máquina.
-- [ ] Commit: `feat: connect player-hosted sessions over WebRTC`.
+- [x] Testar sinal de outra sessão, oferta antiga, objeto truncado/adulterado, backpressure e desconexão no meio; limites 64 KiB/16 KiB/32 MiB e total concorrente de 64 MiB; bytes inválidos não chegam a `receive`.
+- [x] Rodar `npx vitest run tests/webrtc-adapter.test.ts tests/object-transfer.test.ts`; confirmar RED com portas WebRTC falsas, sem rede pública.
+- [x] Implementar canais separados e retomada por segmentos; suspender envio ao atingir 1 MiB no buffer e retomar abaixo de 256 KiB, reduzindo conforme acordo. Sinalização manual por copiar/colar mensagem autenticada primeiro. TURN usa credenciais temporárias configuradas, nunca segredo permanente no bundle do app.
+- [x] Exigir testes PASS; verificar dois browsers/dispositivos, conexão direta e modo relay num ambiente de teste configurado. Registrar ambientes e falhas; não declarar compatibilidade NAT ampla a partir de duas abas na mesma máquina.
+- [x] Commit: `feat: connect player-hosted sessions over WebRTC`.
 
 ### Tarefa 9: integrar a experiência multiplayer ao jogo
 
@@ -322,6 +322,11 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 ## Desvios registrados
 
+- **Tarefa 8:** o adaptador implementa **duas** portas, porque são classes de tráfego diferentes: mensagem (envelope de fio v2, sinalização e controle) e
+  objeto (envelope do protocolo, §30). A prova destacada cobre tudo menos ela mesma, então o texto que a pessoa copia é o documento enquadrado mais a prova; a
+  verificação recusa tamanho, UTF-8, documento fechado, sessão/mundo/ramificação, época, ator vinculado, assinatura e repetição, nessa ordem. `sequence` fica
+  informativo de propósito (uma candidata pode preceder legitimamente a resposta), e quem cerca material antigo é a época com o id. Duas abas na mesma máquina
+  não provam compatibilidade de NAT e o relatório diz isso.
 - **Tarefa 16:** a entidade genérica usa o vocabulário central (`osim.transform`, `osim.existence`, `osim.name`) e a tabela durável vive no namespace
   `entity.index`, com `sourceKeys` dizendo quais namespaces **a fonte** escreveu — assim uma revisão nova remove só o que era dela. Split e merge
   ambíguos ficam em `ambiguous` e nunca são resolvidos pelo algoritmo. A reserva de população é a unidade durável (`population.materialized`), e o total
@@ -467,6 +472,7 @@ Regra que continua valendo: registrar o que foi exercitado contra o serviço rea
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 8 | `TASK8_SHA` | 26 testes novos (`webrtc-adapter` 12, `object-transfer` 14) e 42 com a sessão da tarefa 7: sinal de outra sessão, oferta de época anterior e oferta mais nova recusadas com mensagens distintas, assinatura verificada sobre os bytes do corpo com a prova destacada, janela de replay por id, objeto truncado e adulterado recusados por hash, offset que salta em conflito, payload acima do teto negociado em LIMIT, backpressure e desconexão no meio com retomada pelo prefixo contíguo guardado no dispositivo. Três defeitos reais corrigidos: texto colado sem a prova destacada, candidato de ICE chegando antes da descrição sendo perdido, e fakes de teste comparando megabytes.
 | 16 | `afc62a4` | 14 testes (`world-entities` 6, `materialization` 5, `cross-profile` 3): entidade cruzando trechos e o antimeridiano contada uma vez, feição dividida ou fundida ambígua recusada em vez de adivinhada, id estável em fork, namespace desconhecido preservado, e o invariante populacional 4 = 2 + 2 ao materializar e 3 + 1 ao devolver, com reserva repetida devolvendo o mesmo estado em vez de criar gente. O explorador de referência abre, materializa, escreve o próprio namespace e exporta sem tocar a UI de cidade: cidade → explorador → cidade conserva total, histórico, procedência e o que a cidade não entende. Suíte de 17 arquivos: 156 testes; build limpo.
 | 15 | `bf8573d` | 16 testes (`gtfs-source` 9, `external-input` 7): transporte sem linha ou parada referenciada, ids iguais de fornecedores diferentes em conflito, ZIP acima do limite recusado antes de expandir, unidade inválida, horário com fuso declarado (24:15:00 preservado) e revisão posterior de previsão; replay sem rede igual à execução original e chegada fora de ordem sem tocar ticks passados. **Feed real exercitado**: GTFS marítimo da Martinique (Licence Ouverte 2.0, 29.515 bytes) importado em 23 ms com 10 paradas, 4 linhas, 209 viagens e procedência endereçada; um segundo feed (libéA, ODbL) foi lido e a associação entre fornecedores diferentes foi recusada, assim como a cópia do mesmo feed com um id trocado na mesma posição. Fixtures commitadas continuam sintéticas.
 | 10 | `fa45ff4` | 20 testes (+1 de relay real, pulado por padrão) em `tests/nostr-adapter.test.ts`: ausência e recusa de assinador, identidade do usuário distinta do bunker, relay recusando mensagem com a resposta literal carregada, replay de convite como CONFLICT, acesso sem grant recusado por `authorize` (um pedido verificado não autoriza nada), e o payload público sem chave nem estado. **Verificado contra o relay real do usuário** (`OSIM_NOSTR_RELAY=ws://127.0.0.1:7777`, túnel para o strfry do Pi): 21 testes passam, com publicação e leitura de volta. Cinco defeitos reais corrigidos no ciclo. `signaling.ts` ficou para depois da tarefa 8, por não adivinhar contrato.

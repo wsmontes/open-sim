@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Sessão ao vivo por WebRTC — sinalização manual</title>
+</head>
+<body>
+<h1>Sessão ao vivo entre dois navegadores</h1>
+<p>
+Esta página abre uma sessão real de <code>WebRTC</code>: cada lado mostra um <strong>código de convite</strong> e uma
+<strong>caixa de saída</strong> com tudo o que precisa ser levado ao outro lado (oferta, resposta e candidatos de
+rede), e você copia e cola cada caixa (<code>/src/adapters/network/webrtc.ts</code> e <code>manual-signaling.ts</code>).
+Nenhum servidor de sinalização existe aqui: só o que você colar viaja.
+</p>
+<p>
+<strong>Aviso:</strong> duas abas na mesma máquina provam que os canais, a assinatura e a porta de objeto
+funcionam — <strong>não</strong> provam compatibilidade de NAT, TURN ou de redes diferentes.
+</p>
+
+<h2>1. Quem é você</h2>
+<p>
+<label>Seu nome: <input id="nome" value="ana" size="12"></label>
+<button id="gerar">Gerar identidade</button>
+</p>
+<p>
+<label for="codigo-local">Seu código de convite (copie para o outro lado):</label>
+<textarea id="codigo-local" rows="3" cols="90" readonly></textarea>
+</p>
+<p>
+<label for="codigo-par">Código do outro jogador (cole aqui e registre):</label>
+<textarea id="codigo-par" rows="3" cols="90"></textarea>
+<button id="registrar">Registrar convite</button>
+</p>
+
+<h2>2. Anfitrião</h2>
+<p>
+<button id="oferta">Criar a sessão e a oferta</button>
+<button id="atualizar-oferta">Atualizar o que enviar</button>
+<label for="saida-oferta">Caixa de saída do anfitrião (copie tudo para o convidado):</label>
+<textarea id="saida-oferta" rows="4" cols="90" readonly></textarea>
+</p>
+<p>
+<label for="entrada-resposta">Caixa do convidado (cole aqui tudo):</label>
+<textarea id="entrada-resposta" rows="4" cols="90"></textarea>
+<button id="aceitar">Aceitar a resposta</button>
+</p>
+
+<h2>3. Convidado</h2>
+<p>
+<label for="entrada-oferta">Caixa do anfitrião (cole aqui tudo):</label>
+<textarea id="entrada-oferta" rows="4" cols="90"></textarea>
+<button id="entrar">Entrar na sessão</button>
+</p>
+<p>
+<button id="atualizar-resposta">Atualizar o que enviar</button>
+<label for="saida-resposta">Caixa de saída do convidado (copie tudo de volta):</label>
+<textarea id="saida-resposta" rows="4" cols="90" readonly></textarea>
+</p>
+
+<h2>4. O mundo pelo mesmo canal</h2>
+<p>
+<button id="presenca">Enviar um cursor efêmero</button>
+<button id="publicar">Publicar o descritor da sessão</button>
+<button id="resolver">Resolver o descritor no outro lado</button>
+</p>
+<p>
+<button id="enviar">Guardar um bloco de 64 KiB e mostrar o endereço</button>
+<label for="endereco">Endereço (hash:tamanho):</label>
+<textarea id="endereco" rows="1" cols="90"></textarea>
+</p>
+<p>
+<label for="entrada-endereco">Endereço recebido do outro lado (cole aqui):</label>
+<textarea id="entrada-endereco" rows="1" cols="90"></textarea>
+<button id="transferir">Transferir o bloco</button>
+</p>
+
+<h2>Estado</h2>
+<pre id="estado">esperando identidade…</pre>
+<pre id="registro"></pre>
+<script type="module" src="/tests/browser/multiplayer.ts"></script>
+</body>
+</html>
