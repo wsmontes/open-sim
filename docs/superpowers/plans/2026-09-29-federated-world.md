@@ -267,11 +267,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** `reconcileEntities(before: EntityIndex, incoming: SourceEntity[]): EntityReconciliation`; `materialize(state: SharedPopulation, request: MaterializeRequest): WorldResult<SharedPopulation>`; `dematerialize(state: SharedPopulation, entityIds: string[]): WorldResult<SharedPopulation>`; `runExplorer(bundle: WorldBundle, actions: ExplorerAction[]): WorldResult<WorldBundle>`. Perfis podem importar `core/world`, nunca apresentação/browser; normalizador não dá a uma célula de jogo a identidade de um prédio físico sem evidência.
 
-- [ ] Testar entidade cruzando trechos/antimeridiano contada uma vez, feição dividida/fundida com associação ambígua, IDs estáveis em fork e namespaces desconhecidos preservados. `expect(aggregate + materialized).toBe(64)` antes/depois de materializar 4 e desmaterializar; reserva duplicada não cria pessoas adicionais.
-- [ ] Rodar `npx vitest run tests/world-entities.test.ts tests/materialization.test.ts tests/cross-profile.test.ts`; confirmar RED.
-- [ ] Implementar `entity.index`, `geo.position`/geometrias e relação com fonte; manter ligação legada à célula como aproximação declarada. Definir operação de reserva/devolução e migrar a versão de regras necessária; excluir alterações efêmeras do histórico. Explorador de referência abre, materializa e exporta sem código da UI de cidade.
-- [ ] Exigir PASS; cidade → explorador → cidade conserva total, histórico, procedência e dados desconhecidos. Perfil incompatível entra como leitura; conflito entre reservas simultâneas passa pelo mesmo coordenador.
-- [ ] Commit: `feat: share geodetic entities across city and explorer profiles`.
+- [x] Testar entidade cruzando trechos/antimeridiano contada uma vez, feição dividida/fundida com associação ambígua, IDs estáveis em fork e namespaces desconhecidos preservados. `expect(aggregate + materialized).toBe(64)` antes/depois de materializar 4 e desmaterializar; reserva duplicada não cria pessoas adicionais.
+- [x] Rodar `npx vitest run tests/world-entities.test.ts tests/materialization.test.ts tests/cross-profile.test.ts`; confirmar RED.
+- [x] Implementar `entity.index`, `geo.position`/geometrias e relação com fonte; manter ligação legada à célula como aproximação declarada. Definir operação de reserva/devolução e migrar a versão de regras necessária; excluir alterações efêmeras do histórico. Explorador de referência abre, materializa e exporta sem código da UI de cidade.
+- [x] Exigir PASS; cidade → explorador → cidade conserva total, histórico, procedência e dados desconhecidos. Perfil incompatível entra como leitura; conflito entre reservas simultâneas passa pelo mesmo coordenador.
+- [x] Commit: `feat: share geodetic entities across city and explorer profiles`.
 
 ## F — Ecossistema
 
@@ -322,6 +322,10 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 ## Desvios registrados
 
+- **Tarefa 16:** a entidade genérica usa o vocabulário central (`osim.transform`, `osim.existence`, `osim.name`) e a tabela durável vive no namespace
+  `entity.index`, com `sourceKeys` dizendo quais namespaces **a fonte** escreveu — assim uma revisão nova remove só o que era dela. Split e merge
+  ambíguos ficam em `ambiguous` e nunca são resolvidos pelo algoritmo. A reserva de população é a unidade durável (`population.materialized`), e o total
+  é agregado + pessoas distintas, com a célula continuando endereço do motor, não do contrato.
 - **Tarefa 15:** o adaptador declara o que **não** faz (`capabilities {routing:'not-computed', realtime:'not-included'}`) em vez de fingir rota, e
   parada/linha viram entidades com `osim.transform`/`osim.name`/`transit.*` — linha sem geometria declarada não ganha `osim.transform` inventado. Um
   `SourceClaim` de feição usa `subject {kind:'capture'}` porque o union de `reality.ts` (tarefa 2) só tem `cell` e `capture`, e aquele arquivo é de outro
@@ -463,6 +467,7 @@ Regra que continua valendo: registrar o que foi exercitado contra o serviço rea
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 16 | `TASK16_SHA` | 14 testes (`world-entities` 6, `materialization` 5, `cross-profile` 3): entidade cruzando trechos e o antimeridiano contada uma vez, feição dividida ou fundida ambígua recusada em vez de adivinhada, id estável em fork, namespace desconhecido preservado, e o invariante populacional 4 = 2 + 2 ao materializar e 3 + 1 ao devolver, com reserva repetida devolvendo o mesmo estado em vez de criar gente. O explorador de referência abre, materializa, escreve o próprio namespace e exporta sem tocar a UI de cidade: cidade → explorador → cidade conserva total, histórico, procedência e o que a cidade não entende. Suíte de 17 arquivos: 156 testes; build limpo.
 | 15 | `bf8573d` | 16 testes (`gtfs-source` 9, `external-input` 7): transporte sem linha ou parada referenciada, ids iguais de fornecedores diferentes em conflito, ZIP acima do limite recusado antes de expandir, unidade inválida, horário com fuso declarado (24:15:00 preservado) e revisão posterior de previsão; replay sem rede igual à execução original e chegada fora de ordem sem tocar ticks passados. **Feed real exercitado**: GTFS marítimo da Martinique (Licence Ouverte 2.0, 29.515 bytes) importado em 23 ms com 10 paradas, 4 linhas, 209 viagens e procedência endereçada; um segundo feed (libéA, ODbL) foi lido e a associação entre fornecedores diferentes foi recusada, assim como a cópia do mesmo feed com um id trocado na mesma posição. Fixtures commitadas continuam sintéticas.
 | 10 | `fa45ff4` | 20 testes (+1 de relay real, pulado por padrão) em `tests/nostr-adapter.test.ts`: ausência e recusa de assinador, identidade do usuário distinta do bunker, relay recusando mensagem com a resposta literal carregada, replay de convite como CONFLICT, acesso sem grant recusado por `authorize` (um pedido verificado não autoriza nada), e o payload público sem chave nem estado. **Verificado contra o relay real do usuário** (`OSIM_NOSTR_RELAY=ws://127.0.0.1:7777`, túnel para o strfry do Pi): 21 testes passam, com publicação e leitura de volta. Cinco defeitos reais corrigidos no ciclo. `signaling.ts` ficou para depois da tarefa 8, por não adivinhar contrato.
 | 14 | `e3ad0b0` | 15 testes em `tests/world-composition.test.ts`: dependência ausente e cíclica, duas camadas escrevendo o mesmo campo, ordem visual sem mudar identidade durável, camada visual fora da identidade, regras incompatíveis, e comparação não comparável quando intervalo ou premissas divergem sem declaração. Composição é tudo-ou-nada e a base é conferida por identidade durável (durableJson). No navegador: duas colunas com a mesma base (5 trechos, commit 54e8323), nove indicadores por lado e tabela de deltas — e um defeito real de determinismo corrigido (os dois futuros derivavam de quadros diferentes porque cada um chamava `new Date()`).

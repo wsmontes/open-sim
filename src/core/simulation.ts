@@ -26,7 +26,27 @@ export function summarize(s:GameState):CityStats {
   });
  }
  if(stats.population)stats.happiness=Math.round(happy/stats.population);
+ // A materialized person left the aggregate they were counted in, and counting both would make a city of 64 people
+ // report 68 (spec §3.4, protocol §34). The count is of *people*, so two clients deriving the same slot do not move it
+ // twice, and it is read from the contract namespace instead of making the city understand the profile that wrote it.
+ // Income, energy and jobs are untouched: the buildings did not change.
+ stats.population=Math.max(0,stats.population-materializedPeople(s));
  return stats;
+}
+// The shared population contract (§3 of docs/world-protocol.md): one entry per reservation, each carrying the people
+// it holds. A value this client cannot read is not counted — a wrong count here would move the city's own number.
+const MATERIALIZED='population.materialized';
+function materializedPeople(state:GameState):number {
+ const namespace=state.components[MATERIALIZED];
+ if(!namespace)return 0;
+ const people=new Set<string>();
+ for(const entry of Object.values(namespace)){
+  if(!entry||typeof entry!=='object'||Array.isArray(entry))continue;
+  const ids=(entry as Record<string,unknown>)['ids'];
+  if(!Array.isArray(ids)||!ids.every(id=>typeof id==='string'))continue;
+  for(const id of ids)people.add(id);
+ }
+ return people.size;
 }
 export function stepSimulation(state:GameState):GameState {
  let next={...state,tick:state.tick+1,chunks:{...state.chunks}};
