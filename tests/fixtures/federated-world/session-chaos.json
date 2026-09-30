@@ -1,0 +1,37 @@
+{
+  "worldId": "victoria",
+  "branchId": "main",
+  "sessionId": "sessao-caos",
+  "epoch": 1,
+  "seed": 7,
+  "chunk": "9:9",
+  "host": "host",
+  "replica": "beto",
+  "grant": {"spendLimit": 1000},
+  "steps": [
+    {"kind": "participation"},
+    {"kind": "proposal", "id": "p1", "tool": "park", "cells": [[289, 289]]},
+    {"kind": "duplicate", "id": "p1"},
+    {"kind": "proposal", "id": "p2", "tool": "park", "cells": [[293, 293]], "deliver": false},
+    {"kind": "proposal", "id": "p3", "tool": "park", "cells": [[289, 289]], "deliver": false},
+    {"kind": "reverse"},
+    {"kind": "proposal", "id": "p4", "tool": "park", "cells": [[1, 1]]},
+    {"kind": "tick"},
+    {"kind": "proposal", "id": "p5", "tool": "road", "cells": [[300, 300]], "deliver": false},
+    {"kind": "deliver", "to": "host"},
+    {"kind": "drop", "to": "beto", "of": "p5"},
+    {"kind": "settle"},
+    {"kind": "reload", "peer": "beto"},
+    {"kind": "tick"}
+  ],
+  "expect": {
+    "money": 19900,
+    "tick": 2,
+    "revision": 6,
+    "generation": 7,
+    "accepted": ["p1", "p2", "p4", "p5"],
+    "refused": ["p3"],
+    "duplicated": ["p1"],
+    "eachOperationOnce": true
+  }
+}

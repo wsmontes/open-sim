@@ -43,7 +43,7 @@ describe('the kernel publishes locally first and only then to the network (proto
   const resolved = kernel.resolve('osim:entity:house-42');
   expect(resolved.ok).toBe(true);
   if (!resolved.ok) return;
-  expect(resolved.value?.components['lifesim.residence']).toEqual({rooms:3, planted:'oak'});
+  expect(resolved.value?.components?.['lifesim.residence']).toEqual({rooms:3, planted:'oak'});
  });
  test('a relay that refuses does not take the local reality with it',async()=>{
   const {transport, fail} = recorder();

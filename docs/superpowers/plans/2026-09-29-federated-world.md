@@ -155,11 +155,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** `createHostSession(options: HostOptions): HostSession`, com `submit(proposal: Proposal): Promise<ProposalReceipt>` e `step(): Promise<WorldResult<Head>>`; `createReplicaSession(options: ReplicaOptions): ReplicaSession`, com `receive(commit: AcceptedCommit): Promise<ReplicaReceipt>`; `SessionTransport.send(peer: string, message: WireMessage): Promise<void>` e `subscribe(listener): () => void`. Options incluem repositório, identidade, verificador, concessões, regras e transporte injetados; sem import de adaptador.
 
-- [ ] Testar duas obras competindo pelo mesmo saldo, commit repetido/invertido, pai ausente, proposta rejeitada seguida por válida, base OSM diferente entre peers e queda após persistir antes de responder; `expect(hostSemanticHash).toBe(replicaSemanticHash)` e cobrança única após reenvio.
-- [ ] Rodar `npx vitest run tests/multiplayer-session.test.ts`; confirmar RED.
-- [ ] Implementar pipeline da spec §7.4; recibo e head gravam na mesma transação. Persistência falha não emite confirmação durável. Replica verifica operações e resultado; solicita bases antes de adotar. Anfitrião revalida propostas antigas somente com precondições e teto de custo intactos; ticks só via host.
-- [ ] Rodar teste de caos determinístico e reabertura a partir de checkpoint/recibos; exigir ausência de aplicação dupla e de divergência não sinalizada. Limitar filas e pedidos de pais ausentes.
-- [ ] Commit: `feat: replicate deterministic sessions with durable receipts`.
+- [x] Testar duas obras competindo pelo mesmo saldo, commit repetido/invertido, pai ausente, proposta rejeitada seguida por válida, base OSM diferente entre peers e queda após persistir antes de responder; `expect(hostSemanticHash).toBe(replicaSemanticHash)` e cobrança única após reenvio.
+- [x] Rodar `npx vitest run tests/multiplayer-session.test.ts`; confirmar RED.
+- [x] Implementar pipeline da spec §7.4; recibo e head gravam na mesma transação. Persistência falha não emite confirmação durável. Replica verifica operações e resultado; solicita bases antes de adotar. Anfitrião revalida propostas antigas somente com precondições e teto de custo intactos; ticks só via host.
+- [x] Rodar teste de caos determinístico e reabertura a partir de checkpoint/recibos; exigir ausência de aplicação dupla e de divergência não sinalizada. Limitar filas e pedidos de pais ausentes.
+- [x] Commit: `feat: replicate deterministic sessions with durable receipts`.
 
 ### Tarefa 8: WebRTC com sinalização manual
 
@@ -322,6 +322,11 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 ## Desvios registrados
 
+- **Tarefa 7:** `AcceptedCommit` carrega só as entradas (comando, autorização, objetos, refs de base, lista aceita) e nunca o
+  estado resultante: a réplica reproduz a versão e concorda pelo endereço do commit. O livro-razão da sessão é a própria lista
+  `accepted` do commit (`p.<epoch>.<id>@<digest>` / `t.<epoch>.<generation>`), relida do histórico, então um anfitrião reaberto
+  reconhece reenvio sem um segundo armazém. `failed` num recibo significa nenhuma confirmação durável, e só respostas duráveis
+  são repetidas a um reenvio.
 - **Tarefa 5:** `PreparedChange` ganhou `state?: GameState` e `records?: readonly string[]` (um merge compõe estado, não
   reexecuta ações, e precisa nomear o que a versão registra); `MergeVersion` é estrutural, então um `Checkpoint` o satisfaz
   sem criar `world -> session`; a prévia de merge/atualização é o próprio `MergePreview`, sem tocar `world-diff`.
@@ -407,6 +412,7 @@ O conteúdo de cada tarefa continua o do checklist; esta tabela só fixa o que m
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 7 | `TASK7_SHA` | 16 testes em `tests/multiplayer-session.test.ts` + fixture `session-chaos.json` (14 passos): duas obras no mesmo saldo, commit repetido e invertido, pai ausente, proposta recusada seguida de válida, base de fonte diferente entre peers (a réplica pede e espera, com `stopped` e evidência nomeando a região em vez de substituir em silêncio), queda entre persistir e responder sem aplicação dupla, cobrança única após reenvio e reabertura a partir de checkpoint e recibos. Sete defeitos reais corrigidos no ciclo, incluindo um commit descartado em silêncio e um auto-deadlock na promoção de commit em buffer.
 | 5 | `6394ba1` | 14 testes novos (`world-merge` 9, `base-update` 5): estacionamento do jogador versus prédio real conflita, preservar o parque adota a origem nova com divergência registrada, gasto conjunto acima do saldo, remoção versus edição, namespace crítico desconhecido conflita em vez de ser resolvido em silêncio, candidato de head antigo e ausência de ancestral recusados com código próprio, atualização de base sem renda retroativa e compensação de usina já utilizada sem devolver dinheiro indevido. Conflitos são tipados por campo/célula e uma decisão inexistente ou repetida é recusada.
 | 12 | `761852f` | 13 testes novos (9 em `world-blobs`, 4 em `world-retention`): hash do cifrado diferente do texto claro, recusa por nonce/contexto/ciphertext alterados, mundo ou keyId diferentes recusados antes de decifrar, ausência de chave, provedor indisponível com queda para a cópia local, 413/429/507 mapeados, arquivo de 32 MiB+1 recusado antes de decifrar, e retenção que **não** recolhe nada quando o inventário está incompleto ou tem aresta de tipo desconhecido. Formato de fio do objeto selado é binário (cabeçalho JCS + nonce + ciphertext crus): 32 MiB não viram 43 MiB de base64. Suíte: 175 testes, `tsc --noEmit` limpo.
 | 4 | `eadffcb` | 9 testes em `tests/world-changes.test.ts`: campos independentes vs mesma célula, rua atravessando borda de trecho e o antimeridiano, namespace desconhecido preservado, prévia com `quote`/regras do destino (saldo e tick da origem nunca entram), cota por operação e soma sem aplicação parcial, autor declarado não vira ator, edição sem intenção e `tick` recusados como conflito. No navegador: painel de comparação "Real: 0 · Jogador: 2 (custo ~20) · Simulação: 1 · Metadados: 2" com região clicável, e construir pela UI gravou o checkpoint "Rua em 1 célula(s) · build:road@48557:74362#618". Cinco defeitos reais corrigidos no ciclo RED→GREEN.
