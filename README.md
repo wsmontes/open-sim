@@ -70,3 +70,7 @@ Indicadores: dinheiro, população, energia (usada/fornecida) e felicidade.
 - O executor Node (`npm run replay`) é uma prova de portabilidade, não um aplicativo desktop.
 
 `docs/implementation.md` descreve os contratos, os limites entre módulos e como trocar a fonte de mapa, o armazenamento e o renderizador. `docs/architecture.md` é a carta de arquitetura de longo prazo (mundos interoperáveis, autoridade e transporte).
+
+## Próxima etapa: mundos versionados e colaboração
+
+A [especificação de mundos reais e colaboração federada](docs/superpowers/specs/2026-09-29-federated-world-design.md) propõe procedência dos dados reais, cenários e ramificações inspiradas em Git, integração de alterações e multiplayer sem servidor dedicado de simulação. O [plano de implementação](docs/superpowers/plans/2026-09-29-federated-world.md) divide o trabalho em seis entregas: arquivos/histórico, colaboração assíncrona, multiplayer, federação, novas fontes/perfis e interoperabilidade. São documentos de planejamento; essas capacidades ainda não estão implementadas.

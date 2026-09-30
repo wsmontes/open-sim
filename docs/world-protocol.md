@@ -2,6 +2,8 @@
 
 Este documento diz o que do mundo durável é contrato (e portanto prometido a qualquer cliente) e o que ainda é implementação do perfil cidade. Ele é o mapa entre a direção arquitetural da carta (`docs/architecture.md`), os precedentes pesquisados (`docs/research/interoperability-precedents.md`) e o código que existe hoje.
 
+A evolução proposta está na [especificação de mundos versionados e colaboração federada](superpowers/specs/2026-09-29-federated-world-design.md) e no [plano de implementação](superpowers/plans/2026-09-29-federated-world.md). Ela amplia procedência, linhagem e composição, sem declarar o manifesto v2 ou o multiplayer como implementados. A ordem futura passa a incluir colaboração assíncrona antes da sessão em rede; a lista abaixo continua registrando as lacunas do contrato atual.
+
 ## O que já é contrato
 
 ### Manifesto (`src/core/protocol.ts`)

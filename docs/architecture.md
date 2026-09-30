@@ -2,6 +2,8 @@
 
 Status: architectural direction for the interoperable-world phase.
 
+Detailed proposal: [real-world data, versioned dimensions and federated collaboration](superpowers/specs/2026-09-29-federated-world-design.md), with a [staged implementation plan](superpowers/plans/2026-09-29-federated-world.md). These are planned capabilities, not a description of implemented networking.
+
 ## 1. Core idea
 
 Open Sim is not fundamentally a city-building game. The city builder is the first client and the first ruleset exercising a more general world model.
