@@ -79,7 +79,7 @@ Duas escalas de desenho convivem, escolhidas por `isCoarse` (passo de célula ab
 
 Trocar o desenho é escrever outra função `render` que consuma o mesmo `WorldView` — ela recebe câmera, viewport, estado, status de trechos, seleção e prévia, e nada de HTTP ou armazenamento. Trocar os controles é outro `attachInput` com os mesmos callbacks. Um cliente com WebGL, terminal ou canvas de desktop não precisa tocar no núcleo.
 
-O carregamento é racionado: `visibleChunks` resolve os trechos visíveis (passo em nível de trecho, não de célula), `closestChunks` escolhe até 48 por passada a partir do centro da tela e o cliente agenda novas passadas enquanto sobrar área por preencher. Falha de rede não dispara novas tentativas automáticas — o jogador decide pelo botão. Na prática, ver Vancouver inteira e os arredores a 0,05× custou **8 tiles** para 412 trechos visíveis.
+O carregamento é racionado: `visibleChunks` resolve os trechos visíveis (passo em nível de trecho, não de célula), `closestChunks` escolhe até 120 por passada a partir do centro da tela e o cliente agenda novas passadas enquanto sobrar área por preencher. Falha de rede não dispara novas tentativas automáticas — o jogador decide pelo botão. Na prática, ver Vancouver inteira e os arredores a 0,05× custou **8 tiles** para 412 trechos visíveis.
 
 ## Mapa real
 

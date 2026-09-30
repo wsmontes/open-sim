@@ -15,7 +15,7 @@ import type {Speed} from '../presentation/clock';
 import {createHud} from '../presentation/hud';
 import type {SelectedTool} from '../presentation/hud';
 import {attachInput} from '../presentation/input';
-const WORLD_ID='open-sim',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,LOAD_BUDGET=48;
+const WORLD_ID='open-sim',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,LOAD_BUDGET=120;
 const PLACES:Record<string,{lat:number;lon:number}>={Vancouver:{lat:49.2827,lon:-123.1207},'São Paulo':{lat:-23.5505,lon:-46.6333},Lisboa:{lat:38.7223,lon:-9.1393}};
 const EMPTY_STATS:CityStats={money:0,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:0,income:0,managed:0};
 // One pending run per window: a burst coalesces into a single run that reads the newest state when it
