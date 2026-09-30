@@ -106,3 +106,15 @@ Na etapa de materialização, resolver primeiro a contabilidade: população tot
 Executar diretamente, uma tarefa e um commit por vez. Reaproveitar testes e componentes existentes. Rodar testes focados durante alterações e a suíte completa ao fechar o ciclo. Evitar reescrita, novo motor gráfico, pesquisa adicional de protocolos e novos serviços enquanto as três correções imediatas não estiverem verificadas.
 
 Este documento é uma proposta de continuidade, não uma implementação. Nenhum código do produto foi alterado nesta análise.
+
+## Execução deste ciclo (2026-09-30, branch `codex/open-sim-design`)
+
+| Task | Commit | Verificação |
+| --- | --- | --- |
+| 1 | `c2b427c` | regressões escritas antes e conferidas contra o código anterior (stash): as três falhavam; depois passam |
+| 2 | `2f1a0c8` | identidade estável com 0/1/vários comandos efêmeros; endereço de conteúdo ainda cobre o arquivo inteiro |
+| 3 | `perf: bound explored-region memory` | memória de 75 → 113 → 119 MB em 36 arrastos manuais (crescimento achata); obra sobrevive a sair, recarregar, girar e zoom |
+
+Suíte fechada com **106 testes** em 14 arquivos, `typecheck`, `typecheck:core` e `build` limpos (bundle 56,88 kB, 20,52 kB gzip).
+
+Notas de execução: a evidência visual não foi repetida além da passagem única pedida na Task 3; os números de desempenho dos documentos antigos continuam sendo registros anteriores. A varredura automatizada contra servidores públicos não foi feita, como o plano manda.

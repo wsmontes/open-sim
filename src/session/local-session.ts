@@ -9,11 +9,14 @@ function unknownFields(source: Record<string,unknown>, known: readonly string[])
  for (const key of Object.keys(source)) if (!known.includes(key)) kept[key] = source[key];
  return kept;
 }
+// Beyond what is visible and what is managed, this many recently used regions stay cached.
+const RECENT_BUDGET = 256;
 export type SaveStatus = {status:'idle'|'saving'|'saved'|'error'; message?:string; blocked:boolean};
 export type LocalSession = {
  readonly restoredView: ViewState|null;
  initialize(initialChunkId: string): Promise<void>;
  loadVisible(ids: readonly string[], level?: MapLevel): Promise<void>;
+ retainVisible(ids: readonly string[]): void;
  dispatch(action: Action): CommandResult;
  save(view: ViewState): Promise<void>;
  getState(): GameState;
@@ -25,6 +28,10 @@ export type LocalSession = {
 export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:string; seed:number; slot?:string; actorId?:string}): LocalSession {
  const {maps,saves,worldId,seed,slot='open-sim',actorId='local-player'} = config;
  const chunks = new Map<string,ChunkStatus>(), listeners = new Set<()=>void>();
+ // Exploration must not grow forever: the client says which regions it can see right now, managed regions are
+ // protected by the durable state itself, and only the most recent budget of the others is kept.
+ const visible = new Set<string>(), tickets = new Map<string,number>();
+ let issued = 0;
  let state: GameState|null = null, restored: ViewState|null = null, saveStatus: SaveStatus = {status:'idle',blocked:false};
  // Metadata written by another client (an envelope field, a view field) travels through this session untouched: the
  // save it writes keeps carrying it, because a client that drops it silently would erase another profile's data.
@@ -32,6 +39,22 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
  let boot: Promise<void>|null = null, writing = false, queued: {data:SavedGame; waiters:Array<()=>void>}|null = null;
  const notify = () => {for (const listener of [...listeners]) listener();};
  const failure = (error: unknown) => {const message = (error as {message?:unknown}|null)?.message;return typeof message === 'string' && message ? message : 'Falha desconhecida';};
+ // Most recently used last, so eviction can walk the map backwards.
+ function remember(id: string, status: ChunkStatus): void {
+  chunks.delete(id);
+  chunks.set(id,status);
+ }
+ function evict(): void {
+  const protectedIds = new Set<string>(visible);
+  if (state) for (const id of Object.keys(state.chunks)) protectedIds.add(id);
+  let budget = RECENT_BUDGET;
+  for (const id of [...chunks.keys()].reverse()) {
+   if (protectedIds.has(id)) continue;
+   if (budget > 0) {budget -= 1;continue;}
+   tickets.delete(id);   // an answer still in flight for a dropped region must not bring it back
+   chunks.delete(id);
+  }
+ }
  function flush() {
   if (writing || !queued) return;
   const job = queued; queued = null; writing = true; saveStatus = {status:'saving',blocked:false};
@@ -73,10 +96,32 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
     const known = chunks.get(id);
     // Already good enough: an overview region still upgrades when the caller asks for detail, never the other way.
     if (known && known.status !== 'error' && (known.status === 'loading' || level === 'overview' || known.level === 'detail')) continue;
-    chunks.set(id,{status:'loading',level}); notify();
-    pending.push(maps.loadChunk(id,level).then(base=>{chunks.set(id,{status:'ready',base,level});notify();}, error=>{chunks.set(id,{status:'error',message:failure(error)});notify();throw error;}));
+    const ticket = ++issued;
+    tickets.set(id,ticket);
+    remember(id,{status:'loading',level}); notify();
+    pending.push(maps.loadChunk(id,level).then(base=>{
+     if (tickets.get(id) !== ticket) return;   // the region was dropped or asked for again: this answer is history
+     tickets.delete(id);
+     remember(id,{status:'ready',base,level}); notify();
+    }, error=>{
+     if (tickets.get(id) !== ticket) return;
+     tickets.delete(id);
+     remember(id,{status:'error',message:failure(error)}); notify();
+     throw error;
+    }));
    }
    await Promise.all(pending);
+   evict();
+  },
+  retainVisible(ids: readonly string[]) {
+   visible.clear();
+   for (const id of ids) {
+    visible.add(id);
+    const known = chunks.get(id);
+    if (known) remember(id,known);
+   }
+   evict();
+   notify();
   },
   dispatch(action: Action): CommandResult {
    if (!state) throw new Error('Sessão não iniciada');

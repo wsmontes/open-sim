@@ -17,7 +17,9 @@ function fakeMaps(){
  const levels:Array<[string,string]>=[];
  const source:MapSource={attribution:{text:'© OpenStreetMap',url:'https://www.openstreetmap.org/copyright'},loadChunk(id,level){levels.push([id,level??'detail']);calls.push(id);arrived(id);if(broken.has(id))return Promise.reject(new Error('Falha de rede'));return new Promise<BaseChunk>((resolve,reject)=>{waiting.set(id,[...(waiting.get(id)??[]),{resolve,reject}]);});}};
  const release=(id:string,ok:boolean)=>{const list=waiting.get(id)??[];waiting.set(id,[]);for(const w of list)ok?w.resolve(base(id)):w.reject(new Error('Falha de rede'));};
- return {source,calls,levels,base,broken,pending:(id:string)=>(waiting.get(id)??[]).length,arrival:(id:string)=>(waiting.get(id)?.length??0)>0?Promise.resolve():new Promise<void>(f=>arrivals.set(id,[...(arrivals.get(id)??[]),f])),resolve:(id:string)=>release(id,true),reject:(id:string)=>release(id,false)};
+ // Answers arrive one at a time, so a stale answer can be delivered after a newer request for the same region.
+ const releaseFirst=(id:string)=>{const list=waiting.get(id)??[];const first=list.shift();waiting.set(id,list);first?.resolve(base(id));};
+ return {source,calls,levels,base,broken,releaseFirst,pending:(id:string)=>(waiting.get(id)??[]).length,arrival:(id:string)=>(waiting.get(id)?.length??0)>0?Promise.resolve():new Promise<void>(f=>arrivals.set(id,[...(arrivals.get(id)??[]),f])),resolve:(id:string)=>release(id,true),reject:(id:string)=>release(id,false)};
 }
 async function boot(saves:SaveStore,m=fakeMaps()){
  const s=createSession({maps:m.source,saves,worldId:'mundo',seed:7});
@@ -215,4 +217,46 @@ test('metadata written by another client survives a full restore, play and save 
  expect(writtenView['place']).toBe('Lisboa');
  expect(writtenView['x']).toBe(view('Lisboa').x);
  expect((written.state as {tick:number}).tick).toBe(2);
+});
+test('explored regions are forgotten while visible and managed ones stay',async()=>{
+ const {s,m}=await boot(createMemoryStore());
+ const visit=async(id:string)=>{const pending=s.loadVisible([id]);await m.arrival(id);m.resolve(id);await pending;};
+ await visit('1:0');
+ expect(s.dispatch({type:'build',tool:'road',cells:[{x:33,y:0}]}).status).toBe('applied');   // '1:0' becomes managed
+ for(let i=0;i<300;i+=1)await visit(`${100+i}:0`);
+ s.retainVisible(['1:0']);
+ expect(s.getChunk('1:0')).toMatchObject({status:'ready'});     // managed
+ expect(s.getChunk('9:9')).toMatchObject({status:'ready'});     // initial region, also managed
+ expect(s.getChunk('299:0')).toMatchObject({status:'ready'});   // recent
+ expect(s.getChunk('100:0')).toBeUndefined();                   // oldest, and nothing else protects it
+ const again=s.loadVisible(['100:0']);
+ await m.arrival('100:0');m.resolve('100:0');await again;
+ expect(s.getChunk('100:0')).toMatchObject({status:'ready'});
+});
+test('a late answer for a region that was dropped does not bring it back',async()=>{
+ const {s,m}=await boot(createMemoryStore());
+ const inFlight=s.loadVisible(['5:0']);
+ await m.arrival('5:0');
+ for(let i=0;i<270;i+=1){const id=`${200+i}:0`;const pending=s.loadVisible([id]);await m.arrival(id);m.resolve(id);await pending;}
+ expect(s.getChunk('5:0')).toBeUndefined();
+ m.resolve('5:0');
+ await inFlight;
+ expect(s.getChunk('5:0')).toBeUndefined();
+});
+test('a stale answer cannot overwrite a region asked for again',async()=>{
+ const {s,m}=await boot(createMemoryStore());
+ const stale=s.loadVisible(['6:0']);
+ await m.arrival('6:0');
+ for(let i=0;i<270;i+=1){const id=`${300+i}:0`;const pending=s.loadVisible([id]);await m.arrival(id);m.resolve(id);await pending;}
+ expect(s.getChunk('6:0')).toBeUndefined();
+ const fresh=s.loadVisible(['6:0']);
+ await m.arrival('6:0');
+ // two requests are in flight for this region: the stale one the fake never answered, and the new one
+ expect(m.pending('6:0')).toBe(2);
+ m.releaseFirst('6:0');
+ await stale;
+ expect(s.getChunk('6:0')).toMatchObject({status:'loading'});
+ m.resolve('6:0');
+ await fresh;
+ expect(s.getChunk('6:0')).toMatchObject({status:'ready'});
 });

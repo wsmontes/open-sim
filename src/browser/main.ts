@@ -96,6 +96,11 @@ const updateHud=()=>{
 };
 const loadVisible=async()=>{
  const visible=visibleChunks(camera,viewport()),statusOf=(id:string)=>session.getChunk(id);
+ // The client says what it can see; the session then forgets everything else it is allowed to forget, so a long
+ // exploration does not grow memory without bound. Managed regions are protected by the durable state, not by this.
+ session.retainVisible(visible);
+ requested.clear();
+ for(const id of visible)requested.add(id);
  const unknown=visible.filter(id=>{const status=statusOf(id);return !status||status.status==='error';});
  const coarse=closestChunks(unknown,camera,viewport(),OVERVIEW_BUDGET);
  const detailed=closestChunks(visible.filter(id=>{const status=statusOf(id);return !status||status.status==='error'||(status.status==='ready'&&status.level!=='detail');}),camera,viewport(),DETAIL_BUDGET);

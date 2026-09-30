@@ -88,6 +88,10 @@ Duas escalas de desenho convivem, escolhidas por `isCoarse` (passo de célula ab
 
 Trocar o desenho é escrever outra função `render` que consuma o mesmo `WorldView` — ela recebe câmera, viewport, estado, status de trechos, seleção e prévia, e nada de HTTP ou armazenamento. Trocar os controles é outro `attachInput` com os mesmos callbacks. Um cliente com WebGL, terminal ou canvas de desktop não precisa tocar no núcleo.
 
+### Memória durante a exploração
+
+A sessão guarda três coisas: as regiões que o cliente diz que vê agora (`retainVisible`, chamado a cada parada de câmera), as regiões administradas — que valem pelo estado durável, não pelo cache — e até 256 regiões recentes fora da janela visível. O resto é descartado por uso recente (a ordem do `Map` é a ordem de uso), o que impede uma exploração longa de crescer sem limite. Uma resposta de rede que chega para uma região já descartada é **ignorada** (cada pedido tem uma senha; o descarte apaga a senha), e um pedido novo para a mesma região nunca é sobrescrito pelo antigo. A LRU de 32 tiles do fornecedor e o limite de quatro requisições simultâneas continuam como estavam.
+
 O carregamento é racionado e em dois tempos: `visibleChunks` resolve os trechos visíveis (passo em nível de trecho, não de célula, com meia célula de folga para casar com o desenho), o cliente pede primeiro a passada grosseira (`overview`, até 512 trechos — um tile z11 cobre 4.096 trechos, então a cidade inteira cabe em uma ou duas requisições) e em seguida a passada detalhada (`detail`, até 120 por vez, mais próxima do centro primeiro, repetindo enquanto sobrar área). Falha de rede não dispara novas tentativas automáticas — o jogador decide pelo botão.
 
 Medido em São Paulo (cidade densa, Chromium, viewport 1440×900): a vista ampla de 412 trechos aparece pintada em menos de um segundo, fica completa em ~4 s e custa **2 tiles grosseiros + 8 detalhados**; a 0,05× o desenho sustenta **60 fps**.
