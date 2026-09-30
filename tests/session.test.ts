@@ -7,16 +7,17 @@ import {blank,command} from './fixtures/world';
 import type {BaseChunk,CellCoord,SavedGame,ViewState} from '../src/core/model';
 import type {MapSource,SaveStore} from '../src/session/ports';
 type Waiter={resolve:(b:BaseChunk)=>void;reject:(e:unknown)=>void};
-const view=(place:string):ViewState=>({x:12.5,y:-4,zoom:1.5,speed:1,place});
+const view=(place:string):ViewState=>({x:12.5,y:-4,zoom:1.5,speed:1,place,rotation:-0.75});
 // Cells inside the initial region '9:9', whose origin is (288,288).
 const at=(x:number,y:number):CellCoord=>({x:288+x,y:288+y});
 function fakeMaps(){
  const calls:string[]=[],bases=new Map<string,BaseChunk>(),waiting=new Map<string,Waiter[]>(),broken=new Set<string>(),arrivals=new Map<string,Array<()=>void>>();
  const base=(id:string)=>{let b=bases.get(id);if(!b){b=blank(id);bases.set(id,b);}return b;};
  const arrived=(id:string)=>{const list=arrivals.get(id)??[];arrivals.set(id,[]);for(const f of list)f();};
- const source:MapSource={attribution:{text:'© OpenStreetMap',url:'https://www.openstreetmap.org/copyright'},loadChunk(id){calls.push(id);arrived(id);if(broken.has(id))return Promise.reject(new Error('Falha de rede'));return new Promise<BaseChunk>((resolve,reject)=>{waiting.set(id,[...(waiting.get(id)??[]),{resolve,reject}]);});}};
+ const levels:Array<[string,string]>=[];
+ const source:MapSource={attribution:{text:'© OpenStreetMap',url:'https://www.openstreetmap.org/copyright'},loadChunk(id,level){levels.push([id,level??'detail']);calls.push(id);arrived(id);if(broken.has(id))return Promise.reject(new Error('Falha de rede'));return new Promise<BaseChunk>((resolve,reject)=>{waiting.set(id,[...(waiting.get(id)??[]),{resolve,reject}]);});}};
  const release=(id:string,ok:boolean)=>{const list=waiting.get(id)??[];waiting.set(id,[]);for(const w of list)ok?w.resolve(base(id)):w.reject(new Error('Falha de rede'));};
- return {source,calls,base,broken,pending:(id:string)=>(waiting.get(id)??[]).length,arrival:(id:string)=>(waiting.get(id)?.length??0)>0?Promise.resolve():new Promise<void>(f=>arrivals.set(id,[...(arrivals.get(id)??[]),f])),resolve:(id:string)=>release(id,true),reject:(id:string)=>release(id,false)};
+ return {source,calls,levels,base,broken,pending:(id:string)=>(waiting.get(id)??[]).length,arrival:(id:string)=>(waiting.get(id)?.length??0)>0?Promise.resolve():new Promise<void>(f=>arrivals.set(id,[...(arrivals.get(id)??[]),f])),resolve:(id:string)=>release(id,true),reject:(id:string)=>release(id,false)};
 }
 async function boot(saves:SaveStore,m=fakeMaps()){
  const s=createSession({maps:m.source,saves,worldId:'mundo',seed:7});
@@ -166,4 +167,28 @@ test('the save queue is serial and the newest state wins',async()=>{
  expect(maxActive).toBe(1);expect(active).toBe(0);expect(order).toEqual([0,1]);
  expect(last).toBe(encodeSave({version:1,state:s.getState(),view:second}));
  expect(decodeSave(JSON.parse(inner.slots.get('open-sim')!)).view).toEqual(second);
+});
+
+test('a coarse region paints at once, upgrades to detail, and never enters the economy while coarse',async()=>{
+ const {s,m}=await boot(createMemoryStore());
+ const coarse=s.loadVisible(['1:0'],'overview');await m.arrival('1:0');m.resolve('1:0');await coarse;
+ expect(m.levels).toEqual([['9:9','detail'],['1:0','overview']]);
+ expect(s.getChunk('1:0')).toMatchObject({status:'ready',level:'overview'});
+ // an intervention in a region that only exists as an approximation is refused, not silently built on guesses
+ const rejected=s.dispatch({type:'build',tool:'road',cells:[{x:33,y:0}]});
+ expect(rejected.status).toBe('rejected');
+ expect(rejected.reason).toContain('Espere o mapa carregar');
+ // the same region at detail level replaces the approximation and the intervention goes through
+ const upgrade=s.loadVisible(['1:0']);await m.arrival('1:0');m.resolve('1:0');await upgrade;
+ expect(m.levels).toEqual([['9:9','detail'],['1:0','overview'],['1:0','detail']]);
+ expect(s.getChunk('1:0')).toMatchObject({status:'ready',level:'detail'});
+ expect(s.dispatch({type:'build',tool:'road',cells:[{x:33,y:0}]}).status).toBe('applied');
+});
+test('a detail region is never downgraded by a later coarse request',async()=>{
+ const {s,m}=await boot(createMemoryStore());
+ const detail=s.loadVisible(['2:0']);await m.arrival('2:0');m.resolve('2:0');await detail;
+ const before=m.levels.length;
+ await s.loadVisible(['2:0'],'overview');
+ expect(m.levels.length).toBe(before);
+ expect(s.getChunk('2:0')).toMatchObject({status:'ready',level:'detail'});
 });

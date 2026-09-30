@@ -97,5 +97,14 @@ function viewState(value: unknown): ViewState {
  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) throw new Error('Posição da câmera inválida');
  if (!Number.isFinite(value.zoom) || (value.zoom as number) < VIEW_ZOOM_MIN || (value.zoom as number) > VIEW_ZOOM_MAX) throw new Error('Zoom inválido');
  if (value.speed !== 0 && value.speed !== 1 && value.speed !== 2) throw new Error('Velocidade inválida');
- return {x:value.x as number, y:value.y as number, zoom:value.zoom as number, speed:value.speed as ViewState['speed'], place:value.place};
+ return {x:value.x as number, y:value.y as number, zoom:value.zoom as number, speed:value.speed as ViewState['speed'], place:value.place, rotation:viewRotation(value.rotation)};
+}
+// Saves written before the view could be turned carry no bearing at all and simply mean north up. A stored one has to
+// be a real bearing inside (-PI, PI]. The camera folds its angles into that same window, but running the fold again
+// here would add a rounding step and make a stored angle wobble on every save, so an angle already in range survives
+// untouched (only -PI folds to PI, and -0 to 0, which is the one canonical form pair the window has).
+function viewRotation(value: unknown): number {
+ if (value === undefined) return 0;
+ if (typeof value !== 'number' || !Number.isFinite(value) || value < -Math.PI || value > Math.PI) throw new Error('Rotação inválida');
+ return value === -Math.PI ? Math.PI : value + 0;
 }

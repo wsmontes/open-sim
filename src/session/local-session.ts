@@ -1,4 +1,5 @@
 import type {Action,BaseChunk,Command,CommandResult,GameState,SavedGame,ViewState} from '../core/model';
+import type {MapLevel} from './ports';
 import {applyCommand,createGame} from '../core/commands';
 import {SAVE_VERSION,decodeSave} from '../core/snapshot';
 import type {ChunkStatus,MapSource,SaveStore} from './ports';
@@ -6,7 +7,7 @@ export type SaveStatus = {status:'idle'|'saving'|'saved'|'error'; message?:strin
 export type LocalSession = {
  readonly restoredView: ViewState|null;
  initialize(initialChunkId: string): Promise<void>;
- loadVisible(ids: readonly string[]): Promise<void>;
+ loadVisible(ids: readonly string[], level?: MapLevel): Promise<void>;
  dispatch(action: Action): CommandResult;
  save(view: ViewState): Promise<void>;
  getState(): GameState;
@@ -32,30 +33,37 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
    .then(()=>{writing = false;for (const waiter of job.waiters) waiter();flush();});
  }
  async function start(initialChunkId: string) {
-  const stored = await saves.read(slot);
+  let stored: unknown = null;
+  try {
+   stored = await saves.read(slot);
+  } catch (error) {
+   // Unreadable storage must not stop the game: play in memory, keep the slot untouched and say why writing is off.
+   saveStatus = {status:'error',message:failure(error),blocked:true};
+  }
   if (stored !== null && stored !== undefined) {
    try {
     const saved = decodeSave(stored);
     state = saved.state; restored = saved.view; saveStatus = {status:'idle',blocked:false};
-    for (const [id,managed] of Object.entries(saved.state.chunks)) chunks.set(id,{status:'ready',base:managed.base});
+    for (const [id,managed] of Object.entries(saved.state.chunks)) chunks.set(id,{status:'ready',base:managed.base,level:'detail'});
     notify(); return;
    } catch (error) {saveStatus = {status:'error',message:failure(error),blocked:true};}
   }
   const base = await maps.loadChunk(initialChunkId);
-  chunks.set(initialChunkId,{status:'ready',base});
+  chunks.set(initialChunkId,{status:'ready',base,level:'detail'});
   state = createGame(worldId,seed,base); restored = null;
   notify();
  }
  return {
   get restoredView() {return restored;},
   initialize(initialChunkId: string) {if (!boot) boot = start(initialChunkId);return boot;},
-  async loadVisible(ids: readonly string[]) {
+  async loadVisible(ids: readonly string[], level: MapLevel = 'detail') {
    const pending: Array<Promise<void>> = [];
    for (const id of ids) {
     const known = chunks.get(id);
-    if (known && known.status !== 'error') continue;
-    chunks.set(id,{status:'loading'}); notify();
-    pending.push(maps.loadChunk(id).then(base=>{chunks.set(id,{status:'ready',base});notify();}, error=>{chunks.set(id,{status:'error',message:failure(error)});notify();throw error;}));
+    // Already good enough: an overview region still upgrades when the caller asks for detail, never the other way.
+    if (known && known.status !== 'error' && (known.status === 'loading' || level === 'overview' || known.level === 'detail')) continue;
+    chunks.set(id,{status:'loading',level}); notify();
+    pending.push(maps.loadChunk(id,level).then(base=>{chunks.set(id,{status:'ready',base,level});notify();}, error=>{chunks.set(id,{status:'error',message:failure(error)});notify();throw error;}));
    }
    await Promise.all(pending);
   },
@@ -63,7 +71,9 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
    if (!state) throw new Error('Sessão não iniciada');
    const command: Command = {version:1, worldId, actorId, sequence:(state.actors[actorId] ?? 0) + 1, expectedRevision:state.revision, action};
    const available: BaseChunk[] = [];
-   for (const chunk of chunks.values()) if (chunk.status === 'ready') available.push(chunk.base);
+   // An approximation is good enough to look at and never good enough to freeze into the economy: an intervention
+   // in an overview region is refused, and the client answers by loading that region at detail level.
+   for (const chunk of chunks.values()) if (chunk.status === 'ready' && chunk.level === 'detail') available.push(chunk.base);
    const result = applyCommand(state,command,available);
    if (result.status === 'applied') {state = result.state;notify();}
    return result;

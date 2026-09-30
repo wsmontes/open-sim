@@ -26,11 +26,24 @@ const WALL_LIGHT='#e8dfc9',WALL_DARK='#c9bda2',LOT='#cbb083',MARK='#f6f1e4',SHAD
 const PREVIEW_OK={fill:'rgba(124,224,110,.3)',line:'#c8ffb8'};
 const PREVIEW_BLOCKED={fill:'rgba(240,90,80,.32)',line:'#ffc0b8'};
 const HOVER={fill:'rgba(255,255,255,.07)',line:'rgba(255,255,255,.65)'};
+// Diagonal neighbours share their edges exactly, but each ground fill covers only half of a shared pixel, so the
+// background used to show through as a one pixel thread between them. A seam is one pixel wide whatever the zoom, so
+// the repair is measured in pixels too: the ground diamond has half-axes (2h, h), so its edge sits 2h/sqrt(5) = .894h
+// from the centre, and padding both half-axes by 1.12 pushes every edge one pixel outwards. Both neighbours then cover
+// the whole shared pixel and the later fill paints it in its own colour. Ground fills only, turned views only.
+const SEAM_PAD=1.12;
 const diamondPath=(ctx:CanvasRenderingContext2D,cx:number,cy:number,hw:number,hh:number)=>{ctx.beginPath();ctx.moveTo(cx,cy-hh);ctx.lineTo(cx+hw,cy);ctx.lineTo(cx,cy+hh);ctx.lineTo(cx-hw,cy);ctx.closePath();};
 const diamond=(ctx:CanvasRenderingContext2D,cx:number,cy:number,hw:number,hh:number)=>{diamondPath(ctx,cx,cy,hw,hh);ctx.fill();};
 const polygon=(ctx:CanvasRenderingContext2D,points:Point[])=>{ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(const p of points)ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fill();};
 export function render(ctx:CanvasRenderingContext2D,view:WorldView):void {
  const {camera,viewport}=view,tw=TILE_W*camera.zoom,th=TILE_H*camera.zoom;
+ // The bearing is a context transform: the art below keeps drawing with the unrotated projection, while culling and
+ // the visible-region list use the real camera, so a turned view neither leaves a cell out nor paints one it cannot see.
+ const turned=camera.rotation!==0,flat:Camera=turned?{...camera,rotation:0}:camera,pad=turned?SEAM_PAD:0;
+ const absCos=Math.abs(Math.cos(camera.rotation)),absSin=Math.abs(Math.sin(camera.rotation));
+ // Conservative screen half-box of one cell: the turned diamond plus the tallest silhouette the art draws (buildings
+ // rise at most four tiles above their cell, a lean that grows sideways as the view turns).
+ const spanX=tw*absCos+th*absSin+th*4*absSin,spanY=th*absCos+tw*absSin+th*4*absCos;
  ctx.imageSmoothingEnabled=false;
  ctx.lineJoin='round';
  ctx.fillStyle='#16222f';
@@ -40,23 +53,25 @@ export function render(ctx:CanvasRenderingContext2D,view:WorldView):void {
   const c=cellSpace({x:px,y:py},camera);
   minX=Math.min(minX,c.x);maxX=Math.max(maxX,c.x);minY=Math.min(minY,c.y);maxY=Math.max(maxY,c.y);
  }
+ if(turned){ctx.save();ctx.translate(camera.x,camera.y);ctx.rotate(camera.rotation);ctx.translate(-camera.x,-camera.y);}
  if(isCoarse(camera))renderMosaic(ctx,view,{minX,maxX,minY,maxY});
  else{
-  const x0=Math.floor(minX)-2,x1=Math.ceil(maxX)+2,y0=Math.floor(minY)-2,y1=Math.ceil(maxY)+2,lift=th*7;
+  const x0=Math.floor(minX)-2,x1=Math.ceil(maxX)+2,y0=Math.floor(minY)-2,y1=Math.ceil(maxY)+2;
   // Painter order: rows of equal x+y are drawn back to front, cells with the larger x+y land in front.
   for(let sum=x0+y0;sum<=x1+y1;sum++){
    const from=Math.max(x0,sum-y1),to=Math.min(x1,sum-y0);
    for(let x=from;x<=to;x++){
     const y=sum-x;
     if(y<0||y>=WORLD)continue;
-    const p=project({x,y},camera);
-    if(p.x+tw<0||p.x-tw>viewport.width||p.y+th+lift<0||p.y-th>viewport.height)continue;
-    drawTile(ctx,view,{x,y},p,tw,th);
+    const p=project({x,y},flat),q=turned?project({x,y},camera):p;
+    if(q.x+spanX<0||q.x-spanX>viewport.width||q.y+spanY<0||q.y-spanY>viewport.height)continue;
+    drawTile(ctx,view,{x,y},p,tw,th,pad);
    }
   }
  }
- if(view.tool!=='explore')for(const cell of view.preview)drawMarker(ctx,view,cell,tw,th,view.previewAffordable?PREVIEW_OK:PREVIEW_BLOCKED,true);
- if(view.hover)drawMarker(ctx,view,view.hover,tw,th,HOVER,false);
+ if(view.tool!=='explore')for(const cell of view.preview)drawMarker(ctx,view,cell,tw,th,view.previewAffordable?PREVIEW_OK:PREVIEW_BLOCKED,true,flat);
+ if(view.hover)drawMarker(ctx,view,view.hover,tw,th,HOVER,false,flat);
+ if(turned)ctx.restore();
 }
 function lookupCell(view:WorldView,cell:CellCoord):{cell:Cell|null;error:boolean} {
  const id=chunkId(cell),managed=view.state.chunks[id];
@@ -65,28 +80,28 @@ function lookupCell(view:WorldView,cell:CellCoord):{cell:Cell|null;error:boolean
  if(status?.status==='ready')return {cell:status.base.cells[cellIndex(cell)],error:false};
  return {cell:null,error:status?.status==='error'};
 }
-function drawTile(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord,p:Point,tw:number,th:number) {
+function drawTile(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord,p:Point,tw:number,th:number,pad:number) {
  const found=lookupCell(view,coord),v=variant(coord.x,coord.y,view.seed);
- if(!found.cell)return drawUnknown(ctx,p,tw,th,v,found.error);
+ if(!found.cell)return drawUnknown(ctx,p,tw,th,v,found.error,pad);
  const cell=found.cell;
- if(cell.terrain==='water')return drawWater(ctx,p,tw,th,v);
+ if(cell.terrain==='water')return drawWater(ctx,p,tw,th,v,pad);
  ctx.fillStyle=(cell.terrain==='green'?MEADOW:GRASS)[v%3];
- diamond(ctx,p.x,p.y,tw,th);
- if(cell.road)drawRoad(ctx,p,tw,th,v);
- if(cell.building)drawBuilding(ctx,cell,p,tw,th,v);
+ diamond(ctx,p.x,p.y,tw+pad,th+pad);
+ if(cell.road)drawRoad(ctx,p,tw,th,v,pad);
+ if(cell.building)drawBuilding(ctx,cell,p,tw,th,v,pad);
 }
-function drawWater(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:number) {
+function drawWater(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:number,pad:number) {
  ctx.fillStyle=WATER[v%3];
- diamond(ctx,p.x,p.y,tw,th);
+ diamond(ctx,p.x,p.y,tw+pad,th+pad);
  ctx.strokeStyle='rgba(232,244,255,.4)';
  ctx.lineWidth=Math.max(1,tw*.03);
  ctx.setLineDash([]);
  const ox=(v%3-1)*tw*.2;
  ctx.beginPath();ctx.moveTo(p.x+ox-tw*.3,p.y+th*.28);ctx.lineTo(p.x+ox+tw*.14,p.y+th*.28);ctx.stroke();
 }
-function drawRoad(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:number) {
+function drawRoad(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:number,pad:number) {
  ctx.fillStyle='#8b9199';
- diamond(ctx,p.x,p.y,tw,th);
+ diamond(ctx,p.x,p.y,tw+pad,th+pad);
  const ua={x:tw/2,y:th/2},ub={x:tw/2,y:-th/2},wa={x:ub.x*.24,y:ub.y*.24},wb={x:ua.x*.24,y:ua.y*.24};
  ctx.fillStyle='#9ea4ab';
  polygon(ctx,[{x:p.x-ua.x+wa.x,y:p.y-ua.y+wa.y},{x:p.x+ua.x+wa.x,y:p.y+ua.y+wa.y},{x:p.x+ua.x-wa.x,y:p.y+ua.y-wa.y},{x:p.x-ua.x-wa.x,y:p.y-ua.y-wa.y}]);
@@ -99,10 +114,10 @@ function drawRoad(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:num
  ctx.fillStyle=v%2?'rgba(255,255,255,.25)':'rgba(60,70,80,.18)';
  diamond(ctx,p.x,p.y,tw*.1,th*.1);
 }
-function drawBuilding(ctx:CanvasRenderingContext2D,cell:Cell,p:Point,tw:number,th:number,v:number) {
+function drawBuilding(ctx:CanvasRenderingContext2D,cell:Cell,p:Point,tw:number,th:number,v:number,pad:number) {
  const kind=cell.building!;
  if(kind==='park')return drawPark(ctx,p,tw,th,v);
- if(cell.stage===0)return drawLot(ctx,p,tw,th);
+ if(cell.stage===0)return drawLot(ctx,p,tw,th,pad);
  const floors=kind==='power'?4:1+v%3,h=floors*th*.85;
  ctx.fillStyle=SHADE;
  diamond(ctx,p.x+tw*.1,p.y+th*.1,tw*.88,th*.88);
@@ -139,9 +154,9 @@ function drawPark(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:num
   ctx.beginPath();ctx.arc(p.x+dx-tw*.04,p.y+dy-th*.28,tw*.06,0,Math.PI*2);ctx.fill();
  }
 }
-function drawLot(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number) {
+function drawLot(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,pad:number) {
  ctx.fillStyle=LOT;
- diamond(ctx,p.x,p.y,tw,th);
+ diamond(ctx,p.x,p.y,tw+pad,th+pad);
  ctx.strokeStyle=MARK;
  ctx.lineWidth=Math.max(1,tw*.06);
  ctx.setLineDash([tw*.16,th*.2]);
@@ -154,11 +169,11 @@ function drawLot(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number) {
  ctx.fillStyle='#e0563f';
  polygon(ctx,[{x:p.x,y:p.y-th*.55},{x:p.x+tw*.2,y:p.y-th*.42},{x:p.x,y:p.y-th*.3}]);
 }
-function drawUnknown(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:number,failed:boolean) {
+function drawUnknown(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:number,failed:boolean,pad:number) {
  ctx.fillStyle=(failed?ERROR:UNKNOWN)[v%2];
- diamond(ctx,p.x,p.y,tw,th);
+ diamond(ctx,p.x,p.y,tw+pad,th+pad);
  ctx.save();
- diamondPath(ctx,p.x,p.y,tw,th);
+ diamondPath(ctx,p.x,p.y,tw+pad,th+pad);
  ctx.clip();
  ctx.strokeStyle=failed?'rgba(255,150,140,.34)':'rgba(196,210,228,.22)';
  ctx.lineWidth=Math.max(1,tw*.06);
@@ -178,11 +193,14 @@ function drawUnknown(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:
  ctx.beginPath();ctx.moveTo(p.x,p.y-th*.3);ctx.lineTo(p.x,p.y+th*.02);ctx.stroke();
  ctx.beginPath();ctx.arc(p.x,p.y+th*.22,Math.max(1,tw*.07),0,Math.PI*2);ctx.fill();
 }
-function drawMarker(ctx:CanvasRenderingContext2D,view:WorldView,cell:CellCoord,tw:number,th:number,style:{fill:string;line:string},strong:boolean) {
- const p=project(cell,view.camera);
+function drawMarker(ctx:CanvasRenderingContext2D,view:WorldView,cell:CellCoord,tw:number,th:number,style:{fill:string;line:string},strong:boolean,flat:Camera) {
+ const p=project(cell,flat),q=view.camera.rotation===0?p:project(cell,view.camera);
  // A cell is under two pixels wide at 0.05x: keep the preview and the hover outline big enough to be useful.
  const w=Math.max(tw,4),h=Math.max(th,2);
- if(p.x+w<0||p.x-w>view.viewport.width||p.y+h<0||p.y-h>view.viewport.height)return;
+ // The outline is culled in real screen space, where the turned diamond spans more than its own half-axes.
+ const absCos=Math.abs(Math.cos(view.camera.rotation)),absSin=Math.abs(Math.sin(view.camera.rotation));
+ const spanW=w*absCos+h*absSin,spanH=h*absCos+w*absSin;
+ if(q.x+spanW<0||q.x-spanW>view.viewport.width||q.y+spanH<0||q.y-spanH>view.viewport.height)return;
  ctx.fillStyle=style.fill;
  diamond(ctx,p.x,p.y,w,h);
  ctx.strokeStyle=style.line;
@@ -225,25 +243,37 @@ export function aggregateCells(cells:readonly Cell[],blocks=BLOCKS):string[]{
 }
 const mosaicCache=new Map<string,string[]>();
 function cachedMosaic(view:WorldView,id:string):string[]|null {
- const managed=view.state.chunks[id],key=managed?`${id}#${view.state.revision}`:id,cached=mosaicCache.get(key);
+ const managed=view.state.chunks[id],status=view.chunks.get(id);
+ // The key carries whatever can change the summary: player edits (through the revision) and the level of the
+ // loaded data, so a region that arrives coarse is redrawn once its detailed tiles replace it.
+ const key=managed?`${id}#${view.state.revision}`:`${id}#${status?.status==='ready'?status.level:'none'}`;
+ const cached=mosaicCache.get(key);
  if(cached)return cached;
- const cells=managed?effectiveCells(managed):view.chunks.get(id)?.status==='ready'?(view.chunks.get(id) as {base:{cells:Cell[]}}).base.cells:null;
+ const cells=managed?effectiveCells(managed):status?.status==='ready'?status.base.cells:null;
  if(!cells)return null;
  const blocks=aggregateCells(cells);
+ // A wide view holds hundreds of regions, each possibly cached at both levels while it upgrades, so the cache is
+ // generous and the level that was just replaced is dropped instead of waiting for eviction.
+ if(!managed)mosaicCache.delete(`${id}#${status?.status==='ready'&&status.level==='overview'?'detail':'overview'}`);
  mosaicCache.set(key,blocks);
- while(mosaicCache.size>512)mosaicCache.delete(mosaicCache.keys().next().value!);
+ while(mosaicCache.size>2048)mosaicCache.delete(mosaicCache.keys().next().value!);
  return blocks;
 }
 type Box={minX:number;maxX:number;minY:number;maxY:number};
 function renderMosaic(ctx:CanvasRenderingContext2D,view:WorldView,box:Box):void{
  const {camera,viewport}=view,span=BLOCK*TILE_W*camera.zoom,spanH=BLOCK*TILE_H*camera.zoom;
+ // Same split as the fine pass: positions are drawn unrotated under the context transform, culling uses the real camera.
+ const turned=camera.rotation!==0,flat:Camera=turned?{...camera,rotation:0}:camera,pad=turned?SEAM_PAD:0;
+ const cosT=Math.cos(camera.rotation),sinT=Math.sin(camera.rotation);
+ const absCos=Math.abs(cosT),absSin=Math.abs(sinT);
  const firstX=Math.floor((box.minX-1)/CHUNK),lastX=Math.floor((box.maxX+1)/CHUNK);
  const firstY=Math.max(0,Math.floor((box.minY-1)/CHUNK)),lastY=Math.min(WORLD/CHUNK-1,Math.floor((box.maxY+1)/CHUNK));
  const regions:string[]=[];
  for(let cy=firstY;cy<=lastY;cy++)for(let cx=firstX;cx<=lastX;cx++){
   const x=cx*CHUNK,y=cy*CHUNK,centre=project({x:x+CHUNK/2,y:y+CHUNK/2},camera);
   const halfW=CHUNK*TILE_W*camera.zoom,halfH=CHUNK*TILE_H*camera.zoom;
-  if(centre.x+halfW<0||centre.x-halfW>viewport.width||centre.y+halfH<0||centre.y-halfH>viewport.height)continue;
+  const reach=halfW*absCos+halfH*absSin,drop=halfH*absCos+halfW*absSin;
+  if(centre.x+reach<0||centre.x-reach>viewport.width||centre.y+drop<0||centre.y-drop>viewport.height)continue;
   regions.push(`${cy*100000+cx}:${x}:${y}`);
  }
  // Back to front, then left to right inside each region, so the mosaic never depends on insertion order.
@@ -253,13 +283,21 @@ function renderMosaic(ctx:CanvasRenderingContext2D,view:WorldView,box:Box):void{
   const blocks=cachedMosaic(view,id);
   if(!blocks){
    const failed=view.chunks.get(id)?.status==='error';
-   drawUnknown(ctx,project({x:x+CHUNK/2,y:y+CHUNK/2},camera),CHUNK*TILE_W*camera.zoom,CHUNK*TILE_H*camera.zoom,variant(x,y,view.seed),failed);
+   drawUnknown(ctx,project({x:x+CHUNK/2,y:y+CHUNK/2},flat),CHUNK*TILE_W*camera.zoom,CHUNK*TILE_H*camera.zoom,variant(x,y,view.seed),failed,pad);
    continue;
   }
+  // Block positions are a constant step away from the region centre, and each one is culled before it is filled:
+  // a wide view draws thousands of blocks and the ones outside the viewport cost nothing.
+  const centre=project({x:x+CHUNK/2,y:y+CHUNK/2},flat);
+  const stepX=TILE_W*camera.zoom,stepY=TILE_H*camera.zoom,reach=span+pad,reachH=spanH+pad;
   for(let by=0;by<BLOCKS;by++)for(let bx=0;bx<BLOCKS;bx++){
-   const p=project({x:x+bx*BLOCK+BLOCK/2,y:y+by*BLOCK+BLOCK/2},camera);
+   const p={x:centre.x+(bx-by)*BLOCK*stepX,y:centre.y+((bx+by)*BLOCK-(CHUNK-BLOCK))*stepY};
+   if(turned){
+    const dx=p.x-camera.x,dy=p.y-camera.y,sx=camera.x+cosT*dx-sinT*dy,sy=camera.y+sinT*dx+cosT*dy;
+    if(sx+reach<0||sx-reach>viewport.width||sy+reachH<0||sy-reachH>viewport.height)continue;
+   }else if(p.x+reach<0||p.x-reach>viewport.width||p.y+reachH<0||p.y-reachH>viewport.height)continue;
    ctx.fillStyle=blocks[by*BLOCKS+bx]!;
-   diamond(ctx,p.x,p.y,span,spanH);
+   diamond(ctx,p.x,p.y,reach,reachH);
   }
  }
 }

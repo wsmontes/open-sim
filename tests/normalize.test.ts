@@ -15,3 +15,23 @@ test('parking sites and non-green land uses stay land while parks turn green',()
  for(const kind of ['park','forest','grass','garden','meadow','scrub','farmland','recreation_ground','cemetery'])expect(terrain('land',kind)).toBe('green');
  for(const kind of ['parking','bicycle_parking','construction','commercial','residential','industrial','retail','(unknown)'])expect(terrain('sites',kind)).toBe('land');
 });
+test('a tile with thousands of rings stays fast and keeps holes as holes',()=>{
+ // One `buildings` feature carries every footprint of a tile (São Paulo: 10.137 rings). Scanning all rings for every
+ // cell took ~800 ms per region; clipping each ring to its own bounding box is what makes a city appear at once.
+ const rings:number[][][]=[];
+ for(let k=0;k<3000;k+=1){
+  const x=(k*7)%4096,y=(k*13)%4096;
+  rings.push([[x,y],[x+3,y],[x+3,y+3],[x,y+3],[x,y]]);
+  rings.push([[x+1,y+1],[x+2,y+1],[x+2,y+2],[x+1,y+2],[x+1,y+1]]);   // hole inside the footprint
+ }
+ const feature:MapFeature={layer:'buildings',kind:'',bridge:false,type:3,geometry:rings.map(ring=>ring.map(([x,y])=>({x,y})))};
+ const started=Date.now(),chunk=normalizeChunk('0:0',[feature]),elapsed=Date.now()-started;
+ expect(elapsed).toBeLessThan(500);
+ const built=chunk.cells.filter(cell=>cell.building).length;
+ expect(built).toBeGreaterThan(0);
+ const [x,y]=[rings[0]![0]![0]!,rings[0]![0]![1]!];
+ if(x>=0&&x<28&&y>=0&&y<28){
+  expect(chunk.cells[(y+1)*32+x+1]!.building).toBeUndefined();   // the hole stays empty
+  expect(chunk.cells[y*32+x]!.building).toBeTruthy();
+ }
+});

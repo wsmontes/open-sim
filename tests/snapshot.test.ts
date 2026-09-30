@@ -8,7 +8,7 @@ function saved():SavedGame{
  const b=blank();b.cells[0]={terrain:'land',road:true,origin:'imported'};b.cells[33]={terrain:'land',building:'residential',stage:2,origin:'imported'};
  const game=createGame('mundo',7,b);
  const built=applyCommand(game,command(game,{type:'build',tool:'park',cells:[{x:2,y:2}]}),[]).state;
- return {version:1,state:applyCommand(built,command(built,{type:'tick'}),[]).state,view:{x:12.5,y:-3.5,zoom:1.25,speed:1,place:'São Paulo'}};
+ return {version:1,state:applyCommand(built,command(built,{type:'tick'}),[]).state,view:{x:12.5,y:-3.5,zoom:1.25,speed:1,place:'São Paulo',rotation:.3}};
 }
 test('encodeSave is canonical, stable, round trippable and never mutates',()=>{
  const x=saved(), before=encodeSave(x);
@@ -16,7 +16,7 @@ test('encodeSave is canonical, stable, round trippable and never mutates',()=>{
  expect(before.startsWith('{"state":')).toBe(true);
  expect(before.endsWith('\n')).toBe(true);
  expect(before).not.toContain(': ');
- const reordered:SavedGame={version:1,view:{zoom:x.view.zoom,speed:x.view.speed,place:x.view.place,y:x.view.y,x:x.view.x},state:x.state};
+ const reordered:SavedGame={version:1,view:{zoom:x.view.zoom,speed:x.view.speed,place:x.view.place,y:x.view.y,x:x.view.x,rotation:x.view.rotation},state:x.state};
  expect(encodeSave(reordered)).toBe(before);
  const decoded=decodeSave(JSON.parse(before));
  expect(decoded).toEqual(x);
@@ -42,6 +42,10 @@ test('decodeSave rejects every malformed snapshot',()=>{
   ['tiny zoom',x=>{x.view.zoom=0.01;}],
   ['unknown speed',x=>{x.view.speed=3;}],
   ['infinite camera',x=>{x.view.x=Infinity;}],
+  ['rotation out of range',x=>{x.view.rotation=7;}],
+  ['rotation past half a turn',x=>{x.view.rotation=-Math.PI-0.001;}],
+  ['non finite rotation',x=>{x.view.rotation=NaN;}],
+  ['non numeric rotation',x=>{x.view.rotation='0.5';}],
   ['non finite seed',x=>{x.state.seed=NaN;}],
   ['fractional tick',x=>{x.state.tick=0.5;}],
   ['negative revision',x=>{x.state.revision=-1;}],
@@ -89,4 +93,24 @@ test('the snapshot accepts exactly the zoom range the camera can produce',()=>{
   expect(decodeSave(JSON.parse(encodeSave(x))).view.zoom,`zoom ${zoom}`).toBe(zoom);
  }
  for(const zoom of [VIEW_ZOOM_MIN/2,VIEW_ZOOM_MAX+0.01]){const x=saved();x.view={...x.view,zoom};expect(()=>decodeSave(x),`zoom ${zoom}`).toThrow('Zoom inválido');}
+});
+
+test('a save written before the view could be turned opens pointing north',()=>{
+ const legacy=saved();delete legacy.view.rotation;
+ const text=encodeSave(legacy),decoded=decodeSave(JSON.parse(text));
+ expect(JSON.parse(text).view.rotation).toBeUndefined();
+ expect(decoded.view.rotation).toBe(0);
+ expect(decoded.view).toEqual({...legacy.view,rotation:0});
+ expect(decodeSave(encodeSave(decoded))).toEqual(decoded);
+});
+test('the snapshot stores a bearing in (-PI, PI] and a round trip never moves it',()=>{
+ const rows:[string,number,number][]=[['north',0,0],['a lean',.3,.3],['a quarter turn',Math.PI/4,Math.PI/4],['a turn back',-2.5,-2.5],
+  ['just under half a turn',3,3],['half a turn',Math.PI,Math.PI],['the open edge',-Math.PI,Math.PI],['minus zero',-0,0]];
+ for(const [name,rotation,stored] of rows){
+  const x=saved();x.view={...x.view,rotation};
+  const decoded=decodeSave(JSON.parse(encodeSave(x)));
+  expect(decoded.view.rotation,name).toBe(stored);
+  expect(decodeSave(encodeSave(decoded)),name).toEqual(decoded);
+ }
+ for(const rotation of [Math.PI+0.001,-Math.PI-0.001,2*Math.PI,-7]){const x=saved();x.view={...x.view,rotation};expect(()=>decodeSave(x),`rotation ${rotation}`).toThrow('Rotação inválida');}
 });

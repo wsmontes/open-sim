@@ -49,11 +49,14 @@ O agendamento pertence ao cliente: autosave com debounce de 500 ms quando `revis
 ### Mapa — `MapSource`
 
 ```ts
+type MapLevel = 'detail' | 'overview';
 interface MapSource {
-  loadChunk(id: string): Promise<BaseChunk>;
+  loadChunk(id: string, level?: MapLevel): Promise<BaseChunk>;
   attribution: { text: string; url: string };
 }
 ```
+
+`detail` é o Shortbread no zoom canônico 14; `overview` é o mesmo fornecedor no zoom 11, onde água, uso do solo e vias principais existem e **prédio não existe** (o TileJSON declara `buildings` com `minzoom=14`, `sites`/`addresses`/`pois` idem). Um save registra a aproximação na própria `source` do trecho (`… (aproximação z11)`), e o núcleo nunca adota uma aproximação: `available` em `dispatch` só aceita trechos `level: 'detail'`, então intervir numa área que só existe grosseira é recusado com "Espere o mapa carregar" e o cliente responde carregando aquele trecho em detalhe.
 
 `createOsmSource(config)` (`src/adapters/osm/provider.ts`) busca Shortbread em `vector.openstreetmap.org` no zoom canônico 14, com no máximo quatro requisições simultâneas, deduplicação de pedidos em voo, cache HTTP padrão e cache de memória de 32 tiles. Falha de rede ou timeout rejeita a promise: o adaptador **nunca** inventa terreno, e o trecho fica em estado recuperável que o cliente pode tentar de novo.
 
@@ -68,7 +71,7 @@ interface SaveStore {
 }
 ```
 
-`createIndexedDbStore()` usa uma base `open-sim` com um object store `saves`, uma transação de substituição por slot e resolve só no `oncomplete`. `createMemoryStore()` existe para cenários e testes. Qualquer implementação nova (arquivo em desktop, servidor) precisa apenas de leitura, escrita e falha honesta: nada de regra econômica aqui.
+`createIndexedDbStore({name?, factory?, timeoutMs?})` usa uma base `open-sim` com um object store `saves`, uma transação de substituição por slot e resolve só no `oncomplete`. O `open` é **limitado no tempo** e trata `blocked`/`versionchange`: uma aba que morre segurando a conexão (ou outra aba no meio de um upgrade) deixava `indexedDB.open()` pendurado para sempre e o jogo congelava num mapa vazio sem mensagem — hoje isso vira erro em português com instrução de fechar as outras abas, e uma leitura impossível faz a sessão começar em memória com o slot intacto e o salvamento bloqueado até o jogador mandar sobrescrever. `createMemoryStore()` existe para cenários e testes. Qualquer implementação nova (arquivo em desktop, servidor) precisa apenas de leitura, escrita e falha honesta: nada de regra econômica aqui.
 
 ### Apresentação
 
@@ -81,7 +84,25 @@ Duas escalas de desenho convivem, escolhidas por `isCoarse` (passo de célula ab
 
 Trocar o desenho é escrever outra função `render` que consuma o mesmo `WorldView` — ela recebe câmera, viewport, estado, status de trechos, seleção e prévia, e nada de HTTP ou armazenamento. Trocar os controles é outro `attachInput` com os mesmos callbacks. Um cliente com WebGL, terminal ou canvas de desktop não precisa tocar no núcleo.
 
-O carregamento é racionado: `visibleChunks` resolve os trechos visíveis (passo em nível de trecho, não de célula), `closestChunks` escolhe até 120 por passada a partir do centro da tela e o cliente agenda novas passadas enquanto sobrar área por preencher. Falha de rede não dispara novas tentativas automáticas — o jogador decide pelo botão. Na prática, ver Vancouver inteira e os arredores a 0,05× custou **8 tiles** para 412 trechos visíveis.
+O carregamento é racionado e em dois tempos: `visibleChunks` resolve os trechos visíveis (passo em nível de trecho, não de célula, com meia célula de folga para casar com o desenho), o cliente pede primeiro a passada grosseira (`overview`, até 512 trechos — um tile z11 cobre 4.096 trechos, então a cidade inteira cabe em uma ou duas requisições) e em seguida a passada detalhada (`detail`, até 120 por vez, mais próxima do centro primeiro, repetindo enquanto sobrar área). Falha de rede não dispara novas tentativas automáticas — o jogador decide pelo botão.
+
+Medido em São Paulo (cidade densa, Chromium, viewport 1440×900): a vista ampla de 412 trechos aparece pintada em menos de um segundo, fica completa em ~4 s e custa **2 tiles grosseiros + 8 detalhados**; a 0,05× o desenho sustenta **60 fps**.
+
+### Onde o tempo estava indo
+
+Normalizar um trecho custava de 4 a 51 segundos *por tile* em cidades densas:
+
+| Cidade | Regiões/s antes | Regiões/s depois |
+| --- | --- | --- |
+| Vancouver centro | 19 | 424 |
+| Lisboa Baixa | 4 | 481 |
+| São Paulo centro | 1 | 374 |
+
+Três correções, todas com a mesma saída trecho a trecho (hashes comparados antes e depois):
+
+1. **Anel por anel em vez de feature por célula.** O tile traz *uma* feature `buildings` com milhares de anéis (São Paulo: 10.137 anéis, 108 mil pontos). O código antigo testava cada célula da região contra **todos** os anéis; agora cada anel é recortado pela sua própria caixa envolvente e a paridade é acumulada por célula, o que preserva o resultado ímpar-par (buracos continuam buracos) e corta ~300× o trabalho.
+2. **Ordenação uma vez por tile** (`WeakMap` sobre a lista de features) e **índice de features por trecho** no adaptador, em vez de reordenar e varrer o tile inteiro em cada uma das 64 regiões.
+3. **Cache do mosaico com chave por nível**, para uma região que chegou grosseira ser redesenhada quando o detalhe chega (e teto de 2.048 entradas, senão com centenas de regiões em dois níveis o cache entra em thrashing e o quadro cai de 60 para 22 fps).
 
 ## Mapa real
 

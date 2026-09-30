@@ -49,7 +49,7 @@ test('malformed scenarios and stale commands are rejected',()=>{
 });
 
 test('a save restored mid-scenario replays to the same canonical state',()=>{
- const view:ViewState={x:16,y:16,zoom:1,speed:1,place:'Cenário sintético'};
+ const view:ViewState={x:16,y:16,zoom:1,speed:1,place:'Cenário sintético',rotation:.9};
  const applied = scenario.commands.slice(0,10);
  let state = replayScenario({...scenario,commands:applied});
  expect(state.tick).toBe(5);

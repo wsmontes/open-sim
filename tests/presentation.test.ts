@@ -11,13 +11,13 @@ import type {Action,BaseChunk,CellCoord,Command,GameState} from '../src/core/mod
 import {blank} from './fixtures/world';
 
 test('project and pick are exact inverses at every zoom, antimeridian included',()=>{
- for(const zoom of [0.5,1,3])for(const base of [{x:0,y:0,zoom},{x:137.5,y:-42.25,zoom},{x:-768,y:96,zoom}])
+ for(const zoom of [0.5,1,3])for(const base of [{x:0,y:0,zoom,rotation:0},{x:137.5,y:-42.25,zoom,rotation:0},{x:-768,y:96,zoom,rotation:0}])
   for(const cell of [{x:0,y:0},{x:4194303,y:5},{x:0,y:5},{x:123456,y:654321},{x:-1,y:7}])
    expect(pick(project(cell,base),base)).toEqual(cell);
 });
 test('the half diamond boundary picks the eastern neighbour',()=>{
  for(const zoom of [0.5,1,3]){
-  const camera={x:100,y:50,zoom},cell={x:9,y:4},p=project(cell,camera),step={x:TILE_W*zoom,y:TILE_H*zoom};
+  const camera={x:100,y:50,zoom,rotation:0},cell={x:9,y:4},p=project(cell,camera),step={x:TILE_W*zoom,y:TILE_H*zoom};
   expect(pick({x:p.x+step.x*.49,y:p.y+step.y*.49},camera)).toEqual(cell);
   expect(pick({x:p.x+step.x*.5,y:p.y+step.y*.5},camera)).toEqual({x:cell.x+1,y:cell.y});
   expect(pick({x:p.x+step.x*.51,y:p.y+step.y*.51},camera)).toEqual({x:cell.x+1,y:cell.y});
@@ -29,12 +29,12 @@ test('clampZoom saturates at the documented limits',()=>{
 });
 test('centerOn keeps the cell on the viewport centre and preserves zoom',()=>{
  for(const zoom of [0.5,1,3])for(const viewport of [{width:321,height:197},{width:800,height:600}]){
-  const camera=centerOn({x:4194303,y:5},{x:10,y:20,zoom},viewport),p=project({x:4194303,y:5},camera);
+  const camera=centerOn({x:4194303,y:5},{x:10,y:20,zoom,rotation:0},viewport),p=project({x:4194303,y:5},camera);
   expect(Math.abs(p.x-viewport.width/2)).toBeLessThanOrEqual(1);expect(Math.abs(p.y-viewport.height/2)).toBeLessThanOrEqual(1);expect(camera.zoom).toBe(zoom);
  }
 });
 test('visibleChunks covers the viewport with ordered, wrapped, deduplicated ids',()=>{
- const viewport={width:320,height:200},at=(cell:CellCoord,zoom:number)=>centerOn(cell,{x:0,y:0,zoom},viewport);
+ const viewport={width:320,height:200},at=(cell:CellCoord,zoom:number)=>centerOn(cell,{x:0,y:0,zoom,rotation:0},viewport);
  for(const camera of [at({x:1000,y:1000},1),at({x:0,y:1000},.5),at({x:-20,y:1000},2),at({x:2**22-1,y:1000},3)]){
   const ids=visibleChunks(camera,viewport);
   expect(ids).toEqual([...ids].sort());expect(new Set(ids).size).toBe(ids.length);
@@ -49,7 +49,7 @@ test('visibleChunks covers the viewport with ordered, wrapped, deduplicated ids'
  }
 });
 test('visibleChunks wraps cells across the antimeridian into real chunk ids',()=>{
- const viewport={width:320,height:200},west=centerOn({x:-20,y:1000},{x:0,y:0,zoom:2},viewport),east=centerOn({x:2**22+20,y:1000},{x:0,y:0,zoom:2},viewport);
+ const viewport={width:320,height:200},west=centerOn({x:-20,y:1000},{x:0,y:0,zoom:2,rotation:0},viewport),east=centerOn({x:2**22+20,y:1000},{x:0,y:0,zoom:2,rotation:0},viewport);
  const ids=visibleChunks(west,viewport);
  expect(ids).toContain(chunkId({x:-20,y:1000}));expect(ids.some(id=>id.includes('-'))).toBe(false);
  for(const id of ids)expect(()=>chunkOrigin(id),id).not.toThrow();
@@ -88,8 +88,8 @@ test('setSpeed with the current value does not restart the interval',()=>{
 test('dragging previews and commits the very same stroke, even released outside',()=>{
  const canvas=document.createElement('canvas');
  canvas.width=320;canvas.height=200;document.body.append(canvas);
- let camera={x:160,y:100,zoom:1};
- const previews:CellCoord[][]=[],commits:CellCoord[][]=[],hovers:(CellCoord|null)[]=[],cancels:number[]=[],detach=attachInput(canvas,()=>camera,{
+ let camera={x:160,y:100,zoom:1,rotation:0};
+ const previews:CellCoord[][]=[],commits:CellCoord[][]=[],hovers:(CellCoord|null)[]=[],cancels:number[]=[],detach=attachInput(canvas,{camera:()=>camera,tool:()=>'road' as const},{
   onHover:c=>hovers.push(c),onPreview:c=>previews.push([...c]),onCommit:c=>commits.push([...c]),onCamera:c=>{camera=c;},onCancel:()=>cancels.push(cancels.length+1),
  });
  const fire=(type:string,cell:CellCoord,target:EventTarget=canvas)=>{const p=project(cell,camera);target.dispatchEvent(new MouseEvent(type,{clientX:p.x,clientY:p.y,button:0,bubbles:true}));};
@@ -121,8 +121,8 @@ test('dragging previews and commits the very same stroke, even released outside'
 test('wheel zooms anchored on the pointer and space drag pans the camera',()=>{
  const canvas=document.createElement('canvas');
  canvas.width=320;canvas.height=200;document.body.append(canvas);
- let camera={x:160,y:100,zoom:1};
- const detach=attachInput(canvas,()=>camera,{onHover:()=>{},onPreview:()=>{},onCommit:()=>{},onCamera:c=>{camera=c;},onCancel:()=>{}});
+ let camera={x:160,y:100,zoom:1,rotation:0};
+ const detach=attachInput(canvas,{camera:()=>camera,tool:()=>'road' as const},{onHover:()=>{},onPreview:()=>{},onCommit:()=>{},onCamera:c=>{camera=c;},onCancel:()=>{}});
  const pointer={x:160,y:100},before=pick(pointer,camera);
  canvas.dispatchEvent(new WheelEvent('wheel',{deltaY:-240,clientX:pointer.x,clientY:pointer.y,bubbles:true,cancelable:true}));
  expect(camera.zoom).toBeGreaterThan(1);expect(pick(pointer,camera)).toEqual(before);
@@ -166,7 +166,7 @@ test('quoteAction matches applyCommand costs and rejections case by case',()=>{
 });
 test('wide zoom fits a city and its surroundings and only the nearest regions are fetched',()=>{
  expect(MIN_ZOOM).toBeLessThanOrEqual(0.1);
- const viewport={width:1200,height:800},cell={x:100000,y:100000},camera=centerOn(cell,{x:0,y:0,zoom:MIN_ZOOM},viewport);
+ const viewport={width:1200,height:800},cell={x:100000,y:100000},camera=centerOn(cell,{x:0,y:0,zoom:MIN_ZOOM,rotation:0},viewport);
  const ids=visibleChunks(camera,viewport);
  expect(ids.length).toBeGreaterThan(60);
  for(const id of ids)expect(()=>chunkOrigin(id),id).not.toThrow();
@@ -183,7 +183,7 @@ test('wide zoom fits a city and its surroundings and only the nearest regions ar
  expect(closestChunks(ids,camera,viewport,0)).toEqual([]);
 });
 test('changing the zoom keeps the same world cell under the viewport centre',()=>{
- const viewport={width:900,height:600},camera=centerOn({x:42000,y:31000},{x:0,y:0,zoom:2},viewport);
+ const viewport={width:900,height:600},camera=centerOn({x:42000,y:31000},{x:0,y:0,zoom:2,rotation:0},viewport);
  for(const zoom of [MIN_ZOOM,0.25,1,MAX_ZOOM,99]){
   const widened=zoomTo(camera,viewport,zoom),centre=cellSpace({x:viewport.width/2,y:viewport.height/2},widened);
   expect(widened.zoom).toBe(clampZoom(zoom));
@@ -192,10 +192,10 @@ test('changing the zoom keeps the same world cell under the viewport centre',()=
  }
 });
 test('the renderer switches to region blocks only when a cell is too small to draw',()=>{
- expect(isCoarse({x:0,y:0,zoom:MIN_ZOOM})).toBe(true);
- expect(isCoarse({x:0,y:0,zoom:COARSE_STEP/TILE_W})).toBe(false);
- expect(isCoarse({x:0,y:0,zoom:0.5})).toBe(false);
- expect(isCoarse({x:0,y:0,zoom:MAX_ZOOM})).toBe(false);
+ expect(isCoarse({x:0,y:0,zoom:MIN_ZOOM,rotation:0})).toBe(true);
+ expect(isCoarse({x:0,y:0,zoom:COARSE_STEP/TILE_W,rotation:0})).toBe(false);
+ expect(isCoarse({x:0,y:0,zoom:0.5,rotation:0})).toBe(false);
+ expect(isCoarse({x:0,y:0,zoom:MAX_ZOOM,rotation:0})).toBe(false);
 });
 test('region blocks summarise what dominates them and follow player edits',()=>{
  const water=blank();for(let y=0;y<4;y++)for(let x=0;x<4;x++)water.cells[y*32+x]={terrain:'water'};

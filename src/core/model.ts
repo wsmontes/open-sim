@@ -9,7 +9,7 @@ export type Action = { type: 'build'; tool: Tool; cells: CellCoord[] } | { type:
 export type Command = { version: 1; worldId: string; actorId: string; sequence: number; expectedRevision: number; action: Action };
 export type CommandResult = { state: GameState; status: 'applied' | 'duplicate' | 'rejected'; reason?: string };
 export type CityStats = { money: number; population: number; jobs: number; energySupply: number; energyUsed: number; happiness: number; income: number; managed: number };
-export type ViewState = { x: number; y: number; zoom: number; speed: 0 | 1 | 2; place: string };
+export type ViewState = { x: number; y: number; zoom: number; speed: 0 | 1 | 2; place: string; rotation?: number };
 export type SavedGame = { version: 1; state: GameState; view: ViewState };
 // Zoom limits of a saved view. They live in the core because the snapshot format validates them; the isometric
 // camera is presentation and only reuses these numbers.
