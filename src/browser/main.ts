@@ -702,7 +702,10 @@ async function start(){
  });
  new ResizeObserver(()=>resize()).observe(canvas);
  window.addEventListener('resize',()=>resize());
- attachInput(canvas,{camera:()=>camera,tool:()=>tool},{
+// Which gesture a tool expects. A street, a plant and a demolition are lines the player lays down; a zone is a
+// rectangle, because that is how the genre builds a neighbourhood and drawing it cell by cell is busywork.
+const BOX_TOOLS=new Set<SelectedTool>(['residential','commercial','industrial','park']);
+attachInput(canvas,{camera:()=>camera,tool:()=>tool,strokeShape:()=>BOX_TOOLS.has(tool)?'box':'line'},{
   onHover(cell){hover=cell;refreshPreview();},
   onPreview(cells){stroke=cells.length?cells:null;refreshPreview();},
   onCommit:commit,
