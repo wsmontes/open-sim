@@ -1,5 +1,6 @@
-import {failed,ok,sameRef} from '../../world/model';
+import {failed,ok} from '../../world/model';
 import type {Head,ObjectRef,WorldAddress,WorldResult} from '../../world/model';
+import {sameHead} from '../../session/world-ports';
 import type {ChangeReceipt,WorldStorage} from '../../session/world-ports';
 
 // A device that is only a dictionary: it keeps what it was given and forgets it on reload, which is exactly what a
@@ -18,10 +19,6 @@ export function createWorldMemoryStorage(options: {bytes?: number} = {}): WorldM
   const found = store.get(worldId);
   return found ?? new Map<string, T>();
  };
- const sameHead = (current: Head|null, expected: Head|null) =>
-  current === null || expected === null
-   ? current === expected
-   : current.worldId === expected.worldId && current.branchId === expected.branchId && current.generation === expected.generation && sameRef(current.commit, expected.commit);
  return {
   size: () => used,
   async head(address: WorldAddress) {

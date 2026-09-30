@@ -3,6 +3,7 @@ import type {ContentHasher,WorldCodec} from '../world/ports';
 import type {DatasetTerm,Head,JsonValue,ObjectRef,WorldAddress,WorldBundle,WorldDefinition,WorldObject,WorldResult} from '../world/model';
 import {MAX_OBJECT_BYTES,WIRE_VERSION,WORLD_PROTOCOL,failed,isRef,ok,sameRef} from '../world/model';
 import {decodeUtf8,parseStrictJson,verifyBundle} from '../world/codec';
+import {sameHead} from './world-ports';
 import type {ChangeReceipt,StoredObject,WorldStorage} from './world-ports';
 // A world keeps its history the way the spec asks: immutable objects addressed by content, trees and commits that
 // only reference them, and a branch reference that moves forward by comparing the head it expected with the one the
@@ -51,7 +52,6 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
  const record=(value:JsonValue):value is {[key:string]:JsonValue}=>!!value&&typeof value==='object'&&!Array.isArray(value);
  const refOf=(value:JsonValue|undefined):ObjectRef|null=>isRef(value)?{hash:value.hash,bytes:value.bytes}:null;
  const sameAddress=(a:WorldAddress,b:WorldAddress)=>a.worldId===b.worldId&&a.branchId===b.branchId;
- const sameHead=(current:Head|null,expected:Head|null)=>current===null||expected===null?current===expected:sameAddress(current,expected)&&current.generation===expected.generation&&sameRef(current.commit,expected.commit);
  const known=(refs:readonly ObjectRef[]):ObjectRef[]=>{
   const seen=new Set<string>(),kept:ObjectRef[]=[];
   for(const ref of refs){if(seen.has(ref.hash))continue;seen.add(ref.hash);kept.push(ref);}
@@ -348,8 +348,12 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
   while(versions.length<limit&&!visited.has(ref.hash)){
    visited.add(ref.hash);
    const read=await storageSource.read(ref);
-   // A device that no longer has an old commit ends the list there instead of inventing the versions it lost.
-   if(!read.ok)break;
+   if(!read.ok){
+    // The head of the branch has to be readable; an older commit the device no longer has ends the list instead of
+    // inventing the versions it lost.
+    if(!versions.length)return read;
+    break;
+   }
    const commit=commitOf(read.value);
    if(!commit.ok)return commit;
    versions.push({head:{worldId:head.worldId,branchId:head.branchId,commit:ref,generation},accepted:commit.value.accepted});

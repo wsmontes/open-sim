@@ -1,8 +1,18 @@
 import {createOsmSource} from '../adapters/osm/provider';
 import {createIndexedDbStore} from '../adapters/storage/indexed-db';
+import {createIndexedDbWorldStorage} from '../adapters/storage/world-indexed-db';
+import {createJcsCodec} from '../adapters/codec/jcs';
+import {bytesHasher} from '../adapters/hash/content';
 import {createSession} from '../session/local-session';
+import {importLegacy} from '../session/world-bundle';
+import {createWorldRepository} from '../session/world-repository';
+import type {WorldVersion} from '../session/world-repository';
 import type {ChunkStatus} from '../session/ports';
-import type {Action,BaseChunk,CellCoord,CityStats,GameState,ViewState} from '../core/model';
+import type {Action,BaseChunk,CellCoord,CityStats,GameState,Tool,ViewState} from '../core/model';
+import {SAVE_VERSION} from '../core/snapshot';
+import {decodeBundle,encodeBundle} from '../world/codec';
+import type {Head} from '../world/model';
+import {createWorldHistory,downloadBundle,readBundleFile} from '../presentation/world-history';
 import {chunkId,toCell} from '../core/coordinates';
 import {quoteAction} from '../core/quote';
 import {summarize} from '../core/simulation';
@@ -15,7 +25,10 @@ import type {Speed} from '../presentation/clock';
 import {createHud} from '../presentation/hud';
 import type {SelectedTool} from '../presentation/hud';
 import {attachInput} from '../presentation/input';
-const WORLD_ID='open-sim',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,OVERVIEW_BUDGET=512,DETAIL_BUDGET=120;
+const WORLD_ID='open-sim',BRANCH_ID='main',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,OVERVIEW_BUDGET=512,DETAIL_BUDGET=120;
+// The terms the frozen base travels under (spec R12): a world exported from here says where its data came from.
+const WORLD_TERMS=[{source:'OpenStreetMap · Shortbread v1',attribution:'© OpenStreetMap contributors',license:'ODbL'}];
+const TOOL_LABELS:Record<Tool,string>={road:'Rua',residential:'Residencial',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'};
 const PLACES:Record<string,{lat:number;lon:number}>={Vancouver:{lat:49.2827,lon:-123.1207},'São Paulo':{lat:-23.5505,lon:-46.6333},Lisboa:{lat:38.7223,lon:-9.1393}};
 const EMPTY_STATS:CityStats={money:0,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:0,income:0,managed:0};
 // One pending run per window: a burst coalesces into a single run that reads the newest state when it
@@ -45,9 +58,17 @@ const placeLat=hudRoot.querySelector<HTMLInputElement>('#place-lat');
 const placeLon=hudRoot.querySelector<HTMLInputElement>('#place-lon');
 const maps=createOsmSource();
 const session=createSession({maps,saves:createIndexedDbStore(),worldId:WORLD_ID,seed:SEED});
+const codec=createJcsCodec(),hasher=bytesHasher();
+const worlds=createWorldRepository({storage:createIndexedDbWorldStorage(),codec,hasher});
+// The panel exists before the hud so the hud picks it up as one more card the player can drag and collapse.
+const history=createWorldHistory(hudRoot,{onCreateVersion,onExport,onImport,onBranch});
 const hud=createHud(hudRoot,{onTool,onSpeed,onPlace,onRetryMap,onOverwriteSave,onOverview,onZoomStep,onNorth});
 const clock=createTickClock(()=>{session.dispatch({type:'tick'});});
 const requested=new Set<string>();
+// The live branch the game commits to, the version the panel is showing, and the queue that keeps one publication at
+// a time: two actions arriving together must not both compare the same head.
+let worldHead:Head|null=null,shownHead:Head|null=null,branchHeads:Head[]=[],shownVersions:WorldVersion[]=[],worldMessage='',worldBusy=false;
+let worldQueue:Promise<void>=Promise.resolve();
 let camera:Camera={x:0,y:0,zoom:1,rotation:0};
 let speed:Speed=0,tool:SelectedTool='explore',place=START,hover:CellCoord|null=null,stroke:readonly CellCoord[]|null=null;
 let preview:readonly CellCoord[]=[],affordable=true,costMessage='',loadMessage='',notice='',revision=0,active=false;
@@ -151,6 +172,132 @@ function onSpeed(next:Speed){speed=next;clock.setSpeed(next);scheduleSave();upda
 function onPlace(name:string){const target=PLACES[name];if(target)moveTo(target.lat,target.lon,name);}
 function onRetryMap(){if(active){void loadVisible();return;}void start();}
 function onOverwriteSave(){session.enableSaving();saveNow();}
+function describeWorldError(error:unknown):string{
+ const message=(error as {message?:unknown}|null)?.message;
+ return typeof message==='string'&&message?message:'Falha ao falar com o armazenamento das versões.';
+}
+function updateHistoryPanel():void{
+ const live=worldHead?.branchId===shownHead?.branchId;
+ history.update({
+  worldId:WORLD_ID,
+  branchId:shownHead?.branchId??BRANCH_ID,
+  status:worldBusy?'Salvando versão…':shownHead?(live?'Salvo neste dispositivo':'Versão salva neste dispositivo'):'Sem versão salva neste dispositivo',
+  entries:shownVersions.map(version=>({generation:version.head.generation,hash:version.head.commit.hash,label:version.accepted.length?version.accepted.join(' · '):'Início',current:version.head.commit.hash===shownHead?.commit.hash})),
+  message:worldMessage,
+ });
+ history.branches(branchHeads.map(head=>head.branchId),shownHead?.branchId??BRANCH_ID);
+}
+async function refreshHistory():Promise<void>{
+ const known=await worlds.branches(WORLD_ID);
+ if(!known.ok){worldMessage=known.error.message;return;}
+ branchHeads=known.value;
+ const selected=shownHead;
+ if(selected&&!branchHeads.some(head=>head.branchId===selected.branchId))shownHead=worldHead;
+ const versions=shownHead?await worlds.history(shownHead):null;
+ if(versions&&!versions.ok)worldMessage=versions.error.message;
+ shownVersions=versions&&versions.ok?versions.value:[];
+}
+function queueWorld(task:()=>Promise<void>):void{
+ worldBusy=true;
+ updateHistoryPanel();
+ worldQueue=worldQueue.then(task).catch(error=>{worldMessage=describeWorldError(error);}).then(()=>{
+  worldBusy=false;
+  updateHistoryPanel();
+ });
+}
+// The first version of this city is the state the player already has: a legacy save becomes generation 1 of `main`,
+// and the origin of the package says that no earlier history was invented for it.
+async function openWorld():Promise<void>{
+ const known=await worlds.branches(WORLD_ID);
+ if(!known.ok){worldMessage=known.error.message;updateHistoryPanel();return;}
+ const existing=known.value.find(head=>head.branchId===BRANCH_ID)??null;
+ if(existing)worldHead=existing;
+ else{
+  const imported=await importLegacy({version:SAVE_VERSION,state:session.getState(),view:currentView()},hasher,codec,WORLD_TERMS);
+  if(!imported.ok){worldMessage=imported.error.message;updateHistoryPanel();return;}
+  const created=await worlds.create(imported.value);
+  if(!created.ok){worldMessage=created.error.message;updateHistoryPanel();return;}
+  worldHead=created.value;
+ }
+ shownHead=worldHead;
+ await refreshHistory();
+ updateHistoryPanel();
+}
+// Player actions become checkpoints; ticks do not, so the history stays a list of decisions instead of a list of
+// seconds. A change that repeats the current snapshot is not recorded at all by the repository.
+function checkpoint(state:GameState,label:string):void{
+ queueWorld(async()=>{
+  const expected=worldHead;
+  if(!expected)return;
+  const result=await worlds.commit(expected,{id:`local-${state.revision}`,state,operations:[label],objects:[],author:'local-player'});
+  if(!result.ok){
+   if(result.error.code!=='CONFLICT')worldMessage=result.error.message;
+   return;
+  }
+  worldHead=result.value;
+  shownHead=result.value;
+  await refreshHistory();
+ });
+}
+function actionLabel(action:Action,cells:readonly CellCoord[]):string{
+ if(action.type==='demolish')return `Demoliu ${cells.length} célula(s)`;
+ if(action.type==='build')return `${TOOL_LABELS[action.tool]} em ${cells.length} célula(s)`;
+ return 'Ação';
+}
+function slugBranch(name:string):string{
+ return name.trim().replace(/[^\p{L}\p{N}_.-]+/gu,'-').replace(/^[-.]+|[-.]+$/g,'').slice(0,40)||'versao';
+}
+// Creating a version leaves the game where it is: the new branch is a resting point of the same world, and its own
+// slot in this device never replaces the one the player is playing.
+function onCreateVersion(name:string):void{
+ queueWorld(async()=>{
+  const expected=worldHead;
+  if(!expected){worldMessage='Nenhuma versão aberta nesta partida.';return;}
+  const known=await worlds.branches(WORLD_ID);
+  const taken=new Set((known.ok?known.value:[]).map(head=>head.branchId));
+  const base=slugBranch(name);
+  let branchId=base;
+  for(let next=2;taken.has(branchId);next+=1)branchId=`${base}-${next}`;
+  const created=await worlds.fork(expected,{worldId:WORLD_ID,branchId});
+  if(!created.ok){worldMessage=created.error.message;return;}
+  worldMessage=`Versão criada: ${branchId}`;
+  shownHead=created.value;
+  await refreshHistory();
+ });
+}
+function onExport():void{
+ queueWorld(async()=>{
+  const target=shownHead??worldHead;
+  if(!target){worldMessage='Nenhuma versão para exportar.';return;}
+  const bundle=await worlds.export(target);
+  if(!bundle.ok){worldMessage=bundle.error.message;return;}
+  const bytes=encodeBundle(bundle.value,codec);
+  downloadBundle(`${target.worldId}-${target.branchId}-${target.commit.hash.slice(0,7)}.json`,bytes,document);
+  worldMessage=bundle.value.completeness.complete?`Versão exportada: ${bytes.byteLength} bytes`:`Versão exportada incompleta: faltam ${bundle.value.completeness.missing.length} objetos`;
+ });
+}
+function onImport(file:File):void{
+ queueWorld(async()=>{
+  const bytes=await readBundleFile(file);
+  const decoded=decodeBundle(bytes);
+  if(!decoded.ok){worldMessage=`Pacote recusado: ${decoded.error.message}`;return;}
+  const address=decoded.value.definition;
+  const created=await worlds.create(decoded.value);
+  if(!created.ok){
+   worldMessage=created.error.code==='CONFLICT'?`Já existe uma versão em ${address.worldId}/${address.branchId}; nada foi alterado.`:`Pacote recusado: ${created.error.message}`;
+   return;
+  }
+  worldMessage=`Versão importada: ${created.value.worldId}/${created.value.branchId}`;
+  if(created.value.worldId===WORLD_ID)shownHead=created.value;
+  await refreshHistory();
+ });
+}
+function onBranch(branchId:string):void{
+ const chosen=branchHeads.find(head=>head.branchId===branchId);
+ if(!chosen)return;
+ shownHead=chosen;
+ queueWorld(async()=>{await refreshHistory();});
+}
 function onOverview(){setCamera(zoomTo(camera,viewport(),MIN_ZOOM));}
 function onZoomStep(direction:1|-1){setCamera(zoomTo(camera,viewport(),camera.zoom*(direction>0?1.25:.8)));}
 function onNorth(){setCamera(rotateTo(camera,viewport(),0));}
@@ -161,6 +308,7 @@ function commit(cells:readonly CellCoord[]){
  const result=session.dispatch(action);
  notice=result.status==='rejected'?(result.reason??'Ação recusada'):'';
  if(result.status==='rejected'&&result.reason?.includes('Espere o mapa carregar'))loadDetailFor(cells);
+ if(result.status==='applied')checkpoint(result.state,actionLabel(action,cells));
  refreshPreview();refreshChunks();updateHud();
 }
 // The drawing buffer is half the CSS size (times the pixel ratio) and CSS stretches it back, keeping the chunky look.
@@ -229,6 +377,9 @@ async function start(){
  window.addEventListener('pagehide',()=>saveNow());
  await loadVisible();
  updateHud();
+ // A device that cannot keep the history must not stop the game from opening: the failure stays in the panel and the
+ // player keeps playing the state the session already restored.
+ await openWorld().catch(error=>{worldMessage=describeWorldError(error);updateHistoryPanel();});
  requestAnimationFrame(draw);
 }
 void start();

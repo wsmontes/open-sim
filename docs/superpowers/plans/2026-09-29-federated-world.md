@@ -103,11 +103,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** `WorldRepository.create(bundle): Promise<WorldResult<Head>>`; `fork(head: Head, target: WorldAddress): Promise<WorldResult<Head>>`; `commit(expected: Head, change: AcceptedChange): Promise<WorldResult<Head>>`; `checkout(head: Head): Promise<WorldResult<Checkpoint>>`; `export(head: Head): Promise<WorldResult<WorldBundle>>`. `AcceptedChange` contém transição validada, operações, novos objetos e metadados/recibos; tipos de tarefa 1. Porta de storage oferece transação atômica de objetos + recibos + comparação/avanço de referência.
 
-- [ ] Testar `expect(childBaseHash).toBe(parentBaseHash)`, pai inalterado após obra do filho, compare-and-swap de head antigo recusado, falha no meio da transação não avança head, exportação abre sem `MapSource`, câmera não aparece no checkpoint.
-- [ ] Rodar `npx vitest run tests/world-repository.test.ts`; confirmar RED.
-- [ ] Implementar objetos imutáveis, primeiro pai e referências estáveis; guardar snapshot inteiro inicialmente se dentro dos limites, sem copiar bytes iguais no armazenamento. Fork de outro mundo recontextualiza `worldId`, registra origem e não copia concessões/sessão ativa; acrescentar teste dessa separação. Novo slot por mundo/branch; nunca sobrescrever `sameworld` ao abrir convite. Entregar UI Criar versão/Exportar/Importar/Histórico.
-- [ ] Rodar os testes novos e `tests/session.test.ts`; abrir uma cópia exportada offline e registrar o hash restaurado. Exigir head idêntico e ausência de pedido ao OSM.
-- [ ] Commit: `feat: add local world history and branches`.
+- [x] Testar `expect(childBaseHash).toBe(parentBaseHash)`, pai inalterado após obra do filho, compare-and-swap de head antigo recusado, falha no meio da transação não avança head, exportação abre sem `MapSource`, câmera não aparece no checkpoint.
+- [x] Rodar `npx vitest run tests/world-repository.test.ts`; confirmar RED.
+- [x] Implementar objetos imutáveis, primeiro pai e referências estáveis; guardar snapshot inteiro inicialmente se dentro dos limites, sem copiar bytes iguais no armazenamento. Fork de outro mundo recontextualiza `worldId`, registra origem e não copia concessões/sessão ativa; acrescentar teste dessa separação. Novo slot por mundo/branch; nunca sobrescrever `sameworld` ao abrir convite. Entregar UI Criar versão/Exportar/Importar/Histórico.
+- [x] Rodar os testes novos e `tests/session.test.ts`; abrir uma cópia exportada offline e registrar o hash restaurado. Exigir head idêntico e ausência de pedido ao OSM.
+- [x] Commit: `feat: add local world history and branches`.
 
 ## B — Colaboração assíncrona
 
@@ -324,5 +324,6 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 3 | `TASK3_SHA` | 8 testes em `tests/world-repository.test.ts` (fork reutiliza objetos e o pacote do filho não copia bytes iguais, obra no filho deixa o pai intacto, head obsoleto recusado com recibo idempotente, disco cheio não avança head nem deixa objeto/recibo, cópia exportada abre sem `MapSource` com head idêntico e sem câmera, fork recontextualiza `worldId` sem herdar concessão nem sessão, slot por mundo/branch, histórico pelo primeiro pai). Defeito real encontrado e corrigido: o recibo era consultado depois do CAS de head, então reenvio com head antigo virava `CONFLICT` em vez de repetir o resultado. Suíte: 131 testes; verificado também no navegador (painel Versões criou branch `experimento` com "Rua em 1 célula(s)" e exportou 442138 bytes).
 | 2 | `0b4faac` | 10 testes em `tests/reality.test.ts` (base intocada, cobertura em coordenadas nomeadas, `observedAt` ausente quando só há download, nenhum ID OSM inventado, fonte/atribuição/extensões sobrevivendo ao pacote, região indisponível sem terreno inventado, endpoint/normalizador/zoom reais). Fixtures sintéticas em `tests/fixtures/federated-world/base-a.json` e `base-b.json`. Atribuição intacta em `map-provider` e `normalize`.
 | 1 | `ee3e77e` | 7 testes em `tests/world-bundle.test.ts` (vetores RFC 8785, recusas de chave repetida/versão/limite/UTF-8, preservação do espaço de extensões, verificação de endereço por hash), `npx tsc -p tsconfig.world.json` limpo e camada `world` no teste de arquitetura. Suíte: 113 testes. |
