@@ -1,4 +1,5 @@
 import {createOsmSource} from '../adapters/osm/provider';
+import {createIndexedDbTileCache} from '../adapters/osm/tile-cache';
 import {createIndexedDbStore} from '../adapters/storage/indexed-db';
 import {createIndexedDbWorldStorage} from '../adapters/storage/world-indexed-db';
 import {createJcsCodec} from '../adapters/codec/jcs';
@@ -76,11 +77,15 @@ const hudRoot=element<HTMLElement>('#hud');
 const ctx=canvas.getContext('2d');
 if(!ctx)throw new Error('Canvas 2D indisponível neste navegador.');
 const costEl=hudRoot.querySelector<HTMLElement>('#cost-preview');
+const tileCacheInfo=hudRoot.querySelector<HTMLElement>('#tile-cache');
 const placeError=hudRoot.querySelector<HTMLElement>('#place-error');
 const placeForm=hudRoot.querySelector<HTMLFormElement>('#place-form');
 const placeLat=hudRoot.querySelector<HTMLInputElement>('#place-lat');
 const placeLon=hudRoot.querySelector<HTMLInputElement>('#place-lon');
-const maps=createOsmSource();
+// The map service sends vector tiles once and the device keeps them: one tile covers 64 regions, so a revisit — this
+// session or the next one — costs no request at all.
+const tileCache=createIndexedDbTileCache();
+const maps=createOsmSource({cache:tileCache});
 const session=createSession({maps,saves:createIndexedDbStore(),worldId:WORLD_ID,seed:SEED});
 const codec=createJcsCodec(),hasher=bytesHasher();
 const worlds=createWorldRepository({storage:createIndexedDbWorldStorage(),codec,hasher});
@@ -170,6 +175,19 @@ const refreshChunks=()=>{
  chunks=next;
 };
 const actionFor=(cells:readonly CellCoord[]):Action|null=>tool==='explore'?null:tool==='demolish'?{type:'demolish',cells:[...cells]}:{type:'build',tool,cells:[...cells]};
+// The device cache is invisible unless it is told: how many tiles are kept and how many bytes they take. It is the
+// honest counterpart of the map loading — the player can see that a revisit is costing nothing.
+const showCacheStats=()=>{
+ if(!tileCacheInfo)return;
+ void tileCache.stats().then(({tiles,bytes})=>{
+  tileCacheInfo.textContent=tiles?`Mapa guardado: ${tiles.toLocaleString('pt-BR')} tiles · ${formatBytes(bytes)}`:'';
+ }).catch(()=>{tileCacheInfo.textContent='';});
+};
+const formatBytes=(bytes:number)=>{
+ if(bytes<1024)return `${bytes} B`;
+ if(bytes<1024*1024)return `${Math.round(bytes/1024)} KB`;
+ return `${(bytes/(1024*1024)).toFixed(1)} MB`;
+};
 const refreshPreview=()=>{
  preview=tool==='explore'?[]:stroke??(hover?[hover]:[]);
  const state=stateOf(),action=preview.length?actionFor(preview):null;
@@ -212,6 +230,7 @@ const loadVisible=async()=>{
   return; // a failed batch is retried by the player, not by an endless automatic loop
  }
  refreshChunks();refreshPreview();updateHud();
+ showCacheStats();
  if(unknown.length>coarse.length||visible.length>detailed.length)scheduleLoad();
 };
 // Building inside an approximation is refused by the session; answering with the detailed regions makes the next

@@ -56,6 +56,9 @@ label{color:#6d5f49;font-size:11px;text-transform:uppercase;letter-spacing:.04em
 #map-message{color:#8c4a2f;font-weight:700}
 #command-notice{color:#8c4a2f}
 #save-status{color:#4c5f74}
+/* What the device already holds: the map a revisit does not have to download again. */
+.panel-hint{color:#4c5f74;font-variant-numeric:tabular-nums}
+.panel-hint:empty{display:none}
 #place-error{color:#a3341f;margin:0;font-weight:700}
 #hud-attribution{color:#3d5f8f}
 /* A cooperative session reads as its own card: the branch, who is in it, the descriptor and the save state. */

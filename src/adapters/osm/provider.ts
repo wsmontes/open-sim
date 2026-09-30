@@ -4,7 +4,11 @@ import type {BaseChunk} from '../../core/model';
 import {CHUNK,WORLD,chunkOrigin} from '../../core/coordinates';
 import type {MapLevel,MapSource} from '../../session/ports';
 import {normalizeChunk,type MapFeature} from './normalize';
-export type OsmConfig={tileUrl?:string;fetcher?:typeof fetch;timeoutMs?:number;overviewZoom?:number};
+import type {TileCache} from './tile-cache';
+export type OsmConfig={tileUrl?:string;fetcher?:typeof fetch;timeoutMs?:number;overviewZoom?:number;
+ // Where the raw tile bytes are kept between visits. Omitting it means "ask every time", which is what a test wants
+ // and what a runtime without storage gets.
+ cache?:TileCache};
 // What a capture has to record to be honest about where the bytes came from. It is all metadata this adapter already
 // knows, so exposing it costs no request and changes no behaviour.
 export type OsmSourceMetadata={
@@ -58,6 +62,9 @@ export function createOsmSource(config:OsmConfig={}):OsmSource {
  const template=config.tileUrl??DEFAULT_TILE_URL;
  const fetcher=config.fetcher??fetch;
  const overviewZoom=config.overviewZoom??DEFAULT_OVERVIEW_ZOOM;
+ const kept=config.cache;
+ // Two caches with different jobs: the decoded features stay only while they are being used, and the raw bytes go to
+ // the device so a revisit costs no request. A tile is decoded from whichever of the two answered first.
  const cache=new Map<string,TileData>(),pending=new Map<string,Promise<TileData>>();
  const queue:Array<()=>void>=[];let active=0;
  async function limited<T>(job:()=>Promise<T>):Promise<T>{if(active>=4)await new Promise<void>(resolve=>queue.push(resolve));else active++;try{return await job();}finally{const next=queue.shift();if(next)next();else active--;}}
@@ -67,8 +74,19 @@ export function createOsmSource(config:OsmConfig={}):OsmSource {
    const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),config.timeoutMs??15000);
    try{
     const url=template.replace('{z}',String(zoom)).replace('{x}',String(tileX)).replace('{y}',String(tileY));
-    const response=await fetcher(url,{signal:abort.signal});if(!response.ok)throw new Error(`Mapa indisponível (${response.status}). Tente novamente.`);
-    const bytes=await response.arrayBuffer();const decoded=new VectorTile(new PbfReader(bytes));const features:MapFeature[]=[];
+    // The device cache answers first: a tile kept from an earlier visit costs nothing to serve, and a cache that
+    // cannot be read is simply a miss.
+    const keptBytes=kept?await kept.get(key).catch(()=>null):null;
+    let bytes:Uint8Array;
+    if(keptBytes&&keptBytes.byteLength){
+     bytes=keptBytes;
+    }else{
+     const response=await fetcher(url,{signal:abort.signal});if(!response.ok)throw new Error(`Mapa indisponível (${response.status}). Tente novamente.`);
+     bytes=new Uint8Array(await response.arrayBuffer());
+     // Only bytes the service actually sent are stored: the cache is a copy of the answer, never a transformation.
+     if(kept)await kept.put(key,bytes).catch(()=>{});
+    }
+    const decoded=new VectorTile(new PbfReader(bytes));const features:MapFeature[]=[];
     const cellsPerSide=cellsPerTile(zoom),originX=tileX*cellsPerSide,originY=tileY*cellsPerSide;
     for(const [name,layer] of Object.entries(decoded.layers)){
      if(!layers.has(name))continue;
