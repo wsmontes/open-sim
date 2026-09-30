@@ -191,11 +191,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** adaptador de `IdentityProvider` da tarefa 6; `InviteService.create(input: InviteInput): Promise<WorldResult<Invite>>`, `open(invite: Invite): Promise<WorldResult<JoinRequest>>`; adaptador `Signaling` da tarefa 8. Invite fixa destinatário ou política de aprovação, mundo/branch/head, capacidades, validade e endpoints; possuir link sozinho não concede escrita.
 
-- [ ] Testar ausência/recusa de assinador, identidade do usuário distinta do bunker, relay recusando mensagem, replay de convite e acesso sem grant. `expect(publicPayload).not.toContain(privateKeyOrSnapshot)`; NIP-78 nunca usado como descoberta pública.
-- [ ] Rodar `npx vitest run tests/nostr-adapter.test.ts`; confirmar RED usando relay/assinador simulados.
-- [ ] Implementar NIP-07 e interface compatível com futura NIP-46; começar com convite legível NIP-17 ou cópia manual. Mensagens automáticas de sinalização usam envelope versionado explícito em canal privado compatível e aprovado para a sessão; não registrar kind novo arbitrariamente. NIP-46 entra somente com seus testes completos de identidade/permissão.
-- [ ] Exigir PASS; em ambiente de teste com contas próprias, verificar dois relays, um indisponível e usuário sem Nostr. Compartilhamento real com contatos não é parte de teste automático. Não bloquear o modo manual quando um assinador faltar.
-- [ ] Commit: `feat: add optional Nostr identity and private invitations`.
+- [x] Testar ausência/recusa de assinador, identidade do usuário distinta do bunker, relay recusando mensagem, replay de convite e acesso sem grant. `expect(publicPayload).not.toContain(privateKeyOrSnapshot)`; NIP-78 nunca usado como descoberta pública.
+- [x] Rodar `npx vitest run tests/nostr-adapter.test.ts`; confirmar RED usando relay/assinador simulados.
+- [x] Implementar NIP-07 e interface compatível com futura NIP-46; começar com convite legível NIP-17 ou cópia manual. Mensagens automáticas de sinalização usam envelope versionado explícito em canal privado compatível e aprovado para a sessão; não registrar kind novo arbitrariamente. NIP-46 entra somente com seus testes completos de identidade/permissão.
+- [x] Exigir PASS; em ambiente de teste com contas próprias, verificar dois relays, um indisponível e usuário sem Nostr. Compartilhamento real com contatos não é parte de teste automático. Não bloquear o modo manual quando um assinador faltar.
+- [x] Commit: `feat: add optional Nostr identity and private invitations`.
 
 ## D — Federação e recuperação
 
@@ -322,6 +322,9 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 ## Desvios registrados
 
+- **Tarefa 10:** identidade vem sempre da chave do assinador (um assinador tipo bunker com outra chave não consegue vincular o npub do usuário), NIP-07
+  e chave local coexistem, e o relay implementa só a porta de objeto do §30 — a sinalização fica com a tarefa 8. Dependência acrescentada:
+  `nostr-tools` **2.25.2** fixado (Unlicense; transitivas MIT), confinada a `src/adapters/nostr/**`; secp256k1/BIP-340, NIP-19 e NIP-04 não se escrevem à mão.
 - **Tarefa 14:** o chamador resolve o material (`ResolvedObjects.states`), então `world` não precisa importar `session`; a composição
   carrega `actor` porque o envelope §48 exige um principal; e o que a camada escreveu é derivado do material (`layerWrites`), com a
   declaração valendo como teto — escrever sem declarar, fora das áreas, ou trocar a base congelada é recusado. Campo desconhecido dentro
@@ -456,6 +459,7 @@ Regra que continua valendo: registrar o que foi exercitado contra o serviço rea
 
 | Tarefa | Commit | Evidência registrada |
 | --- | --- | --- |
+| 10 | `TASK10_SHA` | 20 testes (+1 de relay real, pulado por padrão) em `tests/nostr-adapter.test.ts`: ausência e recusa de assinador, identidade do usuário distinta do bunker, relay recusando mensagem com a resposta literal carregada, replay de convite como CONFLICT, acesso sem grant recusado por `authorize` (um pedido verificado não autoriza nada), e o payload público sem chave nem estado. **Verificado contra o relay real do usuário** (`OSIM_NOSTR_RELAY=ws://127.0.0.1:7777`, túnel para o strfry do Pi): 21 testes passam, com publicação e leitura de volta. Cinco defeitos reais corrigidos no ciclo. `signaling.ts` ficou para depois da tarefa 8, por não adivinhar contrato.
 | 14 | `e3ad0b0` | 15 testes em `tests/world-composition.test.ts`: dependência ausente e cíclica, duas camadas escrevendo o mesmo campo, ordem visual sem mudar identidade durável, camada visual fora da identidade, regras incompatíveis, e comparação não comparável quando intervalo ou premissas divergem sem declaração. Composição é tudo-ou-nada e a base é conferida por identidade durável (durableJson). No navegador: duas colunas com a mesma base (5 trechos, commit 54e8323), nove indicadores por lado e tabela de deltas — e um defeito real de determinismo corrigido (os dois futuros derivavam de quadros diferentes porque cada um chamava `new Date()`).
 | 7 | `dd10223` | 16 testes em `tests/multiplayer-session.test.ts` + fixture `session-chaos.json` (14 passos): duas obras no mesmo saldo, commit repetido e invertido, pai ausente, proposta recusada seguida de válida, base de fonte diferente entre peers (a réplica pede e espera, com `stopped` e evidência nomeando a região em vez de substituir em silêncio), queda entre persistir e responder sem aplicação dupla, cobrança única após reenvio e reabertura a partir de checkpoint e recibos. Sete defeitos reais corrigidos no ciclo, incluindo um commit descartado em silêncio e um auto-deadlock na promoção de commit em buffer.
 | 5 | `6394ba1` | 14 testes novos (`world-merge` 9, `base-update` 5): estacionamento do jogador versus prédio real conflita, preservar o parque adota a origem nova com divergência registrada, gasto conjunto acima do saldo, remoção versus edição, namespace crítico desconhecido conflita em vez de ser resolvido em silêncio, candidato de head antigo e ausência de ancestral recusados com código próprio, atualização de base sem renda retroativa e compensação de usina já utilizada sem devolver dinheiro indevido. Conflitos são tipados por campo/célula e uma decisão inexistente ou repetida é recusada.
