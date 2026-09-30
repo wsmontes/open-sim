@@ -113,7 +113,7 @@ Este documento é uma proposta de continuidade, não uma implementação. Nenhum
 | --- | --- | --- |
 | 1 | `c2b427c` | regressões escritas antes e conferidas contra o código anterior (stash): as três falhavam; depois passam |
 | 2 | `2f1a0c8` | identidade estável com 0/1/vários comandos efêmeros; endereço de conteúdo ainda cobre o arquivo inteiro |
-| 3 | `perf: bound explored-region memory` | memória de 75 → 113 → 119 MB em 36 arrastos manuais (crescimento achata); obra sobrevive a sair, recarregar, girar e zoom |
+| 3 | `53a5bdd` | memória de 75 → 113 → 119 MB em 36 arrastos manuais (crescimento achata); obra sobrevive a sair, recarregar, girar e zoom |
 
 Suíte fechada com **106 testes** em 14 arquivos, `typecheck`, `typecheck:core` e `build` limpos (bundle 56,88 kB, 20,52 kB gzip).
 
