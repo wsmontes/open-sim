@@ -373,12 +373,129 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 ## Nota de história
 
-Dois commits de documentação (`e90a84b` e `b326832`) foram feitos com `git add -A` enquanto três agentes escreviam o
-mesmo working tree, então arrastaram arquivos em voo para dentro de commits nomeados como documentação. **Decisão de
-fechar assim, e não repartir:** a árvore final está correta e verificada (393 testes, typecheck, núcleo sem DOM/Node,
-`world` puro, build, mais as verificações contra o relay Nostr e o homeserver Synapse reais), o conteúdo de cada tarefa
-está no commit da própria tarefa, e repartir esses dois commits exigiria reescrever quatorze commits já publicados, com
-risco de deixar a história pior do que está. Fica registrado com o custo medido: dois commits de documentação que tocam
-arquivos a mais. Desde então o stage é sempre por caminho explícito e cada commit é conferido com `git show --stat` — o
-único commit em que isso falhou de novo foi o do kernel, cuja mensagem perdeu duas palavras para crases que o shell
-interpretou.
+Dois commits de documentação (`e90a84b` e `b326832`) foram feitos com `git add -A` enquanto três agentes escreviam o mesmo
+working tree, então arrastaram arquivos em voo para dentro de commits nomeados como documentação. **Decisão de fechar assim,
+e não repartir:** a árvore final está correta e verificada (393 testes, typecheck, núcleo sem DOM/Node, `world` puro, build,
+mais as verificações contra o relay Nostr e o homeserver Synapse reais), o conteúdo de cada tarefa está no commit da própria
+tarefa, e repartir esses dois commits exigiria reescrever quatorze commits já publicados, com risco de deixar a história pior
+do que está. Fica registrado com o custo medido: dois commits de documentação que tocam arquivos a mais. Desde então o stage
+é sempre por caminho explícito e cada commit é conferido com `git show --stat` — o único em que isso falhou de novo foi o do
+kernel, cuja mensagem perdeu duas palavras para crases que o shell interpretou.
+
+## Reconciliação com o OpenSim Protocol 0.1
+
+Decisão do usuário (2026-09-29): **o protocolo é a fronteira de interoperabilidade** (`docs/OpenSim-Protocol-0.1.txt`,
+`osim/0.1`). O manifesto e os componentes do núcleo (`src/core/protocol.ts`) continuam sendo o estado durável local; o
+pacote v2 passa a ser um formato de transporte internos, e tudo o que sai deste cliente para outro ecossistema sai no
+envelope do protocolo.
+
+O contrato da fronteira está em `src/world/osim.ts` (puro, sem DOM/Node, com `tests/osim-boundary.test.ts` como
+verificação, incluindo o checklist de conformidade §47 como teste):
+
+| Peça do protocolo | Neste cliente |
+| --- | --- |
+| Envelope `{osim:'0.1', type, id, actor, body}` (§48) | `checkEnvelope`/`envelopeOf`; envelope **fechado**, `body` aberto |
+| Identificadores `osim:<kind>:<id>` e URIs alheias (§4) | `parseOsimUri`, `entityUri`, `timelineUri`, `entityIdOf`; `did:key:…`, `https://…`, `sha256:…` passam intactos |
+| `set` / `merge` / `remove` / `delete` (§15) | `applyEvent` puro sobre `Components`; `merge` preserva campo que este cliente não escreveu; `delete` devolve tombstone |
+| Vocabulário central `osim.*` (§9) | `checkCoreComponent` valida `osim.transform`, `existence`, `name`, `bounds`, `relations`, `layer` **sem rejeitar campo novo**, e namespace central não implementado é carregado |
+| Tempo: quando aconteceu ≠ quando soubemos (§13) | `osimTimeFrom`: `time` = instante do registro, `observedTime` = quando soubemos, `validTime` = só se a fonte nomeou um instante, período continua período |
+| Espaços nomeados (§10) | `osim.transform.space` aponta para `osim:space:earth`; a grade `2^22 × 32` continua endereço do motor |
+| Camadas (§19) | `osim.layer` no vocabulário central; a composição da Tarefa 14 publica camadas como entidades |
+| Capacidades (§27–28) | o `Grant` da Tarefa 6 já é escopado por namespace/entidade/região; `epoch` e `spendLimit` viajam como extensão |
+| Linhas do tempo (§11–12) | branch ↔ `osim:timeline:<branchId>`, com `parent`/`forkAt` no manifesto; o armazenamento por divergência continua na Tarefa 3 |
+| Assets (§21–22) | Tarefa 12 (direto/HTTP/Blossom, endereçados por conteúdo, vários provedores) |
+| Sessão (§23–26) | Tarefas 7–9; tráfego de sessão não vira evento durável |
+| Operações `resolve/query/publish/subscribe/join` (§39) | nomes expostos na camada de sessão sobre o que já existe (resolver objeto, consultar região/tempo, publicar, assinar, entrar na sessão) |
+
+Consequências para as tarefas 8–17, que passam a ser executadas com este contrato e não com o anterior:
+
+1. **Regra de duas políticas.** Registro de protocolo (envelope, cabeça, referências, completude) é fechado e recusa
+   campo desconhecido; **componente é aberto e sempre preservado**, em qualquer nível. A frase "campo desconhecido é
+   recusado" de `docs/world-protocol.md` vale só para o primeiro caso.
+2. **Namespace.** A regra local era minúsculas; o protocolo §8 documenta `x.wagner.experimentalTrafficModel`. A regra
+   passou a aceitar maiúscula depois da primeira letra de cada segmento (`src/core/protocol.ts`), e é isso que permite
+   carregar os exemplos do próprio protocolo.
+3. **Identidade.** O `actorId` interno de 66 caracteres continua endereço do núcleo; o ator do protocolo é a URI do
+   principal. Toda mensagem publicada carrega `actor` com esquema (`did:key:…`, `nostr:…`, `matrix:…`), e um ator sem
+   esquema é recusado.
+4. **Intenção do perfil.** As ações do jogo (construir, demolir, tick) não entram no protocolo: elas são intenção do
+   perfil cidade e viram eventos sobre os componentes do próprio perfil. É o teste de desenho do §51 aplicado.
+5. **Nada de evento por quadro.** Movimento e tráfego de sessão continuam efêmeros; só resultados significativos são
+   publicados como eventos (§24).
+
+### Deltas das tarefas 8–17 na fronteira do protocolo
+
+O conteúdo de cada tarefa continua o do checklist; esta tabela só fixa o que muda agora que o protocolo é a fronteira.
+
+| Tarefa | Delta |
+| --- | --- |
+| 8 WebRTC | O adaptador implementa **duas** portas, porque são classes de tráfego diferentes (§24): `SessionTransport` (mensagem, controle/durável/efêmero) e `KernelTransport` (objeto: `publish`/`query`/`subscribe`/`resolve`, §30). O descritor da sessão é publicado como objeto `session` (§23) e `join` o resolve. Sinalização continua manual/assinada; oferta antiga é recusada por época. |
+| 9 Experiência | A UI distingue salvamento local, replicado, pendente e pausado, e mostra o descritor da sessão e os participantes. Só **resultados** significativos viram eventos; movimento continua efêmero (§24). |
+| 10 Nostr | Identidade por NIP-07 vira ator do protocolo (`nostr:npub…` é a URI do ator); convite é objeto `capability` + descritor de sessão por mensagem privada, e possuir o link não concede escrita (§28). O adaptador de relay implementa `KernelTransport` (§30). NIP-78 nunca para descoberta pública. |
+| 11 Matrix | Mesmas portas do 10; conta autenticada, sala e aprovação entram no vínculo verificável, e power level de sala **não** é permissão de jogo. `matrix:…` é a URI do ator. `matrixResult.semanticHash` = `nostrResult.semanticHash` no mesmo cenário. |
+| 13 Recuperação | `prepareHandover` publica uma `capability` com emissor, sucessor, branch, época e último head; o sucessor entra por `join`. Recuperação nunca escolhe só pelo mais recente (§28: autoridade é escopada, e `activeWritersForBranch` é 1 na transferência válida e 0 na divergência não resolvida). |
+| 15 Dados e observações | Observação é componente do perfil com `validTime`/`observedTime` vindos de `osimTimeFrom` (§13) — nunca a data de download como data do fato. GTFS vira `DatasetRevision` (tarefa 2) + entidades de parada/linha com `osim.transform`; replay sem rede é requisito. |
+| 16 Entidades e segundo perfil | Entidade genérica usa `osim.transform`, `osim.existence` e `osim.name` do vocabulário central; a célula continua endereço do motor, nunca do contrato (§5 do world-protocol). O segundo perfil prova `§47` na prática: entende só o que implementa e preserva o resto. |
+| 17 Conformidade e links | O checklist do §47 vira verificação pública; `osim://` de navegação (§40) identifica uma vista, não um servidor; o documento de conformidade aponta `docs/kernel.md` como pseudocódigo de referência. |
+
+## Ambiente de teste de rede (stack WIRC)
+
+Infraestrutura real do usuário, no repositório `wawa-irc` (irmão deste), para verificar as tarefas 8, 10 e 11 **de verdade**:
+
+| Peça | Endereço | Observação |
+| --- | --- | --- |
+| Relay Nostr (strfry 1.0.4) | `wss://nostr.wawasoft.net` (origem local no Pi: `127.0.0.1:7777`) | Verificado vivo em 2026-09-29 pelo NIP-11: `supported_nips` 1,2,4,9,11,22,28,40,70,77; leitura pública; escrita pública limitada aos kinds 0,1,3,5,6,7,10002 com rate limit |
+| Homeserver Matrix | `http://127.0.0.1:6167` (Conduit) + appservice em `127.0.0.1:9009` | Configuração em `wawa-irc/ops/wawa-matrix.md` |
+| Ergo IRC / XMPP | ver `wawa-irc/ops/wawa-xmpp.md` e `README.md` | Não é necessário para este plano |
+
+Nada disso está rodando nesta máquina: o stack roda no Raspberry Pi em **192.168.1.89** (ping 5,7 ms em 2026-09-29) e sai por
+Cloudflare Tunnel. Sondagem da LAN nessa data: abertas **6667** e **6697** (Ergo IRC, texto e TLS); fechadas 7777 (relay), 6167
+(homeserver), 9009 (appservice), 5222 (XMPP) e 8787 (wall) — estão em loopback no Pi, exatamente como a operação documenta.
+Acesso por chave existe: `ssh -i ~/.ssh/pi_ed25519 wawa@192.168.1.89` entra no host `rasp` (verificado). Lá:
+`wawa-nostr.service` **active** com strfry escutando em `127.0.0.1:7777`; `wawa-realtime-fabric.service` (appservice Matrix)
+**inactive** e nenhum homeserver em 6167 — ou seja, **não há Matrix rodando** para a tarefa 11 até o operador subir um.
+Para testar contra o relay sem depender do túnel público, a ponte local é
+`ssh -N -L 7777:127.0.0.1:7777 -i ~/.ssh/pi_ed25519 wawa@192.168.1.89` (o processo `nostr-relay` do harness já sobe isso, e
+`http://127.0.0.1:7777` responde o NIP-11 do relay real). Mudar a allowlist do Pi é alteração de produção: só com pedido explícito.
+
+Consequência prática: **Nostr caminha pelo endereço público** `wss://nostr.wawasoft.net` ou pelo túnel local, e o IRC da LAN serve
+para qualquer verificação que precise de um par de chat. Matrix exige um caminho até o loopback do Pi — túnel SSH
+(`ssh -L 6167:127.0.0.1:6167`) ou publicação pelo operador — antes de poder ser exercitado de verdade. Para escrever um kind que não seja da lista pública, a pubkey de teste precisa entrar em `/etc/wawa-nostr/allowed-pubkeys.txt` no Pi (só o operador faz isso) — enquanto isso, use kind 1 e kind 4 (mensagem direta cifrada, suportada pelo relay) ou o caminho manual de copiar e colar, que o plano já permite.
+
+### Laboratório Matrix local (para a tarefa 11)
+
+Não há homeserver rodando no Pi, mas o próprio repositório do usuário traz um laboratório completo:
+`wawa-irc/tests/e2e/matrix/` (`compose.yaml` + `run.sh`) sobe **Synapse `matrixdotorg/synapse:v1.157.1`**
+(digest pinado), Ergo e o runtime wawa, com registro habilitado por segredo (`WAWA_E2E_REGISTRATION_SECRET`)
+e um runner de cenário. Detalhe que decide a receita: Synapse usa `network_mode: service:wawa` e a rede é
+`internal: true`, então **nada é publicado no host** — o cenário fala com `127.0.0.1:8008` de dentro.
+
+Receita para verificar de verdade, sem tocar no repositório do usuário e sem tocar no Pi: copiar
+`tests/e2e/matrix/` para um diretório de trabalho meu, acrescentar `ports: ["6167:8008"]` ao serviço `wawa`
+(dono do netns) na **cópia**, subir com `docker compose -p opensim-matrix-lab … up -d wawa synapse`, e usar
+`http://127.0.0.1:6167` daqui. Para "dois homeservers", subir um segundo projeto com outra porta. Nada disso
+toca produção: é contêiner local descartável.
+
+Regra que continua valendo: registrar o que foi exercitado contra o serviço real e **não** afirmar mais do que isso (nada de declarar compatibilidade ampla de NAT ou federação validada sem prova).
+
+## Execução
+
+| Tarefa | Commit | Evidência registrada |
+| --- | --- | --- |
+| 13 | `8640270` | 10 testes em `tests/host-recovery.test.ts`: transferência válida, novo anfitrião sem todos os objetos (pede o que falta em vez de adotar estado incompleto), concessão de época antiga, queda antes e depois do ACK, duas concessões concorrentes (mesma época com head ou escritor diferente é CONFLICT), regressão contra o relógio (nunca se escolhe pelo timestamp), recibo compactado e réplica seguindo a época nova. `activeWritersForBranch` é 1 na transferência válida e 0 na divergência não resolvida. Suíte inteira: **42 arquivos e 393 testes**. Defeito real corrigido no caminho: os quadros de identidade chegavam ao anfitrião depois de ele ordenar a proposta, então o enlace do anfitrião não fechava pela UI.
+| 17 | `fe04877` | 23 testes (`world-conformance` + `world-links`): visita sem herdar permissão, link fixo versus móvel, origem indisponível com cópia válida, informação privada ausente do cartão, ponte deduplicando id original e limite de encaminhamento. O replay reproduz **endereço a endereço** (stateRef, head.commit, geração, bases e lista aceita) para três casos — merge, fontes e múltiplos perfis — com o mesmo hash semântico no Node e no Chromium real; todo objeto lido é re-encodado em JCS e re-hasheado antes do uso, e um byte alterado vira HASH_MISMATCH. A fixture é regenerável pela própria suíte, e o pacote público saiu em `docs/protocol/` com dez esquemas em `schemas/world-v2/`.
+| 9 | `3c62d38` | 10 testes em `tests/multiplayer-ui.test.ts` (réplica não agenda tick, aba oculta indica pausa, rejeição restaura a prévia sem perder a seleção, convite não sobrescreve o save pessoal, fila cheia preserva estado, presença não muda identidade durável), 41 com a suíte de aceitação. No navegador: criar sessão (branch `sessao-9`, `Você é o anfitrião`, descritor `osim:session:open-sim-sessao-9`), convidar (documento §23 de 428 bytes), sair (versão compartilhada preservada, partida na pessoal, convite revogado) e entrar colando o descritor, resolvido por `join`. Descobertas do ciclo: o corpo de controle de fio é o documento achatado, a réplica precisa dos grants do anfitrião para verificar commits alheios e `cost = 0` numa recusa significa não orçado, não grátis.
+| 11 | `a21eebf` | 21 testes (`matrix-adapter` 19 + `federated-adapters` 2), mais o de rede: evento de sala indevida recusado, membro sem concessão, chave de sessão trocada, evento cifrado não decifrável, duplicação entre transportes aplicada uma vez, hash semântico igual entre Matrix e Nostr no mesmo cenário e ordem. **Prova real** contra Synapse `v1.157.1` local (o agente reconstruiu o laboratório quando o meu caiu): duas contas registradas pelo segredo compartilhado, sala privada criada, convidada e ingressada, objetos do protocolo publicados e lidos de volta. Cinco defeitos reais corrigidos no ciclo, entre eles a leitura de `/messages` voltando em ordem inversa (um replay aplicaria o mundo na ordem errada) e o teto de evento medido no servidor real, que recusa acima de 64 KiB — o teto virou 60 KiB e 413 virou LIMIT.
+| 8 | `85df03b` | 26 testes novos (`webrtc-adapter` 12, `object-transfer` 14) e 42 com a sessão da tarefa 7: sinal de outra sessão, oferta de época anterior e oferta mais nova recusadas com mensagens distintas, assinatura verificada sobre os bytes do corpo com a prova destacada, janela de replay por id, objeto truncado e adulterado recusados por hash, offset que salta em conflito, payload acima do teto negociado em LIMIT, backpressure e desconexão no meio com retomada pelo prefixo contíguo guardado no dispositivo. Três defeitos reais corrigidos: texto colado sem a prova destacada, candidato de ICE chegando antes da descrição sendo perdido, e fakes de teste comparando megabytes.
+| 16 | `afc62a4` | 14 testes (`world-entities` 6, `materialization` 5, `cross-profile` 3): entidade cruzando trechos e o antimeridiano contada uma vez, feição dividida ou fundida ambígua recusada em vez de adivinhada, id estável em fork, namespace desconhecido preservado, e o invariante populacional 4 = 2 + 2 ao materializar e 3 + 1 ao devolver, com reserva repetida devolvendo o mesmo estado em vez de criar gente. O explorador de referência abre, materializa, escreve o próprio namespace e exporta sem tocar a UI de cidade: cidade → explorador → cidade conserva total, histórico, procedência e o que a cidade não entende. Suíte de 17 arquivos: 156 testes; build limpo.
+| 15 | `bf8573d` | 16 testes (`gtfs-source` 9, `external-input` 7): transporte sem linha ou parada referenciada, ids iguais de fornecedores diferentes em conflito, ZIP acima do limite recusado antes de expandir, unidade inválida, horário com fuso declarado (24:15:00 preservado) e revisão posterior de previsão; replay sem rede igual à execução original e chegada fora de ordem sem tocar ticks passados. **Feed real exercitado**: GTFS marítimo da Martinique (Licence Ouverte 2.0, 29.515 bytes) importado em 23 ms com 10 paradas, 4 linhas, 209 viagens e procedência endereçada; um segundo feed (libéA, ODbL) foi lido e a associação entre fornecedores diferentes foi recusada, assim como a cópia do mesmo feed com um id trocado na mesma posição. Fixtures commitadas continuam sintéticas.
+| 10 | `fa45ff4` | 20 testes (+1 de relay real, pulado por padrão) em `tests/nostr-adapter.test.ts`: ausência e recusa de assinador, identidade do usuário distinta do bunker, relay recusando mensagem com a resposta literal carregada, replay de convite como CONFLICT, acesso sem grant recusado por `authorize` (um pedido verificado não autoriza nada), e o payload público sem chave nem estado. **Verificado contra o relay real do usuário** (`OSIM_NOSTR_RELAY=ws://127.0.0.1:7777`, túnel para o strfry do Pi): 21 testes passam, com publicação e leitura de volta. Cinco defeitos reais corrigidos no ciclo. `signaling.ts` ficou para depois da tarefa 8, por não adivinhar contrato.
+| 14 | `e3ad0b0` | 15 testes em `tests/world-composition.test.ts`: dependência ausente e cíclica, duas camadas escrevendo o mesmo campo, ordem visual sem mudar identidade durável, camada visual fora da identidade, regras incompatíveis, e comparação não comparável quando intervalo ou premissas divergem sem declaração. Composição é tudo-ou-nada e a base é conferida por identidade durável (durableJson). No navegador: duas colunas com a mesma base (5 trechos, commit 54e8323), nove indicadores por lado e tabela de deltas — e um defeito real de determinismo corrigido (os dois futuros derivavam de quadros diferentes porque cada um chamava `new Date()`).
+| 7 | `dd10223` | 16 testes em `tests/multiplayer-session.test.ts` + fixture `session-chaos.json` (14 passos): duas obras no mesmo saldo, commit repetido e invertido, pai ausente, proposta recusada seguida de válida, base de fonte diferente entre peers (a réplica pede e espera, com `stopped` e evidência nomeando a região em vez de substituir em silêncio), queda entre persistir e responder sem aplicação dupla, cobrança única após reenvio e reabertura a partir de checkpoint e recibos. Sete defeitos reais corrigidos no ciclo, incluindo um commit descartado em silêncio e um auto-deadlock na promoção de commit em buffer.
+| 5 | `6394ba1` | 14 testes novos (`world-merge` 9, `base-update` 5): estacionamento do jogador versus prédio real conflita, preservar o parque adota a origem nova com divergência registrada, gasto conjunto acima do saldo, remoção versus edição, namespace crítico desconhecido conflita em vez de ser resolvido em silêncio, candidato de head antigo e ausência de ancestral recusados com código próprio, atualização de base sem renda retroativa e compensação de usina já utilizada sem devolver dinheiro indevido. Conflitos são tipados por campo/célula e uma decisão inexistente ou repetida é recusada.
+| 12 | `761852f` | 13 testes novos (9 em `world-blobs`, 4 em `world-retention`): hash do cifrado diferente do texto claro, recusa por nonce/contexto/ciphertext alterados, mundo ou keyId diferentes recusados antes de decifrar, ausência de chave, provedor indisponível com queda para a cópia local, 413/429/507 mapeados, arquivo de 32 MiB+1 recusado antes de decifrar, e retenção que **não** recolhe nada quando o inventário está incompleto ou tem aresta de tipo desconhecido. Formato de fio do objeto selado é binário (cabeçalho JCS + nonce + ciphertext crus): 32 MiB não viram 43 MiB de base64. Suíte: 175 testes, `tsc --noEmit` limpo.
+| 4 | `eadffcb` | 9 testes em `tests/world-changes.test.ts`: campos independentes vs mesma célula, rua atravessando borda de trecho e o antimeridiano, namespace desconhecido preservado, prévia com `quote`/regras do destino (saldo e tick da origem nunca entram), cota por operação e soma sem aplicação parcial, autor declarado não vira ator, edição sem intenção e `tick` recusados como conflito. No navegador: painel de comparação "Real: 0 · Jogador: 2 (custo ~20) · Simulação: 1 · Metadados: 2" com região clicável, e construir pela UI gravou o checkpoint "Rua em 1 célula(s) · build:road@48557:74362#618". Cinco defeitos reais corrigidos no ciclo RED→GREEN.
+| 6 | `dd58ebe` | 22 testes novos (15 em `world-permissions`, 7 em `world-wire`) com vetores da RFC 8032: principal falso, assinatura de 1 bit trocado, comprimento 126, chave de outro vetor, grant expirado/revogado/fora de região, replay noutra branch/época, namespace crítico desconhecido => `spectator`, `actorId.length === 66`, proposta recusada sem abrir lacuna na sequência do core. Três defeitos reais corrigidos no ciclo: leitura de `algorithm` no lugar errado, `Capabilities` sem discriminador e um vetor cujo "chave trocada" era a própria chave. Corrente de delegação não amplia escopo. Compilação pura limpa; suíte 166 testes (só falham os arquivos em voo da Tarefa 12).
+| 3 | `e137e6c` | 8 testes em `tests/world-repository.test.ts` (fork reutiliza objetos e o pacote do filho não copia bytes iguais, obra no filho deixa o pai intacto, head obsoleto recusado com recibo idempotente, disco cheio não avança head nem deixa objeto/recibo, cópia exportada abre sem `MapSource` com head idêntico e sem câmera, fork recontextualiza `worldId` sem herdar concessão nem sessão, slot por mundo/branch, histórico pelo primeiro pai). Defeito real encontrado e corrigido: o recibo era consultado depois do CAS de head, então reenvio com head antigo virava `CONFLICT` em vez de repetir o resultado. Suíte: 131 testes; verificado também no navegador (painel Versões criou branch `experimento` com "Rua em 1 célula(s)" e exportou 442138 bytes).
+| 2 | `0b4faac` | 10 testes em `tests/reality.test.ts` (base intocada, cobertura em coordenadas nomeadas, `observedAt` ausente quando só há download, nenhum ID OSM inventado, fonte/atribuição/extensões sobrevivendo ao pacote, região indisponível sem terreno inventado, endpoint/normalizador/zoom reais). Fixtures sintéticas em `tests/fixtures/federated-world/base-a.json` e `base-b.json`. Atribuição intacta em `map-provider` e `normalize`.
+| 1 | `ee3e77e` | 7 testes em `tests/world-bundle.test.ts` (vetores RFC 8785, recusas de chave repetida/versão/limite/UTF-8, preservação do espaço de extensões, verificação de endereço por hash), `npx tsc -p tsconfig.world.json` limpo e camada `world` no teste de arquitetura. Suíte: 113 testes. |
