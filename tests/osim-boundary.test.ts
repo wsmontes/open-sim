@@ -1,7 +1,7 @@
 import {describe,expect,test} from 'vitest';
 import type {Components} from '../src/core/model';
 import {canonicalText} from '../src/adapters/codec/jcs';
-import {applyEvent,checkCoreComponent,checkEnvelope,entityUri,osimTimeFrom,parseOsimUri,EXISTENCE_LEVELS,OSIM_VERSION,type OsimEvent} from '../src/world/osim';
+import {applyEvent,checkCoreComponent,checkEnvelope,entityUri,osimTimeFrom,parseOsimUri,parseViewUri,viewUri,EXISTENCE_LEVELS,OSIM_VERSION,type OsimEvent} from '../src/world/osim';
 import type {CaptureTimes} from '../src/world/reality';
 
 const ACTOR = 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK';
@@ -154,6 +154,22 @@ describe('time coordinates separate when a fact was true from when this client l
   expect(time.validTime).toBeUndefined();
   expect(time.interval).toEqual({from:'2026-01-01T00:00:00Z', to:'2026-12-31T00:00:00Z'});
   expect(time.observedTime).toBe('2026-09-29T22:23:41Z');
+ });
+});
+
+describe('a view URI identifies what was asked for, not who answers (protocol §40)',()=>{
+ test('a path with coordinates round-trips, and only the two known keys are accepted',()=>{
+  const built = viewUri(['earth','ca','bc','victoria'], {timeline:'osim:timeline:earth-main', time:'2026-09-29T22:00:00Z'});
+  expect(built).toBe('osim://earth/ca/bc/victoria?timeline=osim:timeline:earth-main&time=2026-09-29T22:00:00Z');
+  expect(parseViewUri(built)).toEqual({ok:true, value:{path:['earth','ca','bc','victoria'], timeline:'osim:timeline:earth-main', time:'2026-09-29T22:00:00Z'}});
+  expect(parseViewUri('osim://earth')).toEqual({ok:true, value:{path:['earth']}});
+ });
+ test('a view that nobody could answer is refused instead of half-read',()=>{
+  expect(parseViewUri('https://earth').ok).toBe(false);
+  expect(parseViewUri('osim://').ok).toBe(false);
+  expect(parseViewUri('osim://earth?server=example.org').ok).toBe(false);
+  expect(parseViewUri('osim://earth?time=ontem').ok).toBe(false);
+  expect(parseViewUri('osim://earth?timeline=earth-main').ok).toBe(false);
  });
 });
 

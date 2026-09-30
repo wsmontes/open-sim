@@ -107,6 +107,47 @@ export function entityIdOf(uri: string): string | null {
  }
 }
 
+// --- navigable view URIs (§40) ---------------------------------------------------------------------------------
+// A view URI identifies a requested world view, never a particular server: `osim://earth/ca/bc/victoria?timeline=…&time=…`.
+// Only the two coordinates the protocol defines are accepted as query; anything else belongs in the view's own filter,
+// not in the identifier, and an unknown key is refused instead of ignored.
+export type ViewUri = {path: string[]; timeline?: string; time?: string};
+const SEGMENT = /^[A-Za-z0-9._~-]{1,80}$/;
+export function parseViewUri(text: string): WorldResult<ViewUri> {
+ if (typeof text !== 'string' || !text.startsWith('osim://')) return failed('MALFORMED', 'URI de vista precisa começar com osim://');
+ const rest = text.slice('osim://'.length);
+ const cut = rest.indexOf('?');
+ const route = cut >= 0 ? rest.slice(0, cut) : rest;
+ const query = cut >= 0 ? rest.slice(cut + 1) : '';
+ const segments = route.split('/').filter(segment => segment.length > 0);
+ if (!segments.length) return failed('MALFORMED', 'URI de vista sem caminho');
+ for (const segment of segments) if (!SEGMENT.test(segment)) return failed('MALFORMED', `Segmento inválido: ${segment}`);
+ const view: ViewUri = {path: segments};
+ if (query.length) {
+  for (const pair of query.split('&')) {
+   const [key, value = ''] = pair.split('=');
+   if (key === 'timeline') {
+    const timeline = instant(value, 'Linha do tempo') && identifier(value, 'Linha do tempo');
+    if (!timeline.ok) return timeline;
+    view.timeline = value;
+   } else if (key === 'time') {
+    const time = instant(value, 'Instante');
+    if (!time.ok) return time;
+    view.time = value;
+   } else return failed('MALFORMED', `Chave desconhecida na vista: ${String(key)}`);
+  }
+ }
+ return ok(view);
+}
+export function viewUri(path: readonly string[], options: {timeline?: string; time?: string} = {}): string {
+ if (!path.length) throw new Error('URI de vista sem caminho');
+ for (const segment of path) if (!SEGMENT.test(segment)) throw new Error(`Segmento inválido: ${segment}`);
+ const query: string[] = [];
+ if (options.timeline !== undefined) query.push(`timeline=${options.timeline}`);
+ if (options.time !== undefined) query.push(`time=${options.time}`);
+ return `osim://${path.join('/')}${query.length ? `?${query.join('&')}` : ''}`;
+}
+
 // --- envelope (§48) ---------------------------------------------------------------------------------------------
 export function envelopeOf(kind: OsimKind, id: string, actor: string, body: JsonValue): OsimEnvelope {
  const built: OsimEnvelope = {osim: OSIM_VERSION, type: kind, id, actor, body};
