@@ -66,12 +66,12 @@ Base da análise: commit `631bb49`, branch `codex/open-sim-design`, árvore inic
 
 **Interfaces:** conservar `durableJson(state: GameState, extensions?: readonly ExtensionDeclaration[]): string` e `contentRef(text: string)`. Definir identidade semântica como projeção do estado persistente, excluindo `revision`, `actors` e componentes declarados efêmeros. O snapshot completo continua contendo contadores para restauração e deduplicação.
 
-- [ ] Escrever testes comparando um estado com zero, um e vários comandos efêmeros sucessivos. Todos devem ter a mesma identidade durável; uma construção ou alteração de dinheiro deve mudar essa identidade. Testar declaração de namespace efêmero ainda ausente do estado.
-- [ ] Escrever teste em que `snapshot.hash` corresponde exatamente ao texto completo do snapshot exportado, incluindo contadores; restaurá-lo deve manter a deduplicação de comandos. Não usar a projeção semântica como se fosse o arquivo completo.
-- [ ] Rodar `npm test -- tests/protocol.test.ts tests/replay.test.ts`; observar as falhas relevantes.
-- [ ] Ajustar a projeção de `durableJson` sem retirar contadores de `GameState` ou do save. Serializar a identidade como `{identityVersion: 2, state: projection}` com o serializador canônico existente. Documentar que identidades antigas não são comparáveis sem recálculo; hashes de arquivos existentes continuam representando seus bytes originais.
-- [ ] Documentar os dois usos: identidade semântica para comparar fatos duráveis e endereço de conteúdo para localizar/verificar um arquivo exato. Efêmeros fora da sessão durável são evolução posterior, não uma infraestrutura nova neste ciclo.
-- [ ] Rodar os testes acima, `npm run typecheck:core` e `npm run typecheck`. Commit: `fix: keep transient events out of durable identity`.
+- [x] Escrever testes comparando um estado com zero, um e vários comandos efêmeros sucessivos. Todos devem ter a mesma identidade durável; uma construção ou alteração de dinheiro deve mudar essa identidade. Testar declaração de namespace efêmero ainda ausente do estado.
+- [x] Escrever teste em que `snapshot.hash` corresponde exatamente ao texto completo do snapshot exportado, incluindo contadores; restaurá-lo deve manter a deduplicação de comandos. Não usar a projeção semântica como se fosse o arquivo completo.
+- [x] Rodar `npm test -- tests/protocol.test.ts tests/replay.test.ts`; observar as falhas relevantes.
+- [x] Ajustar a projeção de `durableJson` sem retirar contadores de `GameState` ou do save. Serializar a identidade como `{identityVersion: 2, state: projection}` com o serializador canônico existente. Documentar que identidades antigas não são comparáveis sem recálculo; hashes de arquivos existentes continuam representando seus bytes originais.
+- [x] Documentar os dois usos: identidade semântica para comparar fatos duráveis e endereço de conteúdo para localizar/verificar um arquivo exato. Efêmeros fora da sessão durável são evolução posterior, não uma infraestrutura nova neste ciclo.
+- [x] Rodar os testes acima, `npm run typecheck:core` e `npm run typecheck`. Commit: `fix: keep transient events out of durable identity`.
 
 ### Task 3: Memória limitada durante a exploração
 
@@ -79,12 +79,12 @@ Base da análise: commit `631bb49`, branch `codex/open-sim-design`, árvore inic
 
 **Interfaces:** acrescentar `LocalSession.retainVisible(ids: readonly string[]): void`. O browser informa a área visível atual; regiões administradas ficam protegidas pelo estado durável. Manter, além das visíveis, até 256 regiões recentes não administradas.
 
-- [ ] Escrever teste que visita sucessivos conjuntos de regiões e consulta `getChunk`: antigas fora da janela devem ser descartadas; regiões visíveis e administradas devem continuar disponíveis. Retornar a uma região descartada deve recarregá-la normalmente.
-- [ ] Escrever teste com resposta atrasada de região já descartada: ela não deve repovoar indefinidamente o cache. Testar retorno rápido à mesma região enquanto uma requisição antiga ainda está em voo, sem resultado antigo substituir o novo estado.
-- [ ] Rodar `npm test -- tests/session.test.ts`; confirmar as falhas esperadas.
-- [ ] Implementar descarte por uso recente na sessão e substituir a acumulação de `requested` por acompanhamento da área atual. Preservar trechos administrados, edições e resumos; não alterar a LRU de 32 tiles do fornecedor nem aumentar requisições em paralelo.
-- [ ] Rodar testes de sessão e mapas. Fazer uma única verificação no browser: navegar, voltar a uma obra, recarregar, girar e mudar zoom. Registrar cache/memória antes e depois em exploração manual; não executar varredura automatizada contra servidores públicos.
-- [ ] Rodar `npm test`, `npm run typecheck:core` e `npm run build`. Commit: `perf: bound explored-region memory`.
+- [x] Escrever teste que visita sucessivos conjuntos de regiões e consulta `getChunk`: antigas fora da janela devem ser descartadas; regiões visíveis e administradas devem continuar disponíveis. Retornar a uma região descartada deve recarregá-la normalmente.
+- [x] Escrever teste com resposta atrasada de região já descartada: ela não deve repovoar indefinidamente o cache. Testar retorno rápido à mesma região enquanto uma requisição antiga ainda está em voo, sem resultado antigo substituir o novo estado.
+- [x] Rodar `npm test -- tests/session.test.ts`; confirmar as falhas esperadas.
+- [x] Implementar descarte por uso recente na sessão e substituir a acumulação de `requested` por acompanhamento da área atual. Preservar trechos administrados, edições e resumos; não alterar a LRU de 32 tiles do fornecedor nem aumentar requisições em paralelo.
+- [x] Rodar testes de sessão e mapas. Fazer uma única verificação no browser: navegar, voltar a uma obra, recarregar, girar e mudar zoom. Registrar cache/memória antes e depois em exploração manual; não executar varredura automatizada contra servidores públicos.
+- [x] Rodar `npm test`, `npm run typecheck:core` e `npm run build`. Commit: `perf: bound explored-region memory`.
 
 ## Continuidade após esse ciclo
 

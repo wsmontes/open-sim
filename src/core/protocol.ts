@@ -130,12 +130,16 @@ function extras(source: Record<string, unknown>, known: readonly string[]): Reco
  return kept;
 }
 
-// The durable identity of a state: the canonical text with every ephemeral namespace removed. Two clients that agree
-// on this text agree on the world, whatever transient data each one happens to hold.
+// Identity is not the file. The durable identity of a world is the projection of its persistent state that two
+// clients must agree on: `revision` and `actors` exist to order commands and to recognise a replay, and a namespace
+// declared ephemeral holds movement that is useful now and not history, so neither belongs in the comparison. The
+// snapshot keeps them, because restoring a session still needs to know what was already accepted.
+// Identities written before this rule (identityVersion 1) are not comparable with these: recompute them.
+export const IDENTITY_VERSION = 2;
 export function durableJson(state: GameState, extensions: readonly ExtensionDeclaration[] = []): string {
  const ephemeral = extensions.filter(entry => !entry.durable).map(entry => entry.key);
- if (!ephemeral.length) return canonicalJson(state);
  const components: Record<string, Record<string, unknown>> = {};
  for (const key of Object.keys(state.components)) if (!ephemeral.includes(key)) components[key] = state.components[key];
- return canonicalJson({...state, components});
+ const {revision, actors, ...durable} = state;
+ return canonicalJson({identityVersion: IDENTITY_VERSION, state: {...durable, components}});
 }

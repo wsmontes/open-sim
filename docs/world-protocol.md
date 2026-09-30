@@ -45,11 +45,15 @@ Ele não cobra dinheiro, não toca na economia do perfil cidade e é atômico co
 
 Campo com chave reservada (`__proto__`, `constructor`, `prototype`) é **recusado**, não descartado em silêncio.
 
-### Identidade durável e endereço de conteúdo
+### Identidade durável e endereço de conteúdo — dois usos, dois textos
 
-`durableJson(state, extensions)` devolve o texto canônico do estado **sem** os namespaces declarados efêmeros (`durable: false`). Dois clientes que concordam nesse texto concordam sobre o mundo, independentemente do que cada um tem em memória naquele instante — é isto que permite movimento de veículo em 60 Hz não virar história.
+**Identidade semântica** (`durableJson(state, extensions)`, `identityVersion: 2`): a projeção do estado persistente que dois clientes precisam concordar. Ficam de fora `revision` e `actors` (existem para ordenar comandos e reconhecer reenvio, não para descrever o mundo) e os namespaces declarados efêmeros (`durable: false`). Assim cem mensagens de posição de veículo não mudam a identidade do mundo, mas uma rua construída, um saldo alterado ou um fato de outro perfil mudam.
 
-`src/adapters/hash/content.ts` transforma esse texto em endereço `sha256` (WebCrypto) para o `snapshot.hash` do manifesto e para blobs futuros. O núcleo não conhece hash: ele produz o texto, o adaptador endereça.
+**Endereço de conteúdo** (`contentRef(texto)` em `src/adapters/hash/content.ts`): `sha256` dos bytes exatos de um arquivo — snapshot completo, com contadores, usado em `manifest.snapshot.hash` para localizar e conferir o arquivo. Restaurar um save continua dependendo desses contadores: sem eles não há deduplicação de comando nem revisão.
+
+Consequências registradas: identidades gravadas antes desta regra (`identityVersion: 1` era o estado inteiro) não são comparáveis com as novas — recalcule; e um hash de arquivo antigo continua válido para os bytes que ele endereçava, porque nenhum byte de save mudou.
+
+O núcleo não conhece hash: ele produz o texto canônico, o adaptador endereça.
 
 ## O que ainda falta, em ordem
 

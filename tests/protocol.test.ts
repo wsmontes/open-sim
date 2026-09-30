@@ -2,7 +2,8 @@ import {expect,test} from 'vitest';
 import {PROTOCOL_VERSION,decodeManifest,durableJson,encodeManifest,isComponentKey,isEntityId} from '../src/core/protocol';
 import type {WorldManifest} from '../src/core/protocol';
 import {applyCommand,createGame} from '../src/core/commands';
-import type {Action} from '../src/core/model';
+import {decodeSave,encodeSave} from '../src/core/snapshot';
+import type {Action,ViewState} from '../src/core/model';
 import {contentRef,sha256Hex} from '../src/adapters/hash/content';
 import {blank,command} from './fixtures/world';
 
@@ -114,4 +115,45 @@ test('manifest fields keep strict types and namespaces cannot repeat',()=>{
   ['unknown field inside parent is not finite',{...manifest(),parent:{worldId:'earth',bad:Infinity}}],
  ];
  for(const [name,value] of cases)expect(()=>decodeManifest(value),name).toThrow();
+});
+test('transient movement does not change the durable identity, a durable fact does',()=>{
+ const extensions=[{key:'vehicle.transform',version:1,durable:false},{key:'city.zone',version:1,durable:true}];
+ const base=createGame('world',42,blank());
+ const identityOf=(...actions:Action[])=>{
+  let state=base;
+  for(const action of actions)state=applyCommand(state,command(state,action),[]).state;
+  return durableJson(state,extensions);
+ };
+ const nothing=identityOf();
+ const transform=(x:number):Action=>({type:'component',key:'vehicle.transform',entity:'car-9',value:{x,y:2,heading:.5}});
+ expect(identityOf(transform(1))).toBe(nothing);
+ expect(identityOf(transform(1),transform(2),transform(3),transform(4))).toBe(nothing);
+ expect(identityOf({type:'build',tool:'road',cells:[{x:1,y:1}]})).not.toBe(nothing);
+ expect(identityOf({type:'component',key:'city.zone',entity:'parcel-7',value:{use:'park'}})).not.toBe(nothing);
+ // a namespace declared ephemeral before anything ever wrote to it also leaves the identity alone
+ expect(durableJson(base,[...extensions,{key:'lifesim.avatar',version:1,durable:false}])).toBe(durableJson(base,extensions));
+});
+test('the identity leaves counters out while the snapshot and its address keep them',async()=>{
+ const extensions=[{key:'vehicle.transform',version:1,durable:false}];
+ const base=createGame('world',42,blank());
+ let state=applyCommand(base,command(base,{type:'build',tool:'road',cells:[{x:1,y:1}]}),[]).state;
+ const driven=applyCommand(state,command(state,{type:'component',key:'vehicle.transform',entity:'car-9',value:{x:5,y:5,heading:0}}),[]).state;
+ const identity=JSON.parse(durableJson(driven,extensions));
+ expect(identity.identityVersion).toBe(2);
+ expect(identity.state.revision).toBeUndefined();
+ expect(identity.state.actors).toBeUndefined();
+ expect(identity.state.chunks['0:0'].edits['33']).toEqual({terrain:'land',road:true,origin:'player'});
+ // the file keeps everything a restore needs, operators included, and its address covers those bytes
+ const view:ViewState={x:1,y:2,zoom:1,speed:0,place:'teste',rotation:0};
+ const text=encodeSave({version:1,state:driven,view}),parsed=JSON.parse(text) as {state:{revision:number;actors:Record<string,number>}};
+ expect(parsed.state.revision).toBe(driven.revision);
+ expect(parsed.state.actors['local-player']).toBe(driven.actors['local-player']);
+ const ref=await contentRef(text);
+ expect(ref.bytes).toBe(new TextEncoder().encode(text).length);
+ const withAnotherCounter=encodeSave({version:1,state:{...driven,revision:driven.revision+1},view});
+ expect((await contentRef(withAnotherCounter)).hash).not.toBe(ref.hash);
+ // and a restored file still recognises an envelope it had already accepted
+ const restored=decodeSave(text);
+ const last=driven.actors['local-player']!;
+ expect(applyCommand(restored.state,{version:1,worldId:'world',actorId:'local-player',sequence:last,expectedRevision:driven.revision-1,action:{type:'tick'}},[]).status).toBe('duplicate');
 });
