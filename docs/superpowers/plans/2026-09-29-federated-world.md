@@ -408,6 +408,20 @@ O conteúdo de cada tarefa continua o do checklist; esta tabela só fixa o que m
 | 16 Entidades e segundo perfil | Entidade genérica usa `osim.transform`, `osim.existence` e `osim.name` do vocabulário central; a célula continua endereço do motor, nunca do contrato (§5 do world-protocol). O segundo perfil prova `§47` na prática: entende só o que implementa e preserva o resto. |
 | 17 Conformidade e links | O checklist do §47 vira verificação pública; `osim://` de navegação (§40) identifica uma vista, não um servidor; o documento de conformidade aponta `docs/kernel.md` como pseudocódigo de referência. |
 
+## Ambiente de teste de rede (stack WIRC)
+
+Infraestrutura real do usuário, no repositório `wawa-irc` (irmão deste), para verificar as tarefas 8, 10 e 11 **de verdade**:
+
+| Peça | Endereço | Observação |
+| --- | --- | --- |
+| Relay Nostr (strfry 1.0.4) | `wss://nostr.wawasoft.net` (origem local no Pi: `127.0.0.1:7777`) | Verificado vivo em 2026-09-29 pelo NIP-11: `supported_nips` 1,2,4,9,11,22,28,40,70,77; leitura pública; escrita pública limitada aos kinds 0,1,3,5,6,7,10002 com rate limit |
+| Homeserver Matrix | `http://127.0.0.1:6167` (Conduit) + appservice em `127.0.0.1:9009` | Configuração em `wawa-irc/ops/wawa-matrix.md` |
+| Ergo IRC / XMPP | ver `wawa-irc/ops/wawa-xmpp.md` e `README.md` | Não é necessário para este plano |
+
+Nada disso está rodando nesta máquina: o stack roda no Raspberry Pi e sai por Cloudflare Tunnel, então **o endereço público é o caminho**. Para escrever um kind que não seja da lista pública, a pubkey de teste precisa entrar em `/etc/wawa-nostr/allowed-pubkeys.txt` no Pi (só o operador faz isso) — enquanto isso, use kind 1 e kind 4 (mensagem direta cifrada, suportada pelo relay) ou o caminho manual de copiar e colar, que o plano já permite.
+
+Regra que continua valendo: registrar o que foi exercitado contra o serviço real e **não** afirmar mais do que isso (nada de declarar compatibilidade ampla de NAT ou federação validada sem prova).
+
 ## Execução
 
 | Tarefa | Commit | Evidência registrada |
