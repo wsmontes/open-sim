@@ -1,17 +1,26 @@
 import {expect,test} from 'vitest';
 import {createJcsCodec} from '../src/adapters/codec/jcs';
 import {bytesHasher} from '../src/adapters/hash/content';
-import {generateSessionKeyPair} from '../src/adapters/crypto/session-keys';
+import {ed25519Verifier,generateSessionKeyPair,signEd25519} from '../src/adapters/crypto/session-keys';
+import type {KeyPair} from '../src/adapters/crypto/session-keys';
 import {createKernel} from '../src/world/kernel';
 import type {KernelTransport} from '../src/world/kernel';
 import {envelopeOf} from '../src/world/osim';
 import type {OsimEnvelope} from '../src/world/osim';
 import {durableJson} from '../src/core/protocol';
-import type {JsonValue} from '../src/world/model';
+import {WORLD_PROTOCOL,WIRE_VERSION} from '../src/world/model';
+import type {JsonValue,WorldError} from '../src/world/model';
+import type {SessionTransport} from '../src/session/multiplayer-ports';
+import {createManualSignaling} from '../src/adapters/network/manual-signaling';
+import type {ManualSignaling,SessionSigner} from '../src/adapters/network/manual-signaling';
+import {createWebRtcPeers,createWebRtcTransport} from '../src/adapters/network/webrtc';
+import type {RtcFactory,WebRtcPeers} from '../src/adapters/network/webrtc';
+import {wiredPair} from './fixtures/rtc-pair';
 import {createGame} from '../src/core/commands';
 import type {GameState} from '../src/core/model';
 import {blank} from './fixtures/world';
 import {fakeHomeserver} from './fixtures/matrix-homeserver';
+import type {FakeHomeserver} from './fixtures/matrix-homeserver';
 import {createMatrixIdentity,registerAccount} from '../src/adapters/matrix/identity';
 import type {MatrixAccount,MatrixIdentity} from '../src/adapters/matrix/identity';
 import {createMatrixRooms,createRoom,inviteToRoom,joinRoom,roomBinding,roomStanding} from '../src/adapters/matrix/rooms';
@@ -129,12 +138,14 @@ async function overNostr(): Promise<Run> {
 // --- one in-process Matrix homeserver, with a private room both accounts are in ---------------------------------
 type MatrixLab = {
  rooms(account: MatrixAccount, identity: MatrixIdentity): Promise<MatrixRooms>;
+ server: FakeHomeserver;
+ roomId: string;
  host: MatrixAccount;
  guest: MatrixAccount;
  hostIdentity: MatrixIdentity;
  guestIdentity: MatrixIdentity;
 };
-async function overMatrix(): Promise<{run: Run; lab: MatrixLab}> {
+async function matrixLab(): Promise<MatrixLab> {
  const server = fakeHomeserver(), homeserver = `http://${server.serverName}`;
  const host = await registerAccount({homeserver, secret: server.secret, username: 'alice', password: 'segredo-de-alice', fetch: server.fetch});
  const guest = await registerAccount({homeserver, secret: server.secret, username: 'bob', password: 'segredo-de-bob', fetch: server.fetch});
@@ -163,8 +174,12 @@ async function overMatrix(): Promise<{run: Run; lab: MatrixLab}> {
   if (!binding.ok) throw new Error(binding.error.message);
   return createMatrixRooms({account, binding: binding.value, codec, fetch: server.fetch, pollMs: 2});
  };
- const run = await scenario(await rooms(host.value, hostIdentity), await rooms(guest.value, guestIdentity), objectsFor(hostIdentity.principal.id));
- return {run, lab: {rooms, host: host.value, guest: guest.value, hostIdentity, guestIdentity}};
+ return {rooms, server, roomId: created.value, host: host.value, guest: guest.value, hostIdentity, guestIdentity};
+}
+async function overMatrix(): Promise<{run: Run; lab: MatrixLab}> {
+ const lab = await matrixLab();
+ const run = await scenario(await lab.rooms(lab.host, lab.hostIdentity), await lab.rooms(lab.guest, lab.guestIdentity), objectsFor(lab.hostIdentity.principal.id));
+ return {run, lab};
 }
 
 // The durable world the scenario must produce, whichever transport carried it: the last operation on `casa-1` wins,
@@ -200,4 +215,116 @@ test('an object a second transport delivers again is applied once', async () => 
  expect(await writer.publish(objects[0]!)).toMatchObject({ok: true, status: 'duplicate'});
  stop();
  relayWriter.close();
+});
+
+// --- one WebRTC session across two communities -------------------------------------------------------------------
+// The session link of the two guests, in process: two fake peer connections paired by one factory, with the
+// descriptions travelling through the manual signals the guests carry. It is the WebRTC adapter's real code (channels,
+// descriptions, ICE, backpressure) without a network — and two in-process peers are still not evidence about NAT, so
+// nothing here claims that.
+type Guest = {actor: string; keys: KeyPair; signaling: ManualSignaling; peers: WebRtcPeers; transport: SessionTransport; refused: WorldError[]};
+function guestOf(options: {actor: string; keys: KeyPair; network: {factory: RtcFactory}; bindings: Record<string, string>}): Guest {
+ const signaling = createManualSignaling({codec, verifier: ed25519Verifier(), session: SESSION, bindings: options.bindings});
+ const refused: WorldError[] = [];
+ const config = {
+  codec, hasher, actor: options.actor, session: SESSION, signer: {key: options.keys.publicKey, sign: (bytes: Uint8Array) => signEd25519(options.keys, bytes)} as SessionSigner,
+  signaling, connection: options.network.factory, onRefused: (_peer: string, error: WorldError) => {refused.push(error);},
+ };
+ const peers = createWebRtcPeers(config);
+ return {actor: options.actor, keys: options.keys, signaling, peers, transport: createWebRtcTransport(config, {peers}), refused};
+}
+// The players carrying the signals by hand, exactly like the Tarefa 8 session test: a community is not required to
+// connect two guests, which is what makes "the same WebRTC session" a session and not a bridge.
+const turn = async () => {for (let i = 0; i < 16; i += 1) await Promise.resolve();};
+async function carry(guests: Guest[], until: Promise<unknown>): Promise<void> {
+ const open = until.then(() => true);
+ let done = false;
+ void open.then(() => {done = true;});
+ for (let round = 0; round < 32; round += 1) {
+  const outbox = guests.flatMap(from => from.signaling.pending().map(entry => ({from, ...entry})));
+  for (const item of outbox) {
+   const to = guests.find(other => other.actor === item.peer);
+   if (!to) throw new Error(`Sem destinatário para ${item.peer}`);
+   const text = item.from.signaling.copy(item.peer);
+   if (text === null) continue;
+   const accepted = await to.signaling.paste(text);
+   if (!accepted.ok) throw new Error(`Sinal recusado: ${accepted.error.message}`);
+  }
+  if (!outbox.length && done) break;
+  await turn();
+ }
+ await open;
+}
+
+test('a Nostr guest and a Matrix guest share one WebRTC session and the same world, with no chat bridged', async () => {
+ const lab = await matrixLab(), relay = fakeRelay();
+ const hostNostr = await nostrIdentity(61), guestNostr = await nostrIdentity(62);
+ const relayWriter = createNostrRelay({url: 'ws://relay.example', codec, signer: hostNostr.signer, socket: relay.factory});
+ const relayGuest = createNostrRelay({url: 'ws://relay.example', codec, socket: relay.factory});
+ const roomHost = await lab.rooms(lab.host, lab.hostIdentity), roomGuest = await lab.rooms(lab.guest, lab.guestIdentity);
+ const matrixGuest = createKernel({transports: [roomGuest]}), nostrGuest = createKernel({transports: [relayGuest]});
+ const matrixSeen: string[] = [], nostrSeen: string[] = [];
+ const stopMatrix = matrixGuest.subscribe({}, object => {matrixSeen.push(object.id);});
+ const stopNostr = nostrGuest.subscribe({}, object => {nostrSeen.push(object.id);});
+ // One session, two communities: the descriptor names the Matrix guest and the Nostr guest, and each one resolves it
+ // from its own carrier.
+ const participants = [lab.hostIdentity.principal.id, lab.guestIdentity.principal.id, guestNostr.principal.id];
+ const descriptor = (actor: string) => envelopeOf('session', `osim:session:${SESSION.sessionId}`, actor, {type: 'session', timeline: 'osim:timeline:main', epoch: SESSION.epoch, mode: 'realtime', participants, startedAt: NOW});
+ expect((await roomHost.publish(descriptor(lab.hostIdentity.principal.id))).ok).toBe(true);
+ expect((await relayWriter.publish(descriptor(hostNostr.principal.id))).ok).toBe(true);
+ for (const object of objectsFor(lab.hostIdentity.principal.id)) expect((await roomHost.publish(object)).ok).toBe(true);
+ for (const object of objectsFor(hostNostr.principal.id)) expect((await relayWriter.publish(object)).ok).toBe(true);
+ const events = OPERATIONS.map(operation => `osim:event:${operation.id}`);
+ const expected = [`osim:session:${SESSION.sessionId}`, ...events];
+ await expect.poll(() => matrixSeen.length, {timeout: 5000}).toBe(expected.length);
+ await expect.poll(() => nostrSeen.length, {timeout: 5000}).toBe(expected.length);
+ expect(matrixSeen).toEqual(expected);
+ expect(nostrSeen).toEqual(expected);
+ // The session link is one session: a Matrix guest and a Nostr guest, connected to each other with no community in
+ // between carrying their signaling.
+ const network = wiredPair();
+ const bob = guestOf({actor: lab.guestIdentity.principal.id, keys: lab.guestIdentity.session, network, bindings: {[guestNostr.principal.id]: guestNostr.session.publicKey}});
+ const carol = guestOf({actor: guestNostr.principal.id, keys: guestNostr.session, network, bindings: {[lab.guestIdentity.principal.id]: lab.guestIdentity.session.publicKey}});
+ await bob.peers.invite(carol.actor);
+ await carry([bob, carol], bob.peers.opened(carol.actor));
+ expect(bob.peers.connected()).toEqual([carol.actor]);
+ expect(carol.peers.connected()).toEqual([bob.actor]);
+ const heard: string[] = [];
+ const stopHeard = carol.transport.subscribe((peer, message) => {heard.push(`${peer}:${String((message.body as {kind?: string}).kind)}`);});
+ await bob.transport.send(carol.actor, {envelope: {worldProtocol: WORLD_PROTOCOL, wireVersion: WIRE_VERSION, kind: 'message', class: 'control', worldId: SESSION.worldId, branchId: SESSION.branchId, sessionId: SESSION.sessionId, epoch: SESSION.epoch, id: 'controle-1'}, body: {kind: 'probe'}});
+ await expect.poll(() => heard.length, {timeout: 5000}).toBe(1);
+ expect(heard).toEqual([`${bob.actor}:probe`]);
+ stopHeard();
+ // Chats stay where they were written: a relay note without the protocol tag and a room event of another application
+ // are never objects, and an object one community cannot vouch for is not bridged into the other.
+ const socket = relay.factory('ws://relay.example');
+ socket.send(JSON.stringify(['EVENT', await guestNostr.signer.signEvent({kind: 1, created_at: 0, tags: [], content: 'oi, tudo bem?'})]));
+ lab.server.inject(lab.roomId, {type: 'com.example.chat.v0', sender: lab.guest.userId, content: {text: 'oi, tudo bem?'}});
+ lab.server.inject(lab.roomId, {type: 'org.opensim.world.v0', sender: lab.host.userId, content: envelopeOf('event', 'osim:event:ponte', guestNostr.principal.id, {type: 'event', entity: 'osim:entity:casa-1', component: 'cidade.transito', op: 'set', value: {level: 9}, timeline: 'osim:timeline:main', time: NOW}) as unknown as JsonValue});
+ const marker = (actor: string) => envelopeOf('event', 'osim:event:evt-marcador', actor, {type: 'event', entity: 'osim:entity:casa-2', component: 'cidade.transito', op: 'set', value: {level: 3}, timeline: 'osim:timeline:main', time: NOW});
+ expect((await roomHost.publish(marker(lab.hostIdentity.principal.id))).ok).toBe(true);
+ expect((await relayWriter.publish(marker(hostNostr.principal.id))).ok).toBe(true);
+ await expect.poll(() => matrixSeen.length, {timeout: 5000}).toBe(expected.length + 1);
+ await expect.poll(() => nostrSeen.length, {timeout: 5000}).toBe(expected.length + 1);
+ expect(Object.keys(matrixGuest.state().seen).sort()).toEqual([...events, 'osim:event:evt-marcador'].sort());
+ expect(Object.keys(nostrGuest.state().seen).sort()).toEqual([...events, 'osim:event:evt-marcador'].sort());
+ expect(matrixSeen).not.toContain('osim:event:ponte');
+ expect(roomGuest.refusals().some(refusal => refusal.message.includes('ponte entre comunidades'))).toBe(true);
+ expect(relay.stored.some(event => event.kind === 1 && event.content === 'oi, tudo bem?')).toBe(true);
+ // Both guests end in the same durable world, whichever community carried it.
+ expect(await hashOf(matrixGuest.state().components)).toBe(await hashOf(nostrGuest.state().components));
+ expect(await hashOf(matrixGuest.state().components)).toBe(await hashOf({'cidade.transito': {'casa-1': {level: 5}, 'casa-2': {level: 3}}} as unknown as GameState['components']));
+ // And the session each of them resolved is the same session, naming both communities.
+ const fromRoom = await matrixGuest.join(`osim:session:${SESSION.sessionId}`), fromRelay = await nostrGuest.join(`osim:session:${SESSION.sessionId}`);
+ const named = (resolved: {ok: boolean; value: OsimEnvelope | null} | {ok: false; error: WorldError}) => resolved.ok && resolved.value ? (resolved.value.body as {participants?: string[]}).participants : null;
+ expect(named(fromRoom)).toEqual(participants);
+ expect(named(fromRelay)).toEqual(participants);
+ stopMatrix();
+ stopNostr();
+ bob.peers.close();
+ carol.peers.close();
+ roomHost.close();
+ roomGuest.close();
+ relayWriter.close();
+ relayGuest.close();
 });
