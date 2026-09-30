@@ -4,7 +4,7 @@ import type {SaveStore} from '../../session/ports';
 const STORE = 'saves';
 const DEFAULT_NAME = 'open-sim';
 const fail = (message: string, cause: unknown) => (cause ?? new Error(message)) as Error;
-export function createIndexedDbStore(options: {name?: string; slot?: string} = {}): SaveStore {
+export function createIndexedDbStore(options: {name?: string} = {}): SaveStore {
  const name = options.name ?? DEFAULT_NAME;
  let handle: Promise<IDBDatabase>|null = null;
  function connect(): Promise<IDBDatabase> {

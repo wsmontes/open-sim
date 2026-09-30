@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Portabilidade do núcleo — replay</title>
+</head>
+<body>
+<h1>Prova de portabilidade</h1>
+<p>
+Esta página executa o mesmo cenário <strong>sintético</strong> de
+<code>tests/fixtures/portable-scenario.json</code> com o núcleo puro
+(<code>/src/core/replay.ts</code>) e mostra o estado final canônico.
+Ele deve ser idêntico ao do executor Node (<code>npx tsx tools/replay.ts</code>).
+</p>
+<pre id="resultado">executando…</pre>
+<pre id="erro"></pre>
+<script type="module" src="/tests/browser/replay.ts"></script>
+</body>
+</html>

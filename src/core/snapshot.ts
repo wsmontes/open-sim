@@ -10,7 +10,9 @@ const plain = (value: unknown): value is Record<string,unknown> => {
  const proto = Object.getPrototypeOf(value) as unknown;
  return proto === Object.prototype || proto === null;
 };
-export function encodeSave(value: SavedGame): string {return canonical(value) + '\n';}
+export function encodeSave(value: SavedGame): string {return canonicalJson(value);}
+// Object keys sorted, no whitespace, trailing newline: the same text for the same value in any runtime.
+export function canonicalJson(value: unknown): string {return canonical(value) + '\n';}
 function canonical(value: unknown): string {
  if (value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') return JSON.stringify(value);
  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
