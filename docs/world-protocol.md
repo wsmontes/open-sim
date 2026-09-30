@@ -57,6 +57,24 @@ Consequências registradas: identidades gravadas antes desta regra (`identityVer
 
 O núcleo não conhece hash: ele produz o texto canônico, o adaptador endereça.
 
+## Pacote portátil v2 (tarefa 1 do plano federado)
+
+O que existe hoje em código, além do formato v1 acima:
+
+| Peça | Onde | O que garante |
+| --- | --- | --- |
+| Modelo puro | `src/world/model.ts` | `ObjectRef`, `WorldAddress`, `Head`, `WorldResult`, `WorldBundle`, limites (32 MiB por objeto, 64 MiB por pacote, profundidade 32) |
+| Codec verificável | `src/world/codec.ts` | envelope `worldProtocol: 2` + `wireVersion: 1`, parser JSON estrito (recusa chave repetida, `NaN`/`Infinity`, substituto solto, lixo no fim), UTF-8 estrito (recusa forma longa, truncamento, substituto) e verificação de endereço por `verifyBundle` |
+| Codec canônico | `src/adapters/codec/jcs.ts` | RFC 8785 (JCS): bytes UTF-8, sem espaço, sem newline final, chaves ordenadas por unidade UTF-16, números na forma mais curta do ECMAScript |
+| Portas | `src/world/ports.ts` | `WorldCodec` e `ContentHasher`: o mundo descreve os bytes canônicos e o adaptador os produz |
+| Importação local | `src/session/world-bundle.ts` | `importLegacy(save, hasher, codec, terms?)` cria origem explícita (`legacy-save`), sem inventar histórico; a câmera **não** entra no pacote |
+
+Regras de schema decididas aqui: os objetos críticos (envelope, definição, cabeça, referências, completude, termos) são **fechados** — campo que este contrato não define é recusado, e acrescentar um é assunto de `wireVersion` novo, não de um cliente antigo ignorar em silêncio. O que um perfil quer guardar sem mudar o contrato vai para o valor do objeto e para `extensions`, que este cliente preserva intacto.
+
+Desvio registrado do plano: a assinatura `importLegacy(save)` não podia funcionar sem as duas portas que a própria tarefa define (um `ObjectRef` exige hash), então a função recebe `hasher` e `codec` além do save. `decodeBundle` também aceita limites injetáveis, para os testes exercitarem as recusas sem alocar dezenas de megabytes.
+
+Verificação: `npx vitest run tests/world-bundle.test.ts` (7 testes, incluindo os vetores publicados da RFC 8785), `npx tsc -p tsconfig.world.json` e o teste de arquitetura, que agora exige `world → core/world` e nenhum DOM/Node nesse módulo.
+
 ## O que ainda falta, em ordem
 
 | # | Item da carta | Estado |

@@ -43,9 +43,10 @@ function dependencies(file:string):Dependency[]{
 function filesIn(dir:string):string[]{
  return readdirSync(dir).sort().flatMap(name=>{const path=join(dir,name);return statSync(path).isDirectory()?filesIn(path):path.endsWith('.ts')?[path]:[];});
 }
-const layerOf=(file:string)=>(['core','session','adapters','presentation','browser'] as const).find(name=>file.startsWith(join(root,'src',name)))??'other';
-const ALLOWED:Record<string,readonly string[]>={core:['core'],session:['core','session'],adapters:['core','session','adapters'],presentation:['core','session','presentation'],browser:['core','session','adapters','presentation','browser'],other:['core','session','adapters','presentation','browser']};
-const ALLOWED_PACKAGES:Record<string,readonly string[]>={core:[],session:[],adapters:['@mapbox/vector-tile','pbf'],presentation:[],browser:[],other:[]};
+const layerOf=(file:string)=>(['core','world','session','adapters','presentation','browser'] as const).find(name=>file.startsWith(join(root,'src',name)))??'other';
+// The portable world contract may only lean on the core; everything else may lean on it, never the other way.
+const ALLOWED:Record<string,readonly string[]>={core:['core'],world:['core','world'],session:['core','world','session'],adapters:['core','world','session','adapters'],presentation:['core','world','session','presentation'],browser:['core','world','session','adapters','presentation','browser'],other:['core','world','session','adapters','presentation','browser']};
+const ALLOWED_PACKAGES:Record<string,readonly string[]>={core:[],world:[],session:[],adapters:['@mapbox/vector-tile','pbf'],presentation:[],browser:[],other:[]};
 function resolved(from:string,specifier:string):string|'package'{
  if(!specifier.startsWith('.'))return 'package';
  const base=resolve(dirname(from),specifier);
@@ -55,7 +56,7 @@ function resolved(from:string,specifier:string):string|'package'{
 test('every relative import resolves to a file and the modules never look the wrong way',()=>{
  const files=filesIn(join(root,'src'));
  const layers=new Set(files.map(layerOf));
- expect([...layers].sort()).toEqual(['adapters','browser','core','presentation','session']);
+ expect([...layers].sort()).toEqual(['adapters','browser','core','presentation','session','world']);
  const problems:string[]=[];
  for(const file of files){
   const owner=layerOf(file);
@@ -91,9 +92,11 @@ test('the core never reads the clock or the global random generator',()=>{
  }
  expect(problems).toEqual([]);
 });
-test('the core compiles with no DOM and no Node types at all',()=>{
+test('the core and the world contract compile with no DOM and no Node types at all',()=>{
  const tsc=join(root,'node_modules','typescript','bin','tsc');
- const run=()=>execFileSync(process.execPath,[tsc,'-p','tsconfig.core.json'],{cwd:root,encoding:'utf8',stdio:'pipe'});
- expect(run).not.toThrow();
+ const run=(project:string)=>()=>execFileSync(process.execPath,[tsc,'-p',project],{cwd:root,encoding:'utf8',stdio:'pipe'});
+ expect(run('tsconfig.core.json')).not.toThrow();
+ expect(run('tsconfig.world.json')).not.toThrow();
  expect(filesIn(join(root,'src/core')).length).toBeGreaterThan(5);
+ expect(filesIn(join(root,'src/world')).length).toBeGreaterThanOrEqual(3);
 });

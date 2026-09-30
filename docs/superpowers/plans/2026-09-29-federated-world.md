@@ -79,11 +79,11 @@ Tipos compartilhados nas tarefas:
 
 **Interfaces:** `importLegacy(save: SavedGame): WorldResult<WorldBundle>`; `decodeBundle(bytes: Uint8Array): WorldResult<WorldBundle>`; `encodeBundle(bundle: WorldBundle, codec: WorldCodec): Uint8Array`. `WorldCodec.encode(value: JsonValue): Uint8Array`; `ContentHasher.ref(bytes: Uint8Array): Promise<ObjectRef>`. O adaptador de hash atual continua aceitando texto antigo; acrescentar caminho de bytes sem alterar sua saída anterior.
 
-- [ ] Escrever testes: `expect(imported.state).toEqual(legacy.state)` incluindo extras; `expect(reencodedUnknown).toEqual(originalUnknown)`; recusar chave JSON duplicada, versão crítica desconhecida, profundidade excessiva e objeto maior que 32 MiB; vetores JCS com ordenação Unicode/números e ausência de newline.
-- [ ] Rodar `npx vitest run tests/world-bundle.test.ts`; confirmar falha pela API ausente, não por fixture inválida.
-- [ ] Implementar envelope, limites e codec. Migração cria origem explícita a partir do save; não fabrica histórico anterior. Pacote parcial lista referências ausentes. Preservar separação entre hash de arquivo e identidade semântica.
-- [ ] Rodar os novos testes mais `tests/protocol.test.ts`, `tests/snapshot.test.ts`, `tests/architecture.test.ts` e `npx tsc -p tsconfig.world.json`; exigir PASS.
-- [ ] Commit: `feat: add portable world bundles and versioned wire codec`.
+- [x] Escrever testes: `expect(imported.state).toEqual(legacy.state)` incluindo extras; `expect(reencodedUnknown).toEqual(originalUnknown)`; recusar chave JSON duplicada, versão crítica desconhecida, profundidade excessiva e objeto maior que 32 MiB; vetores JCS com ordenação Unicode/números e ausência de newline.
+- [x] Rodar `npx vitest run tests/world-bundle.test.ts`; confirmar falha pela API ausente, não por fixture inválida.
+- [x] Implementar envelope, limites e codec. Migração cria origem explícita a partir do save; não fabrica histórico anterior. Pacote parcial lista referências ausentes. Preservar separação entre hash de arquivo e identidade semântica.
+- [x] Rodar os novos testes mais `tests/protocol.test.ts`, `tests/snapshot.test.ts`, `tests/architecture.test.ts` e `npx tsc -p tsconfig.world.json`; exigir PASS.
+- [x] Commit: `feat: add portable world bundles and versioned wire codec`.
 
 ### Tarefa 2: procedência e capturas reais reproduzíveis
 
@@ -319,3 +319,9 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 - **Transferências entre mundos e operação contínua:** escrever especificação própria de reserva/aceite/consumo e falhas antes de movimentar recursos escassos; operação 24 horas requer algum processo ativo voluntário/comunitário, sem alterar o funcionamento local.
 
 **Primeiro passo de execução:** tarefa 1. **Primeiro resultado colaborativo:** entrega B, útil por arquivos. **Primeiro jogo em rede:** entrega C. Não iniciar todos os adaptadores simultaneamente nem transformar a abertura do protocolo em obrigação de implementar cada possibilidade agora.
+
+## Execução
+
+| Tarefa | Commit | Evidência registrada |
+| --- | --- | --- |
+| 1 | `feat: add portable world bundles and versioned wire codec` | 7 testes em `tests/world-bundle.test.ts` (vetores RFC 8785, recusas de chave repetida/versão/limite/UTF-8, preservação do espaço de extensões, verificação de endereço por hash), `npx tsc -p tsconfig.world.json` limpo e camada `world` no teste de arquitetura. Suíte: 113 testes. |
