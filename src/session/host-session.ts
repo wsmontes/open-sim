@@ -3,9 +3,14 @@ import {applyCommand} from '../core/commands';
 import {quoteAction} from '../core/quote';
 import type {Quote} from '../core/quote';
 import {chunkId} from '../core/coordinates';
-import type {Head,JsonValue,ObjectRef,WorldError,WorldErrorCode,WorldObject,WorldResult} from '../world/model';
+import type {Head,JsonValue,ObjectRef,WorldBundle,WorldError,WorldErrorCode,WorldObject,WorldResult} from '../world/model';
 import {WORLD_PROTOCOL,WIRE_VERSION,failed,isRef,ok,sameRef} from '../world/model';
 import type {ContentHasher,WorldCodec} from '../world/ports';
+import {envelopeOf} from '../world/osim';
+import type {OsimEnvelope} from '../world/osim';
+import {needsReconciliation,planReceiptCompaction} from './world-retention';
+import type {ReceiptWindow} from './world-retention';
+import type {ChangeReceipt} from './world-ports';
 import {NETWORK_LIMITS,replayOf} from '../world/wire';
 import type {Limits,TrafficClass,WireEnvelope,WireMessage} from '../world/wire';
 import {actorId,authorize,controlFrom,grantBytes,identityBytes,proposalBytes} from '../world/permissions';
@@ -342,6 +347,11 @@ export function deferred<T>():{promise:Promise<T>;resolve:(value:T)=>void}{
 // than what this device retained, and it asks for a reconciliation instead of being applied as something new.
 const LIMIT={refs:256,objects:16,commits:8,ledger:512,outbox:64,receipts:128,seen:1024,published:512};
 // The peers a host will answer for and announce to.
+// `capabilities` is the object plane of §27 (§39.5 in the reference client): a capability is a published object, not
+// a private word between two players, and the transfer of a branch publishes one. `ledgerWindow` is how many accepted
+// receipts this host answers from memory; what falls out of it is compacted, and the mark it leaves makes a repeat of
+// a compacted delivery ask for reconciliation instead of being applied over a branch that already charged it.
+export type CapabilityPublisher={publish(object:OsimEnvelope):Promise<{ok:boolean;error?:WorldError}>};
 export type HostOptions={
  repository:WorldRepository;
  transport:SessionTransport;
@@ -359,8 +369,11 @@ export type HostOptions={
  epoch:number;
  limits?:Limits;
  peers?:readonly string[];
+ capabilities?:CapabilityPublisher;
+ ledgerWindow?:number;
 };
 export type HostCheckpoint={head:Head;state:GameState};
+export type HostSeat={principal:Principal;sessionId:string;epoch:number;uri:string};
 export type HostSession={
  submit(proposal:Proposal):Promise<ProposalReceipt>;
  step():Promise<WorldResult<Head>>;
@@ -369,9 +382,28 @@ export type HostSession={
  pending():number;
  confirmations():readonly ReplicaReceipt[];
  idle():Promise<void>;
+ // The point where the frames the transport already handed over have been read, without waiting for durable work: a
+ // session that has read an identity may order a proposal from it, and a client that hosts its own session must not
+ // race its own announcement (§7.4 step 2).
+ settle():Promise<void>;
+ // What this host is, in the terms a document about it needs: who it speaks as, which session it speaks in, which
+ // epoch it may write, and the descriptor URI a successor enters by `join` (§23, §39.5).
+ seat():HostSeat;
+ // The last head with its history, as a package a successor can open: the transfer replicates the version itself, not
+ // a promise about it.
+ bundle():Promise<WorldResult<WorldBundle>>;
+ // §27: the capability of a transfer is an object of this session, so the session is what publishes it. Without an
+ // object plane the envelope still travels with the offer and the successor publishes it when it joins.
+ publishCapability(body:JsonValue,id:string):Promise<WorldResult<{envelope:OsimEnvelope;published:boolean}>>;
+ // A planned transfer stops the epoch before anything else happens: a paused host confirms nothing durable and
+ // schedules no tick, and only a new epoch (or the same one, explicitly resumed) writes again.
+ pause(reason:WorldError):void;
+ resume():void;
+ paused():WorldError|null;
 };
 export function createHostSession(options:HostOptions):HostSession{
  const limits=options.limits??NETWORK_LIMITS;
+ const ledgerWindow=Math.max(1,Math.floor(options.ledgerWindow??LIMIT.ledger));
  const principalKey=(principal:Principal)=>`${principal.scheme}:${principal.id}`;
  const grants=new Map<string,Grant>(options.grants.map(grant=>[principalKey(grant.principal),grant]));
  const identities=new Map<string,IdentityProof>();
@@ -385,6 +417,7 @@ export function createHostSession(options:HostOptions):HostSession{
  const published=new Map<string,WorldObject>();
  const confirmations:ReplicaReceipt[]=[];
  let head=options.head,state:GameState|null=null,paused:WorldError|null=null,pendingAttempt:string|null=null,counter=0,working=false,inFlight=0;
+ let halted:WorldError|null=null,ledgerMark:ReceiptWindow|null=null;
  const jobs:Array<{kind:'proposal';proposal:Proposal;answer:(receipt:ProposalReceipt)=>void}|{kind:'tick';answer:(result:WorldResult<Head>)=>void}>=[];
 
  // The session opens once, and it opens the version it was given: the rules of the branch have to be the rules this
@@ -402,6 +435,11 @@ export function createHostSession(options:HostOptions):HostSession{
     if(record)ledger.set(record.id,{digest:record.digest,epoch:record.epoch,head:version.head});
    }
   }
+  // The oldest version this device still reads is where its receipts start. Everything below it was compacted, so an
+  // attempt from down there is answered with reconciliation instead of being applied over a branch that may already
+  // have charged it.
+  const oldest=history.ok?history.value.at(-1):undefined;
+  if(oldest&&oldest.head.generation>1)ledgerMark={floor:oldest.head.generation,note:`Um reenvio com cabeça anterior à geração ${oldest.head.generation} não encontra mais recibo: reconcilie com o histórico em vez de aplicar a mudança de novo.`};
   versions.set(options.head.commit.hash,options.head);
   state=point.value.state;
   return ok({head,state:point.value.state});
@@ -458,6 +496,17 @@ export function createHostSession(options:HostOptions):HostSession{
   for(const [id,entry] of ledger)marks.push({id,epoch:entry.epoch,worldId:head.worldId,branchId:head.branchId,digest:entry.digest});
   return marks;
  }
+ // The receipts this host can still answer from, in the shape the retention layer reads them.
+ function retainedReceipts():ChangeReceipt[]{return [...ledger].map(([id,entry])=>({id,digest:entry.digest,head:entry.head}));}
+ // Compacting a receipt is not free: it is the only thing that lets a repeated delivery answer with the version it
+ // already produced. The window keeps the newest ones and leaves the mark that says from which generation this device
+ // can still answer; everything below it will ask for reconciliation instead of being applied as something new.
+ function compactLedger():void{
+  if(ledger.size<=ledgerWindow)return;
+  const compacted=planReceiptCompaction(retainedReceipts(),ledgerWindow);
+  for(const receipt of compacted.compacted)ledger.delete(receipt.id);
+  if(compacted.mark)ledgerMark=compacted.mark;
+ }
  async function versionAt(ref:ObjectRef):Promise<WorldResult<Head>>{
   const known=versions.get(ref.hash);
   if(known)return ok(known);
@@ -482,6 +531,9 @@ export function createHostSession(options:HostOptions):HostSession{
   const refuse=(code:WorldErrorCode,reason:string,extra:Partial<ProposalReceipt>={}):ProposalReceipt=>({...initial,code,reason,...extra});
   const live=state;
   if(!live)return refuse('MALFORMED','A sessão não abriu esta ramificação');
+  // A paused session is being transferred (or recovered): it confirms nothing durable and schedules no tick until a
+  // new epoch writes, so every attempt is answered with the reason instead of being queued for later.
+  if(halted)return refuse(halted.code,`Sessão parada: ${halted.message}`);
   // A tick is scheduled by the host, never brought by a proposal (§7.5).
   if(proposal.intent.type==='tick')return refuse('PERMISSION','O anfitrião agenda os ticks desta sessão');
   if(paused&&pendingAttempt!==proposal.id)return{...initial,status:'failed',code:paused.code,reason:`Persistência pausada: ${paused.message}`};
@@ -491,6 +543,9 @@ export function createHostSession(options:HostOptions):HostSession{
   const known=ledger.get(proposal.id);
   if(known)return known.digest===digest?{...initial,status:'duplicate',parent:observed.ok?observed.value:parent,head:known.head}:refuse('CONFLICT',`A proposta ${proposal.id} já foi aceita com outro conteúdo`);
   if(!observed.ok)return refuse(observed.error.code,`${observed.error.message}; peça reconciliação`,{preview:previewOf(live,0)});
+  // The receipt of this delivery was compacted: past the window this host answers from, an unknown attempt may already
+  // have been accepted, so it asks for reconciliation instead of charging the branch twice (§7.4).
+  if(needsReconciliation(proposal.id,observed.value.generation,retainedReceipts(),ledgerMark))return refuse('CONFLICT',ledgerMark?.note??'Reconcilie com o histórico desta ramificação');
   // Who is asking, and with what. Both come from the control plane this host validated when the peer joined.
   const identity=identities.get(principalKey(proposal.principal));
   const grant=grants.get(principalKey(proposal.principal));
@@ -534,6 +589,7 @@ export function createHostSession(options:HostOptions):HostSession{
   paused=null;
   pendingAttempt=null;
   ledger.set(proposal.id,{digest,epoch:options.epoch,head});
+  compactLedger();
   versions.set(head.commit.hash,head);
   const commit:AcceptedCommit={kind:'commit',worldId:head.worldId,branchId:head.branchId,sessionId:options.sessionId,epoch:options.epoch,id:proposal.id,digest,parent,head,command:command.value,authorization:{identity,grant,proposal},objects:objects.map(object=>object.ref),bases:await basesOfState(applied.state),operations:prepared.operations,author:prepared.author};
   const replicas=await emit(commit);
@@ -543,6 +599,7 @@ export function createHostSession(options:HostOptions):HostSession{
  async function tick():Promise<WorldResult<Head>>{
   const live=state;
   if(!live)return failed('MALFORMED','A sessão não abriu esta ramificação');
+  if(halted)return failed(halted.code,`Sessão parada: ${halted.message}`);
   if(paused)return failed(paused.code,`Persistência pausada: ${paused.message}`);
   const parent=head;
   const actor=await actorId(options.identity.principal,options.hasher,options.codec);
@@ -564,10 +621,10 @@ export function createHostSession(options:HostOptions):HostSession{
   if(body.kind==='base-response'||body.kind==='commit-response')return 'object';
   return 'control';
  }
- const envelopeOf=(traffic:TrafficClass,id:string):WireEnvelope=>({worldProtocol:WORLD_PROTOCOL,wireVersion:WIRE_VERSION,kind:'message',class:traffic,worldId:head.worldId,branchId:head.branchId,sessionId:options.sessionId,epoch:options.epoch,id});
+ const wireEnvelopeOf=(traffic:TrafficClass,id:string):WireEnvelope=>({worldProtocol:WORLD_PROTOCOL,wireVersion:WIRE_VERSION,kind:'message',class:traffic,worldId:head.worldId,branchId:head.branchId,sessionId:options.sessionId,epoch:options.epoch,id});
  async function send(peer:string,body:SessionBody,id?:string):Promise<string>{
   const messageId=id??`${options.peer}.${options.epoch}.${(counter+=1)}`;
-  await options.transport.send(peer,{envelope:envelopeOf(trafficOf(body),messageId),body:body as unknown as JsonValue});
+  await options.transport.send(peer,{envelope:wireEnvelopeOf(trafficOf(body),messageId),body:body as unknown as JsonValue});
   return messageId;
  }
  // Announcing a commit is best effort on purpose: the durable confirmation is the device's receipt, and a transport
@@ -716,6 +773,21 @@ export function createHostSession(options:HostOptions):HostSession{
   start();
   return answer.promise;
  }
+ const seat=():HostSeat=>({principal:options.identity.principal,sessionId:options.sessionId,epoch:options.epoch,uri:`osim:session:${options.sessionId}`});
+ // §27: the capability is an object, and this session is what knows who it speaks as. A plane that refuses is
+ // reported; without a plane the envelope travels with the offer and the successor publishes it when it joins.
+ async function publishCapability(body:JsonValue,id:string):Promise<WorldResult<{envelope:OsimEnvelope;published:boolean}>>{
+  let envelope:OsimEnvelope;
+  try{envelope=envelopeOf('capability',id,`${options.identity.principal.scheme}:${options.identity.principal.id}`,body);}
+  catch(error){return failed('MALFORMED',error instanceof Error&&error.message?error.message:'Capability inválida');}
+  const plane=options.capabilities;
+  if(!plane)return ok({envelope,published:false});
+  let written:{ok:boolean;error?:WorldError};
+  try{written=await plane.publish(envelope);}
+  catch(error){return failed('QUOTA',error instanceof Error&&error.message?error.message:'Falha do plano de objetos');}
+  if(!written.ok)return failed(written.error?.code??'QUOTA',written.error?.message??'O plano de objetos recusou a capability');
+  return ok({envelope,published:true});
+ }
  // Every message is handled in arrival order, and `idle` is the point where a driver may look at the session: the
  // handlers have finished and the queue that they feed is empty. A transport that delivers frames synchronously would
  // otherwise leave the pipeline half-started.
@@ -731,6 +803,12 @@ export function createHostSession(options:HostOptions):HostSession{
    if(!working&&!jobs.length&&inFlight===0)return;
   }
  }
+ // Reading what already arrived is a different question from waiting for what it produced: a caller that presented its
+ // identity needs the first and must not be held by a durable write somebody else is waiting on.
+ async function settle():Promise<void>{
+  const pending=handling;
+  await pending;
+ }
  return {
   submit,
   step,
@@ -738,6 +816,13 @@ export function createHostSession(options:HostOptions):HostSession{
   pending:queued,
   confirmations:()=>confirmations,
   idle,
+  settle,
+  seat,
+  bundle:()=>options.repository.export(head),
+  publishCapability,
+  pause(reason){halted=reason;},
+  resume(){halted=null;},
+  paused:()=>halted,
   async checkpoint(){
    const opened_=await boot;
    if(!opened_.ok)throw new Error(opened_.error.message);

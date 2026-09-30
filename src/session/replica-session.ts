@@ -1,12 +1,12 @@
 import type {BaseChunk,GameState} from '../core/model';
 import {applyCommand} from '../core/commands';
-import type {Head,JsonValue,ObjectRef,WorldObject,WorldResult} from '../world/model';
+import type {Head,JsonValue,ObjectRef,WorldErrorCode,WorldObject,WorldResult} from '../world/model';
 import {WORLD_PROTOCOL,WIRE_VERSION,failed,ok,sameRef} from '../world/model';
 import type {ContentHasher,WorldCodec} from '../world/ports';
 import {NETWORK_LIMITS,replayOf} from '../world/wire';
 import type {Limits,TrafficClass,WireEnvelope,WireMessage} from '../world/wire';
-import {actorId,authorize,grantBytes,identityBytes} from '../world/permissions';
-import type {Grant,ProposalMark,SignatureVerifier} from '../world/permissions';
+import {actorId,authorize,grantBytes,identityBytes,verifyGrant} from '../world/permissions';
+import type {Grant,IdentityProof,ProposalMark,SignatureVerifier} from '../world/permissions';
 import {baseOf,baseValueOf,deferred,readBody,readRecord} from './host-session';
 import type {AcceptedCommit,ReplicaReceipt,SessionBody} from './host-session';
 import type {SessionTransport} from './multiplayer-ports';
@@ -44,6 +44,20 @@ export type ReplicaOptions={
  grants?:readonly Grant[];
 };
 export type ReplicaPending={commits:number;objects:number};
+// A replica follows one authority per session: which epoch may write and which host speaks for it. A planned transfer
+// presents the next epoch with the grant the owner signed; only that grant makes the change real (plan Task 13).
+export type EpochFollow={host:string;sessionId:string;epoch:number;head:Head;grant:Grant;issuer:IdentityProof};
+export type EpochReceipt={
+ kind:'epoch-receipt';
+ peer:string;
+ status:'following'|'pending'|'divergent'|'refused';
+ epoch:number;
+ host:string;
+ head:Head;
+ missing?:readonly ObjectRef[];
+ code?:WorldErrorCode;
+ reason?:string;
+};
 export type ReplicaSession={
  receive(commit:AcceptedCommit):Promise<ReplicaReceipt>;
  head():Head;
@@ -51,6 +65,14 @@ export type ReplicaSession={
  receipts():readonly ReplicaReceipt[];
  divergences():readonly ReplicaReceipt[];
  idle():Promise<void>;
+ // Which epoch this replica follows, which host speaks for it, and what it last answered about an authority.
+ follow(next:EpochFollow):Promise<EpochReceipt>;
+ epoch():number;
+ host():string;
+ epochReceipts():readonly EpochReceipt[];
+ // Why this replica stopped integrating, in the words the player reads: a divergence, a missing object, two hosts for
+ // one epoch. `null` when it is following the session normally.
+ stopped():{code:WorldErrorCode;message:string}|null;
 };
 // What waits for a parent, or for the frozen regions a commit rests on.
 type Waiting={commit:AcceptedCommit;missing:ObjectRef[];attempts:number};
@@ -60,12 +82,18 @@ export function createReplicaSession(options:ReplicaOptions):ReplicaSession{
  const ledger=new Map<string,{digest:string;epoch:number;head:Head}>();
  const versions=new Map<string,Head>();
  const receiptsLog:ReplicaReceipt[]=[];
+ const epochLog:EpochReceipt[]=[];
  const waitingObjects=new Map<string,Waiting>();
  const waitingParents=new Map<string,AcceptedCommit[]>();
  const received=new Map<string,WorldObject>();
  const answers=new Map<string,ReplicaReceipt>();
  const seen:WireEnvelope[]=[];
+ // The grants this replica was told about: what it was configured with, plus the concession that opened the epoch it
+ // now follows. A commit that arrives carrying a grant nobody announced is refused, never trusted for being signed —
+ // and a replica configured without a list checks the signature alone, which is how a session joins by invite.
+ const announced:Set<string>|null=options.grants?new Set(options.grants.map(grant=>grant.id)):null;
  let head=options.head,state:GameState|null=null,stopped=false,counter=0,working=false,inFlight=0;
+ let epoch=options.epoch,host=options.host,authority:{epoch:number;host:string;head:Head}|null=null;
  const jobs:Array<{commit:AcceptedCommit;answer:(receipt:ReplicaReceipt)=>void}>=[];
 
  // The replica opens the version it was given, and reads the operations it already adopted out of the branch it
@@ -95,10 +123,15 @@ export function createReplicaSession(options:ReplicaOptions):ReplicaSession{
   while(receiptsLog.length>LIMIT.receipts)receiptsLog.shift();
   return receipt;
  }
+ function recordEpoch(receipt:EpochReceipt):EpochReceipt{
+  epochLog.push(receipt);
+  while(epochLog.length>LIMIT.receipts)epochLog.shift();
+  return receipt;
+ }
  async function send(body:SessionBody,id?:string):Promise<void>{
-  const envelope:WireEnvelope={worldProtocol:WORLD_PROTOCOL,wireVersion:WIRE_VERSION,kind:'message',class:trafficOf(body),worldId:head.worldId,branchId:head.branchId,sessionId:options.sessionId,epoch:options.epoch,id:id??`${options.peer}.${options.epoch}.${(counter+=1)}`};
+  const envelope:WireEnvelope={worldProtocol:WORLD_PROTOCOL,wireVersion:WIRE_VERSION,kind:'message',class:trafficOf(body),worldId:head.worldId,branchId:head.branchId,sessionId:options.sessionId,epoch,id:id??`${options.peer}.${epoch}.${(counter+=1)}`};
   try{
-   await options.transport.send(options.host,{envelope,body:body as unknown as JsonValue});
+   await options.transport.send(host,{envelope,body:body as unknown as JsonValue});
   }catch{
    // A transport that fails loses the request, not the session: what was already persisted stays, and a commit whose
    // objects never arrive simply stays pending until another copy reaches this replica.
@@ -188,7 +221,7 @@ export function createReplicaSession(options:ReplicaOptions):ReplicaSession{
   }
   const grant=proofs.grant;
   if(!grant)return failed('MALFORMED','Commit sem a concessão que autorizou a proposta');
-  if(options.grants&&!options.grants.some(known=>known.id===grant.id))return failed('PERMISSION',`A concessão ${grant.id} não foi anunciada a esta réplica`);
+  if(announced&&!announced.has(grant.id))return failed('PERMISSION',`A concessão ${grant.id} não foi anunciada a esta réplica`);
   if(!await options.verifier.verify(grant.proof,grantBytes(grant,options.codec)))return failed('SIGNATURE','Assinatura da concessão não verificada');
   const observed=await versionAt(proposal.observedHead);
   if(!observed)return failed('CONFLICT','A proposta observou uma versão fora do histórico desta réplica; peça reconciliação');
@@ -196,7 +229,7 @@ export function createReplicaSession(options:ReplicaOptions):ReplicaSession{
   if(!observedState.ok)return observedState;
   const marks:ProposalMark[]=[];
   for(const [id,entry] of ledger)marks.push({id,epoch:entry.epoch,worldId:head.worldId,branchId:head.branchId,digest:entry.digest});
-  const authorized=await authorize(grant,proposal,{head:observed,revision:observedState.value.revision,epoch:options.epoch,now:options.now(),identity:proofs.identity,codec:options.codec,hasher:options.hasher,verifier:options.verifier,marks,revokedGrants:[],chain:[]});
+  const authorized=await authorize(grant,proposal,{head:observed,revision:observedState.value.revision,epoch,now:options.now(),identity:proofs.identity,codec:options.codec,hasher:options.hasher,verifier:options.verifier,marks,revokedGrants:[],chain:[]});
   return authorized.ok?ok(null):authorized;
  }
  async function persist(expected:Head,change:{id:string;state:GameState;operations:readonly string[];objects:readonly WorldObject[];author:string}):Promise<WorldResult<Head>>{
@@ -211,7 +244,7 @@ export function createReplicaSession(options:ReplicaOptions):ReplicaSession{
  // replica is never a partial copy.
  async function adopt(commit:AcceptedCommit):Promise<ReplicaReceipt>{
   const receipt=(over:Partial<ReplicaReceipt>&{status:ReplicaReceipt['status']}):ReplicaReceipt=>record({kind:'replica-receipt',peer:options.peer,id:commit.id,digest:commit.digest,head,hostHead:commit.head,...over});
-  if(commit.worldId!==head.worldId||commit.branchId!==head.branchId||commit.sessionId!==options.sessionId||commit.epoch!==options.epoch)return receipt({status:'refused',code:'CONFLICT',reason:'Commit de outra sessão, ramificação ou época'});
+  if(commit.worldId!==head.worldId||commit.branchId!==head.branchId||commit.sessionId!==options.sessionId||commit.epoch!==epoch)return receipt({status:'refused',code:'CONFLICT',reason:'Commit de outra sessão, ramificação ou época'});
   const known=ledger.get(commit.id);
   if(known&&known.digest===commit.digest)return receipt({status:'duplicate',head:known.head});
   if(known)return receipt({status:'refused',code:'CONFLICT',reason:`A operação ${commit.id} já foi adotada com outro conteúdo`});
@@ -269,9 +302,51 @@ export function createReplicaSession(options:ReplicaOptions):ReplicaSession{
   head=persisted.value;
   state=applied.state;
   ledger.set(commit.id,{digest:commit.digest,epoch:commit.epoch,head});
+  while(ledger.size>LIMIT.ledger){const oldest=ledger.keys().next().value;if(oldest===undefined)break;ledger.delete(oldest);}
   versions.set(head.commit.hash,head);
   waitingObjects.delete(commit.id);
   return receipt({status:'adopted'});
+ }
+ // The epoch this replica may adopt commits in is not something it can change by itself: a planned transfer presents
+ // the next epoch with the grant the owner signed, and only then does this replica address another host. Two grants
+ // for one epoch are a divergence — the integration stops and both claims are kept — and an epoch already closed is
+ // never taken up again.
+ async function follow(next:EpochFollow):Promise<EpochReceipt>{
+  const receipt=(over:Partial<EpochReceipt>&{status:EpochReceipt['status']}):EpochReceipt=>recordEpoch({kind:'epoch-receipt',peer:options.peer,epoch:next.epoch,host:next.host,head:next.head,...over});
+  if(next.sessionId!==options.sessionId)return receipt({status:'refused',code:'CONFLICT',reason:'A transferência é de outra sessão'});
+  if(stopped)return receipt({status:'refused',code:'CONFLICT',reason:'A integração automática está parada: há uma divergência para resolver'});
+  if(next.epoch<epoch)return receipt({status:'refused',code:'CONFLICT',reason:`A concessão é da época ${next.epoch} e esta réplica já segue a época ${epoch}`});
+  if(next.epoch===epoch){
+   if(authority&&authority.host===next.host&&authority.head.commit.hash===next.head.commit.hash)return receipt({status:'following'});
+   stopped=true;
+   return receipt({status:'divergent',code:'CONFLICT',reason:`Duas concessões concorrentes para a época ${next.epoch}: ${authority?.host??host} e ${next.host}`});
+  }
+  if(!await options.verifier.verify(next.grant.proof,grantBytes(next.grant,options.codec)))return receipt({status:'refused',code:'SIGNATURE',reason:'Assinatura da concessão da nova época não verificada'});
+  const verified=await verifyGrant(next.grant,next.issuer,{codec:options.codec,verifier:options.verifier});
+  if(!verified.ok)return receipt({status:'refused',code:verified.error.code,reason:verified.error.message});
+  if(next.grant.worldId!==head.worldId||next.grant.branchId!==head.branchId)return receipt({status:'refused',code:'MALFORMED',reason:'A concessão da nova época é de outro mundo ou ramificação'});
+  if(next.grant.epoch!==next.epoch)return receipt({status:'refused',code:'CONFLICT',reason:`A concessão declara a época ${String(next.grant.epoch)} e a transferência abre a época ${next.epoch}`});
+  if(!next.grant.actions.includes('host'))return receipt({status:'refused',code:'PERMISSION',reason:'A concessão da nova época não inclui hospedar'});
+  if(next.head.generation<head.generation)return receipt({status:'refused',code:'CONFLICT',reason:'A nova época começa antes da versão que esta réplica já confirmou'});
+  const point=await options.repository.checkout(next.head);
+  if(!point.ok){
+   // The version the new epoch starts from has to be here before anything is followed, so the answer is a request for
+   // what is missing — never an adoption of a head this replica cannot open.
+   await send({kind:'commit-request',head:next.head,objects:[next.head.commit]});
+   return receipt({status:'pending',missing:[next.head.commit],reason:`A versão da época ${next.epoch} ainda não está nesta cópia: pedi os objetos que faltam`});
+  }
+  epoch=next.epoch;
+  host=next.host;
+  authority={epoch:next.epoch,host:next.host,head:next.head};
+  announced?.add(next.grant.id);
+  return receipt({status:'following'});
+ }
+ function stoppedReason():{code:WorldErrorCode;message:string}|null{
+  if(!stopped)return null;
+  const epoch_=epochLog.at(-1);
+  if(epoch_&&epoch_.status==='divergent')return {code:epoch_.code??'CONFLICT',message:epoch_.reason??'Divergência de época nesta sessão'};
+  const divergence=receiptsLog.filter(entry=>entry.status==='divergent').at(-1);
+  return {code:divergence?.code??'CONFLICT',message:divergence?.reason??'A integração automática está parada'};
  }
  // A commit that was waiting for its parent becomes placeable as soon as the parent became this replica's version. The
  // promotion happens in the queue loop and never inside a job: a job that waited for another job of the same worker
@@ -323,7 +398,7 @@ export function createReplicaSession(options:ReplicaOptions):ReplicaSession{
    return;
   }
   if(replay==='new')remember(envelope);
-  if(envelope.sessionId!==options.sessionId||envelope.epoch!==options.epoch)return;
+  if(envelope.sessionId!==options.sessionId||envelope.epoch!==epoch)return;
   const parsed=readBody(message.body);
   if(!parsed.ok)return;
   if(parsed.value.kind==='commit'){
@@ -390,5 +465,10 @@ export function createReplicaSession(options:ReplicaOptions):ReplicaSession{
   receipts:()=>receiptsLog,
   divergences:()=>receiptsLog.filter(entry=>entry.status==='divergent'),
   idle,
+  follow,
+  epoch:()=>epoch,
+  host:()=>host,
+  epochReceipts:()=>epochLog,
+  stopped:stoppedReason,
  };
 }

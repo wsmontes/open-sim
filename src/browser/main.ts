@@ -25,7 +25,7 @@ import {parseStrictJson} from '../world/codec';
 import {createKernel} from '../world/kernel';
 import {grantBytes} from '../world/permissions';
 import type {Grant} from '../world/permissions';
-import {createGameSessionView,createMultiplayerPanel,hostSessionLink,presenceFrame,sessionText} from '../presentation/multiplayer';
+import {createGameSessionView,createMultiplayerPanel,hostSessionLink,presenceFrame,readPrincipal,sessionText} from '../presentation/multiplayer';
 import type {GameSessionView,PresenceStatement} from '../presentation/multiplayer';
 import {createWorldHistory,downloadBundle,readBundleFile} from '../presentation/world-history';
 import {diffWorlds} from '../presentation/world-diff';
@@ -105,7 +105,7 @@ let live:LiveSession|null=null;
 function guarded(flow:()=>Promise<void>):void{
  void flow().catch(error=>{sessions.notify(describeWorldError(error));updateHud();});
 }
-const multiplayer=createMultiplayerPanel(hudRoot,{onCreate:()=>guarded(createCooperativeSession),onJoin:text=>guarded(()=>joinCooperativeSession(text)),onInvite:shareInvite,onLeave:()=>guarded(()=>closeCooperativeSession()),onContinueLocal:()=>guarded(()=>closeCooperativeSession('A partida continua na versão pessoal; a versão compartilhada ficou na ramificação da sessão.'))});
+const multiplayer=createMultiplayerPanel(hudRoot,{onCreate:()=>guarded(createCooperativeSession),onJoin:text=>guarded(()=>joinCooperativeSession(text)),onInvite:shareInvite,onLeave:()=>guarded(()=>closeCooperativeSession()),onContinueLocal:()=>guarded(()=>closeCooperativeSession('A partida continua na versão pessoal; a versão compartilhada ficou na ramificação da sessão.')),onPause:()=>{sessions.pause();updateHud();},onTransfer:text=>guarded(()=>transferBranch(text))});
 const hud=createHud(hudRoot,{onTool,onSpeed,onPlace,onRetryMap,onOverwriteSave,onOverview,onZoomStep,onNorth});
 const clock=createTickClock(()=>{void sessions.tick();});
 const requested=new Set<string>();
@@ -349,7 +349,7 @@ async function createCooperativeSession():Promise<void>{
   // yet it carries nothing, and the invite a person copies is the §23 descriptor of the session.
   const peers=createWebRtcPeers({codec,actor:`local:${root.publicKey}`,session:scope,signer,signaling:createManualSignaling({codec,verifier,session:scope,bindings:{}}),hasher,relay:{stun:['stun:stun.l.google.com:19302']}});
   const transport=localFirst(peers.transport,'local-device');
-  const host=createHostSession({repository:worlds,transport,peer:'local-device',head:forked.value,identity:bound.value,grants:[grant],rules:{family:'city',version:1},bases:maps,verifier,codec,hasher,now:()=>startedAt.toISOString(),sessionId,epoch,peers:[]});
+  const host=createHostSession({repository:worlds,transport,peer:'local-device',head:forked.value,identity:bound.value,grants:[grant],rules:{family:'city',version:1},bases:maps,verifier,codec,hasher,now:()=>startedAt.toISOString(),sessionId,epoch,peers:[],capabilities:registry});
   live={host,peers,transport,branchId,sessionId};
   await sessions.attach(hostSessionLink(host,{worldId:WORLD_ID,branchId,sessionId,epoch,principal,sessionKey:keys.publicKey,signer,codec,costLimit:SPEND_LIMIT,transport,peer:'local-device',identity:bound.value,grants:[grant]}));
   clock.setRole('host');
@@ -388,6 +388,15 @@ async function joinCooperativeSession(text:string):Promise<void>{
  sessions.notify(found.ok&&found.value
   ? `Sessão ${found.value.sessionId}: ${found.value.worldId}/${found.value.branchId}, época ${found.value.epoch}, ${found.value.participants.length} participante(s). O canal com o anfitrião espera o sinal assinado (Tarefa 8).`
   : `Convite recusado: ${found.ok?'descritor ausente':found.error.message}`);
+ updateHud();
+}
+// §7.5: transferring the branch is an explicit act — the player names the successor and the client pauses the epoch it
+// orders, publishes the capability of the next one and puts it in the field the player hands over. Approving the new
+// epoch stays the owner's own signature, and nothing here signs on the player's behalf.
+async function transferBranch(text:string):Promise<void>{
+ const successor=readPrincipal(text);
+ if(!successor){sessions.notify('Escreva no campo o ator do sucessor com esquema, como nostr:npub1… ou local:<chave>.');updateHud();return;}
+ await sessions.handover(successor);
  updateHud();
 }
 // Leaving revokes the collaboration: the link goes, presence stops, the invite is dropped, and the personal version is

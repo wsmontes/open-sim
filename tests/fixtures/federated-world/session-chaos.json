@@ -33,5 +33,17 @@
     "refused": ["p3"],
     "duplicated": ["p1"],
     "eachOperationOnce": true
+  },
+  "handover": {
+    "successor": {"scheme": "nostr", "id": "npub1beto"},
+    "newEpoch": 2,
+    "steps": ["build-h1", "settle", "offer", "proposal-while-paused", "accept", "new-epoch-host", "build-h2", "settle", "recover-continue", "recover-stop", "recover-fork"],
+    "expect": {
+      "money": 19940,
+      "revision": 2,
+      "generation": 3,
+      "epoch": 2,
+      "activeWriters": {"continue": 1, "stop": 0, "fork": 0}
+    }
   }
 }

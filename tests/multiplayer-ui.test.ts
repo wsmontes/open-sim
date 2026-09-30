@@ -119,11 +119,12 @@ async function scene(options:{fault?:Fault;limits?:Limits;costLimit?:number}={})
  const source=maps({'9:9':blank('9:9')});
  const net=createMemoryNetwork();
  const limits=options.limits??NETWORK_LIMITS;
+ // The object plane of the session (§27, §39.5): the descriptor and the capabilities of a transfer are published here.
+ const kernel=createKernel();
  // One endpoint per peer: the client's link and the session it speaks to are the same pipe.
  const hostTransport=net.connect('host'),replicaTransport=net.connect('beto');
- const host=createHostSession({repository:hostWorlds,transport:hostTransport,peer:'host',head:startHead,identity:ANA_ACTOR.identity,grants:[ANA_GRANT,BETO_GRANT],rules:{family:'city',version:1},bases:source.source,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits,peers:['beto']});
+ const host=createHostSession({repository:hostWorlds,transport:hostTransport,peer:'host',head:startHead,identity:ANA_ACTOR.identity,grants:[ANA_GRANT,BETO_GRANT],rules:{family:'city',version:1},bases:source.source,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits,peers:['beto'],capabilities:kernel});
  const replica=createReplicaSession({repository:replicaWorlds,transport:replicaTransport,peer:'beto',host:'host',head:replicaHead,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits,grants:[ANA_GRANT,BETO_GRANT]});
- const kernel=createKernel();
  const common:Omit<LinkContext,'principal'|'sessionKey'|'signer'|'peers'|'transport'|'peer'|'identity'|'grants'>={worldId:MAIN.worldId,branchId:MAIN.branchId,sessionId:SESSION,epoch:1,codec,costLimit:options.costLimit??10000};
  const anaLink=hostSessionLink(host,{...common,principal:ANA,sessionKey:ANA_ACTOR.keys.publicKey,signer:signerOf(ANA_ACTOR),transport:hostTransport,peer:'host',identity:ANA_ACTOR.identity,grants:[ANA_GRANT],peers:[{id:'beto',role:'collaborator'}],id:()=>`ana-${++counter}`});
  const wire=net.connect('beto-wire');
@@ -364,7 +365,7 @@ test('the panel shows the branch, the participants and the save states',async()=
  root.id='hud';
  document.body.append(root);
  const asked:string[]=[];
- const panel=createMultiplayerPanel(root,{onCreate:()=>asked.push('criar'),onJoin:text=>asked.push(`entrar:${text}`),onInvite:()=>asked.push('convidar'),onLeave:()=>asked.push('sair'),onContinueLocal:()=>asked.push('pessoal')});
+ const panel=createMultiplayerPanel(root,{onCreate:()=>asked.push('criar'),onJoin:text=>asked.push(`entrar:${text}`),onInvite:()=>asked.push('convidar'),onLeave:()=>asked.push('sair'),onContinueLocal:()=>asked.push('pessoal'),onPause:()=>asked.push('pausar'),onTransfer:text=>asked.push(`transferir:${text}`)});
  panel.update(s.anaView.describe());
  const node=root.querySelector<HTMLElement>('#panel-multiplayer');
  expect(node?.classList.contains('panel')).toBe(true);
@@ -386,6 +387,8 @@ test('the panel shows the branch, the participants and the save states',async()=
  expect(labels.some(text=>text.includes('Convidar'))).toBe(true);
  expect(labels.some(text=>text.includes('Sair'))).toBe(true);
  expect(labels.some(text=>text.includes('Continuar em versão pessoal'))).toBe(true);
+ expect(labels.some(text=>text.includes('Pausar partida'))).toBe(true);
+ expect(labels.some(text=>text.includes('Transferir sessão'))).toBe(true);
  const paste=node!.querySelector<HTMLTextAreaElement>('#multiplayer-invite');
  expect(paste).not.toBeNull();
  if(paste)paste.value='oferta-de-teste';
@@ -395,4 +398,58 @@ test('the panel shows the branch, the participants and the save states',async()=
  expect(asked).toContain('sair');
  panel.destroy();
  expect(root.querySelector('#panel-multiplayer')).toBeNull();
+});
+
+// --- 10. pausing the epoch and handing the branch over ---------------------------------------------------------
+test('pausing stops the epoch, and the transfer publishes the capability of the next one',async()=>{
+ const s=await scene();
+ await s.anaView.submitAction(build('road',[at(1,1)]));
+ await s.settle();
+ await s.anaView.refresh();
+ const root=document.createElement('div');
+ document.body.append(root);
+ const asked:string[]=[];
+ const panel=createMultiplayerPanel(root,{onCreate:()=>{},onJoin:()=>{},onInvite:()=>{},onLeave:()=>{},onContinueLocal:()=>{},onPause:()=>asked.push('pausar'),onTransfer:text=>asked.push(`transferir:${text}`)});
+ panel.update(s.anaView.describe());
+ // The control stops the epoch this device orders — exactly what the app's onPause does.
+ root.querySelector<HTMLButtonElement>('#multiplayer-pause')?.click();
+ expect(asked).toContain('pausar');
+ s.anaView.pause();
+ await s.anaView.refresh();
+ const paused=s.anaView.status();
+ expect(paused.kind).toBe('paused');
+ expect(paused.text).toBe('Partida pausada');
+ expect(paused.detail).toContain('pausada');
+ const refused=await s.anaView.submitAction(build('road',[at(2,1)]));
+ expect(refused.status).toBe('refused');
+ await s.betoView.refresh();
+ expect(s.betoView.head()?.commit.hash).toBe(s.host.head().commit.hash);
+ expect(s.betoView.status().kind).not.toBe('pending');
+ // Once stopped, the panel stops offering to stop it again — and keeps the transfer, which is how a paused branch is
+ // handed over or a transfer with an incomplete package is retried.
+ panel.update(s.anaView.describe());
+ expect(root.querySelector<HTMLButtonElement>('#multiplayer-pause')?.hidden).toBe(true);
+ expect(root.querySelector<HTMLButtonElement>('#multiplayer-transfer')?.hidden).toBe(false);
+ // The successor is named in the same field the invite uses, and the transfer publishes the capability of the new
+ // epoch as an object another client resolves (§27).
+ const field=root.querySelector<HTMLTextAreaElement>('#multiplayer-invite');
+ if(!field)throw new Error('Campo do convite ausente');
+ field.value=`${BETO.scheme}:${BETO.id}`;
+ root.querySelector<HTMLButtonElement>('#multiplayer-transfer')?.click();
+ expect(asked).toContain(`transferir:${BETO.scheme}:${BETO.id}`);
+ const offered=await s.anaView.handover(BETO);
+ expect(offered.ok).toBe(true);
+ if(!offered.ok)throw new Error(offered.error.message);
+ expect(offered.value.epoch).toBe(2);
+ expect(offered.value.previousEpoch).toBe(1);
+ expect(offered.value.published).toBe(true);
+ expect(offered.value.capability.type).toBe('capability');
+ expect(offered.value.capability.actor).toBe(`${ANA.scheme}:${ANA.id}`);
+ const stored=await s.kernel.resolve(offered.value.capability.id);
+ expect(stored.ok&&stored.value!==null).toBe(true);
+ expect(s.anaView.invite()).toBe(offered.value.capability.id);
+ expect(s.anaView.message()).toContain('época 2');
+ panel.update(s.anaView.describe());
+ expect(root.querySelector('#multiplayer-message')?.textContent).toContain('época 2');
+ panel.destroy();
 });

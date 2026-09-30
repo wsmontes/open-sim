@@ -9,16 +9,18 @@
 // Everything else here is deliberately ephemeral: movement and presence travel on their own port, are rate limited,
 // never carry the camera and never change a durable identity (§7.3, §24).
 import type {Action,CellCoord,CommandResult,GameState} from '../core/model';
-import type {Head,JsonValue,WorldResult} from '../world/model';
+import type {Head,JsonValue,WorldError,WorldResult} from '../world/model';
 import {WORLD_PROTOCOL,WIRE_VERSION,failed,ok} from '../world/model';
 import type {PublishResult,Resolved} from '../world/kernel';
-import {envelopeOf,timelineUri} from '../world/osim';
+import {envelopeOf,parseOsimUri,timelineUri} from '../world/osim';
 import type {OsimEnvelope} from '../world/osim';
 import {proposalBytes} from '../world/permissions';
 import type {Grant,IdentityProof,Principal,Proposal,Role} from '../world/permissions';
 import type {WorldCodec} from '../world/ports';
 import type {TrafficClass,WireMessage} from '../world/wire';
 import type {HostSession,ProposalReceipt,ReceiptPreview,ReplicaReceipt} from '../session/host-session';
+import {prepareHandover} from '../session/recovery';
+import type {HandoverOffer} from '../session/recovery';
 import type {ReplicaSession} from '../session/replica-session';
 import type {SessionTransport} from '../session/multiplayer-ports';
 import type {WorldRepository} from '../session/world-repository';
@@ -56,6 +58,11 @@ export type SessionLink = {
  confirmations(): readonly ReplicaReceipt[];
  // A peer that stopped integrating, and why: a divergence, a missing base, an unreachable host.
  stopped(): {code: string; message: string} | null;
+ // §7.5: the host can stop the epoch it orders — a transfer and a recovery both start by pausing — and only a host
+ // has that authority, so the two operations are optional and a replica simply does not have them.
+ pause?(reason: WorldError): void;
+ resume?(): void;
+ handover?(successor: Principal): Promise<WorldResult<HandoverOffer>>;
  participants(): readonly Participant[];
  // What this client has to say before it can be heard: who it is and, when it brings one, the grant it presents. The
  // identity a session accepts a proposal from is the one presented on the control plane (§7.4 step 2), and the host
@@ -161,9 +168,11 @@ export function presenceFrame(session: {worldId: string;branchId: string;session
 
 export function hostSessionLink(session: HostSession, context: LinkContext): SessionLink {
  // A host hears its own client the same way it hears a peer: the identity that authorizes a proposal has to be
- // presented, and this endpoint is where this client says it.
+ // presented, and this endpoint is where this client says it. Presenting is not the same as being read, so the point
+ // `ready` reaches is the session's own arrival point: a client that hosts itself must not race its announcement and
+ // be refused as an unknown principal (§7.4 step 2).
  let announced: Promise<void> | null = null;
- const ready = () => announced ??= announce(context, context.peer);
+ const ready = () => announced ??= announce(context, context.peer).then(() => session.settle());
  return {
   mode: 'host',
   worldId: context.worldId,
@@ -175,8 +184,12 @@ export function hostSessionLink(session: HostSession, context: LinkContext): Ses
   checkpoint: () => session.checkpoint(),
   pending: () => session.pending(),
   confirmations: () => session.confirmations(),
-  // The host reports what it cannot write through its receipts; there is no higher authority to stop it here.
-  stopped: () => null,
+  // The host reports what it cannot write through its receipts, and what was stopped on purpose — a transfer, a
+  // recovery — through its own pause reason, which is exactly the line the player has to read (§7.5).
+  stopped: () => {const paused = session.paused();return paused ? {code: paused.code, message: paused.message} : null;},
+  pause: (reason: WorldError) => session.pause(reason),
+  resume: () => session.resume(),
+  handover: (successor: Principal) => prepareHandover(session, successor),
   participants: () => [{id: context.principal.id, role: 'host'}, ...(context.peers ?? [])],
   ready,
   tick: () => session.step(),
@@ -209,7 +222,7 @@ export function replicaSessionLink(session: ReplicaSession, repository: WorldRep
   },
   pending: () => {const waiting = session.pending();return waiting.commits + waiting.objects;},
   confirmations: () => session.receipts(),
-  stopped: () => {const last = session.divergences().at(-1);return last ? {code: last.code ?? 'CONFLICT', message: last.reason ?? `Resultado diferente do anfitrião ${host}`} : null;},
+  stopped: () => session.stopped(),
   participants: () => [{id: context.principal.id, role: 'collaborator'}, ...(context.peers ?? [])],
   ready,
   // A replica verifies what the host ordered; ordering is the host's, and the replica-writer path of a session is the
@@ -274,6 +287,18 @@ export function readSessionDescriptor(object: OsimEnvelope | Resolved | null): S
  };
 }
 
+// The successor of a transfer as the player names it: an actor URI with a scheme, which is exactly what every envelope
+// carries (§4). A bare name is refused, because a client that invented an identifier space would be handing the branch
+// to an authority it cannot point at.
+export function readPrincipal(text: string): Principal | null {
+ const trimmed = text.trim();
+ if (!trimmed.length) return null;
+ try { parseOsimUri(trimmed); } catch { return null; }
+ const separator = trimmed.indexOf(':');
+ const id = trimmed.slice(separator + 1);
+ return separator > 0 && id.length > 0 && id.length <= 200 ? {scheme: trimmed.slice(0, separator), id} : null;
+}
+
 // The action input of the game: one quote for the version the device holds, so a refusal can show the fresh price
 // without the panel re-deriving it.
 export type ActionQuote = {status: 'ok' | 'blocked'; cost: number; reason?: string};
@@ -317,6 +342,11 @@ export type GameSessionView = {
  setInvite: (text: string) => void;
  attach: (link: SessionLink) => Promise<void>;
  resolveSession: (uri: string) => Promise<WorldResult<SessionDescriptor | null>>;
+ // §7.5: the interface offers pausing and transferring. A pause stops the epoch this device orders and says so in the
+ // status line; a transfer hands the branch to a successor the player named, and the capability it publishes is what
+ // the successor resolves.
+ pause: (reason?: string) => void;
+ handover: (successor: Principal) => Promise<WorldResult<HandoverOffer>>;
  leave: (reason?: string) => Promise<void>;
  refresh: () => Promise<void>;
  clearRefusal: () => void;
@@ -489,6 +519,26 @@ export function createGameSessionView(options: SessionViewOptions): GameSessionV
   notify(text) {message = text;},
   setHostVisible(visible) {hostVisible = visible;},
   setInvite(text) {invite = text;},
+  // A pause is a host act: it stops the epoch this device orders, which is the first step of both a transfer and a
+  // recovery. A replica that cannot stop anything says so instead of pretending (§7.5).
+  pause(reason) {
+   const active = link;
+   if(!active?.pause){message = 'Só quem hospeda a ramificação pode pausá-la; a réplica apenas verifica.';return;}
+   const text = reason ?? 'A ramificação foi pausada por quem hospeda: nada novo é confirmado até haver nova época ou recuperação.';
+   active.pause({code: 'CONFLICT', message: text});
+   message = text;
+  },
+  async handover(successor) {
+   const active = link;
+   if(!active?.handover)return failed<HandoverOffer>('PERMISSION', 'Só quem hospeda pode transferir a ramificação desta sessão');
+   const offered = await active.handover(successor);
+   if(!offered.ok){message = offered.error.message;return offered;}
+   // The capability is the document the successor resolves, so it is what the player copies out of the panel.
+   invite = offered.value.capability.id;
+   message = `Transferência da época ${offered.value.previousEpoch} preparada para ${successor.scheme}:${successor.id}; a época ${offered.value.epoch} começa no head #${offered.value.head.generation}${offered.value.missing.length ? ` e ainda faltam ${offered.value.missing.length} objeto(s) que nenhuma cópia reteve` : ''}.`;
+   await refresh();
+   return offered;
+  },
   async attach(next) {
    link = next;
    submitted = false;
@@ -564,6 +614,10 @@ export function createGameSessionView(options: SessionViewOptions): GameSessionV
     canJoin: !active,
     canLeave: !!active,
     canContinueLocal: !!active,
+    canPause: !!active && active.mode === 'host' && !active.stopped(),
+    // Pausing is the first step of a transfer, so a paused branch still offers the transfer: offering again is how a
+    // transfer whose package was incomplete is retried, and how a branch stopped by a divergence is handed over.
+    canTransfer: !!active && active.mode === 'host',
    };
   },
  };
@@ -590,6 +644,8 @@ export type MultiplayerInfo = {
  canJoin: boolean;
  canLeave: boolean;
  canContinueLocal: boolean;
+ canPause: boolean;
+ canTransfer: boolean;
 };
 export type MultiplayerActions = {
  onCreate: () => void;
@@ -597,6 +653,10 @@ export type MultiplayerActions = {
  onInvite: () => void;
  onLeave: () => void;
  onContinueLocal: () => void;
+ // The pause stops the epoch this device orders; the transfer takes the actor of the successor from the same field the
+ // invite uses, because naming who receives the branch is the player's decision and not a default of the client.
+ onPause: () => void;
+ onTransfer: (text: string) => void;
 };
 export type MultiplayerPanel = {update(info: MultiplayerInfo): void;destroy(): void};
 
@@ -657,9 +717,11 @@ export function createMultiplayerPanel(root: HTMLElement, actions: MultiplayerAc
  const share = button('Convidar', 'multiplayer-invite-button');
  const join = button('Entrar', 'multiplayer-join');
  const leave = button('Sair', 'multiplayer-leave');
+ const pause = button('Pausar partida', 'multiplayer-pause');
+ const transfer = button('Transferir sessão', 'multiplayer-transfer');
  const personal = button('Continuar em versão pessoal', 'multiplayer-personal');
  const controls = make('div', 'multiplayer-controls');
- controls.append(create, share, join, leave, personal);
+ controls.append(create, share, join, leave, pause, transfer, personal);
  const messageLine = make('p', 'multiplayer-message');
  messageLine.id = 'multiplayer-message';
  messageLine.setAttribute('role', 'alert');
@@ -677,6 +739,8 @@ export function createMultiplayerPanel(root: HTMLElement, actions: MultiplayerAc
  forget.push(listen(share, 'click', () => actions.onInvite()));
  forget.push(listen(join, 'click', () => actions.onJoin(inviteText.value)));
  forget.push(listen(leave, 'click', () => actions.onLeave()));
+ forget.push(listen(pause, 'click', () => actions.onPause()));
+ forget.push(listen(transfer, 'click', () => actions.onTransfer(inviteText.value)));
  forget.push(listen(personal, 'click', () => actions.onContinueLocal()));
  return {
   update(info) {
@@ -699,6 +763,8 @@ export function createMultiplayerPanel(root: HTMLElement, actions: MultiplayerAc
    share.hidden = !info.canInvite;
    join.hidden = !info.canJoin;
    leave.hidden = !info.canLeave;
+   pause.hidden = !info.canPause;
+   transfer.hidden = !info.canTransfer;
    personal.hidden = !info.canContinueLocal;
    messageLine.textContent = info.message;
    messageLine.hidden = !info.message;
