@@ -320,6 +320,30 @@ Depois dessas entregas, quatro expansões têm ponto de entrada definido, sem fa
 
 **Primeiro passo de execução:** tarefa 1. **Primeiro resultado colaborativo:** entrega B, útil por arquivos. **Primeiro jogo em rede:** entrega C. Não iniciar todos os adaptadores simultaneamente nem transformar a abertura do protocolo em obrigação de implementar cada possibilidade agora.
 
+## Desvios registrados
+
+- **Tarefa 6:** `authorize(grant, proposal, context)` devolve `Promise<WorldResult<AuthorizedProposal>>` — o plano escrevia
+  síncrono, mas a verificação de assinatura e o digest do ator são assíncronos. As provas são **destacadas**: os bytes
+  canônicos de proposta, concessão e identidade excluem o campo `proof`, então o digest é estável e a assinatura não cria ciclo.
+- **Tarefa 4:** `prepareProject`/`integrateProject` vivem em `src/world/city-profile.ts` (o perfil decide; `changes.ts` guarda
+  dados e descrição) e `ProjectTarget` é estrutural, então um `Checkpoint` satisfaz a assinatura fixada sem criar
+  `world -> session`. `ChangeSet.author` é apenas declarado: a integração age como `PROJECT_ACTOR` no estado de destino, e
+  autoria nunca autoriza. Exportar/importar proposta existe no nível de dados (`changeSetValue`/`parseChangeSet`/
+  `verifyChangeSet`/`attachBases`); a montagem na UI fica para as tarefas de transporte.
+- **Tarefa 2:** `CaptureContext` carrega o `WorldCodec` — sem bytes canônicos não há endereço, e a assinatura fixada pelo plano
+  (`captureBase(base, context, hash)`) não tinha por onde recebê-los. `RealitySource` exige `OsmSource` (não `MapSource`) para
+  registrar endpoint/esquema/normalizador reais. Fonte indisponível falha com `NOT_FOUND`, porque o union `WorldErrorCode` da
+  Tarefa 1 não tem código de indisponibilidade.
+
+## Pendência de história
+
+Dois commits de documentação (`e90a84b` e `b326832`) foram feitos com `git add -A` enquanto três agentes escreviam o mesmo
+working tree, então arrastaram arquivos em voo para dentro de commits nomeados como documentação. A **árvore final está
+correta** (as tarefas 4 e 12 commitaram depois o estado final dos seus arquivos); o que está errado é a partição da história.
+Limpeza a fazer quando ninguém estiver escrevendo: repartir esses dois commits, deixando neles apenas este arquivo, e
+republicar com `--force-with-lease`. Desde então o stage é sempre por caminho explícito e cada commit é conferido com
+`git show --stat`.
+
 ## Execução
 
 | Tarefa | Commit | Evidência registrada |
