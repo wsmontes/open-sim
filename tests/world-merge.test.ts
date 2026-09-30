@@ -394,7 +394,7 @@ test('a merged state is plain JSON: a field nobody decided is absent instead of 
  // own keys whose value is undefined and the canonical encoder refused the whole state.
  expect(JSON.parse(JSON.stringify(state))).toEqual(state);
  for(const chunk of Object.values(state.chunks)){
-  for(const cell of Object.values(chunk.edits)) expect(Object.values(cell).includes(undefined)).toBe(false);
+  for(const cell of Object.values(chunk.edits)) expect(Object.values(cell).some(value => value === undefined)).toBe(false);
  }
  // And the composed merge is committable through the real path, not only inspectable.
  const committed=await worlds.commitPrepared(ana.head,kept.value);

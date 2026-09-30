@@ -150,10 +150,10 @@ function fakeNetwork():FakeNetwork{
 // link. Building both ports from the shared `peers` is what keeps one connection per participant, not four.
 type Participant={actor:string;keys:KeyPair;signaling:ManualSignaling;peers:WebRtcPeers;transport:SessionTransport;objects:KernelTransport;shelf:Map<string,Uint8Array>;store:ObjectStore;refused:WorldError[]};
 type JoinOptions={actor:string;keys:KeyPair;bindings:Record<string,string>;network:FakeNetwork;limits?:Limits;relay?:RelayPolicy};
-function configFor(options:JoinOptions,shelf:Map<string,Uint8Array>,refused:WorldError[]):WebRtcConfig{
+function configFor(options:JoinOptions,shelf:Map<string,Uint8Array>,refused:WorldError[],signaling:ManualSignaling):WebRtcConfig{
  return {
   codec,hasher,actor:options.actor,session:SESSION,signer:signerOf(options.keys),
-  signaling:createManualSignaling({codec,verifier,session:SESSION,bindings:options.bindings}),
+  signaling,
   connection:options.network.factory,relay:options.relay,limits:options.limits,
   store:createDirectObjectStore({hasher,shelf}),
   delay:async()=>{for(let i=0;i<16;i+=1)await Promise.resolve();},
@@ -162,9 +162,10 @@ function configFor(options:JoinOptions,shelf:Map<string,Uint8Array>,refused:Worl
 }
 function joinAs(options:JoinOptions):Participant{
  const shelf=new Map<string,Uint8Array>(),refused:WorldError[]=[];
- const config=configFor(options,shelf,refused);
+ const signaling=createManualSignaling({codec,verifier,session:SESSION,bindings:options.bindings});
+ const config=configFor(options,shelf,refused,signaling);
  const peers=createWebRtcPeers(config);
- return {actor:options.actor,keys:options.keys,signaling:config.signaling,peers,transport:createWebRtcTransport(config,{peers}),objects:createWebRtcObjectTransport(config,{peers}),shelf,store:config.store!,refused};
+ return {actor:options.actor,keys:options.keys,signaling,peers,transport:createWebRtcTransport(config,{peers}),objects:createWebRtcObjectTransport(config,{peers}),shelf,store:config.store!,refused};
 }
 // The players carrying the signals by hand: whatever one put on its outbox is copied and pasted on the other side,
 // until nothing is left to carry. A refusal here is a failure of the test, not something to swallow.
@@ -203,7 +204,8 @@ test('each port stands alone, so a runtime without a peer can still build them',
  // The two factories are the fixed interface: a caller that wants only one of the traffic classes gets it without the
  // other, and nothing here needs the platform until an offer is actually made.
  const shelf=new Map<string,Uint8Array>(),refused:WorldError[]=[];
- const config=configFor({actor:ANA,keys:ANA_KEYS,bindings:{[BOB]:BOB_KEYS.publicKey},network:fakeNetwork()},shelf,refused);
+ const signaling=createManualSignaling({codec,verifier,session:SESSION,bindings:{[BOB]:BOB_KEYS.publicKey}});
+ const config=configFor({actor:ANA,keys:ANA_KEYS,bindings:{[BOB]:BOB_KEYS.publicKey},network:fakeNetwork()},shelf,refused,signaling);
  const transport=createWebRtcTransport(config),objects=createWebRtcObjectTransport(config);
  expect(await objects.resolve(`osim:session:${SESSION.sessionId}`)).toEqual({ok:true,value:null});
  expect(await objects.query({components:['x.traffic']})).toEqual({ok:true,value:[]});
