@@ -436,6 +436,20 @@ Consequência prática: **Nostr caminha pelo endereço público** `wss://nostr.w
 para qualquer verificação que precise de um par de chat. Matrix exige um caminho até o loopback do Pi — túnel SSH
 (`ssh -L 6167:127.0.0.1:6167`) ou publicação pelo operador — antes de poder ser exercitado de verdade. Para escrever um kind que não seja da lista pública, a pubkey de teste precisa entrar em `/etc/wawa-nostr/allowed-pubkeys.txt` no Pi (só o operador faz isso) — enquanto isso, use kind 1 e kind 4 (mensagem direta cifrada, suportada pelo relay) ou o caminho manual de copiar e colar, que o plano já permite.
 
+### Laboratório Matrix local (para a tarefa 11)
+
+Não há homeserver rodando no Pi, mas o próprio repositório do usuário traz um laboratório completo:
+`wawa-irc/tests/e2e/matrix/` (`compose.yaml` + `run.sh`) sobe **Synapse `matrixdotorg/synapse:v1.157.1`**
+(digest pinado), Ergo e o runtime wawa, com registro habilitado por segredo (`WAWA_E2E_REGISTRATION_SECRET`)
+e um runner de cenário. Detalhe que decide a receita: Synapse usa `network_mode: service:wawa` e a rede é
+`internal: true`, então **nada é publicado no host** — o cenário fala com `127.0.0.1:8008` de dentro.
+
+Receita para verificar de verdade, sem tocar no repositório do usuário e sem tocar no Pi: copiar
+`tests/e2e/matrix/` para um diretório de trabalho meu, acrescentar `ports: ["6167:8008"]` ao serviço `wawa`
+(dono do netns) na **cópia**, subir com `docker compose -p opensim-matrix-lab … up -d wawa synapse`, e usar
+`http://127.0.0.1:6167` daqui. Para "dois homeservers", subir um segundo projeto com outra porta. Nada disso
+toca produção: é contêiner local descartável.
+
 Regra que continua valendo: registrar o que foi exercitado contra o serviço real e **não** afirmar mais do que isso (nada de declarar compatibilidade ampla de NAT ou federação validada sem prova).
 
 ## Execução
