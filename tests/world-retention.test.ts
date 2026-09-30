@@ -2,6 +2,7 @@ import {expect,test} from 'vitest';
 import {createJcsCodec} from '../src/adapters/codec/jcs';
 import {bytesHasher} from '../src/adapters/hash/content';
 import {createWorldMemoryStorage} from '../src/adapters/storage/world-memory';
+import type {WorldMemoryStorage} from '../src/adapters/storage/world-memory';
 import {importLegacy} from '../src/session/world-bundle';
 import {createWorldRepository} from '../src/session/world-repository';
 import type {Checkpoint,WorldRepository} from '../src/session/world-repository';
@@ -64,7 +65,7 @@ function hiding(storage:WorldStorage,hidden:ObjectRef):WorldStorage{
 // One world with the shape retention has to respect: a retained main branch resting on a frozen region, and a second
 // branch whose later work was abandoned although its fork commit stayed pinned as a checkpoint, carrying a region only
 // that abandoned work attached and a frozen proposal that names the region it uses.
-type Scenario={storage:WorldStorage;worlds:WorldRepository;main:Head;fork:Head;abandoned:Head;point:Checkpoint;base9:ObjectRef;base10:ObjectRef;proposal:ObjectRef;inventory:ObjectInventory;roots:RetainedRoot[]};
+type Scenario={storage:WorldMemoryStorage;worlds:WorldRepository;main:Head;fork:Head;forkRef:ObjectRef;forkTree:ObjectRef;abandoned:Head;point:Checkpoint;base9:ObjectRef;base10:ObjectRef;proposal:ObjectRef;inventory:ObjectInventory;roots:RetainedRoot[]};
 async function scenario():Promise<Scenario>{
  const {storage,worlds}=device();
  const start=city();
@@ -78,7 +79,8 @@ async function scenario():Promise<Scenario>{
  // A cell inside '10:0', so adopting the region is what this build really does.
  const widened=build(start,[blank('10:0')],{x:320,y:0});
  const base10=await objectOf({kind:'base-chunk',base:blank('10:0')});
- const set=describeChange(start,command(start,{type:'build',tool:'park',cells:[here(2,0)]}),widened);
+ // A proposal nobody applied yet: the regions it uses travel with it, which is what a retained proposal keeps alive.
+ const set=describeChange(start,command(start,{type:'build',tool:'park',cells:[here(2,0)]}),build(start,[],here(2,0)));
  const withBases=await attachBases(set,[start.chunks['9:9']!.base],hasher,codec);
  if(!withBases.ok)throw new Error(withBases.error.message);
  const proposal=await objectOf(changeSetValue(withBases.value));
@@ -96,12 +98,13 @@ async function scenario():Promise<Scenario>{
   {kind:'base',ref:base10.ref,label:'base 10:0'},
   {kind:'proposal',ref:proposal.ref,label:'proposta da ciclovia'},
  ];
- return {storage,worlds,main:frozen.value,fork:forked.value,abandoned:abandoned.value,point,base9:base9.ref,base10:base10.ref,proposal:proposal.ref,inventory:read.value,roots};
+ const forkPoint=await restore(worlds,forked.value);
+ return {storage,worlds,main:frozen.value,fork:forked.value,forkRef:forked.value.commit,forkTree:forkPoint.tree,abandoned:abandoned.value,point,base9:base9.ref,base10:base10.ref,proposal:proposal.ref,inventory:read.value,roots};
 }
 const withoutRoot=(roots:readonly RetainedRoot[],kind:RetainedRoot['kind'],ref:ObjectRef)=>roots.filter(root=>!(root.kind===kind&&sameRef(root.ref,ref)));
 
 test('a retention pass keeps base, checkpoint, proposal and referenced objects, and collects only what nothing reaches',async()=>{
- const {worlds,main,fork,abandoned,point,base9,base10,proposal,inventory,roots}=await scenario();
+ const {worlds,main,fork,forkRef,forkTree,abandoned,point,base9,base10,proposal,inventory,roots}=await scenario();
  // The walker reads the frozen proposal as a proposal: the regions it uses travel with it and are reachable too.
  expect(inventory.objects.find(entry=>sameRef(entry.ref,proposal))!.references).toEqual([base9]);
  expect(inventory.missing).toEqual([]);
@@ -110,7 +113,7 @@ test('a retention pass keeps base, checkpoint, proposal and referenced objects, 
  expect(plan.missing).toEqual([]);
  // Kept: the two pinned commits, their trees and snapshots, the ancestor line, and every object a retained version
  // reaches — the frozen regions, the object the branch attached and the retained proposal.
- const retained=[main.commit,fork,point.tree,point.stateRef,base9,base10,proposal];
+ const retained=[main.commit,forkRef,point.tree,point.stateRef,base9,base10,proposal];
  for(const ref of retained)expect(hashesOf(plan.collect)).not.toContain(ref.hash);
  for(const ref of retained)expect(hashesOf(plan.keep)).toContain(ref.hash);
  // Collected: exactly the abandoned version — its commit, its tree and its snapshot. The region it attached is kept
@@ -123,7 +126,7 @@ test('a retention pass keeps base, checkpoint, proposal and referenced objects, 
  // Every retained root is what keeps its object: dropping one from the list puts that object at risk.
  expect(hashesOf(planRetention(withoutRoot(roots,'proposal',proposal),inventory).collect)).toContain(proposal.hash);
  expect(hashesOf(planRetention(withoutRoot(roots,'base',base10),inventory).collect)).toContain(base10.hash);
- expect(hashesOf(planRetention(withoutRoot(roots,'checkpoint',fork),inventory).collect)).toEqual(hashesOf([...loose,fork]));
+ expect(hashesOf(planRetention(withoutRoot(roots,'checkpoint',forkRef),inventory).collect)).toEqual(hashesOf([...loose,forkRef,forkTree]));
  // A retained proposal keeps the region it carries even with no version retained at all.
  const proposalOnly=planRetention([{kind:'proposal',ref:proposal,label:'proposta'}],inventory);
  expect(hashesOf(proposalOnly.keep)).toEqual(hashesOf([proposal,base9]));
@@ -184,9 +187,9 @@ test('a device over quota is told to export or branch instead of deleting reacha
  const refused=await small.worlds.commit(heldHead,{id:'regiao',state:build(tiny(),[blank('10:0')],{x:320,y:0}),operations:['Região nova'],objects:[],author:'local-player'});
  expect(refused).toMatchObject({ok:false,error:{code:'QUOTA'}});
  expect(small.storage.size()).toBe(room);
- const device=await readInventory(small.storage,[heldHead.commit]);
- if(!device.ok)throw new Error(device.error.message);
- const tightSmall=planRetention([{kind:'branch-head',ref:heldHead.commit,label:'main'}],device.value,{capacity:room-1,used:room});
+ const listing=await readInventory(small.storage,await heldRefs(small.worlds,[heldHead]));
+ if(!listing.ok)throw new Error(listing.error.message);
+ const tightSmall=planRetention([{kind:'branch-head',ref:heldHead.commit,label:'main'}],listing.value,{capacity:room-1,used:room});
  expect(tightSmall.incomplete).toBe(false);
  expect(tightSmall.collect).toEqual([]);
  expect(tightSmall.pressure).toMatchObject({over:true});

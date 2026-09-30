@@ -50,7 +50,10 @@ export function createHttpObjectStore(config:HttpObjectConfig):ObjectStore {
    if(bytes.byteLength>limit)return failed('LIMIT',`Objeto de ${bytes.byteLength} bytes excede o limite de ${limit}`);
    const ref=await config.hasher.ref(bytes);
    let response:Response;
-   try { response=await request(`/${ref.hash}`,{method:'PUT',body:bytes,headers:{'content-type':'application/octet-stream'}}); }
+   // A `fetch` body accepts any view; the DOM types only spell that alternative as `ArrayBufferView<ArrayBuffer>`, so
+   // the view is rebuilt over the same buffer instead of copying megabytes to satisfy a type.
+   const body:BodyInit=new Uint8Array(bytes.buffer as ArrayBuffer,bytes.byteOffset,bytes.byteLength);
+   try { response=await request(`/${ref.hash}`,{method:'PUT',body,headers:{'content-type':'application/octet-stream'}}); }
    catch(error) { return unreachable(error); }
    if(response.status===413)return failed('LIMIT',`O provedor ${label} recusou um objeto de ${ref.bytes} bytes`);
    if(response.status===429||response.status===507)return failed('QUOTA',`O provedor ${label} não aceitou guardar este objeto agora`);

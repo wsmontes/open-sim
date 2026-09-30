@@ -65,7 +65,9 @@ export function createBlossomObjectStore(config:BlossomConfig):BlossomStore {
    catch(error) { return failed('PERMISSION',`Sem autorização para enviar a ${label} (${error instanceof Error?error.message:'sem assinador'})`); }
    if(!authorization)return failed('PERMISSION',`Sem autorização para enviar a ${label}`);
    let response:Response;
-   try { response=await request(uploadPath,{method:'PUT',body:bytes,headers:{'content-type':'application/octet-stream',authorization}}); }
+   // Same as the HTTP store: the view is rebuilt over the buffer the caller already owns, never copied.
+   const body:BodyInit=new Uint8Array(bytes.buffer as ArrayBuffer,bytes.byteOffset,bytes.byteLength);
+   try { response=await request(uploadPath,{method:'PUT',body,headers:{'content-type':'application/octet-stream',authorization}}); }
    catch(error) { return unreachable(error); }
    if(response.status===401||response.status===403)return failed('PERMISSION',`${label} recusou a autorização do envio`);
    if(response.status===413)return failed('LIMIT',`O servidor Blossom ${label} recusou um objeto de ${ref.bytes} bytes`);

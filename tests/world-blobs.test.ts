@@ -62,7 +62,7 @@ function fakeServer(options:{addressFrom?:'path'|'body';fail?:'all';uploadStatus
   const path=url.slice(url.lastIndexOf('/')+1);
   if(method==='GET'){
    const bytes=held.get(path);
-   return bytes?new Response(bytes,{status:200}):new Response(null,{status:404});
+   return bytes?new Response(bytes.slice(),{status:200}):new Response(null,{status:404});
   }
   if(method==='HEAD')return new Response(null,{status:held.has(path)?200:404});
   const body=init?.body;
@@ -155,7 +155,7 @@ test('a changed nonce, a changed context and a changed ciphertext are all refuse
  expect(await openObject({...sealed,ciphertext:flipped},material,port)).toMatchObject({ok:false,error:{code:'SIGNATURE'}});
  expect(await openObject({...sealed,nonce:new Uint8Array(13).fill(1)},material,port)).toMatchObject({ok:false,error:{code:'MALFORMED'}});
  // What a foreign manifest can really contain: a format this client does not implement.
- const unknownFormat={...sealed,format:'AES-GCM-128'} as SealedObject;
+ const unknownFormat={...sealed,format:'AES-GCM-128'} as unknown as SealedObject;
  expect(await openObject(unknownFormat,material,port)).toMatchObject({ok:false,error:{code:'MALFORMED'}});
  // A copy of one world is not a copy of another, even with the same key material: the world is authenticated.
  const elsewhere=key('vitoria-do-norte','k1');
