@@ -58,4 +58,17 @@ label{color:#6d5f49;font-size:11px;text-transform:uppercase;letter-spacing:.04em
 #save-status{color:#4c5f74}
 #place-error{color:#a3341f;margin:0;font-weight:700}
 #hud-attribution{color:#3d5f8f}
+/* A cooperative session reads as its own card: the branch, who is in it, the descriptor and the save state. */
+#panel-multiplayer{left:8px;top:480px;width:min(340px,calc(100vw - 16px))}
+.multiplayer-where{margin:0;font-weight:700}
+#multiplayer-status{margin:0;font-weight:700;color:#3f6b3d}
+#multiplayer-status[data-state=pending]{color:#8a6b31}
+#multiplayer-status[data-state=paused],#multiplayer-status[data-state=source-error],#multiplayer-status[data-state=storage-error]{color:#8c4a2f}
+#multiplayer-detail,#multiplayer-presence,#multiplayer-descriptor{margin:0;color:#6d5f49;font-size:11px}
+#multiplayer-participants{margin:0;padding-left:16px;color:#4c5f74}
+.multiplayer-controls{display:flex;flex-wrap:wrap;gap:4px}
+#multiplayer-invite{width:100%;resize:vertical;font:inherit;color:var(--ink);background:#fffdf7;border:2px solid var(--edge);border-radius:5px;padding:2px 4px}
+#multiplayer-message{margin:0;color:#8c4a2f}
+#multiplayer-message:empty{display:none}
+textarea:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
 @media (max-width:720px){#game{cursor:default}#hud-stats{grid-template-columns:1fr}}

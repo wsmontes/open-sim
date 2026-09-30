@@ -3,7 +3,15 @@ import {createIndexedDbStore} from '../adapters/storage/indexed-db';
 import {createIndexedDbWorldStorage} from '../adapters/storage/world-indexed-db';
 import {createJcsCodec} from '../adapters/codec/jcs';
 import {bytesHasher} from '../adapters/hash/content';
+import {ed25519Verifier,generateSessionKeyPair,localIdentityProvider,signEd25519} from '../adapters/crypto/session-keys';
+import {createManualSignaling} from '../adapters/network/manual-signaling';
+import {createWebRtcPeers} from '../adapters/network/webrtc';
+import type {WebRtcPeers} from '../adapters/network/webrtc';
 import {createSession} from '../session/local-session';
+import type {SaveStatus} from '../session/local-session';
+import {createHostSession} from '../session/host-session';
+import type {HostSession} from '../session/host-session';
+import type {SessionListener,SessionTransport} from '../session/multiplayer-ports';
 import {importLegacy} from '../session/world-bundle';
 import {createWorldRepository} from '../session/world-repository';
 import type {WorldVersion} from '../session/world-repository';
@@ -11,7 +19,14 @@ import type {ChunkStatus} from '../session/ports';
 import type {Action,BaseChunk,CellCoord,CityStats,GameState,Tool,ViewState} from '../core/model';
 import {SAVE_VERSION} from '../core/snapshot';
 import {decodeBundle,encodeBundle} from '../world/codec';
+import {MAX_DEPTH} from '../world/model';
 import type {Head} from '../world/model';
+import {parseStrictJson} from '../world/codec';
+import {createKernel} from '../world/kernel';
+import {grantBytes} from '../world/permissions';
+import type {Grant} from '../world/permissions';
+import {createGameSessionView,createMultiplayerPanel,hostSessionLink,presenceFrame,sessionText} from '../presentation/multiplayer';
+import type {GameSessionView,PresenceStatement} from '../presentation/multiplayer';
 import {createWorldHistory,downloadBundle,readBundleFile} from '../presentation/world-history';
 import {diffWorlds} from '../presentation/world-diff';
 import {createWorldComposition,describeScenarios,emptyComposition} from '../presentation/world-composition';
@@ -75,8 +90,24 @@ const history=createWorldHistory(hudRoot,{onCreateVersion,onExport,onImport,onBr
 // others (src/presentation/hud.ts).
 const scenarios=createWorldComposition(hudRoot,{onCompare:compareFutures,onRegion});
 scenarios.update(emptyComposition('Compare dois futuros do lugar sob a câmera.'));
+// --- the cooperative session (spec §6.3, §7; plan Tarefa 9) -----------------------------------------------------
+// A session opens on its own branch, forked from the version the player is looking at: what a friend builds lands
+// there, so an invite never overwrites the personal save and leaving the session is not a regression of the personal
+// game. Only one participant orders that branch, and this is where the client says which one it is.
+const verifier=ed25519Verifier();
+const registry=createKernel();
+const SPEND_LIMIT=1_000_000;
+type LiveSession={host:HostSession;peers:WebRtcPeers;transport:SessionTransport;branchId:string;sessionId:string};
+let live:LiveSession|null=null;
+// The panel exists before the hud so the hud picks it up as one more card the player can drag and collapse.
+// A flow that fails has to say so: a rejection dropped by a click handler is a session that never opened and a panel
+// that lies about it, so every async flow reports what happened.
+function guarded(flow:()=>Promise<void>):void{
+ void flow().catch(error=>{sessions.notify(describeWorldError(error));updateHud();});
+}
+const multiplayer=createMultiplayerPanel(hudRoot,{onCreate:()=>guarded(createCooperativeSession),onJoin:text=>guarded(()=>joinCooperativeSession(text)),onInvite:shareInvite,onLeave:()=>guarded(()=>closeCooperativeSession()),onContinueLocal:()=>guarded(()=>closeCooperativeSession('A partida continua na versão pessoal; a versão compartilhada ficou na ramificação da sessão.'))});
 const hud=createHud(hudRoot,{onTool,onSpeed,onPlace,onRetryMap,onOverwriteSave,onOverview,onZoomStep,onNorth});
-const clock=createTickClock(()=>{session.dispatch({type:'tick'});});
+const clock=createTickClock(()=>{void sessions.tick();});
 const requested=new Set<string>();
 // The live branch the game commits to, the version the panel is showing, and the queue that keeps one publication at
 // a time: two actions arriving together must not both compare the same head.
@@ -89,9 +120,29 @@ let camera:Camera={x:0,y:0,zoom:1,rotation:0};
 let speed:Speed=0,tool:SelectedTool='explore',place=START,hover:CellCoord|null=null,stroke:readonly CellCoord[]|null=null;
 let preview:readonly CellCoord[]=[],affordable=true,costMessage='',loadMessage='',notice='',revision=0,active=false;
 let chunks:ReadonlyMap<string,ChunkStatus>=new Map();
+// The view reads the live branch through `head`, so it is created once the game's own state exists: a session view
+// that ran before those declarations would read a name that is not initialized yet.
+const sessions=createGameSessionView({
+ worldId:WORLD_ID,
+ branchId:BRANCH_ID,
+ local:session,
+ head:()=>worldHead,
+ commit:(action,state)=>checkpoint(state,actionLabel(action,action.type==='build'||action.type==='demolish'?action.cells:[])),
+ quote:(action,state)=>quoteAction(state,action,availableBases()),
+ registry,
+ ephemeral:{send:sendPresence},
+ self:'local-device',
+ now:()=>new Date().toISOString(),
+ monotonic:()=>Date.now(),
+});
 const viewport=():Viewport=>({width:canvas.width,height:canvas.height});
 const currentView=():ViewState=>({x:camera.x,y:camera.y,zoom:camera.zoom,speed,place,rotation:camera.rotation});
-const stateOf=():GameState|null=>{try{return session.getState();}catch{return null;}};
+const stateOf=():GameState|null=>{
+ // While a session owns the branch, the city on screen is the version the session confirmed on this device: the
+ // personal session is not the authority for that branch.
+ if(sessions.mode()!=='local')return sessions.state();
+ try{return session.getState();}catch{return null;}
+};
 let statsState:GameState|null=null,cachedStats:CityStats=EMPTY_STATS;
 // Every accepted command and every tick replaces the state object, so identity is enough to know when summarizing
 // again is worth it — the HUD refreshes on each pointer move while panning.
@@ -128,8 +179,10 @@ const refreshPreview=()=>{
  if(costEl)costEl.textContent=costMessage;
 };
 const updateHud=()=>{
- const save=session.getSaveStatus();
+ sessions.setPersistence(deviceSave());
+ const save=hudSave();
  hud.update({stats:statsOf(),tool,speed,place,attribution:maps.attribution,mapMessage:loadMessage,notice,saveStatus:save,canOverwriteSave:save.blocked,rotation:camera.rotation});
+ multiplayer.update(sessions.describe());
 };
 const loadVisible=async()=>{
  const visible=visibleChunks(camera,viewport()),statusOf=(id:string)=>session.getChunk(id);
@@ -151,8 +204,10 @@ const loadVisible=async()=>{
   if(coarse.length)await session.loadVisible(coarse,'overview');
   if(detailed.length)await session.loadVisible(detailed);
   loadMessage='';
+  sessions.setSourceError(null);
  }catch{
   loadMessage=messageOf();
+  sessions.setSourceError(loadMessage);
   refreshChunks();refreshPreview();updateHud();
   return; // a failed batch is retried by the player, not by an endless automatic loop
  }
@@ -168,7 +223,9 @@ const loadDetailFor=(cells:readonly CellCoord[])=>{
  void session.loadVisible(ids).then(()=>{refreshChunks();refreshPreview();updateHud();});
 };
 const scheduleLoad=createDebounce(()=>{void loadVisible();},LOAD_DEBOUNCE);
-const saveNow=()=>{void session.save(currentView());};
+// The personal save never claims the work of a session: while the branch belongs to a session, the session's own
+// durable confirmation is what says the device has the version.
+const saveNow=()=>{if(sessions.mode()!=='local')return;void session.save(currentView());};
 const scheduleSave=createDebounce(saveNow,SAVE_DEBOUNCE);
 const setCamera=(next:Camera)=>{
  camera={...next,zoom:clampZoom(next.zoom),rotation:normalizeAngle(next.rotation)};
@@ -216,13 +273,137 @@ async function refreshHistory():Promise<void>{
  if(versions&&!versions.ok)worldMessage=versions.error.message;
  shownVersions=versions&&versions.ok?versions.value:[];
 }
-function queueWorld(task:()=>Promise<void>):void{
+function queueWorld(task:()=>Promise<void>):Promise<void>{
  worldBusy=true;
  updateHistoryPanel();
  worldQueue=worldQueue.then(task).catch(error=>{worldMessage=describeWorldError(error);}).then(()=>{
   worldBusy=false;
   updateHistoryPanel();
  });
+ return worldQueue;
+}
+// --- cooperative session flows (spec §6.3, §7.4) ---------------------------------------------------------------
+// Frames addressed to this client's own peer stay on the device — that is where a client presents its identity to the
+// session it hosts — and every other peer goes to the WebRTC transport. Without the local half, a host would need a
+// network round trip to talk to itself before it could accept its own proposal.
+function localFirst(transport:SessionTransport,self:string):SessionTransport{
+ const listeners=new Set<SessionListener>();
+ return {
+  async send(peer,message){
+   if(peer===self){for(const listener of [...listeners])listener(self,message);return;}
+   await transport.send(peer,message);
+  },
+  subscribe(listener){
+   listeners.add(listener);
+   const stop=transport.subscribe(listener);
+   return()=>{listeners.delete(listener);stop();};
+  },
+ };
+}
+// Presence has its own port and its own class of traffic (§7.3): disposable, never queued, never part of history and
+// never carrying the camera. With nobody connected there is nobody to tell.
+function sendPresence(statement:PresenceStatement):void{
+ const current=live;
+ if(!current)return;
+ const session={worldId:WORLD_ID,branchId:current.branchId,sessionId:current.sessionId,epoch:1};
+ for(const peer of current.peers.connected())void current.transport.send(peer,presenceFrame(session,statement,`presence.${Date.now().toString(36)}`)).catch(()=>undefined);
+}
+// The device's own report is the personal session's: only it writes this device's save slot. It is also what the
+// session view reads, which is why the summary line below is a different function — a report that asked the view about
+// itself would be a loop.
+function deviceSave():SaveStatus{return session.getSaveStatus();}
+// While a session owns the branch the personal session is not the one writing, and a "Salvo" that ignored a pending
+// durable confirmation would be exactly the false claim §6.3 forbids. The session's own panel carries the full state.
+function hudSave():SaveStatus{
+ if(sessions.mode()==='local')return deviceSave();
+ const status=sessions.status();
+ if(status.kind==='storage-error')return {status:'error',blocked:false,message:status.detail};
+ if(status.kind==='pending')return {status:'saving',blocked:false};
+ if(status.kind==='paused'||status.kind==='source-error')return {status:'idle',blocked:false};
+ return {status:'saved',blocked:false};
+}
+function sessionBranchId(taken:ReadonlySet<string>):string{
+ let branchId='sessao-1';
+ for(let next=2;taken.has(branchId);next+=1)branchId=`sessao-${next}`;
+ return branchId;
+}
+async function createCooperativeSession():Promise<void>{
+ if(sessions.mode()!=='local'){sessions.notify('Já existe uma sessão aberta nesta partida.');updateHud();return;}
+ const base=shownHead??worldHead;
+ if(!base){sessions.notify('Nenhuma versão aberta para compartilhar.');updateHud();return;}
+ try{
+  const known=await worlds.branches(WORLD_ID);
+  const forked=await worlds.fork(base,{worldId:WORLD_ID,branchId:sessionBranchId(new Set((known.ok?known.value:[]).map(head=>head.branchId)))});
+  if(!forked.ok)throw new Error(forked.error.message);
+  const branchId=forked.value.branchId,sessionId=`${WORLD_ID}-${branchId}`,epoch=1,startedAt=new Date();
+  const root=await generateSessionKeyPair(),keys=await generateSessionKeyPair();
+  const principal={scheme:'local',id:root.publicKey};
+  const bound=await localIdentityProvider({root,session:keys,codec}).bindSession({principal,scope:{worldId:WORLD_ID,branchId,sessionId,notBefore:startedAt.toISOString(),notAfter:new Date(startedAt.getTime()+12*3600_000).toISOString()}});
+  if(!bound.ok)throw new Error(bound.error.message);
+  // A local principal is its root key: what this device signs with is what this device is (src/adapters/crypto/session-keys.ts).
+  const unsigned:Grant={kind:'grant',id:`proprietario-${sessionId}`,principal,worldId:WORLD_ID,branchId,actions:['build','demolish','component','tick'],namespaces:[],spendLimit:SPEND_LIMIT,proof:{kind:'message',algorithm:'Ed25519',sessionKey:root.publicKey,signature:''}};
+  const grant:Grant={...unsigned,proof:{kind:'message',algorithm:'Ed25519',sessionKey:root.publicKey,signature:await signEd25519(root,grantBytes(unsigned,codec))}};
+  const scope={worldId:WORLD_ID,branchId,sessionId,epoch};
+  const signer={key:keys.publicKey,sign:(bytes:Uint8Array)=>signEd25519(keys,bytes)};
+  // The transport is the WebRTC one, dialed by the signaling adapter when a peer's signal arrives: with nobody bound
+  // yet it carries nothing, and the invite a person copies is the §23 descriptor of the session.
+  const peers=createWebRtcPeers({codec,actor:`local:${root.publicKey}`,session:scope,signer,signaling:createManualSignaling({codec,verifier,session:scope,bindings:{}}),hasher,relay:{stun:['stun:stun.l.google.com:19302']}});
+  const transport=localFirst(peers.transport,'local-device');
+  const host=createHostSession({repository:worlds,transport,peer:'local-device',head:forked.value,identity:bound.value,grants:[grant],rules:{family:'city',version:1},bases:maps,verifier,codec,hasher,now:()=>startedAt.toISOString(),sessionId,epoch,peers:[]});
+  live={host,peers,transport,branchId,sessionId};
+  await sessions.attach(hostSessionLink(host,{worldId:WORLD_ID,branchId,sessionId,epoch,principal,sessionKey:keys.publicKey,signer,codec,costLimit:SPEND_LIMIT,transport,peer:'local-device',identity:bound.value,grants:[grant]}));
+  clock.setRole('host');
+  shownHead=forked.value;
+  sessions.notify('Sessão aberta nesta versão: construa com os amigos e use Convidar para copiar o convite.');
+  await refreshHistory();
+ }catch(error){
+  sessions.notify(describeWorldError(error));
+ }
+ updateHistoryPanel();updateHud();
+}
+function shareInvite():void{
+ const descriptor=sessions.descriptor();
+ if(!descriptor){sessions.notify('Crie a sessão antes de convidar.');updateHud();return;}
+ const text=sessionText(descriptor,codec);
+ sessions.setInvite(text);
+ sessions.notify('Convite pronto: passe este texto para o amigo e cole o dele em Entrar.');
+ void navigator.clipboard?.writeText(text).catch(()=>undefined);
+ updateHud();
+}
+// A pasted invite names a session either by its URI or by the §23 document a person copied: both name the same object.
+function inviteUri(text:string):string|null{
+ if(text.startsWith('osim:session:'))return text.split(/\s/)[0]??null;
+ const parsed=parseStrictJson(text,MAX_DEPTH);
+ if(!parsed.ok)return null;
+ const value=parsed.value;
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const id=(value as Record<string,JsonValue>)['id'];
+ return typeof id==='string'&&id.startsWith('osim:session:')?id:null;
+}
+async function joinCooperativeSession(text:string):Promise<void>{
+ if(sessions.mode()!=='local'){sessions.notify('Feche a sessão atual antes de entrar em outra.');updateHud();return;}
+ const uri=inviteUri(text.trim());
+ if(!uri){sessions.notify('O convite colado não nomeia uma sessão.');updateHud();return;}
+ const found=await sessions.resolveSession(uri);
+ sessions.notify(found.ok&&found.value
+  ? `Sessão ${found.value.sessionId}: ${found.value.worldId}/${found.value.branchId}, época ${found.value.epoch}, ${found.value.participants.length} participante(s). O canal com o anfitrião espera o sinal assinado (Tarefa 8).`
+  : `Convite recusado: ${found.ok?'descritor ausente':found.error.message}`);
+ updateHud();
+}
+// Leaving revokes the collaboration: the link goes, presence stops, the invite is dropped, and the personal version is
+// what is on screen again. The session's branch keeps the work that was confirmed, in the Versões panel.
+async function closeCooperativeSession(reason?:string):Promise<void>{
+ const closing=live;
+ if(!closing)return;
+ live=null;
+ closing.peers.close();
+ clock.setRole('local');
+ clock.setSpeed(speed);
+ shownHead=worldHead;
+ await sessions.leave(reason??`Sessão encerrada. A versão compartilhada ficou em ${closing.branchId}; a partida segue na versão pessoal.`);
+ saveNow();
+ await refreshHistory();
+ updateHistoryPanel();updateHud();
 }
 // The first version of this city is the state the player already has: a legacy save becomes generation 1 of `main`,
 // and the origin of the package says that no earlier history was invented for it.
@@ -244,8 +425,9 @@ async function openWorld():Promise<void>{
 }
 // Player actions become checkpoints; ticks do not, so the history stays a list of decisions instead of a list of
 // seconds. A change that repeats the current snapshot is not recorded at all by the repository.
-function checkpoint(state:GameState,label:string):void{
- queueWorld(async()=>{
+async function checkpoint(state:GameState,label:string):Promise<Head|null>{
+ let published:Head|null=null;
+ await queueWorld(async()=>{
   const expected=worldHead;
   if(!expected)return;
   // The version records the typed operations the command produced, not only the sentence the panel shows: a comparison
@@ -258,8 +440,10 @@ function checkpoint(state:GameState,label:string):void{
   }
   worldHead=result.value;
   shownHead=result.value;
+  published=result.value;
   await refreshHistory();
  });
+ return published;
 }
 function actionLabel(action:Action,cells:readonly CellCoord[]):string{
  if(action.type==='demolish')return `Demoliu ${cells.length} célula(s)`;
@@ -428,15 +612,24 @@ async function compareFutures():Promise<void>{
 function onOverview(){setCamera(zoomTo(camera,viewport(),MIN_ZOOM));}
 function onZoomStep(direction:1|-1){setCamera(zoomTo(camera,viewport(),camera.zoom*(direction>0?1.25:.8)));}
 function onNorth(){setCamera(rotateTo(camera,viewport(),0));}
+// One entry point for what the player asks: the personal session when the branch is this device's, the live session
+// when it is not. A refusal restores the selection and the preview with the fresh numbers the version brought
+// (§7.4 step 3) instead of throwing the player's work away.
 function commit(cells:readonly CellCoord[]){
  stroke=null;
  const action=actionFor(cells);
  if(!action)return;
- const result=session.dispatch(action);
- notice=result.status==='rejected'?(result.reason??'Ação recusada'):'';
- if(result.status==='rejected'&&result.reason?.includes('Espere o mapa carregar'))loadDetailFor(cells);
- if(result.status==='applied')checkpoint(result.state,actionLabel(action,cells));
- refreshPreview();refreshChunks();updateHud();
+ void sessions.submitAction(action).then(receipt=>{
+  const refused=sessions.refusal();
+  if(refused){
+   stroke=refused.cells.length?refused.cells:null;
+   notice=refused.preview?`${refused.reason} · ${refused.preview.money} neste dispositivo · custo ${refused.preview.cost}`:refused.reason;
+   if(refused.reason.includes('Espere o mapa carregar'))loadDetailFor(cells);
+  }else notice='';
+  refreshPreview();refreshChunks();updateHud();
+  // A session persists its own versions; the personal session already refreshed the history in its checkpoint.
+  if(sessions.mode()!=='local'&&(receipt.status==='accepted'||receipt.status==='duplicate'))void refreshHistory();
+ });
 }
 // The drawing buffer is half the CSS size (times the pixel ratio) and CSS stretches it back, keeping the chunky look.
 const resize=()=>{
@@ -473,6 +666,7 @@ async function start(){
  }
  revision=session.getState().revision;
  clock.setHidden(document.hidden);clock.setSpeed(speed);
+ sessions.setHostVisible(!document.hidden);
  session.subscribe(()=>{
   const state=session.getState();
   if(state.revision!==revision){revision=state.revision;scheduleSave();}
@@ -499,6 +693,9 @@ async function start(){
  });
  document.addEventListener('visibilitychange',()=>{
   clock.setHidden(document.hidden);
+  // A browser in a background tab is not a promise: while the host is hidden the session reports itself as paused.
+  sessions.setHostVisible(!document.hidden);
+  updateHud();
   if(document.hidden)saveNow();
  });
  window.addEventListener('pagehide',()=>saveNow());
@@ -507,6 +704,8 @@ async function start(){
  // A device that cannot keep the history must not stop the game from opening: the failure stays in the panel and the
  // player keeps playing the state the session already restored.
  await openWorld().catch(error=>{worldMessage=describeWorldError(error);updateHistoryPanel();});
+ // The panels read the branch that just opened: the session card shows the version it will share.
+ updateHud();
  requestAnimationFrame(draw);
 }
 void start();
