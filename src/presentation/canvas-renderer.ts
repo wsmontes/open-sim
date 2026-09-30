@@ -297,7 +297,10 @@ function renderMosaic(ctx:CanvasRenderingContext2D,view:WorldView,box:Box):void{
     if(sx+reach<0||sx-reach>viewport.width||sy+reachH<0||sy-reachH>viewport.height)continue;
    }else if(p.x+reach<0||p.x-reach>viewport.width||p.y+reachH<0||p.y-reachH>viewport.height)continue;
    ctx.fillStyle=blocks[by*BLOCKS+bx]!;
-   diamond(ctx,p.x,p.y,reach,reachH);
+   // A turned diamond is expensive to rasterize, and at a wide zoom a block is only a few pixels across: drawing
+   // it as its bounding square is visually the same thing at a fraction of the cost.
+   if(turned&&reach*2<5)ctx.fillRect(p.x-reach,p.y-reachH,reach*2,reachH*2);
+   else diamond(ctx,p.x,p.y,reach,reachH);
   }
  }
 }
