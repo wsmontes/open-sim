@@ -8,7 +8,14 @@ function nearLine(p:CellCoord,rings:CellCoord[][],width:number){for(const ring o
  const a=ring[i-1],b=ring[i],dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));
  if((p.x-a.x-t*dx)**2+(p.y-a.y-t*dy)**2<=width*width)return true;
 }return false;}
-const green=/forest|wood|grass|park|garden|meadow|scrub|recreation|heath|farmland/;
+// Explicit kind tables from the Shortbread schema. Substring matching is wrong here: /park/ also matches the
+// `parking` sites and /wood/ matches `wood_polygons`-style kinds, which turned parking lots and odd areas into green.
+const GREEN:Record<string,true>={park:true,garden:true,grass:true,forest:true,wood:true,meadow:true,scrub:true,heath:true,farmland:true,orchard:true,vineyard:true,allotments:true,village_green:true,recreation_ground:true,nature_reserve:true,golf_course:true,cemetery:true};
+const LAND_USE:Record<string,true>={residential:true,commercial:true,industrial:true};
+// Only ways a car can use may become road cells. Measured on real tiles (2026-09-29): counting footways, steps, paths,
+// cycleways and plazas as roads covered 55-59% of a downtown chunk and overwrote the imported buildings with asphalt.
+const DRIVEABLE=/^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road)(_link)?$/;
+const PAVED=/^(pedestrian|service)$/;
 export function normalizeChunk(id:string,features:readonly MapFeature[],source='OpenStreetMap · Shortbread v1'):BaseChunk {
  const origin=chunkOrigin(id);const cells=Array.from({length:CHUNK*CHUNK},()=>({terrain:'land'} as BaseChunk['cells'][number]));
  const landUse=new Map<number,Building>();
@@ -25,13 +32,13 @@ export function normalizeChunk(id:string,features:readonly MapFeature[],source='
    const p={x:origin.x+x+.5,y:origin.y+y+.5};if(!(f.type===3?inside(p,f.geometry):nearLine(p,f.geometry,width)))continue;
    const i=y*32+x,c=cells[i];
    if(f.layer==='land'||f.layer==='sites'){
-    if(green.test(f.kind))c.terrain='green';
-    if(['residential','commercial','industrial'].includes(f.kind))landUse.set(i,f.kind as Building);
+    if(GREEN[f.kind]===true)c.terrain='green';
+    if(LAND_USE[f.kind]===true)landUse.set(i,f.kind as Building);
    }else if(f.layer==='ocean'||f.layer.startsWith('water'))cells[i]={terrain:'water'};
    else if(f.layer==='buildings'&&c.terrain!=='water'){
     const hash=variant(origin.x+x,origin.y+y)%10;
     cells[i]={terrain:c.terrain,building:landUse.get(i)??(hash<7?'residential':hash<9?'commercial':'industrial'),stage:1,origin:'imported'};
-   }else if((f.layer==='streets'||f.layer==='street_polygons')&&(c.terrain!=='water'||f.bridge))cells[i]={terrain:c.terrain,road:true,origin:'imported'};
+   }else if(((f.layer==='streets'&&DRIVEABLE.test(f.kind))||(f.layer==='street_polygons'&&PAVED.test(f.kind)))&&(c.terrain!=='water'||f.bridge))cells[i]={terrain:c.terrain,road:true,origin:'imported'};
   }
  }
  return{id,source,normalizerVersion:1,cells};

@@ -4,3 +4,14 @@ const polygon=(layer:string,rings:number[][][]):MapFeature=>({layer,kind:'',brid
 test('polygon holes and ocean coast preserve land inside the hole',()=>{const b=normalizeChunk('0:0',[polygon('ocean',[[[0,0],[32,0],[32,32],[0,32],[0,0]],[[2,2],[4,2],[4,4],[2,4],[2,2]]])]);expect(b.cells[0].terrain).toBe('water');expect(b.cells[2*32+2].terrain).toBe('land');});
 test('a footprint crossing regions preserves occupation at both edges',()=>{const f=polygon('buildings',[[[30,2],[34,2],[34,4],[30,4],[30,2]]]);expect(normalizeChunk('0:0',[f]).cells[2*32+31].building).toBeTruthy();expect(normalizeChunk('1:0',[f]).cells[2*32].building).toBeTruthy();});
 test('only an explicit bridge may carry a street over water',()=>{const ocean=polygon('ocean',[[[0,0],[32,0],[32,32],[0,32],[0,0]]]);const road:MapFeature={layer:'streets',kind:'residential',bridge:false,type:2,geometry:[[{x:0,y:.5},{x:32,y:.5}]]};expect(normalizeChunk('0:0',[ocean,road]).cells[0].road).toBeUndefined();expect(normalizeChunk('0:0',[ocean,{...road,bridge:true}]).cells[0].road).toBe(true);});
+const line=(layer:string,kind:string,points:number[][]):MapFeature=>({layer,kind,bridge:false,type:2,geometry:[points.map(([x,y])=>({x,y}))]});
+test('only driveable ways become roads',()=>{
+ const road=(kind:string)=>normalizeChunk('0:0',[line('streets',kind,[[0,.5],[30,.5]])]).cells[0].road;
+ for(const kind of ['footway','steps','path','cycleway','pedestrian','bridleway','rail','subway','track','ferry','','(unknown)'])expect(road(kind)).toBeUndefined();
+ for(const kind of ['residential','service','unclassified','tertiary','secondary','primary','trunk','motorway','living_street','road','primary_link'])expect(road(kind)).toBe(true);
+});
+test('parking sites and non-green land uses stay land while parks turn green',()=>{
+ const terrain=(layer:string,kind:string)=>normalizeChunk('0:0',[{...polygon(layer,[[[0,0],[32,0],[32,32],[0,32],[0,0]]]),kind}]).cells[0].terrain;
+ for(const kind of ['park','forest','grass','garden','meadow','scrub','farmland','recreation_ground','cemetery'])expect(terrain('land',kind)).toBe('green');
+ for(const kind of ['parking','bicycle_parking','construction','commercial','residential','industrial','retail','(unknown)'])expect(terrain('sites',kind)).toBe('land');
+});
