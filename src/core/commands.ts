@@ -1,3 +1,4 @@
+import {stepSimulation} from './simulation';
 import type {Action,BaseChunk,Command,CommandResult,GameState} from './model';
 import {COST} from './model';
 import {adopt,getCell} from './world';
@@ -14,7 +15,7 @@ export function applyCommand(state:GameState,c:Command,available:readonly BaseCh
  const a:Action=c.action;
  if(!a||!['build','demolish','tick'].includes(a.type))return reject('Ação inválida');
  let next:GameState={...state,chunks:{...state.chunks},actors:{...state.actors}};
- if(a.type==='tick')return reject('Relógio ainda indisponível');
+ if(a.type==='tick')return {status:'applied',state:{...stepSimulation(state),revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
  if(!Array.isArray(a.cells)||!a.cells.length||a.cells.length>1024||a.cells.some(p=>!p||!validCell(p)))return reject('Seleção inválida');
  if(a.type==='build'&&!Object.hasOwn(COST,a.tool))return reject('Ferramenta inválida');
  const unique=[...new Map(a.cells.map(p=>[`${p.x}:${p.y}`,p])).values()];

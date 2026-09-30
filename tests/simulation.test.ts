@@ -1,0 +1,10 @@
+import {expect,test} from 'vitest';
+import {createGame,applyCommand} from '../src/core/commands';
+import {stepSimulation,summarize} from '../src/core/simulation';
+import {blank,command} from './fixtures/world';
+import {adopt} from '../src/core/world';
+function setup(){const b=blank();b.cells[0]={terrain:'land',road:true};b.cells[1]={terrain:'land',building:'residential',stage:0,origin:'player'};b.cells[2]={terrain:'land',building:'power',stage:1};return createGame('world',42,b);}
+test('grows only with a street and available power',()=>{const s=setup();let a=s;for(let i=0;i<5;i++)a=stepSimulation(a);expect(summarize(a).population).toBe(4);expect(summarize(s).population).toBe(0);for(const index of [0,2]){const b=setup();b.chunks['0:0'].base.cells[index]={terrain:'land'};let c=b;for(let i=0;i<5;i++)c=stepSimulation(c);expect(summarize(c).population).toBe(0);}});
+test('imported homes start occupied with baseline energy and survive demolition correctly',()=>{const b=blank();b.cells[0]={terrain:'land',building:'residential',stage:1,origin:'imported'};let s=createGame('w',1,b);expect(summarize(s)).toMatchObject({population:4,energySupply:2,energyUsed:2,income:0});s=applyCommand(s,command(s,{type:'demolish',cells:[{x:0,y:0}]}),[]).state;expect(summarize(s).population).toBe(0);});
+test('tick order and region insertion order cannot change economic results',()=>{const a=setup();const b=blank('2:0');b.cells[0]={terrain:'land',building:'commercial',stage:1};a.chunks['2:0']=adopt(b);const reverse={...a,chunks:Object.fromEntries(Object.entries(a.chunks).reverse())};let x=a,y=reverse;for(let i=0;i<30;i++){x=stepSimulation(x);y=stepSimulation(y);}expect(summarize(x)).toEqual(summarize(y));expect(x.chunks).toEqual(y.chunks);expect(summarize(x).jobs).toBe(6);});
+test('tick command advances logical time once even on retry',()=>{const s=setup(),c=command(s,{type:'tick'}),a=applyCommand(s,c,[]);expect(a.state.tick).toBe(1);expect(applyCommand(a.state,c,[]).state.tick).toBe(1);});
