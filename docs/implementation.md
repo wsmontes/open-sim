@@ -70,9 +70,16 @@ interface SaveStore {
 
 ### Apresentação
 
-`src/presentation/` é receita, não biblioteca de framework: `camera.ts` (projeção isométrica 32×16, `project`/`pick`/`centerOn`/`visibleChunks`), `canvas-renderer.ts` (`render(ctx, WorldView)`, desenho determinístico derivado das coordenadas e da semente), `input.ts` (`attachInput`, traço de rua deduplicado), `hud.ts` (barra de ferramentas, indicadores, lugares, mensagens; recebe estado e callbacks) e `clock.ts` (relógio de ticks).
+`src/presentation/` é receita, não biblioteca de framework: `camera.ts` (projeção isométrica 32×16, `project`/`pick`/`centerOn`/`visibleChunks`/`zoomTo`/`closestChunks`, zoom de 0,05× a 3×), `canvas-renderer.ts` (`render(ctx, WorldView)`), `input.ts` (`attachInput`, traço de rua deduplicado), `hud.ts` (barra de ferramentas, indicadores, lugares, mensagens; recebe estado e callbacks) e `clock.ts` (relógio de ticks).
+
+Duas escalas de desenho convivem, escolhidas por `isCoarse` (passo de célula abaixo de `COARSE_STEP` = 6 pixels de buffer):
+
+- **zoom de célula** (acima do limiar): um losango por célula, com telhado, fachada, árvores e vias desenhados a partir das coordenadas e da semente. A ordem de pintura é estável (linhas de `x+y` crescente) e o que a câmera não vê é recortado.
+- **mosaico de trecho** (zoom amplo): a cidade inteira não caberia célula a célula — a 0,05× uma célula tem menos de dois pixels e uma tela larga cobre centenas de trechos. `aggregateCells` resume cada trecho em 8×8 blocos de 4×4 células cuja cor segue o que domina o bloco (água, asfalto, vegetação ou o telhado do tipo mais frequente; blocos mistos usam a média ponderada). O resultado é determinístico, reage às edições do jogador, fica em cache por trecho (invalidado por revisão nos trechos administrados) e mantém 60 fps com a cidade toda na tela. Área ainda carregando ou com erro continua com o padrão de hachura, nunca com terreno inventado.
 
 Trocar o desenho é escrever outra função `render` que consuma o mesmo `WorldView` — ela recebe câmera, viewport, estado, status de trechos, seleção e prévia, e nada de HTTP ou armazenamento. Trocar os controles é outro `attachInput` com os mesmos callbacks. Um cliente com WebGL, terminal ou canvas de desktop não precisa tocar no núcleo.
+
+O carregamento é racionado: `visibleChunks` resolve os trechos visíveis (passo em nível de trecho, não de célula), `closestChunks` escolhe até 48 por passada a partir do centro da tela e o cliente agenda novas passadas enquanto sobrar área por preencher. Falha de rede não dispara novas tentativas automáticas — o jogador decide pelo botão. Na prática, ver Vancouver inteira e os arredores a 0,05× custou **8 tiles** para 412 trechos visíveis.
 
 ## Mapa real
 

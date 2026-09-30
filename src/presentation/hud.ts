@@ -10,6 +10,7 @@ export type HudCallbacks = {
  onPlace(place:string):void;
  onRetryMap():void;
  onOverwriteSave():void;
+ onOverview():void;
 };
 export type HudInfo = {
  stats:CityStats;
@@ -18,6 +19,7 @@ export type HudInfo = {
  place:string;
  attribution:{text:string;url:string};
  mapMessage:string;
+ notice:string;
  saveStatus:SaveStatus;
  canOverwriteSave:boolean;
 };
@@ -36,7 +38,7 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
  const listeners:Array<{target:EventTarget;type:string;handler:EventListener}>=[];
  const on=(target:EventTarget,type:string,handler:EventListener)=>{target.addEventListener(type,handler);listeners.push({target,type,handler});};
  const place=el('#hud-place'),money=el('#hud-money'),population=el('#hud-population'),energy=el('#hud-energy'),happiness=el('#hud-happiness');
- const message=el('#map-message'),retry=el('#map-retry'),saveStatus=el('#save-status'),overwrite=el('#save-overwrite');
+ const message=el('#map-message'),retry=el('#map-retry'),saveStatus=el('#save-status'),overwrite=el('#save-overwrite'),notice=el('#command-notice');
  const attribution=root.querySelector<HTMLAnchorElement>('#hud-attribution');
  const toolButtons=[...root.querySelectorAll<HTMLButtonElement>('[data-tool]')];
  const speedButtons=[...root.querySelectorAll<HTMLButtonElement>('[data-speed]')];
@@ -49,6 +51,7 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
  for(const button of root.querySelectorAll<HTMLButtonElement>('[data-place]'))on(button,'click',()=>callbacks.onPlace(button.dataset.place??''));
  on(retry,'click',()=>callbacks.onRetryMap());
  on(overwrite,'click',()=>callbacks.onOverwriteSave());
+ on(el('#hud-overview'),'click',()=>callbacks.onOverview());
  return {
   update(info){
    place.textContent=info.place;
@@ -70,6 +73,8 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
    message.textContent=info.mapMessage;
    message.hidden=!info.mapMessage;
    retry.hidden=!info.mapMessage;
+   notice.textContent=info.notice;
+   notice.hidden=!info.notice;
    saveStatus.textContent=saveText(info.saveStatus);
    overwrite.hidden=!info.canOverwriteSave;
    if(attribution){

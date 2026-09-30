@@ -29,8 +29,9 @@ label{color:#6d5f49;font-size:11px;text-transform:uppercase;letter-spacing:.04em
 .tool-cost::before{content:"$"}
 .tool-cost:empty{display:none}
 #cost-preview{display:inline-block;min-width:11em;font-variant-numeric:tabular-nums;font-weight:700;color:#3f6b3d}
-#map-message[hidden],#place-error[hidden],#map-retry[hidden],#save-overwrite[hidden]{display:none}
+#map-message[hidden],#command-notice[hidden],#place-error[hidden],#map-retry[hidden],#save-overwrite[hidden]{display:none}
 #map-message{color:#8c4a2f;font-weight:700}
+#command-notice{color:#8c4a2f}
 #save-status{color:#4c5f74}
 #place-error{color:#a3341f;margin:0;font-weight:700}
 #hud-attribution{margin-left:auto;color:#3d5f8f}

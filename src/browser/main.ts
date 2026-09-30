@@ -7,7 +7,7 @@ import {chunkId,toCell} from '../core/coordinates';
 import {quoteAction} from '../core/quote';
 import {summarize} from '../core/simulation';
 import type {Camera,Viewport} from '../presentation/camera';
-import {centerOn,clampZoom,pick,visibleChunks} from '../presentation/camera';
+import {centerOn,clampZoom,closestChunks,pick,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
 import type {WorldView} from '../presentation/canvas-renderer';
 import {render} from '../presentation/canvas-renderer';
 import {createTickClock} from '../presentation/clock';
@@ -15,7 +15,7 @@ import type {Speed} from '../presentation/clock';
 import {createHud} from '../presentation/hud';
 import type {SelectedTool} from '../presentation/hud';
 import {attachInput} from '../presentation/input';
-const WORLD_ID='open-sim',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878;
+const WORLD_ID='open-sim',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,LOAD_BUDGET=48;
 const PLACES:Record<string,{lat:number;lon:number}>={Vancouver:{lat:49.2827,lon:-123.1207},'São Paulo':{lat:-23.5505,lon:-46.6333},Lisboa:{lat:38.7223,lon:-9.1393}};
 const EMPTY_STATS:CityStats={money:0,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:0,income:0,managed:0};
 // One pending run per window: a burst coalesces into a single run that reads the newest state when it
@@ -45,7 +45,7 @@ const placeLat=hudRoot.querySelector<HTMLInputElement>('#place-lat');
 const placeLon=hudRoot.querySelector<HTMLInputElement>('#place-lon');
 const maps=createOsmSource();
 const session=createSession({maps,saves:createIndexedDbStore(),worldId:WORLD_ID,seed:SEED});
-const hud=createHud(hudRoot,{onTool,onSpeed,onPlace,onRetryMap,onOverwriteSave});
+const hud=createHud(hudRoot,{onTool,onSpeed,onPlace,onRetryMap,onOverwriteSave,onOverview});
 const clock=createTickClock(()=>{session.dispatch({type:'tick'});});
 const requested=new Set<string>();
 let camera:Camera={x:0,y:0,zoom:1};
@@ -83,21 +83,27 @@ const refreshPreview=()=>{
 };
 const updateHud=()=>{
  const save=session.getSaveStatus();
- hud.update({stats:statsOf(),tool,speed,place,attribution:maps.attribution,mapMessage:loadMessage||notice,saveStatus:save,canOverwriteSave:save.blocked});
+ hud.update({stats:statsOf(),tool,speed,place,attribution:maps.attribution,mapMessage:loadMessage,notice,saveStatus:save,canOverwriteSave:save.blocked});
 };
 const loadVisible=async()=>{
  const missing=visibleChunks(camera,viewport()).filter(id=>{const status=session.getChunk(id);return !status||status.status==='error';});
  if(!missing.length)return;
- for(const id of missing)requested.add(id);
+ // A wide view can hold hundreds of regions: fetch the ones nearest the viewport centre first and let the rest
+ // arrive in later passes, so a zoomed-out city never becomes a bulk download of the tile service.
+ const batch=closestChunks(missing,camera,viewport(),LOAD_BUDGET);
+ for(const id of batch)requested.add(id);
  loadMessage='Carregando mapa…';
  refreshChunks();updateHud();
  try{
-  await session.loadVisible(missing);
+  await session.loadVisible(batch);
   loadMessage='';
  }catch{
   loadMessage=messageOf();
+  refreshChunks();refreshPreview();updateHud();
+  return; // a failed batch is retried by the player, not by an endless automatic loop
  }
  refreshChunks();refreshPreview();updateHud();
+ if(missing.length>batch.length)scheduleLoad();
 };
 const scheduleLoad=createDebounce(()=>{void loadVisible();},LOAD_DEBOUNCE);
 const saveNow=()=>{void session.save(currentView());};
@@ -120,6 +126,7 @@ function onSpeed(next:Speed){speed=next;clock.setSpeed(next);scheduleSave();upda
 function onPlace(name:string){const target=PLACES[name];if(target)moveTo(target.lat,target.lon,name);}
 function onRetryMap(){if(active){void loadVisible();return;}void start();}
 function onOverwriteSave(){session.enableSaving();saveNow();}
+function onOverview(){setCamera(zoomTo(camera,viewport(),MIN_ZOOM));}
 function commit(cells:readonly CellCoord[]){
  stroke=null;
  const action=actionFor(cells);

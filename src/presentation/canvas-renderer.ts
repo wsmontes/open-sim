@@ -1,9 +1,10 @@
 import type {Building,Cell,CellCoord,GameState} from '../core/model';
-import {WORLD,cellIndex,chunkId,variant} from '../core/coordinates';
+import {CHUNK,WORLD,cellIndex,chunkId,variant} from '../core/coordinates';
+import {effectiveCells} from '../core/world';
 import type {ChunkStatus} from '../session/ports';
 import type {SelectedTool} from './hud';
 import type {Camera,Point,Viewport} from './camera';
-import {TILE_H,TILE_W,cellSpace,project} from './camera';
+import {TILE_H,TILE_W,cellSpace,isCoarse,project} from './camera';
 export type WorldView = {
  camera:Camera;
  viewport:Viewport;
@@ -39,16 +40,19 @@ export function render(ctx:CanvasRenderingContext2D,view:WorldView):void {
   const c=cellSpace({x:px,y:py},camera);
   minX=Math.min(minX,c.x);maxX=Math.max(maxX,c.x);minY=Math.min(minY,c.y);maxY=Math.max(maxY,c.y);
  }
- const x0=Math.floor(minX)-2,x1=Math.ceil(maxX)+2,y0=Math.floor(minY)-2,y1=Math.ceil(maxY)+2,lift=th*7;
- // Painter order: rows of equal x+y are drawn back to front, cells with the larger x+y land in front.
- for(let sum=x0+y0;sum<=x1+y1;sum++){
-  const from=Math.max(x0,sum-y1),to=Math.min(x1,sum-y0);
-  for(let x=from;x<=to;x++){
-   const y=sum-x;
-   if(y<0||y>=WORLD)continue;
-   const p=project({x,y},camera);
-   if(p.x+tw<0||p.x-tw>viewport.width||p.y+th+lift<0||p.y-th>viewport.height)continue;
-   drawTile(ctx,view,{x,y},p,tw,th);
+ if(isCoarse(camera))renderMosaic(ctx,view,{minX,maxX,minY,maxY});
+ else{
+  const x0=Math.floor(minX)-2,x1=Math.ceil(maxX)+2,y0=Math.floor(minY)-2,y1=Math.ceil(maxY)+2,lift=th*7;
+  // Painter order: rows of equal x+y are drawn back to front, cells with the larger x+y land in front.
+  for(let sum=x0+y0;sum<=x1+y1;sum++){
+   const from=Math.max(x0,sum-y1),to=Math.min(x1,sum-y0);
+   for(let x=from;x<=to;x++){
+    const y=sum-x;
+    if(y<0||y>=WORLD)continue;
+    const p=project({x,y},camera);
+    if(p.x+tw<0||p.x-tw>viewport.width||p.y+th+lift<0||p.y-th>viewport.height)continue;
+    drawTile(ctx,view,{x,y},p,tw,th);
+   }
   }
  }
  if(view.tool!=='explore')for(const cell of view.preview)drawMarker(ctx,view,cell,tw,th,view.previewAffordable?PREVIEW_OK:PREVIEW_BLOCKED,true);
@@ -176,13 +180,86 @@ function drawUnknown(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:
 }
 function drawMarker(ctx:CanvasRenderingContext2D,view:WorldView,cell:CellCoord,tw:number,th:number,style:{fill:string;line:string},strong:boolean) {
  const p=project(cell,view.camera);
- if(p.x+tw<0||p.x-tw>view.viewport.width||p.y+th<0||p.y-th>view.viewport.height)return;
+ // A cell is under two pixels wide at 0.05x: keep the preview and the hover outline big enough to be useful.
+ const w=Math.max(tw,4),h=Math.max(th,2);
+ if(p.x+w<0||p.x-w>view.viewport.width||p.y+h<0||p.y-h>view.viewport.height)return;
  ctx.fillStyle=style.fill;
- diamond(ctx,p.x,p.y,tw,th);
+ diamond(ctx,p.x,p.y,w,h);
  ctx.strokeStyle=style.line;
- ctx.lineWidth=Math.max(1,tw*(strong?.08:.04));
- if(strong)ctx.setLineDash([tw*.14,th*.18]);
- diamondPath(ctx,p.x,p.y,tw*.96,th*.96);
+ ctx.lineWidth=Math.max(1,w*(strong?.08:.04));
+ if(strong)ctx.setLineDash([w*.14,h*.18]);
+ diamondPath(ctx,p.x,p.y,w*.96,h*.96);
  ctx.stroke();
  ctx.setLineDash([]);
+}
+
+// --- Wide view: one mosaic block per 4x4 cells instead of one diamond per cell -------------------------------
+// At 0.05x a cell is under two pixels, so per-cell art is neither readable nor cheap. Each region is summarised
+// into 8x8 blocks coloured by what dominates them, which keeps a whole city on screen at 60 fps and stays
+// deterministic: the same cells always produce the same colours.
+const BLOCK=4,BLOCKS=CHUNK/BLOCK;
+const CLASS_RGB:Record<string,[number,number,number]>={water:[62,128,196],road:[139,145,153],green:[105,170,74],land:[127,190,88],
+ residential:[207,92,60],commercial:[74,119,190],industrial:[133,139,146],park:[79,158,70],power:[111,114,120]};
+const hex=([r,g,b]:[number,number,number])=>`#${[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('')}`;
+export function aggregateCells(cells:readonly Cell[],blocks=BLOCKS):string[]{
+ const size=CHUNK/blocks,out:string[]=[];
+ for(let by=0;by<blocks;by++)for(let bx=0;bx<blocks;bx++){
+  const counts:Record<string,number>={water:0,road:0,green:0,land:0,residential:0,commercial:0,industrial:0,park:0,power:0};
+  for(let y=by*size;y<(by+1)*size;y++)for(let x=bx*size;x<(bx+1)*size;x++){
+   const c=cells[y*CHUNK+x];
+   const category=c.building??(c.road?'road':c.terrain==='water'?'water':c.terrain==='green'?'green':'land');
+   counts[category]+=1;
+  }
+  const cells_in_block=size*size,ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+  const buildings=counts.residential+counts.commercial+counts.industrial+counts.power;
+  const [first]=ranked[0]!;
+  const share=(kind:string)=>counts[kind]/cells_in_block;
+  const colour=buildings/cells_in_block>=.45&&CLASS_RGB[first]?CLASS_RGB[first]!
+   :share('water')>=.45?CLASS_RGB.water
+   :share('road')>=.3?CLASS_RGB.road
+   :share('green')>=.45?CLASS_RGB.green
+   :(ranked.reduce((sum,[kind,count])=>{const rgb=CLASS_RGB[kind]!;return [sum[0]+rgb[0]*count,sum[1]+rgb[1]*count,sum[2]+rgb[2]*count];},[0,0,0]) as [number,number,number]).map(v=>v/cells_in_block) as [number,number,number];
+  out.push(hex(colour));
+ }
+ return out;
+}
+const mosaicCache=new Map<string,string[]>();
+function cachedMosaic(view:WorldView,id:string):string[]|null {
+ const managed=view.state.chunks[id],key=managed?`${id}#${view.state.revision}`:id,cached=mosaicCache.get(key);
+ if(cached)return cached;
+ const cells=managed?effectiveCells(managed):view.chunks.get(id)?.status==='ready'?(view.chunks.get(id) as {base:{cells:Cell[]}}).base.cells:null;
+ if(!cells)return null;
+ const blocks=aggregateCells(cells);
+ mosaicCache.set(key,blocks);
+ while(mosaicCache.size>512)mosaicCache.delete(mosaicCache.keys().next().value!);
+ return blocks;
+}
+type Box={minX:number;maxX:number;minY:number;maxY:number};
+function renderMosaic(ctx:CanvasRenderingContext2D,view:WorldView,box:Box):void{
+ const {camera,viewport}=view,span=BLOCK*TILE_W*camera.zoom,spanH=BLOCK*TILE_H*camera.zoom;
+ const firstX=Math.floor((box.minX-1)/CHUNK),lastX=Math.floor((box.maxX+1)/CHUNK);
+ const firstY=Math.max(0,Math.floor((box.minY-1)/CHUNK)),lastY=Math.min(WORLD/CHUNK-1,Math.floor((box.maxY+1)/CHUNK));
+ const regions:string[]=[];
+ for(let cy=firstY;cy<=lastY;cy++)for(let cx=firstX;cx<=lastX;cx++){
+  const x=cx*CHUNK,y=cy*CHUNK,centre=project({x:x+CHUNK/2,y:y+CHUNK/2},camera);
+  const halfW=CHUNK*TILE_W*camera.zoom,halfH=CHUNK*TILE_H*camera.zoom;
+  if(centre.x+halfW<0||centre.x-halfW>viewport.width||centre.y+halfH<0||centre.y-halfH>viewport.height)continue;
+  regions.push(`${cy*100000+cx}:${x}:${y}`);
+ }
+ // Back to front, then left to right inside each region, so the mosaic never depends on insertion order.
+ regions.sort((a,b)=>{const [ka,ax,ay]=a.split(':').map(Number),[kb,bx,by]=b.split(':').map(Number);return (Number(ax)+Number(ay))-(Number(bx)+Number(by))||ka-kb;});
+ for(const entry of regions){
+  const [,xs,ys]=entry.split(':');const x=Number(xs),y=Number(ys),id=chunkId({x,y});
+  const blocks=cachedMosaic(view,id);
+  if(!blocks){
+   const failed=view.chunks.get(id)?.status==='error';
+   drawUnknown(ctx,project({x:x+CHUNK/2,y:y+CHUNK/2},camera),CHUNK*TILE_W*camera.zoom,CHUNK*TILE_H*camera.zoom,variant(x,y,view.seed),failed);
+   continue;
+  }
+  for(let by=0;by<BLOCKS;by++)for(let bx=0;bx<BLOCKS;bx++){
+   const p=project({x:x+bx*BLOCK+BLOCK/2,y:y+by*BLOCK+BLOCK/2},camera);
+   ctx.fillStyle=blocks[by*BLOCKS+bx]!;
+   diamond(ctx,p.x,p.y,span,spanH);
+  }
+ }
 }

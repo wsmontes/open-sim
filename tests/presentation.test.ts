@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import {expect,test,vi} from 'vitest';
-import {MAX_ZOOM,MIN_ZOOM,TILE_H,TILE_W,centerOn,clampZoom,pick,project,visibleChunks} from '../src/presentation/camera';
+import {COARSE_STEP,MAX_ZOOM,MIN_ZOOM,TILE_H,TILE_W,cellSpace,centerOn,clampZoom,closestChunks,isCoarse,pick,project,visibleChunks,zoomTo} from '../src/presentation/camera';
+import {aggregateCells} from '../src/presentation/canvas-renderer';
 import {createTickClock} from '../src/presentation/clock';
 import {attachInput,beginStroke,extendStroke,strokeCells} from '../src/presentation/input';
 import {quoteAction} from '../src/core/quote';
@@ -24,7 +25,7 @@ test('the half diamond boundary picks the eastern neighbour',()=>{
  }
 });
 test('clampZoom saturates at the documented limits',()=>{
- expect(clampZoom(0.1)).toBe(MIN_ZOOM);expect(clampZoom(9)).toBe(MAX_ZOOM);expect(clampZoom(1.5)).toBe(1.5);
+ expect(clampZoom(0.001)).toBe(MIN_ZOOM);expect(clampZoom(9)).toBe(MAX_ZOOM);expect(clampZoom(1.5)).toBe(1.5);
 });
 test('centerOn keeps the cell on the viewport centre and preserves zoom',()=>{
  for(const zoom of [0.5,1,3])for(const viewport of [{width:321,height:197},{width:800,height:600}]){
@@ -162,4 +163,52 @@ test('quoteAction matches applyCommand costs and rejections case by case',()=>{
   if(quote.status==='ok'){expect(result.status,name).toBe('applied');expect(before.money-result.state.money,name).toBe(quote.cost);}
   else{expect(result.status,name).toBe('rejected');expect(quote.reason,name).toBeTruthy();}
  }
+});
+test('wide zoom fits a city and its surroundings and only the nearest regions are fetched',()=>{
+ expect(MIN_ZOOM).toBeLessThanOrEqual(0.1);
+ const viewport={width:1200,height:800},cell={x:100000,y:100000},camera=centerOn(cell,{x:0,y:0,zoom:MIN_ZOOM},viewport);
+ const ids=visibleChunks(camera,viewport);
+ expect(ids.length).toBeGreaterThan(60);
+ for(const id of ids)expect(()=>chunkOrigin(id),id).not.toThrow();
+ expect(ids).toContain(chunkId(cell));
+ expect(ids).toEqual([...new Set(ids)]);
+ const budget=closestChunks(ids,camera,viewport,12);
+ expect(budget).toHaveLength(12);
+ expect(new Set(budget).size).toBe(12);
+ expect(budget).toEqual(closestChunks(ids,camera,viewport,12));
+ expect(budget).toContain(chunkId(cell));
+ const centre=cellSpace({x:viewport.width/2,y:viewport.height/2},camera);
+ const distance=(id:string)=>{const origin=chunkOrigin(id);return Math.max(Math.abs(origin.x+16-centre.x),Math.abs(origin.y+16-centre.y));};
+ expect(Math.max(...budget.map(distance))).toBeLessThanOrEqual(Math.min(...ids.filter(id=>!budget.includes(id)).map(distance)));
+ expect(closestChunks(ids,camera,viewport,0)).toEqual([]);
+});
+test('changing the zoom keeps the same world cell under the viewport centre',()=>{
+ const viewport={width:900,height:600},camera=centerOn({x:42000,y:31000},{x:0,y:0,zoom:2},viewport);
+ for(const zoom of [MIN_ZOOM,0.25,1,MAX_ZOOM,99]){
+  const widened=zoomTo(camera,viewport,zoom),centre=cellSpace({x:viewport.width/2,y:viewport.height/2},widened);
+  expect(widened.zoom).toBe(clampZoom(zoom));
+  expect(Math.abs(centre.x-42000)).toBeLessThanOrEqual(0.01);
+  expect(Math.abs(centre.y-31000)).toBeLessThanOrEqual(0.01);
+ }
+});
+test('the renderer switches to region blocks only when a cell is too small to draw',()=>{
+ expect(isCoarse({x:0,y:0,zoom:MIN_ZOOM})).toBe(true);
+ expect(isCoarse({x:0,y:0,zoom:COARSE_STEP/TILE_W})).toBe(false);
+ expect(isCoarse({x:0,y:0,zoom:0.5})).toBe(false);
+ expect(isCoarse({x:0,y:0,zoom:MAX_ZOOM})).toBe(false);
+});
+test('region blocks summarise what dominates them and follow player edits',()=>{
+ const water=blank();for(let y=0;y<4;y++)for(let x=0;x<4;x++)water.cells[y*32+x]={terrain:'water'};
+ const roads=blank();for(let y=0;y<4;y++)for(let x=0;x<4;x++)roads.cells[y*32+x]={terrain:'land',road:true};
+ const homes=blank();for(let y=0;y<4;y++)for(let x=0;x<4;x++)homes.cells[y*32+x]={terrain:'land',building:'residential',stage:1};
+ const blocks=aggregateCells(blank().cells);
+ expect(blocks).toHaveLength(64);
+ for(const colour of blocks)expect(colour).toMatch(/^#[0-9a-f]{6}$/);
+ expect(aggregateCells(water.cells)[0]).toBe('#3e80c4');
+ expect(aggregateCells(roads.cells)[0]).toBe('#8b9199');
+ expect(aggregateCells(homes.cells)[0]).toBe('#cf5c3c');
+ expect(aggregateCells(water.cells)).toEqual(aggregateCells(water.cells));
+ const edited=blank();edited.cells[0]={terrain:'water'};
+ expect(aggregateCells(edited.cells)[0]).not.toBe(blocks[0]);
+ expect(aggregateCells(edited.cells).slice(1)).toEqual(blocks.slice(1));
 });

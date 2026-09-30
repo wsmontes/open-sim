@@ -30,7 +30,7 @@ Para conferir a portabilidade no navegador, rode `npm run dev` e abra `http://12
 
 - **Ferramentas** (barra inferior): explorar, rua, residencial, comércio, indústria, energia, parque e demolir, com o custo de cada uma. Esc volta para explorar.
 - **Construir**: clique ou arraste com a ferramenta ativa. Arrastar rua desenha um traço; células já ocupadas ficam bloqueadas e a prévia mostra o custo antes do clique (verde quando cabe no saldo, vermelha quando não).
-- **Câmera**: botão do meio ou espaço + arrasto desloca; a roda do mouse ajusta o zoom (0,5×–3×) ancorado no ponteiro.
+- **Câmera**: botão do meio ou espaço + arrasto desloca; a roda do mouse ajusta o zoom (0,05×–3×) ancorado no ponteiro, e **Visão geral** mostra a cidade inteira e os arredores. Em zoom amplo o desenho vira um mosaico de blocos por trecho (uma célula tem poucos pixels) e apenas os trechos mais próximos do centro da tela são baixados por vez, então ver a cidade toda custa poucos tiles.
 - **Tempo**: pausa, 1× (um tick por segundo) e 2× (dois por segundo). Com a aba oculta o relógio para e não compensa o tempo escondido.
 - **Lugares**: atalhos para Vancouver, São Paulo e Lisboa, ou latitude/longitude. Mudar de lugar só move a câmera: a partida e os trechos administrados continuam os mesmos. Apenas visitar uma região não dá dinheiro, população nem crescimento — ela entra na economia na primeira intervenção aceita.
 - **Salvamento**: automático (após alterações e ao ocultar a página) no IndexedDB do navegador. A barra inferior informa "Salvando…", "Salvo" ou o motivo da falha. Se o save guardado for ilegível ou de versão desconhecida, o jogo avisa e **não** sobrescreve sozinho — há um botão explícito para substituí-lo.
