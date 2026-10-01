@@ -44,13 +44,15 @@ test('worker failure falls back to the main decoder instead of breaking the map'
  expect(decoder.stats().path).toBe('main');
 });
 
-test('a map request failure does not permanently disable a healthy worker',async()=>{
+test('a map request failure is not duplicated and does not permanently disable a healthy worker',async()=>{
  const worker=new FakeWorker(),decoder=createWorkerMapDecoder(()=>worker);
- let fail=true;
- const bytes=async()=>{if(fail)throw new Error('offline');return new Uint8Array();};
+ let fail=true,reads=0;
+ const bytes=async()=>{reads+=1;if(fail)throw new Error('offline');return new Uint8Array();};
  await expect(decoder.decode(request('0:0',bytes))).rejects.toThrow('offline');
+ expect(reads).toBe(1);
  expect(decoder.stats().path).toBe('worker');
  fail=false;
  expect((await decoder.decode(request('0:0',bytes))).id).toBe('0:0');
+ expect(reads).toBe(2);
  expect(decoder.stats().path).toBe('worker');
 });
