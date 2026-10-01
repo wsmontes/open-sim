@@ -546,7 +546,7 @@ function agreementFrom(value: unknown): WorldResult<SessionAgreement> {
  if (!limits.ok) return limits;
  return ok({kind: 'agreement', worldProtocol: 2, wireVersion: 1, rules: rules.value, actions: actions.value, critical: critical.value, unknownCritical: unknownCritical.value, unsupportedCritical: unsupportedCritical.value, write: value['write'], limits: limits.value});
 }
-const TOOL_KIND: Record<string, Tool> = {road: 'road', residential: 'residential', commercial: 'commercial', industrial: 'industrial', park: 'park', power: 'power'};
+const TOOL_KIND: Record<string, Tool> = {road:'road',avenue:'avenue',highway:'highway',residential:'residential',commercial:'commercial',industrial:'industrial',park:'park',power:'power'};
 function cellsFrom(value: unknown): WorldResult<CellCoord[]> {
  if (!Array.isArray(value) || !value.length || value.length > 1024) return failed('MALFORMED', 'Seleção inválida');
  const cells: CellCoord[] = [];
@@ -561,7 +561,7 @@ function cellsFrom(value: unknown): WorldResult<CellCoord[]> {
  }
  return ok(cells);
 }
-function intentFrom(value: unknown): WorldResult<Action> {
+export function intentFrom(value: unknown): WorldResult<Action> {
  if (!plain(value)) return failed('MALFORMED', 'Intenção inválida');
  const type = value['type'];
  if (type === 'tick') {
@@ -578,6 +578,15 @@ function intentFrom(value: unknown): WorldResult<Action> {
   const tool = TOOL_KIND[name];
   if (!tool) return failed('MALFORMED', `Ferramenta desconhecida: ${name}`);
   return ok({type: 'build', tool, cells: cells.value});
+ }
+ if (type === 'policy') {
+  closed(value, ['type', 'tax', 'services', 'borrow'], 'Intenção');
+  const tax=value['tax'],services=value['services'],borrow=value['borrow'];
+  if(tax===undefined&&services===undefined&&borrow===undefined)return failed('MALFORMED','Política sem alteração');
+  for(const [name,entry] of [['tax',tax],['services',services],['borrow',borrow]] as const){
+   if(entry!==undefined&&(typeof entry!=='number'||!Number.isFinite(entry)))return failed('MALFORMED',`Valor inválido em política: ${name}`);
+  }
+  return ok({type:'policy',...(tax!==undefined?{tax:tax as number}:{}),...(services!==undefined?{services:services as number}:{}),...(borrow!==undefined?{borrow:borrow as number}:{})});
  }
  if (type === 'component') {
   closed(value, ['type', 'key', 'entity', 'value'], 'Intenção');
