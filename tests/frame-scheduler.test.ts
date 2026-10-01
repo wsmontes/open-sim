@@ -71,3 +71,17 @@ test('frame delta is capped after a long suspension',()=>{
  frames.shift()!(10_000);
  expect(seconds).toEqual([0,.25]);
 });
+
+test('fps statistics decay while an idle renderer sleeps',()=>{
+ const frames:Array<(now:number)=>void>=[];
+ let now=0;
+ const scheduler=createFrameScheduler({
+  draw:()=>({moving:false,ambient:false}),
+  request:callback=>{frames.push(callback);return frames.length;},cancel:()=>{},visible:()=>true,now:()=>now,
+ });
+ scheduler.invalidate();
+ now=10;frames.shift()!(10);
+ expect(scheduler.stats().fps).toBe(1);
+ now=1200;
+ expect(scheduler.stats().fps).toBe(0);
+});
