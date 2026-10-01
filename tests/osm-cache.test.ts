@@ -36,6 +36,20 @@ test('a cached load and an uncached load of the same region are the same region'
  const cold=await createOsmSource({fetcher:serving(counter)}).loadChunk('0:0');
  expect(cached).toEqual(cold);
 });
+test('writing a freshly fetched tile never delays the chunk that uses it',async()=>{
+ const counter={requests:0};
+ let release!:()=>void,started=false;
+ const gate=new Promise<void>(resolve=>{release=resolve;});
+ const slow:TileCache={get:async()=>null,put:async()=>{started=true;await gate;}};
+ const maps=createOsmSource({fetcher:serving(counter),cache:slow});
+ const chunk=maps.loadChunk('0:0');
+ // Let fetch/arrayBuffer reach the cache write. The map chunk must still finish while persistence is deliberately stuck.
+ for(let i=0;i<20&&!started;i+=1)await Promise.resolve();
+ expect(started).toBe(true);
+ const outcome=await Promise.race([chunk.then(()=> 'chunk'),new Promise<string>(resolve=>setTimeout(()=>resolve('blocked'),50))]);
+ expect(outcome).toBe('chunk');
+ release();
+});
 test('a cache that cannot be read or written is a miss, never a failure',async()=>{
  const counter={requests:0};
  const broken:TileCache={get:async()=>{throw new Error('IndexedDB bloqueado');},put:async()=>{throw new Error('quota');}};
