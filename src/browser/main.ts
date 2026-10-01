@@ -866,8 +866,6 @@ async function start(){
   return;
  }
  active=true;
- flushCityFacts();
- updateCityScale();
  const restored=session.restoredView;
  if(restored){
   camera={x:restored.x,y:restored.y,zoom:clampZoom(restored.zoom),rotation:normalizeAngle(restored.rotation??0)};
@@ -881,6 +879,8 @@ async function start(){
   if(state.revision!==revision){revision=state.revision;scheduleSave();}
   refreshChunks();updateHud();
  });
+ flushCityFacts();
+ updateCityScale();
  new ResizeObserver(()=>resize()).observe(canvas);
  window.addEventListener('resize',()=>resize());
 // Which gesture a tool expects. A street, a plant and a demolition are lines the player lays down; a zone is a
