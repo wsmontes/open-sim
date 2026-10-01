@@ -73,7 +73,7 @@ const PLACES:Record<string,{lat:number;lon:number;facts:CityFacts}>={
 // game is a neighbourhood inside a real place, and saying so is more interesting than pretending the simulation
 // accounts for eleven million people.
 const cityDirectory=createWikidataDirectory();
-let cityFacts:CityFacts|null=null;
+let cityFacts:CityFacts|null=null,pendingCityFacts:CityFacts|null=null;
 let sourcePanel:ReturnType<typeof createSourceInspector>|null=null;
 const slugOf=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'cidade';
 const rowOf=(element:HTMLElement|null,value:string|null)=>{
@@ -84,10 +84,11 @@ const rowOf=(element:HTMLElement|null,value:string|null)=>{
 };
 const updateCityScale=()=>{
  if(!cityScaleEl)return;
- if(!cityFacts?.population){cityScaleEl.textContent='';cityScaleEl.hidden=true;return;}
- const built=session.getState().components['city.census'];
+ const current=sessions.state();
+ if(!current||!cityFacts?.population){cityScaleEl.textContent='';cityScaleEl.hidden=true;return;}
+ const built=current.components['city.census'];
  const fact=(built?Object.values(built)[0]:null) as Record<string,unknown>|null;
- const simPopulation=summarize(session.getState()).population;
+ const simPopulation=summarize(current).population;
  cityScaleEl.hidden=false;
  cityScaleEl.textContent=fact?`Sua cidade reúne ${simPopulation.toLocaleString('pt-BR')} moradores simulados; a cidade real tem ${cityFacts.population.toLocaleString('pt-BR')} — o que você constrói é um bairro dentro dela.`:'';
 };
@@ -127,10 +128,17 @@ const showCityFacts=(facts:CityFacts|null)=>{
  updateSourcePanel();
 };
 // The census travels into the world as a component of the city profile, so a shared session sees the same figure the
-// screen shows instead of each client asking again.
-const publishCityFacts=(facts:CityFacts)=>{
- void sessions.submitAction({type:'component',key:'city.census',entity:slugOf(facts.label),value:{population:facts.population??null,year:facts.populationYear??null,country:facts.country??null,dataset:facts.source.dataset,url:facts.source.url}});
+// screen shows instead of each client asking again. A directory response may arrive while the first save/map chunk is
+// still opening; keep only the newest fact and publish it when the local state exists.
+const flushCityFacts=()=>{
+ const facts=pendingCityFacts;
+ if(!facts||!sessions.state())return;
+ pendingCityFacts=null;
+ void sessions.submitAction({type:'component',key:'city.census',entity:slugOf(facts.label),value:{population:facts.population??null,year:facts.populationYear??null,country:facts.country??null,dataset:facts.source.dataset,url:facts.source.url}})
+  .then(receipt=>{if(receipt.status==='failed'&&receipt.code==='NOT_FOUND')pendingCityFacts??=facts;})
+  .catch(()=>{pendingCityFacts??=facts;});
 };
+const publishCityFacts=(facts:CityFacts)=>{pendingCityFacts=facts;flushCityFacts();};
 // The city's own statistics office answers for the country it covers. When Wikidata hands over a municipal code, the
 // census figure takes the place of the encyclopedic one and brings the density and the municipal product with it — two
 // sources are never averaged, because an average of two censuses of different boundaries is a number nobody published.
@@ -858,6 +866,8 @@ async function start(){
   return;
  }
  active=true;
+ flushCityFacts();
+ updateCityScale();
  const restored=session.restoredView;
  if(restored){
   camera={x:restored.x,y:restored.y,zoom:clampZoom(restored.zoom),rotation:normalizeAngle(restored.rotation??0)};
