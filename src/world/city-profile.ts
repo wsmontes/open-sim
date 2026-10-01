@@ -27,14 +27,15 @@ export type CityProfile={
 export const CITY_PROFILE:CityProfile={
  id:'city',
  version:1,
- tools:['road','residential','commercial','industrial','park','power'],
+ tools:['road','avenue','highway','residential','commercial','industrial','park','power'],
  costs:COST,
  terrains:['land','water','green'],
- fields:['terrain','road','building','stage','origin'],
- // A field only means something on top of what it depends on: a building needs its terrain decided and the street
- // below it clear, and a stage belongs to a building. A merge that composes two sides has to respect this order.
+ fields:['terrain','road','roadClass','building','stage','origin'],
+ // A field only means something on top of what it depends on: the class belongs to a road, a building needs its
+ // terrain decided and the street below it clear, and a stage belongs to a building.
  dependencies:[
   {field:'road',dependsOn:['terrain']},
+  {field:'roadClass',dependsOn:['road']},
   {field:'building',dependsOn:['terrain','road']},
   {field:'stage',dependsOn:['building']},
   {field:'origin',dependsOn:[]},
