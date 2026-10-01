@@ -170,7 +170,9 @@ function drawShore(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord,p
  ctx.fillStyle='rgba(238,247,255,.5)';
  const half={x:tw*.5,y:th*.5};
  for(const [dx,dy,ax,ay] of [[0,-1,half.x,-half.y],[0,1,-half.x,half.y],[-1,0,-half.x,-half.y],[1,0,half.x,half.y]] as const){
-  const ny=coord.y+dy;\n  if(ny<0||ny>=WORLD)continue;\n  const neighbour=lookupCell(view,{x:wrapX(coord.x+dx),y:ny}).cell;
+  const ny=coord.y+dy;
+  if(ny<0||ny>=WORLD)continue;
+  const neighbour=lookupCell(view,{x:wrapX(coord.x+dx),y:ny}).cell;
   if(!neighbour||neighbour.terrain==='water')continue;
   const edge={x:p.x+ax,y:p.y+ay};
   ctx.beginPath();
