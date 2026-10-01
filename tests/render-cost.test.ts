@@ -4,6 +4,7 @@ import {render} from '../src/presentation/canvas-renderer';
 import type {WorldView} from '../src/presentation/canvas-renderer';
 import {createGame} from '../src/core/commands';
 import {TILE_H,TILE_W} from '../src/presentation/camera';
+import {WORLD,chunkId} from '../src/core/coordinates';
 import type {BaseChunk,Cell} from '../src/core/model';
 import type {ChunkStatus} from '../src/session/ports';
 
@@ -85,4 +86,18 @@ test('the same city costs the same frame twice, and the streets are what moves i
  const moving = recorder();
  render(moving.ctx, {...view(1.2), motion: 4.2});
  expect(Math.abs(moving.ops() - first.ops())).toBeLessThanOrEqual(first.ops() * 0.25);
+});
+
+test('the north coast never samples land from the south edge of the world',()=>{
+ const northCells:Cell[]=Array.from({length:1024},()=>({terrain:'water'}));
+ const north=createGame('coast',7,{id:'0:0',source:'north',normalizerVersion:1,cells:northCells} as BaseChunk);
+ const southId=chunkId({x:0,y:WORLD-1});
+ const south=(terrain:'land'|'water')=>createGame('south',7,{id:southId,source:'south',normalizerVersion:1,cells:Array.from({length:1024},()=>({terrain}))} as BaseChunk).chunks[southId]!;
+ const draw=(terrain:'land'|'water')=>{
+  const r=recorder();
+  render(r.ctx,{...view(1),state:{...north,chunks:{...north.chunks,[southId]:south(terrain)}}});
+  return r.ops();
+ };
+ // Longitude wraps; latitude does not. If y=-1 were wrapped with wrapX, southern land would add foam to the north.
+ expect(draw('land')).toBe(draw('water'));
 });
