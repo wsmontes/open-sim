@@ -85,6 +85,27 @@ test('a fork shares the objects it did not change instead of copying equal bytes
  expect(storage.size()-before).toBeLessThan(parentPoint.stateRef.bytes/4);
 });
 
+test('committing does not re-hash frozen bases that only checkpoint readers need',async()=>{
+ let baseHashes=0;
+ const countingHasher={async ref(bytes:Uint8Array){
+  if(textOf(bytes).includes('"kind":"base-chunk"'))baseHashes+=1;
+  return hasher.ref(bytes);
+ }};
+ const storage=createWorldMemoryStorage(),worlds=createWorldRepository({storage,codec,hasher:countingHasher});
+ const start=city(),head=await open(worlds,start);
+ baseHashes=0;
+ const changed=build(start,[],here(0,0));
+ const accepted=await worlds.commit(head,{id:'parque-sem-rehash',state:changed,operations:['Parque em 1 célula'],objects:[],author:'local-player'});
+ expect(accepted.ok).toBe(true);
+ if(!accepted.ok)return;
+ // The commit needs the previous state, tree and commit, but not the separately addressed frozen bases. Before this
+ // regression those bases were encoded and SHA-256 hashed by loadVersion even though commit never consumed the list.
+ expect(baseHashes).toBe(0);
+ // A checkpoint does expose BaseRef[], so checkout still materializes exactly the base references its caller asked for.
+ await restore(worlds,accepted.value);
+ expect(baseHashes).toBe(Object.keys(start.chunks).length);
+});
+
 test('work accepted on the child leaves the parent exactly as it was',async()=>{
  const {storage,worlds}=device();
  const start=city();

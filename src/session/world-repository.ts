@@ -54,7 +54,7 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
  // Objects come back from the device and from foreign packages through the same door, so a package is adopted
  // without a detour through bytes and a stored object is verified exactly like a received one.
  type Source = {read(ref:ObjectRef):Promise<WorldResult<JsonValue>>};
- type LoadedVersion = {commitRef:ObjectRef;commit:WorldCommit;commitValue:JsonValue;treeRef:ObjectRef;tree:WorldTree;treeValue:JsonValue;stateRef:ObjectRef;state:GameState;bases:BaseRef[]};
+ type LoadedVersion = {commitRef:ObjectRef;commit:WorldCommit;commitValue:JsonValue;treeRef:ObjectRef;tree:WorldTree;treeValue:JsonValue;stateRef:ObjectRef;state:GameState};
  const record=(value:JsonValue):value is {[key:string]:JsonValue}=>!!value&&typeof value==='object'&&!Array.isArray(value);
  const refOf=(value:JsonValue|undefined):ObjectRef|null=>isRef(value)?{hash:value.hash,bytes:value.bytes}:null;
  const sameAddress=(a:WorldAddress,b:WorldAddress)=>a.worldId===b.worldId&&a.branchId===b.branchId;
@@ -181,7 +181,11 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
   const state=stateOf(stateRead.value);
   if(!state.ok)return state;
   if(state.value.worldId!==head.worldId)return failed('MALFORMED','Estado de outro mundo nesta versão');
-  return ok({commitRef:head.commit,commit:commit.value,commitValue:commitRead.value,treeRef:commit.value.tree,tree:tree.value,treeValue:treeRead.value,stateRef:tree.value.state,state:state.value,bases:await baseRefs(state.value)});
+  // Base references are presentation/checkpoint metadata, not a prerequisite for applying a change. Hashing every
+  // frozen region here made every commit pay O(number of managed chunks) before it could write one cell. Keep the
+  // version loader about the immutable version graph; checkout materializes base refs only for callers that ask for
+  // a checkpoint and therefore actually need them.
+  return ok({commitRef:head.commit,commit:commit.value,commitValue:commitRead.value,treeRef:commit.value.tree,tree:tree.value,treeValue:treeRead.value,stateRef:tree.value.state,state:state.value});
  }
  function publish(expected:Head|null,next:Head,objects:StoredObject[],receipt:ChangeReceipt):Promise<WorldResult<Head>> {
   return storage.commit({expected,next,objects:staged(objects),receipt});
@@ -338,7 +342,7 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
    tree:loaded.value.treeRef,
    stateRef:loaded.value.stateRef,
    state:loaded.value.state,
-   bases:loaded.value.bases,
+   bases:await baseRefs(loaded.value.state),
    receipts:await storage.receipts(head),
    versions:{worldProtocol:WORLD_PROTOCOL,wireVersion:WIRE_VERSION,rules:loaded.value.tree.definition.rules},
   });

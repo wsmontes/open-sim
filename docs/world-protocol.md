@@ -101,17 +101,17 @@ O que já saiu desta decisão (tarefa 17, verificado por testes):
 - **Cartões e links**: `docs/protocol/adapters.md` registra a API dos adaptadores e a matriz de capacidades comprovadas;
   link fixo distingue-se de ramificação móvel, visita não herda permissão e o cartão recusa chave e estado por nome.
 
-## O que ainda falta, em ordem
+## Estado da implementação, em ordem
 
 | # | Item da carta | Estado |
 | --- | --- | --- |
 | 1 | Componentes com namespace, preservação do desconhecido, manifesto, identidade durável | **feito** |
-| 2 | Entidades duráveis com identificador estável (Layer C) | **parcial**: hoje a entidade durável do perfil cidade é a célula; não existe entidade genérica (prédio, casa, veículo) com componentes próprios |
-| 3 | Materialização com invariante (seção 4) | **pendente** |
-| 4 | Prova com um segundo perfil (seção 11 e "Recommended experiments") | **pendente** |
-| 5 | Endereçamento geodésico nos fatos portáveis (Layer A / seção 7) | **parcial**: `toGeo` existe, mas os comandos ainda falam em células da grade do motor |
-| 6 | Autoridade com escopo (Layer E) e classes de transporte (Layer F) | **adiado por decisão**: nenhuma conexão nesta etapa |
-| 7 | Mundos derivados por fork (Layer B / seção 8) | **parcial**: o manifesto carrega `parent` e `snapshot`; o mecanismo de guardar só o divergente não existe |
+| 2 | Entidades duráveis com identificador estável (Layer C) | **feito**: `src/world/entities.ts` mantém `entity.index`, claims, geometria e componentes por entidade, sem usar a célula como identidade portátil |
+| 3 | Materialização com invariante (seção 4) | **feito**: `src/world/materialization.ts` reserva/devolve população e `summarize()` evita dupla contagem; os testes provam `64 = 60 + 4` |
+| 4 | Prova com um segundo perfil (seção 11 e "Recommended experiments") | **feito**: `src/profiles/explorer/*` faz cidade → explorador → cidade preservando total, histórico, procedência e namespaces desconhecidos |
+| 5 | Endereçamento geodésico nos fatos portáveis (Layer A / seção 7) | **feito**: entidades publicam longitude/latitude em `osim.transform`/geometrias; a célula permanece apenas endereço interno do motor |
+| 6 | Autoridade com escopo (Layer E) e classes de transporte (Layer F) | **feito no perfil federado**: concessões escopadas, sessão host/réplica, WebRTC e adaptadores opcionais Nostr/Matrix estão fora do núcleo e cobertos pelo plano federado |
+| 7 | Mundos derivados por fork (Layer B / seção 8) | **feito para histórico local e colaboração**: objetos são endereçados por conteúdo, forks reutilizam objetos imutáveis e commits guardam só novos objetos; evolução para particionar o grande `city-state` continua sendo otimização, não lacuna semântica |
 
 ### 2. Entidades genéricas
 
