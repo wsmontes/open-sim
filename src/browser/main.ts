@@ -1,5 +1,6 @@
 import {createOsmSource} from '../adapters/osm/provider';
 import {createIndexedDbTileCache} from '../adapters/osm/tile-cache';
+import {createIndexedDbChunkCache} from '../adapters/osm/chunk-cache';
 import {createWikidataDirectory} from '../adapters/reality/wikidata';
 import {createIbgeDirectory} from '../adapters/reality/ibge';
 import type {CityFacts} from '../adapters/reality/wikidata';
@@ -207,8 +208,8 @@ const placeLat=hudRoot.querySelector<HTMLInputElement>('#place-lat');
 const placeLon=hudRoot.querySelector<HTMLInputElement>('#place-lon');
 // The map service sends vector tiles once and the device keeps them: one tile covers 64 regions, so a revisit — this
 // session or the next one — costs no request at all.
-const tileCache=createIndexedDbTileCache();
-const maps=createOsmSource({cache:tileCache});
+const tileCache=createIndexedDbTileCache(),chunkCache=createIndexedDbChunkCache();
+const maps=createOsmSource({cache:tileCache,chunks:chunkCache});
 const session=createSession({maps,saves:createIndexedDbStore(),worldId:WORLD_ID,seed:SEED});
 const codec=createJcsCodec(),hasher=bytesHasher();
 const worlds=createWorldRepository({storage:createIndexedDbWorldStorage(),codec,hasher});
