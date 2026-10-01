@@ -72,7 +72,7 @@ type StoredTile={bytes:ArrayBuffer;storedAt:number};
 export function createIndexedDbTileCache(options:TileCacheOptions={}):InspectableTileCache {
  const maxAgeMs=options.maxAgeMs??DEFAULTS.maxAgeMs,maxBytes=options.maxBytes??DEFAULTS.maxBytes,now=options.now??Date.now;
  let opening:Promise<IDBDatabase|null>|null=null;
- let knownBytes:number|null=null;
+ let knownBytes:number|null=null,measuring:Promise<number>|null=null,pruneTimer:ReturnType<typeof setTimeout>|null=null;
  const open=():Promise<IDBDatabase|null>=>{
   if(opening)return opening;
   opening=new Promise<IDBDatabase|null>(resolve=>{
@@ -107,22 +107,24 @@ export function createIndexedDbTileCache(options:TileCacheOptions={}):Inspectabl
  };
  const total=async():Promise<number>=>{
   if(knownBytes!==null)return knownBytes;
-  const db=await open();
-  if(!db)return 0;
-  return new Promise<number>(resolve=>{
-   let sum=0;
-   try{
-    const request=db.transaction(STORE,'readonly').objectStore(STORE).openCursor();
-    request.onsuccess=()=>{
-     const cursor=request.result;
-     if(!cursor){knownBytes=sum;resolve(sum);return;}
-     const value=cursor.value as {bytes?:ArrayBuffer};
-     sum+=value.bytes?.byteLength??0;
-     cursor.continue();
-    };
-    request.onerror=()=>resolve(sum);
-   }catch{resolve(sum);}
-  });
+  if(measuring)return measuring;
+  measuring=(async()=>{
+   const db=await open();
+   if(!db)return 0;
+   return new Promise<number>(resolve=>{
+    let sum=0;
+    try{
+     const request=db.transaction(STORE,'readonly').objectStore(STORE).openCursor();
+     request.onsuccess=()=>{
+      const cursor=request.result;
+      if(!cursor){resolve(sum);return;}
+      const value=cursor.value as {bytes?:ArrayBuffer};sum+=value.bytes?.byteLength??0;cursor.continue();
+     };
+     request.onerror=()=>resolve(sum);
+    }catch{resolve(sum);}
+   });
+  })();
+  try{const measured=await measuring;knownBytes=measured;return measured;}finally{measuring=null;}
  };
  const prune=async():Promise<void>=>{
   let bytes=await total();
@@ -147,6 +149,10 @@ export function createIndexedDbTileCache(options:TileCacheOptions={}):Inspectabl
   });
   knownBytes=Math.max(0,bytes);
  };
+ const schedulePrune=()=>{
+  if(pruneTimer!==null)return;
+  pruneTimer=setTimeout(()=>{pruneTimer=null;void prune();},750);
+ };
  return {
   async get(key){
    try{
@@ -164,11 +170,12 @@ export function createIndexedDbTileCache(options:TileCacheOptions={}):Inspectabl
    const copy=value.slice();
    const stored:StoredTile & {key:string}={key,bytes:copy.buffer.slice(copy.byteOffset,copy.byteOffset+copy.byteLength),storedAt:now()};
    try{
+    // If the total is already known, subtract an overwritten value instead of counting the same tile twice.
+    const previous=knownBytes!==null?await withStore<StoredTile|undefined>('readonly',store=>store.get(key) as IDBRequest<StoredTile|undefined>):null;
     const done=await withStore('readwrite',store=>store.put(stored));
     if(done===null&&!(await open()))return;
-    if(knownBytes!==null)knownBytes+=copy.byteLength;
-    else knownBytes=await total();
-    await prune();
+    if(knownBytes!==null)knownBytes=Math.max(0,knownBytes-(previous?.bytes?.byteLength??0)+copy.byteLength);
+    schedulePrune();
    }catch{/* A cache that refuses a write is a cache miss next time, not a broken map. */}
   },
   async stats(){
