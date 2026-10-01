@@ -24,7 +24,8 @@ export function quoteAction(state:GameState,action:Action,available:readonly Bas
   const borrow=action.borrow===undefined?0:action.borrow;
   if(!Number.isFinite(tax)||tax<TAX_MIN||tax>TAX_MAX)return blocked(0,'Imposto fora do intervalo');
   if(!Number.isFinite(services)||services<SERVICES_MIN||services>SERVICES_MAX)return blocked(0,'Serviços fora do intervalo');
-  if(!Number.isFinite(borrow)||borrow<0||borrow>100_000||Math.round(borrow)!==borrow)return blocked(0,'Empréstimo inválido');
+  if(!Number.isFinite(borrow)||borrow<0||borrow>BORROW_MAX||Math.round(borrow)!==borrow)return blocked(0,'Empréstimo inválido');
+  if(tax===policy.tax&&services===policy.services&&borrow===0)return blocked(0,'Nada a mudar');
   return {status:'ok',cost:0};
  }
  if(!Array.isArray(action.cells)||!action.cells.length||action.cells.length>1024||action.cells.some(p=>!p||!validCell(p)))return blocked(0,'Seleção inválida');
