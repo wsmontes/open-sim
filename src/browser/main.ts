@@ -534,7 +534,7 @@ async function createCooperativeSession():Promise<void>{
   // yet it carries nothing, and the invite a person copies is the §23 descriptor of the session.
   const peers=createWebRtcPeers({codec,actor:`local:${root.publicKey}`,session:scope,signer,signaling:createManualSignaling({codec,verifier,session:scope,bindings:{}}),hasher,relay:{stun:['stun:stun.l.google.com:19302']}});
   const transport=localFirst(peers.transport,'local-device');
-  const host=createHostSession({repository:worlds,transport,peer:'local-device',head:forked.value,identity:bound.value,grants:[grant],rules:{family:'city',version:1},bases:maps,verifier,codec,hasher,now:()=>startedAt.toISOString(),sessionId,epoch,peers:[],capabilities:registry});
+  const host=createHostSession({repository:worlds,transport,peer:'local-device',head:forked.value,identity:bound.value,grants:[grant],rules:{family:'city',version:session.getState().rulesVersion},bases:maps,verifier,codec,hasher,now:()=>startedAt.toISOString(),sessionId,epoch,peers:[],capabilities:registry});
   live={host,peers,transport,branchId,sessionId};
   await sessions.attach(hostSessionLink(host,{worldId:WORLD_ID,branchId,sessionId,epoch,principal,sessionKey:keys.publicKey,signer,codec,costLimit:SPEND_LIMIT,transport,peer:'local-device',identity:bound.value,grants:[grant]}));
   clock.setRole('host');
