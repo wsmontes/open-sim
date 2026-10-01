@@ -323,6 +323,21 @@ test('a carried base is what lets the destination use a region it never adopted'
  expect(selected.error.code).toBe('MALFORMED');
 });
 
+test('world diff prices avenue and highway by their actual road class',async()=>{
+ for(const [tool,cost] of [['avenue',25],['highway',60]] as const){
+  const worlds=device(),before=createGame(WORLD_ID,1,blank('0:0')),opened=await open(worlds,before);
+  const action=command(before,{type:'build',tool,cells:[{x:2,y:2}]}),applied=applyCommand(before,action,[]);
+  expect(applied.status).toBe('applied');
+  const committed=await worlds.commit(opened.head,{id:`build-${tool}`,state:applied.state,operations:[],objects:[],author:'local-player'});
+  if(!committed.ok)throw new Error(committed.error.message);
+  const after=await worlds.checkout(committed.value);
+  if(!after.ok)throw new Error(after.error.message);
+  const diff=diffWorlds(opened.point,after.value);
+  expect(diff.estimate).toMatchObject({cost,built:1,removed:0});
+  expect(diff.regions[0]!.cells[0]!.after).toMatchObject({road:true,roadClass:tool});
+ }
+});
+
 test('the diff separates real data, player work, simulation and metadata',async()=>{
  const worlds=device();
  const other=createWorldRepository({storage:createWorldMemoryStorage({}),codec,hasher});
