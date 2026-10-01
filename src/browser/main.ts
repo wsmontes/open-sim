@@ -51,6 +51,7 @@ import {GLIDE_PER_SECOND,approach,arrived,centerOn,clampZoom,closestChunks,isCoa
 import type {WorldView} from '../presentation/canvas-renderer';
 import {render} from '../presentation/canvas-renderer';
 import {createTickClock} from '../presentation/clock';
+import {createFrameScheduler} from '../presentation/frame-scheduler';
 import type {Speed} from '../presentation/clock';
 import {createHud} from '../presentation/hud';
 import {createInspector} from '../presentation/inspector';
@@ -253,6 +254,7 @@ let camera:Camera={x:0,y:0,zoom:1,rotation:0};
 let speed:Speed=0,tool:SelectedTool='explore',place=START,hover:CellCoord|null=null,stroke:readonly CellCoord[]|null=null;
 let preview:readonly CellCoord[]=[],affordable=true,costMessage='',loadMessage='',notice='',revision=0,active=false;
 let chunks:ReadonlyMap<string,ChunkStatus>=new Map();
+let invalidateFrame=()=>{};
 // The view reads the live branch through `head`, so it is created once the game's own state exists: a session view
 // that ran before those declarations would read a name that is not initialized yet.
 const sessions=createGameSessionView({
@@ -323,6 +325,7 @@ const refreshPreview=()=>{
  affordable=!quote||quote.status==='ok';
  costMessage=!quote?'':quote.status==='ok'?`Custo: ${quote.cost}`:`Bloqueado: ${quote.reason}`;
  if(costEl)costEl.textContent=costMessage;
+ invalidateFrame();
 };
 const updateHud=()=>{
  sessions.setPersistence(deviceSave());
@@ -348,7 +351,7 @@ const loadVisible=async()=>{
  if(!coarse.length&&!detailed.length)return;
  for(const id of new Set([...coarse,...detailed]))requested.add(id);
  loadMessage='Carregando mapa…';
- refreshChunks();updateHud();
+ refreshChunks();updateHud();invalidateFrame();
  try{
   // A wide view can hold hundreds of regions. The coarse tile of an entire city costs one request and a few
   // milliseconds, so the screen is painted at once and the detailed tiles then replace it region by region.
@@ -406,7 +409,7 @@ const setCamera=(next:Camera,options:{snap?:boolean}={})=>{
 // A button, a shortcut or a jump to another place is a camera move rather than a drag: it glides, so the player sees
 // where the city went instead of being teleported.
 let glide:Camera|null=null;
-const glideTo=(next:Camera)=>{glide={...next,zoom:snapZoom(next.zoom,deviceScale()),rotation:normalizeAngle(next.rotation)};};
+const glideTo=(next:Camera)=>{glide={...next,zoom:snapZoom(next.zoom,deviceScale()),rotation:normalizeAngle(next.rotation)};invalidateFrame();};
 const moveTo=(lat:number,lon:number,label:string)=>{
  place=label;
  glideTo(centerOn(toCell(lat,lon),camera,viewport()));
@@ -415,7 +418,7 @@ const moveTo=(lat:number,lon:number,label:string)=>{
  updateHud();
 };
 function onTool(next:SelectedTool){tool=next;stroke=null;refreshPreview();updateHud();}
-function onSpeed(next:Speed){speed=next;clock.setSpeed(next);scheduleSave();updateHud();}
+function onSpeed(next:Speed){speed=next;clock.setSpeed(next);scheduleSave();updateHud();invalidateFrame();}
 function onPlace(name:string){
  const target=PLACES[name];
  if(!target)return;
@@ -840,7 +843,7 @@ const resize=()=>{
  const center=pick({x:canvas.width/2,y:canvas.height/2},camera);
  canvas.width=width;canvas.height=height;
  camera=centerOn(center,camera,viewport());
- refreshChunks();
+ refreshChunks();invalidateFrame();
  if(active)scheduleLoad();
 };
 // The shell asks the browser how much room it has, and asks again whenever that changes: a phone rotated, a split view
@@ -857,18 +860,16 @@ window.visualViewport?.addEventListener('resize',applyLayout);
 window.screen?.orientation?.addEventListener?.('change',applyLayout);
 // The traffic's clock: wall time scaled by the game speed, so the streets move while the city runs, move twice as
 // fast at 2x and stand still while it is paused. It is presentation only — no tick reads it, no command carries it.
-let motion=0,lastFrame=0;
+let motion=0;
 // The card the player opened describes one cell. The moment the city slides under it, it is answering about a place
 // that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
 let cardCamera:{x:number;y:number;zoom:number}|null=null;
-const draw=(now=0)=>{
+const draw=(now:number,seconds:number)=>{
  perfMark('first-frame');
  const {width,height}=viewport();
  if(cardCamera&&(cardCamera.x!==camera.x||cardCamera.y!==camera.y||cardCamera.zoom!==camera.zoom))inspector.show(null);
  cardCamera={x:camera.x,y:camera.y,zoom:camera.zoom};
- const seconds=lastFrame?Math.min(0.25,(now-lastFrame)/1000):0;
- if(lastFrame&&speed!==0)motion+=seconds*speed;
- lastFrame=now;
+ if(speed!==0)motion+=seconds*speed;
  // A camera move in flight: the map slides and the tiles it is heading for are asked for as it goes, so the city is
  // there when the camera arrives. Saving waits for the move to end — one save per move, not one per frame.
  if(glide){
@@ -879,8 +880,11 @@ const draw=(now=0)=>{
   else refreshChunks();
  }
  render(ctx,{camera,viewport:{width,height},state:session.getState(),chunks,tool,hover,preview,previewAffordable:affordable,seed:SEED,motion});
- requestAnimationFrame(draw);
+ return {moving:glide!==null,ambient:speed!==0};
 };
+const frames=createFrameScheduler({draw});
+invalidateFrame=frames.invalidate;
+if(PERF_DEBUG)(window as unknown as {openSimFrames?:()=>ReturnType<typeof frames.stats>}).openSimFrames=()=>frames.stats();
 async function start(){
  resize();
  const home=PLACES[START],startCell=toCell(home.lat,home.lon);
@@ -914,6 +918,7 @@ async function start(){
  session.subscribe(()=>{
   const state=session.getState();
   if(state.revision!==revision){revision=state.revision;scheduleSave();}
+  invalidateFrame();
   if(sessionUiPending)return;
   sessionUiPending=true;
   requestAnimationFrame(()=>{sessionUiPending=false;refreshChunks();updateHud();});
@@ -958,15 +963,15 @@ attachInput(canvas,{camera:()=>camera,tool:()=>tool,strokeShape:()=>BOX_TOOLS.ha
   // A browser in a background tab is not a promise: while the host is hidden the session reports itself as paused.
   sessions.setHostVisible(!document.hidden);
   updateHud();
-  if(document.hidden)saveNow();
+  if(document.hidden)saveNow();else invalidateFrame();
  });
  window.addEventListener('pagehide',()=>saveNow());
  // First paint is the restored local state. Merely queueing network/storage work in the same task can still delay the
  // browser's actual paint on a phone, so background work starts only after one rendered frame has returned to the UA.
  refreshChunks();
  updateHud();
- requestAnimationFrame(now=>{
-  draw(now);
+ invalidateFrame();
+ requestAnimationFrame(()=>{
   setTimeout(()=>{
    perfMark('background-start');
    void loadVisible().then(()=>{perfMark('map-visible-ready');refreshChunks();updateHud();}).catch(()=>{});
