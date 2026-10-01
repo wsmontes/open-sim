@@ -203,6 +203,16 @@ test('applying a real update recalculates the capacity and the balance of the re
  expect(point.state.chunks['0:0']!.base.source).toBe('synthetic-test');
 });
 
+test('a road-class change in the ground conflicts with a different player road class',()=>{
+ const base=blank('0:0'),index=77;
+ base.cells[index]={terrain:'land',road:true};
+ const state=createGame(WORLD_ID,1,base),managed=state.chunks['0:0']!;
+ managed.edits[String(index)]={terrain:'land',road:true,roadClass:'avenue'};
+ const next={...base,cells:[...base.cells]};
+ next.cells[index]={terrain:'land',road:true,roadClass:'highway'};
+ expect(baseDisagreements(managed,next)).toEqual([index]);
+});
+
 test('a capture that does not supersede the base of this version, or does not match its own address, is refused',async()=>{
  const worlds=device();
  const shared=createGame(WORLD_ID,1,mapA);
