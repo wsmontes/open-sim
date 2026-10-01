@@ -58,6 +58,10 @@ import {layoutFor} from '../presentation/layout';
 import type {SelectedTool} from '../presentation/hud';
 import {attachInput} from '../presentation/input';
 const WORLD_ID='open-sim',BRANCH_ID='main',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,OVERVIEW_BUDGET=512,DETAIL_BUDGET=120,FUTURE_TICKS=60;
+const PERF_DEBUG=new URLSearchParams(location.search).has('debug'),PERF_ZERO=performance.now();
+const PERF_MARKS:Record<string,number>={script:0};
+const perfMark=(name:string)=>{if(!(name in PERF_MARKS))PERF_MARKS[name]=Math.round((performance.now()-PERF_ZERO)*10)/10;};
+if(PERF_DEBUG)(window as unknown as {openSimPerf?:()=>Readonly<Record<string,number>>}).openSimPerf=()=>({...PERF_MARKS});
 // The terms the frozen base travels under (spec R12): a world exported from here says where its data came from.
 const WORLD_TERMS=[{source:'OpenStreetMap · Shortbread v1',attribution:'© OpenStreetMap contributors',license:'ODbL'}];
 const TOOL_LABELS:Record<Tool,string>={road:'Rua',avenue:'Avenida',highway:'Estrada',residential:'Residencial',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'};
@@ -814,7 +818,8 @@ const resize=()=>{
  const center=pick({x:canvas.width/2,y:canvas.height/2},camera);
  canvas.width=width;canvas.height=height;
  camera=centerOn(center,camera,viewport());
- refreshChunks();scheduleLoad();
+ refreshChunks();
+ if(active)scheduleLoad();
 };
 // The shell asks the browser how much room it has, and asks again whenever that changes: a phone rotated, a split view
 // dragged, a window resized. A browser is never asked what kind of device it is — only how much room there is and
@@ -835,6 +840,7 @@ let motion=0,lastFrame=0;
 // that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
 let cardCamera:{x:number;y:number;zoom:number}|null=null;
 const draw=(now=0)=>{
+ perfMark('first-frame');
  const {width,height}=viewport();
  if(cardCamera&&(cardCamera.x!==camera.x||cardCamera.y!==camera.y||cardCamera.zoom!==camera.zoom))inspector.show(null);
  cardCamera={x:camera.x,y:camera.y,zoom:camera.zoom};
@@ -866,6 +872,7 @@ async function start(){
   return;
  }
  active=true;
+ perfMark('session-ready');
  const restored=session.restoredView;
  if(restored){
   camera={x:restored.x,y:restored.y,zoom:clampZoom(restored.zoom),rotation:normalizeAngle(restored.rotation??0)};
@@ -874,10 +881,13 @@ async function start(){
  revision=session.getState().revision;
  clock.setHidden(document.hidden);clock.setSpeed(speed);
  sessions.setHostVisible(!document.hidden);
+ let sessionUiPending=false;
  session.subscribe(()=>{
   const state=session.getState();
   if(state.revision!==revision){revision=state.revision;scheduleSave();}
-  refreshChunks();updateHud();
+  if(sessionUiPending)return;
+  sessionUiPending=true;
+  requestAnimationFrame(()=>{sessionUiPending=false;refreshChunks();updateHud();});
  });
  flushCityFacts();
  updateCityScale();
@@ -922,13 +932,14 @@ attachInput(canvas,{camera:()=>camera,tool:()=>tool,strokeShape:()=>BOX_TOOLS.ha
   if(document.hidden)saveNow();
  });
  window.addEventListener('pagehide',()=>saveNow());
- await loadVisible();
- updateHud();
- // A device that cannot keep the history must not stop the game from opening: the failure stays in the panel and the
- // player keeps playing the state the session already restored.
- await openWorld().catch(error=>{worldMessage=describeWorldError(error);updateHistoryPanel();});
- // The panels read the branch that just opened: the session card shows the version it will share.
+ // First paint is the restored local state. Network map enrichment and version history are background work: neither
+ // is allowed to hold the canvas hostage. This is the startup contract of the browser client.
+ refreshChunks();
  updateHud();
  requestAnimationFrame(draw);
+ void loadVisible().then(()=>{perfMark('map-visible-ready');refreshChunks();updateHud();}).catch(()=>{});
+ // A device that cannot keep the history must not stop the game from opening: the failure stays in the panel and the
+ // player keeps playing the state the session already restored.
+ void openWorld().then(()=>{perfMark('history-ready');updateHud();}).catch(error=>{worldMessage=describeWorldError(error);updateHistoryPanel();});
 }
 void start();
