@@ -369,7 +369,10 @@ export function createGameSessionView(options: SessionViewOptions): GameSessionV
  const unpublished = (): Head => ({worldId: options.worldId, branchId: options.branchId, commit: {hash: '', bytes: 0}, generation: 0});
  const mode = (): SessionMode => link ? link.mode : 'local';
  const head = (): Head | null => link ? confirmed?.head ?? null : options.head?.() ?? null;
- const live = (): GameState | null => link ? confirmed?.state ?? null : options.local.getState();
+ const live = (): GameState | null => {
+  if(link)return confirmed?.state ?? null;
+  try{return options.local.getState();}catch{return null;}
+ };
  // Only a receipt counts as a copy (§7.4 step 6): for a host they are the receipts of its peers, for a replica its own
  // adoption — either way the version named is the one the copy holds.
  function copies(): number {
@@ -450,7 +453,11 @@ export function createGameSessionView(options: SessionViewOptions): GameSessionV
  async function submitAction(action: Action): Promise<ProposalReceipt> {
   const active = link;
   if(!active){
-   const before = options.local.getState();
+   const before = live();
+   if(!before){
+    const pending = unpublished();
+    return {kind:'proposal-receipt',id:'local-starting',digest:'',status:'failed',parent:pending,head:pending,rebased:false,code:'NOT_FOUND',reason:'A partida ainda está iniciando.'};
+   }
    return localReceipt(action, before, options.local.dispatch(action));
   }
   // The economic result is not shown before the confirmation: the panel reads the version the receipt names, and a
@@ -502,6 +509,7 @@ export function createGameSessionView(options: SessionViewOptions): GameSessionV
     if(result.ok)await refresh();
     return result;
    }
+   if(!live())return failed<Head>('NOT_FOUND','A partida ainda está iniciando.');
    const result = options.local.dispatch({type: 'tick'});
    return result.status === 'rejected' ? failed<Head>('CONFLICT', result.reason ?? 'O núcleo recusou o tick') : ok(head() ?? unpublished());
   },
