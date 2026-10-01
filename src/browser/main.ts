@@ -46,7 +46,7 @@ import {quoteAction} from '../core/quote';
 import {describeCell,summarize} from '../core/simulation';
 import {EMPTY_ECONOMY} from '../core/model';
 import type {Camera,Viewport} from '../presentation/camera';
-import {GLIDE_PER_SECOND,approach,arrived,centerOn,clampZoom,closestChunks,normalizeAngle,pick,project,rotateTo,settleZoom,snapZoom,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
+import {GLIDE_PER_SECOND,approach,arrived,centerOn,clampZoom,closestChunks,isCoarse,normalizeAngle,pick,project,rotateTo,settleZoom,snapZoom,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
 import type {WorldView} from '../presentation/canvas-renderer';
 import {render} from '../presentation/canvas-renderer';
 import {createTickClock} from '../presentation/clock';
@@ -338,7 +338,10 @@ const loadVisible=async()=>{
  for(const id of visible)requested.add(id);
  const unknown=visible.filter(id=>{const status=statusOf(id);return !status||status.status==='error';});
  const coarse=closestChunks(unknown,camera,viewport(),OVERVIEW_BUDGET);
- const detailed=closestChunks(visible.filter(id=>{const status=statusOf(id);return !status||status.status==='error'||(status.status==='ready'&&status.level!=='detail');}),camera,viewport(),DETAIL_BUDGET);
+ const detailCandidates=visible.filter(id=>{const status=statusOf(id);return !status||status.status==='error'||(status.status==='ready'&&status.level!=='detail');});
+ // When the renderer is already in mosaic mode, z14 buildings/lanes are sub-pixel work. Loading them burns CPU and
+ // network only to throw the detail away in the renderer. Detail begins when a cell is legible again.
+ const detailed=isCoarse(camera)?[]:closestChunks(detailCandidates,camera,viewport(),DETAIL_BUDGET);
  if(!coarse.length&&!detailed.length)return;
  for(const id of new Set([...coarse,...detailed]))requested.add(id);
  loadMessage='Carregando mapa…';
@@ -358,7 +361,7 @@ const loadVisible=async()=>{
  }
  refreshChunks();refreshPreview();updateHud();
  showCacheStats();
- if(unknown.length>coarse.length||visible.length>detailed.length)scheduleLoad();
+ if(unknown.length>coarse.length||(!isCoarse(camera)&&detailCandidates.length>detailed.length))scheduleLoad();
 };
 // Building inside an approximation is refused by the session; answering with the detailed regions makes the next
 // attempt work instead of leaving the player without an explanation.
