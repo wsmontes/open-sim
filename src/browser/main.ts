@@ -35,7 +35,7 @@ import type {GameSessionView,PresenceStatement} from '../presentation/multiplaye
 import {createWorldHistory,downloadBundle,readBundleFile} from '../presentation/world-history';
 import {diffWorlds} from '../presentation/world-diff';
 import {createWorldComposition,describeScenarios,emptyComposition} from '../presentation/world-composition';
-import {CHUNK,chunkId,chunkOrigin,coordAt,toCell} from '../core/coordinates';
+import {CHUNK,chunkId,chunkOrigin,coordAt,toCell,toGeo} from '../core/coordinates';
 import {applyCommand} from '../core/commands';
 import {getCell} from '../core/world';
 import {durableJson} from '../core/protocol';
@@ -920,6 +920,11 @@ async function start(){
   camera={x:restored.x,y:restored.y,zoom:clampZoom(restored.zoom),rotation:normalizeAngle(restored.rotation??0)};
   speed=restored.speed;place=restored.place;
  }
+ // Bundled facts are a zero-I/O warm-start hint, not a network dependency. Keep them pending until the session
+ // subscriber is installed so publishing the census follows the ordinary revision/save path.
+ const restoredFacts=PLACES[place]?.facts??null;
+ showCityFacts(restoredFacts);
+ if(restoredFacts)pendingCityFacts=restoredFacts;
  // The transient viewport starts where the restored camera actually is, never at the bundled fallback city. Managed
  // chunks from the save are therefore eligible for the very first frame and the background loader targets the right
  // neighbourhood immediately.
@@ -990,6 +995,10 @@ attachInput(canvas,{camera:()=>camera,tool:()=>tool,strokeShape:()=>BOX_TOOLS.ha
  requestAnimationFrame(()=>{
   setTimeout(()=>{
    perfMark('background-start');
+   // Refresh demographic facts from the restored place only after the first frame. If the place is not one of the
+   // bundled shortcuts, the camera centre is enough to resolve the municipality without inventing a default city.
+   const knownPlace=PLACES[place],centre=toGeo(pick({x:canvas.width/2,y:canvas.height/2},camera));
+   void lookUpCity(knownPlace?.lat??centre.lat,knownPlace?.lon??centre.lon,knownPlace?place:undefined).catch(()=>{});
    void loadVisible().then(()=>{perfMark('map-visible-ready');refreshChunks();updateHud();}).catch(()=>{});
    // History/version materialization is useful but never gameplay-critical. Give input and map restoration first use
    // of idle time; the timeout guarantees the panel eventually becomes ready even on a continuously busy tab.
