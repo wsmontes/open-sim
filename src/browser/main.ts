@@ -391,7 +391,7 @@ const saveNow=()=>{if(sessions.mode()!=='local')return;void session.save(current
 const scheduleSave=createDebounce(saveNow,SAVE_DEBOUNCE);
 // The buffer is the CSS size times this, and the zoom ladder is built from it: a tile has to be a whole number of
 // device pixels for a one pixel line to stay one pixel wide.
-const deviceScale=()=>BUFFER_SCALE*Math.max(1,window.devicePixelRatio||1);
+const deviceScale=()=>BUFFER_SCALE*Math.min(2,Math.max(1,window.devicePixelRatio||1));
 const setCamera=(next:Camera,options:{snap?:boolean}={})=>{
  // Anything the player does with a pointer is direct manipulation and takes effect at once — and it cancels whatever
  // camera move was in flight, because the hand wins over the animation. The zoom is only rounded to a step when the
@@ -834,7 +834,7 @@ function commit(cells:readonly CellCoord[]){
 }
 // The drawing buffer is half the CSS size (times the pixel ratio) and CSS stretches it back, keeping the chunky look.
 const resize=()=>{
- const scale=BUFFER_SCALE*Math.max(1,window.devicePixelRatio||1);
+ const scale=deviceScale();
  const width=Math.max(1,Math.round(canvas.clientWidth*scale)),height=Math.max(1,Math.round(canvas.clientHeight*scale));
  if(width===canvas.width&&height===canvas.height)return;
  const center=pick({x:canvas.width/2,y:canvas.height/2},camera);
@@ -936,7 +936,7 @@ attachInput(canvas,{camera:()=>camera,tool:()=>tool,strokeShape:()=>BOX_TOOLS.ha
    const state=stateOf();
    const reading=state?describeCell(state,cell):null;
    if(!reading){inspector.show(null);return;}
-   const scale=BUFFER_SCALE*Math.max(1,window.devicePixelRatio||1),point=project(cell,camera);
+   const scale=deviceScale(),point=project(cell,camera);
    inspector.show({cell,reading,at:{x:point.x/scale,y:point.y/scale}});
   },
   onCancel(){tool='explore';stroke=null;refreshPreview();updateHud();},
