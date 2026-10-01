@@ -1,5 +1,6 @@
 import {expect,test} from 'vitest';
 import {replayScenario} from '../src/core/replay';
+import {economyOf} from '../src/core/simulation';
 import type {Scenario} from '../src/core/replay';
 import {applyCommand} from '../src/core/commands';
 import {COST} from '../src/core/model';
@@ -16,17 +17,23 @@ test('replay applies the synthetic scenario once, tolerating a resent envelope',
  expect(resentAt).toBeGreaterThan(0);
  const full = replayScenario(scenario);
  const withoutResend = replayScenario({...scenario,commands:scenario.commands.filter((_,i)=>i!==resentAt)});
- // Demolition, park, three new street cells, two residential zones, plus the net
- // maintenance the scenario leaves behind when the tick-30 accounting runs.
+ // Demolition, park, three new street cells, two residential zones, plus the month the scenario closes at tick 30: the
+ // city pays its upkeep and collects its taxes, and `economyOf` is the model explaining that same month. Deriving the
+ // balance from it keeps this test about what it says it is about — the scenario applied *once* — instead of about
+ // whichever numbers the economy happens to have this week (tests/economy.test.ts owns those).
  const spend = COST.demolish + COST.park + 3 * COST.road + 2 * COST.residential;
- expect(full.money).toBe(20000 - spend - 5);
+ const month = economyOf(full).monthly;
+ expect(full.money).toBe(20000 - spend + month.net);
+ expect(full.money).toBe(withoutResend.money);
  expect(full.tick).toBe(30);
  expect(full.revision).toBe(scenario.commands.length - 1);
  expect(canonicalJson(full)).toBe(canonicalJson(withoutResend));
  const edits = full.chunks['0:0'].edits;
+ // What the scenario built, once: the street, a park and a plant — which are built outright, stage 1 — and two
+ // residential zones, which are land waiting for demand and are still stage 0 at the end of the month that just closed.
  expect(edits['356']).toEqual({terrain:'land',building:'park',stage:1,origin:'player'});
  expect(edits['330']).toEqual({terrain:'land',road:true,origin:'player'});
- expect(edits['362']).toEqual({terrain:'land',building:'residential',stage:1,origin:'player'});
+ expect(edits['362']).toEqual({terrain:'land',building:'residential',stage:0,origin:'player'});
  expect(edits['363']).toEqual({terrain:'land',building:'residential',stage:0,origin:'player'});
 });
 

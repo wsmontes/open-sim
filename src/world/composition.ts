@@ -416,7 +416,13 @@ export function composeWorld(definition:Composition,objects:ResolvedObjects):Wor
 // observation an economic consequence is Task 15 — so this record fixes what a run was given without inventing an
 // effect for it: two runs are the same experiment when they were given the same inputs.
 export type ScenarioInput={id:string;atTick:number;kind:'observed'|'forecast';payload:JsonValue};
-export type ScenarioIndicators=CityStats&{tick:number};
+// The numbers a scenario reports side by side, written out instead of derived from `CityStats`: this is a table of
+// deltas, and the city's economy is a nested object that would either break the table or lie as a single number.
+export type ScenarioIndicators={money:number;population:number;jobs:number;energySupply:number;energyUsed:number;happiness:number;income:number;managed:number;tick:number};
+const indicatorsOf=(state:GameState):ScenarioIndicators=>{
+ const stats=summarize(state);
+ return {money:stats.money,population:stats.population,jobs:stats.jobs,energySupply:stats.energySupply,energyUsed:stats.energyUsed,happiness:stats.happiness,income:stats.income,managed:stats.managed,tick:state.tick};
+};
 export type ScenarioRun={
  id:string;
  composition:Composition;
@@ -466,7 +472,7 @@ export function runScenario(definition:Composition,objects:ResolvedObjects,reque
   inputs:[...request.inputs],
   premises:[...request.premises],
   state,
-  indicators:{...summarize(state),tick:state.tick},
+  indicators:indicatorsOf(state),
  });
 }
 

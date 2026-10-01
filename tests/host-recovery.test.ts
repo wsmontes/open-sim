@@ -4,6 +4,7 @@
 // successor only writes in the epoch the owner granted it. When the host is simply gone nothing is elected by a
 // timeout — the owner recovers from the last verifiable prefix available, or the work continues as a personal fork —
 // and two claims on the same epoch stop the integration instead of being merged by guesswork.
+import {RULES_VERSION} from '../src/core/model';
 import {expect,test} from 'vitest';
 import {createJcsCodec} from '../src/adapters/codec/jcs';
 import {bytesHasher} from '../src/adapters/hash/content';
@@ -128,7 +129,7 @@ async function scene(options:SceneOptions={}){
  const source=maps({'9:9':blank('9:9')});
  const kernel=createKernel();
  const limits=options.limits??NETWORK_LIMITS;
- const host=createHostSession({repository:hostWorlds,transport:net.connect('host'),peer:'host',head:startHead,identity:ANA_ACTOR.identity,grants:[ANA_GRANT,BETO_GRANT,CAIO_GRANT],rules:{family:'city',version:1},bases:source.source,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits,peers:['beto','caio'],capabilities:kernel,ledgerWindow:options.ledgerWindow});
+ const host=createHostSession({repository:hostWorlds,transport:net.connect('host'),peer:'host',head:startHead,identity:ANA_ACTOR.identity,grants:[ANA_GRANT,BETO_GRANT,CAIO_GRANT],rules:{family:'city',version:RULES_VERSION},bases:source.source,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits,peers:['beto','caio'],capabilities:kernel,ledgerWindow:options.ledgerWindow});
  const beto:ReplicaSession=createReplicaSession({repository:betoWorlds,transport:net.connect('beto'),peer:'beto',host:'host',head:betoHead,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits,grants:[ANA_GRANT,BETO_GRANT,CAIO_GRANT]});
  const caio:ReplicaSession=createReplicaSession({repository:caioWorlds,transport:net.connect('caio'),peer:'caio',host:'host',head:caioHead,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits,grants:[ANA_GRANT,BETO_GRANT,CAIO_GRANT]});
  const inbox:WireMessage[]=[];const player=net.connect('ana');player.subscribe((_peer,message)=>inbox.push(message));
@@ -159,7 +160,7 @@ async function scene(options:SceneOptions={}){
  const commitOf=(id:string)=>{const found=bodiesOf(inbox,'commit').map(body=>body.commit).filter(commit=>commit.id===id);const commit=found[found.length-1];if(!commit)throw new Error(`Commit ausente para ${id}`);return commit;};
  // A host session opened on the successor's own device, in the epoch the transfer granted.
  async function successorHost(grant:EpochGrant,peers:readonly string[]=['caio']){
-  return createHostSession({repository:betoWorlds,transport:net.connect('beto-host'),peer:'beto-host',head:beto.head(),identity:BETO_ACTOR.identity,grants:[grant.grant],rules:{family:'city',version:1},bases:source.source,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:grant.epoch,limits,peers});
+  return createHostSession({repository:betoWorlds,transport:net.connect('beto-host'),peer:'beto-host',head:beto.head(),identity:BETO_ACTOR.identity,grants:[grant.grant],rules:{family:'city',version:RULES_VERSION},bases:source.source,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:grant.epoch,limits,peers});
  }
  return {net,host,beto,caio,betoWorlds,caioWorlds,hostWorlds,kernel,startHead,source,proposals,inbox,player,hidden,settle,participate,proposalFor,sendProposal,commitOf,successorHost,replicas:()=>beto};
 }

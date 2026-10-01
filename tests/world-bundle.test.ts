@@ -1,3 +1,4 @@
+import {RULES_VERSION} from '../src/core/model';
 import {expect,test} from 'vitest';
 import {DEFAULT_LIMITS,decodeBundle,decodeUtf8,encodeBundle,parseStrictJson,verifyBundle} from '../src/world/codec';
 import type {DecodeLimits} from '../src/world/codec';
@@ -19,7 +20,7 @@ test('a legacy save becomes a portable package that carries the state and leaves
  if(!imported.ok)return;
  const bundle=imported.value;
  expect(bundle.envelope).toEqual({worldProtocol:2,wireVersion:1,kind:'bundle'});
- expect(bundle.definition).toMatchObject({worldId:'victoria',branchId:'main',profiles:['city'],rules:{family:'city',version:1}});
+ expect(bundle.definition).toMatchObject({worldId:'victoria',branchId:'main',profiles:['city'],rules:{family:'city',version:RULES_VERSION}});
  expect(bundle.definition.origin.kind).toBe('legacy-save');
  expect(bundle.head).toBeUndefined();
  expect(bundle.completeness).toEqual({complete:true,missing:[]});

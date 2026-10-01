@@ -5,6 +5,7 @@
 // It never invents an address. The bundle's objects keep the addresses they were read with, and what this profile
 // decided is returned in the preserved extension space: the caller publishes it through the profile's own commands and
 // commits it, because owning bytes, receipts and head is the repository's job and not a profile's (spec §9.2).
+import {RULES_VERSION} from '../../core/model';
 import type {Components,GameState} from '../../core/model';
 import {assertJsonSafe,isEntityId} from '../../core/protocol';
 import type {MaterializeRequest,SharedPopulation} from '../../world/materialization';
@@ -28,7 +29,9 @@ export type ExplorerPending = {
 export const EXPLORER_PENDING = 'x.explorer.pending';
 // The rules this profile knows how to write against. Another family is read, never written: a world under rules nobody
 // here implements is a world this profile can open its eyes on and nothing more.
-const CITY_RULES = {family:'city',version:1};
+// The city rules this profile understands: it reads and writes worlds the city kernel owns, so it must declare what
+// the city means today. A world under other rules is one to look at, never to write (see the test for that).
+const CITY_RULES = {family:'city',version:RULES_VERSION};
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 // The place a version points at, read the way any other client reads it: the bundle carries values, and the one that
 // declares a city state is the one this profile may change. Exported because a caller that only wants to look at the

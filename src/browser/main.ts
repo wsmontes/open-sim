@@ -20,6 +20,7 @@ import {createWorldRepository} from '../session/world-repository';
 import type {WorldVersion} from '../session/world-repository';
 import type {ChunkStatus} from '../session/ports';
 import type {Action,BaseChunk,CellCoord,CityStats,GameState,Tool,ViewState} from '../core/model';
+import {EMPTY_ECONOMY} from '../core/model';
 import {SAVE_VERSION} from '../core/snapshot';
 import {decodeBundle,encodeBundle} from '../world/codec';
 import {MAX_DEPTH} from '../world/model';
@@ -55,7 +56,7 @@ import {attachInput} from '../presentation/input';
 const WORLD_ID='open-sim',BRANCH_ID='main',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,OVERVIEW_BUDGET=512,DETAIL_BUDGET=120,FUTURE_TICKS=60;
 // The terms the frozen base travels under (spec R12): a world exported from here says where its data came from.
 const WORLD_TERMS=[{source:'OpenStreetMap · Shortbread v1',attribution:'© OpenStreetMap contributors',license:'ODbL'}];
-const TOOL_LABELS:Record<Tool,string>={road:'Rua',residential:'Residencial',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'};
+const TOOL_LABELS:Record<Tool,string>={road:'Rua',avenue:'Avenida',highway:'Estrada',residential:'Residencial',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'};
 // The places the client ships with, each carrying the population Wikidata states for it — read on 2026-09-30 from the
 // QID beside it, and only the values that were actually read: a number nobody fetched is absent, never remembered.
 // A curated starting point is not a claim of permanence, which is why the live lookup below refreshes it.
@@ -106,7 +107,7 @@ const lookUpCity=async(lat:number,lon:number,name?:string)=>{
  showCityFacts(facts);
  publishCityFacts(facts);
 };
-const EMPTY_STATS:CityStats={money:0,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:0,income:0,managed:0};
+const EMPTY_STATS:CityStats={money:0,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:0,income:0,managed:0,economy:EMPTY_ECONOMY};
 // One pending run per window: a burst coalesces into a single run that reads the newest state when it
 // fires, so a periodic tick arriving every `wait` ms can never starve the save or the map load.
 function createDebounce(task:()=>void,wait:number):()=>void {

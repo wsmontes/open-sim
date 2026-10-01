@@ -1,6 +1,205 @@
-import type {CellCoord,CityStats,GameState} from './model';
+import type {CellCoord,CityStats,Demand,GameState,MonthlyLedger,Tool} from './model';
+import {ROAD_CLASS,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN,roadClassOf} from './model';
 import {cellEconomy,effectiveCells,getCell,occupied} from './world';
 import {coordAt,wrapX} from './coordinates';
+
+// --- the shape of the city's economy ---------------------------------------------------------------------------
+// Three demands the player can move, one tax rate, land value that follows what was built and where, a monthly
+// budget, and a debt ladder. The rules come from the genre's public sources (Micropolis's demand valves and tax
+// table, Cities: Skylines' service level curve and land-value lags, SimCity 4's share of the population in work) and
+// from real municipal finance for the magnitudes: property tax as the main local revenue, debt priced by how deep the
+// city is in it. Everything here is a pure function of the world state, in a fixed order, with no clock and no
+// randomness beyond the deterministic `variant` — a session's two clients must agree.
+export {TAX_DEFAULT,TAX_MIN,TAX_MAX,TAX_DEFAULT as TAX, SERVICES_DEFAULT,SERVICES_MIN,SERVICES_MAX} from './model';
+// The city profile keeps its own numbers under one namespace, exactly like `chunks` keeps the map: a client that does
+// not implement this profile leaves them alone, and a save carries them without the core knowing what they mean.
+const ECONOMY='city.economy';
+const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
+const whole=(value:number)=>Math.round(value);
+export type Policy={tax:number;services:number;debt:number;valves:Demand;months:number};
+const DEFAULT_POLICY:Policy={tax:TAX_DEFAULT,services:SERVICES_DEFAULT,debt:0,valves:{residential:0,commercial:0,industrial:0},months:0};
+const num=(value:unknown,fallback:number,min:number,max:number):number=>typeof value==='number'&&Number.isFinite(value)?clamp(value,min,max):fallback;
+// The player writes policy as a component; anything unreadable is ignored instead of obeyed, so a hostile or broken
+// client cannot put the city's books into a state the game cannot show.
+export function policyOf(state:GameState):Policy {
+ const entry=state.components[ECONOMY];
+ const raw=entry&&typeof entry==='object'&&!Array.isArray(entry)?(entry as Record<string,unknown>)['policy']:null;
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))return {...DEFAULT_POLICY,valves:{...DEFAULT_POLICY.valves}};
+ const source=raw as Record<string,unknown>;
+ const valves=source['valves']&&typeof source['valves']==='object'&&!Array.isArray(source['valves'])?source['valves'] as Record<string,unknown>:{};
+ return {
+  tax:whole(num(source['tax'],TAX_DEFAULT,TAX_MIN,TAX_MAX)),
+  services:whole(num(source['services'],SERVICES_DEFAULT,SERVICES_MIN,SERVICES_MAX)),
+  debt:Math.max(0,whole(num(source['debt'],0,0,100_000_000))),
+  valves:{residential:whole(num(valves['residential'],0,-200,200)),commercial:whole(num(valves['commercial'],0,-200,200)),industrial:whole(num(valves['industrial'],0,-200,200))},
+  months:Math.max(0,whole(num(source['months'],0,0,100_000_000))),
+ };
+}
+export function withPolicy(state:GameState,policy:Policy):GameState {
+ const entry=state.components[ECONOMY];
+ const value={...(entry&&typeof entry==='object'&&!Array.isArray(entry)?entry as Record<string,unknown>:{}),policy:{tax:policy.tax,services:policy.services,debt:policy.debt,months:policy.months,valves:{...policy.valves}}};
+ return {...state,components:{...state.components,[ECONOMY]:value}};
+}
+
+// --- land value -------------------------------------------------------------------------------------------------
+// Derived, never stored: value is a consequence of the map, so a client that loads the same world computes the same
+// value, and a building that disappears takes its contribution with it. Peace and quiet pays, industry next door does
+// not, and distance from the middle costs — the shape of every bid-rent model and of Micropolis's terrain scan.
+const LAND_MIN=1,LAND_MAX=250;
+export function landValueAt(s:GameState,p:CellCoord):number {
+ let parks=0,commerce=0,industry=0,avenues=0,highways=0;
+ for(let dy=-8;dy<=8;dy++)for(let dx=-8;dx<=8;dx++){
+  const reach=Math.abs(dx)+Math.abs(dy);
+  if(reach>8)continue;
+  const c=getCell(s,{x:wrapX(p.x+dx),y:p.y+dy});
+  if(!c)continue;
+  if(c.building==='park')parks+=1;
+  else if(c.building==='commercial'&&occupied(c))commerce+=1;
+  else if(c.building==='industrial'&&occupied(c))industry+=1;
+  // Roads shape a neighbourhood as much as the buildings do: an avenue is a shop's address and a highway is a wall.
+  // Reach is what separates them: an avenue is felt on its own street, a highway is felt through the block.
+  if(c.road){
+   const kind=roadClassOf(c);
+   if(kind==='avenue'&&reach<=2)avenues+=1;
+   else if(kind==='highway'&&reach<=3)highways+=1;
+  }
+ }
+ const centre=cityCentre(s);
+ const distance=Math.abs(p.x-centre.x)+Math.abs(p.y-centre.y);
+ const raw=40+Math.min(60,parks*6)+Math.min(30,commerce*2)-Math.min(70,industry*7)-Math.min(30,distance/256)+Math.min(18,avenues*6)-Math.min(36,highways*9);
+ return clamp(whole(raw),LAND_MIN,LAND_MAX);
+}
+// The middle of what was built, recomputed from the buildings themselves: a city that grows south moves its own
+// centre, and nothing has to be stored to remember where it was.
+function cityCentre(s:GameState):CellCoord {
+ let sumX=0,sumY=0,count=0;
+ for(const id of Object.keys(s.chunks).sort()){
+  const cells=effectiveCells(s.chunks[id]!);
+  for(let i=0;i<cells.length;i+=1){
+   const cell=cells[i]!;
+   if(!occupied(cell))continue;
+   const p=coordAt(id,i);
+   sumX+=p.x;sumY+=p.y;count+=1;
+   if(count>=4096)return {x:whole(sumX/count),y:whole(sumY/count)};
+  }
+ }
+ return count?{x:whole(sumX/count),y:whole(sumY/count)}:{x:0,y:0};
+}
+
+// --- the three demands -----------------------------------------------------------------------------------------
+// Micropolis's shape: a valve per zone, moved every month by how far the city is from what that zone wants, minus
+// what the tax costs. Two rules keep it pleasant instead of punishing: growth never stops outright (the valve floors
+// above the point where nothing happens) and the tax is only expensive once it is high.
+const VALVE_STEP=600,VALVE_RANGE=200,WORKERS_SHARE=0.5;
+export function taxEffect(taxPercent:number):number {
+ // A cheap city grows on its own, a neutral one at the default rate is steady, and a dear one pays for it in growth:
+ // the table's shape is Micropolis's `taxTable`, re-anchored so the default tax is the calm point.
+ return taxPercent<=TAX_DEFAULT?(TAX_DEFAULT-taxPercent)*22:-(taxPercent-TAX_DEFAULT)*70;
+}
+type Aggregate={population:number;jobs:number;workers:number;housing:number;landValueAverage:number;serviceLevel:number;roadCells:number;parkCells:number;powerCells:number};
+function aggregate(s:GameState):Aggregate {
+ let population=0,jobs=0,housing=0,landSum=0,landCount=0,roadCells=0,parkCells=0,powerCells=0;
+ for(const id of Object.keys(s.chunks).sort()){
+  const chunk=s.chunks[id]!;
+  const cells=effectiveCells(chunk);
+  for(let i=0;i<cells.length;i+=1){
+   const cell=cells[i]!;
+   if(cell.road)roadCells+=1;
+   if(!occupied(cell))continue;
+   const p=coordAt(id,i);
+   landSum+=landValueAt(s,p);landCount+=1;
+   if(cell.building==='residential'){const residents=4*(cell.stage??0);population+=residents;housing+=4;continue;}
+   if(cell.building==='commercial'){jobs+=6*(cell.stage??0);continue;}
+   if(cell.building==='industrial'){jobs+=10*(cell.stage??0);continue;}
+   if(cell.building==='park'){parkCells+=1;continue;}
+   if(cell.building==='power'){powerCells+=1;continue;}
+  }
+ }
+ // Services are read from the city's own policy: the level the player pays for is the level the city gets, and
+ // hardcoding the default here was quietly making the whole slider cost money without changing anything.
+ return {population,jobs,workers:whole(population*WORKERS_SHARE),housing,landValueAverage:landCount?whole(landSum/landCount):0,serviceLevel:serviceLevelOf(policyOf(s).services),roadCells,parkCells,powerCells};
+}
+// Cities: Skylines' budget curve: below 100% the level falls with the square of what was spent, above it the extra
+// money buys less and less. The number is a multiplier around 1, which is what the rest of the model wants.
+export function serviceLevelOf(services:number):number {
+ const budget=clamp(services,SERVICES_MIN,SERVICES_MAX)/100;
+ const level=budget<1?budget*budget:3*budget-budget*budget-1;
+ return Math.round(level*100)/100;
+}
+function nextValves(a:Aggregate,policy:Policy):Demand {
+ // A brand-new city has no jobs and no workers, and a ratio built from both would be flat zero demand forever — the
+ // place has to want its first residents on its own. Roads and open land attract a first few dozen people, and the
+ // jobs that follow are what keep them coming.
+ const wanted=Math.max(24,a.jobs*2);
+ const ratioResidential=clamp(wanted/Math.max(8,a.workers),0.5,2);
+ const shops=a.jobs>0?a.jobs*(1/3):0;
+ const ratioCommercial=clamp(1+(a.population*0.3-shops)/Math.max(8,shops),0.5,2);
+ const unemployment=a.workers>0?Math.max(0,a.workers-a.jobs)/a.workers:0;
+ const ratioIndustrial=clamp(1+unemployment*2-0.2,0.5,2);
+ const move=(valve:number,ratio:number)=>clamp(whole(valve+(ratio-1)*VALVE_STEP+taxEffect(policy.tax)),-VALVE_RANGE,VALVE_RANGE);
+ return {residential:move(policy.valves.residential,ratioResidential),commercial:move(policy.valves.commercial,ratioCommercial),industrial:move(policy.valves.industrial,ratioIndustrial)};
+}
+
+// --- the monthly budget ----------------------------------------------------------------------------------------
+// Real municipal finance in miniature: property tax on the land that exists is the main revenue, a share of it comes
+// from the level of government above, services and the upkeep of what was built are the expense, and the debt is
+// priced by how deep the city is in it. The magnitudes are calibrated so that a small city at the default tax roughly
+// balances, which is what makes the first loan a decision instead of a formality.
+// The property tax is charged on the land each resident stands on, so what one resident pays is `land × rate`. The
+// calibration constant is chosen so that a plain plot at the default rate covers the services of that same resident:
+// a small town in the middle of the slider roughly balances, which is what makes the first loan a decision instead of
+// a formality. Good land — parks, shops, a short walk from the middle — pays several times what a plot next to
+// industry does, and that gap is the game.
+const TRANSFER_SHARE=0.2,CAPITAL_PER_CELL=0.4,PARK_UPKEEP=0.6,PER_CAPITA=18,TAX_PER_POINT=5;
+export function monthlyBudget(s:GameState,policy=policyOf(s)):MonthlyLedger {
+ const a=aggregate(s);
+ const taxRevenue=(a.population*a.landValueAverage/120)*policy.tax*TAX_PER_POINT;
+ const revenue=whole(taxRevenue*(1+TRANSFER_SHARE));
+ const serviceCost=a.population*PER_CAPITA*(policy.services/100);
+ const upkeep=a.roadCells*CAPITAL_PER_CELL+a.parkCells*PARK_UPKEEP;
+ const debtService=whole(policy.debt*interestRateFor(s,policy.debt)/100/12);
+ const expense=whole(serviceCost+upkeep+debtService);
+ return {revenue,expense,net:revenue-expense};
+}
+// The ladder every credit committee uses: the deeper the debt is relative to what the city collects, the more it
+// costs to borrow. The cap is a rate, not a refusal, so a desperate city can still borrow — at a price.
+export function interestRateFor(s:GameState,debt:number):number {
+ const a=aggregate(s),revenue=Math.max(1,whole((a.population*a.landValueAverage/120)*policyOf(s).tax*TAX_PER_POINT*(1+TRANSFER_SHARE))*12);
+ const ratio=debt/Math.max(1,revenue);
+ if(ratio<1)return 3.5;
+ if(ratio<1.6)return 5.5;
+ if(ratio<2.2)return 8;
+ return 12;
+}
+export function ratingFor(s:GameState,debt:number):'A'|'B'|'C'|'D' {
+ const rate=interestRateFor(s,debt);
+ return rate<=3.5?'A':rate<=5.5?'B':rate<=8?'C':'D';
+}
+
+// --- what the screen shows -------------------------------------------------------------------------------------
+export function economyOf(s:GameState):CityStats['economy'] {
+ const policy=policyOf(s);
+ const a=aggregate(s);
+ const monthly=monthlyBudget(s,policy);
+ const interestRate=interestRateFor(s,policy.debt);
+ const rating=ratingFor(s,policy.debt);
+ return {
+  taxPercent:policy.tax,
+  servicesPercent:policy.services,
+  serviceLevel:serviceLevelOf(policy.services),
+  demand:{...policy.valves},
+  landValueAverage:a.landValueAverage,
+  monthly,
+  debt:policy.debt,
+  interestRate,
+  rating,
+  // A month in the red is a decision waiting to be made, so it is a sentence with the three ways out rather than a
+  // number the player has to interpret.
+  crisis:monthly.net<0&&s.money<=0?'A cidade gastou mais do que arrecadou e o caixa acabou. Corte serviços, aumente o imposto ou tome um empréstimo.':null,
+ };
+}
+
+// --- the tick -------------------------------------------------------------------------------------------------
 export function happinessAt(s:GameState,p:CellCoord):number {
  let parks=0,industry=false;
  for(let dy=-8;dy<=8;dy++)for(let dx=-8;dx<=8;dx++){
@@ -11,7 +210,7 @@ export function happinessAt(s:GameState,p:CellCoord):number {
  return Math.min(100,Math.max(0,60+Math.min(20,parks*5)-(industry?10:0)));
 }
 export function summarize(s:GameState):CityStats {
- const stats:CityStats={money:s.money,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:60,income:0,managed:Object.keys(s.chunks).length};
+ const stats:CityStats={money:s.money,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:60,income:0,managed:Object.keys(s.chunks).length,economy:economyOf(s)};
  let happy=0;
  for(const id of Object.keys(s.chunks).sort()){
   const ch=s.chunks[id];stats.energySupply+=ch.baseEnergy;stats.income+=ch.balanceAdjustment;
@@ -48,25 +247,69 @@ function materializedPeople(state:GameState):number {
  }
  return people.size;
 }
+// How tall a building is allowed to be: the stage the player sees is the zone's level, and it is what the demand, the
+// land under it and the services it gets can pay for. One step per growth turn keeps the city readable.
+const MAX_STAGE=3;
+function stageFor(tool:Tool,cell:{stage?:number},land:number,serviceLevel:number,valve:number,access:number):number {
+ if(tool==='park'||tool==='power')return 1;
+ const current=cell.stage??0;
+ // What the city would like to build, capped by what the street it faces can carry: the road class is the ceiling.
+ // The ladders are the land the lot sits on and what the services reach it, and the numbers are inside what the land
+ // formula above can actually produce (40 base, at most +60 from parks and +30 from shops): a threshold nobody can
+ // reach is a floor of the city that never gets built.
+ const wanted=Math.min(access,land>=95&&serviceLevel>=1.05?3:land>=70&&serviceLevel>=0.95?2:1);
+ if(valve<=0)return current;
+ if(valve<-40&&current>0)return current; // a struggling zone keeps what it has instead of growing
+ const cap=clamp(wanted,1,MAX_STAGE);
+ return Math.min(cap,current+1);
+}
 export function stepSimulation(state:GameState):GameState {
+ const policy=policyOf(state);
+ const aggregateNow=aggregate(state);
  let next={...state,tick:state.tick+1,chunks:{...state.chunks}};
+ // Growth every five ticks, one building per region, chosen the same way on every client: a city that grows in one
+ // deterministic step at a time is a city two clients can agree on.
  if(next.tick%5===0){
   const stats=summarize(state);let energy=stats.energySupply-stats.energyUsed,pop=stats.population,jobs=stats.jobs;
+  const valveOf=(tool:Tool)=>tool==='residential'?policy.valves.residential:tool==='commercial'?policy.valves.commercial:tool==='industrial'?policy.valves.industrial:0;
   for(const id of Object.keys(state.chunks).sort()){
    const chunk=state.chunks[id];
    const candidates=effectiveCells(chunk);
    for(let i=0;i<candidates.length;i++){
-    const c=candidates[i];if(!c.building||c.stage!==0||c.building==='park'||c.building==='power'||energy<2)continue;
+    const c=candidates[i];if(!c.building||c.stage===undefined||c.building==='park'||c.building==='power'||energy<2)continue;
     const p=coordAt(id,i);
-    const road=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>getCell(state,{x:wrapX(p.x+dx),y:p.y+dy})?.road);
-    if(!road)continue;
-    if(c.building==='residential'&&(pop+4>Math.max(16,jobs*2)||happinessAt(state,p)<40))continue;
-    const current=next.chunks[id];next.chunks[id]={...current,edits:{...current.edits,[i]:{...c,stage:1}}};
-    energy-=2;if(c.building==='residential')pop+=4;if(c.building==='commercial')jobs+=6;if(c.building==='industrial')jobs+=10;
+    // Access is what the road facing the lot can carry: a street stops the city at two floors, an avenue lets it rise,
+    // and a highway frontage is somewhere nobody builds tall. No road at all means no access.
+    let access=0;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]] as const){
+     const facing=getCell(state,{x:wrapX(p.x+dx),y:p.y+dy});
+     if(facing?.road)access=Math.max(access,ROAD_CLASS[roadClassOf(facing)].height);
+    }
+    if(!access)continue;
+    // A zone grows when its own demand is positive and it can pay the upkeep of one more floor; residential also
+    // needs somebody willing to live there, which is what its valve is measuring.
+    const valve=valveOf(c.building);
+    if(valve<=0&&(c.stage??0)>=1)continue;
+    if(c.building==='residential'&&(valve<=0||happinessAt(state,p)<40))continue;
+    const land=landValueAt(state,p);
+    if(land<45&&valve<20)continue;
+    const stage=stageFor(c.building,c,land,aggregateNow.serviceLevel,valve,access);
+    if(stage===(c.stage??0))continue;
+    const current=next.chunks[id];next.chunks[id]={...current,edits:{...current.edits,[i]:{...c,stage}}};
+    energy+=(stage-(c.stage??0))*2;
+    if(c.building==='residential')pop+=(stage-(c.stage??0))*4;if(c.building==='commercial')jobs+=(stage-(c.stage??0))*6;if(c.building==='industrial')jobs+=(stage-(c.stage??0))*10;
     break; // One new building per region per growth step keeps the pace gentle.
    }
   }
  }
- if(next.tick%30===0)next={...next,money:next.money+summarize(next).income};
+ // The month: demand moves, the books close, and a city that cannot pay is left empty-handed rather than in debt to
+ // nobody. Both happen on the same tick so the player sees one consequence per month, not a slow leak.
+ if(next.tick%30===0){
+  const valves=nextValves(aggregateNow,policy);
+  next=withPolicy(next,{...policy,valves,months:policy.months+1});
+  const monthly=monthlyBudget(next,{...policy,valves});
+  const after=next.money+monthly.net;
+  next={...next,money:after>=0?whole(after):0};
+ }
  return next;
 }

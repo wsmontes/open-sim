@@ -4,6 +4,7 @@
 // is exercised here is the experience layer over real sessions: who orders a transaction, who is allowed to tick, what
 // a refusal does to the player's selection, and what presence is allowed to change (nothing durable).
 // @vitest-environment jsdom
+import {RULES_VERSION} from '../src/core/model';
 import {expect,test,vi} from 'vitest';
 import {createJcsCodec} from '../src/adapters/codec/jcs';
 import {bytesHasher} from '../src/adapters/hash/content';
@@ -123,7 +124,7 @@ async function scene(options:{fault?:Fault;limits?:Limits;costLimit?:number}={})
  const kernel=createKernel();
  // One endpoint per peer: the client's link and the session it speaks to are the same pipe.
  const hostTransport=net.connect('host'),replicaTransport=net.connect('beto');
- const host=createHostSession({repository:hostWorlds,transport:hostTransport,peer:'host',head:startHead,identity:ANA_ACTOR.identity,grants:[ANA_GRANT,BETO_GRANT],rules:{family:'city',version:1},bases:source.source,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits,peers:['beto'],capabilities:kernel});
+ const host=createHostSession({repository:hostWorlds,transport:hostTransport,peer:'host',head:startHead,identity:ANA_ACTOR.identity,grants:[ANA_GRANT,BETO_GRANT],rules:{family:'city',version:RULES_VERSION},bases:source.source,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits,peers:['beto'],capabilities:kernel});
  const replica=createReplicaSession({repository:replicaWorlds,transport:replicaTransport,peer:'beto',host:'host',head:replicaHead,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits,grants:[ANA_GRANT,BETO_GRANT]});
  const common:Omit<LinkContext,'principal'|'sessionKey'|'signer'|'peers'|'transport'|'peer'|'identity'|'grants'>={worldId:MAIN.worldId,branchId:MAIN.branchId,sessionId:SESSION,epoch:1,codec,costLimit:options.costLimit??10000};
  const anaLink=hostSessionLink(host,{...common,principal:ANA,sessionKey:ANA_ACTOR.keys.publicKey,signer:signerOf(ANA_ACTOR),transport:hostTransport,peer:'host',identity:ANA_ACTOR.identity,grants:[ANA_GRANT],peers:[{id:'beto',role:'collaborator'}],id:()=>`ana-${++counter}`});

@@ -1,3 +1,4 @@
+import {RULES_VERSION} from '../src/core/model';
 import {expect,test} from 'vitest';
 import {createJcsCodec} from '../src/adapters/codec/jcs';
 import {bytesHasher} from '../src/adapters/hash/content';
@@ -94,7 +95,7 @@ test('a city opens in the explorer and returns with the same total, history, pro
  // the explorer did not rewrite the world it opened: every object keeps the address it was read with
  expect(explored.objects).toEqual(bundle.objects);
  expect(explored.terms).toEqual(bundle.terms);
- expect(explored.definition).toMatchObject({worldId:WORLD,branchId:'main',profiles:['city','explorer'],rules:{family:'city',version:1}});
+ expect(explored.definition).toMatchObject({worldId:WORLD,branchId:'main',profiles:['city','explorer'],rules:{family:'city',version:RULES_VERSION}});
  expect(explored.definition.origin).toEqual(bundle.definition.origin);
  const pending=explorerPending(explored);
  expect(pending).toMatchObject({ok:true});

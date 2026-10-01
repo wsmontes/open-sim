@@ -1,3 +1,4 @@
+import {RULES_VERSION} from '../src/core/model';
 import {expect,test} from 'vitest';
 import {createJcsCodec} from '../src/adapters/codec/jcs';
 import {bytesHasher} from '../src/adapters/hash/content';
@@ -33,7 +34,7 @@ const bound=await provider.bindSession({principal:ANA,scope:scopeOf()});
 if(!bound.ok)throw new Error(bound.error.message);
 const identity=bound.value;
 
-const capabilities=(overrides:Partial<Capabilities>={}):Capabilities=>({kind:'capabilities',worldProtocol:2,wireVersion:1,rules:{family:'city',version:1},actions:['build','host'],namespaces:[{key:'cidade.transito',critical:true}],limits:NETWORK_LIMITS,...overrides});
+const capabilities=(overrides:Partial<Capabilities>={}):Capabilities=>({kind:'capabilities',worldProtocol:2,wireVersion:1,rules:{family:'city',version:RULES_VERSION},actions:['build','host'],namespaces:[{key:'cidade.transito',critical:true}],limits:NETWORK_LIMITS,...overrides});
 
 async function proposalOf(overrides:Partial<Proposal>={},signer:KeyPair=session):Promise<Proposal>{
  const base:Proposal={worldProtocol:2,wireVersion:1,kind:'proposal',...MAIN,sessionId:SESSION,epoch:1,id:'proposta-1',principal:ANA,sessionKey:session.publicKey,observedHead:head.commit,intent:{type:'build',tool:'park',cells:[here(1,1)]},preconditions:{revision:0},costLimit:100,proof:{kind:'message',algorithm:'Ed25519',sessionKey:session.publicKey,signature:''}};
@@ -205,7 +206,7 @@ test('negotiation refuses incompatible rules and fences unknown critical namespa
  expect(oneSided.value.unsupportedCritical).toEqual(['cidade.transito']);
  expect(oneSided.value.write).toBe(false);
  expect(roleFor(oneSided.value)).toBe('spectator');
- expect(await negotiate(capabilities(),capabilities({rules:{family:'city',version:2}}))).toMatchObject({ok:false,error:{code:'CONFLICT'}});
+ expect(await negotiate(capabilities(),capabilities({rules:{family:'city',version:RULES_VERSION+1}}))).toMatchObject({ok:false,error:{code:'CONFLICT'}});
  expect(await negotiate(capabilities(),capabilities({rules:{family:'explorer',version:1}}))).toMatchObject({ok:false,error:{code:'CONFLICT'}});
  expect(await negotiate(capabilities(),capabilities({wireVersion:2}))).toMatchObject({ok:false,error:{code:'WIRE_VERSION_UNSUPPORTED'}});
  expect(await negotiate(capabilities(),capabilities({worldProtocol:3}))).toMatchObject({ok:false,error:{code:'WORLD_PROTOCOL_UNSUPPORTED'}});

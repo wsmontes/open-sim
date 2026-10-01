@@ -2,6 +2,7 @@
 import {readFileSync} from 'node:fs';
 import {beforeEach,expect,test,vi} from 'vitest';
 import type {CityStats} from '../src/core/model';
+import {EMPTY_ECONOMY} from '../src/core/model';
 import {createHud} from '../src/presentation/hud';
 import type {HudCallbacks,HudInfo} from '../src/presentation/hud';
 // The panels are painted by index.html: the tests mount that very markup instead of a hand-made copy.
@@ -20,7 +21,7 @@ const drag=(handle:Element,from:readonly [number,number],to:readonly [number,num
  pointer(window,'pointermove',to[0],to[1]);
  pointer(window,'pointerup',to[0],to[1]);
 };
-const stats:CityStats={money:1234,population:56,jobs:7,energySupply:90,energyUsed:30,happiness:80,income:12,managed:3};
+const stats:CityStats={economy:EMPTY_ECONOMY,money:1234,population:56,jobs:7,energySupply:90,energyUsed:30,happiness:80,income:12,managed:3};
 const info=(over:Partial<HudInfo>={}):HudInfo=>({stats,tool:'explore',speed:1,place:'Vancouver',attribution:{text:'© OpenStreetMap contributors',url:'https://www.openstreetmap.org/copyright'},mapMessage:'',notice:'',saveStatus:{status:'idle',blocked:false},canOverwriteSave:false,rotation:0,...over});
 const callbacks=()=>({onTool:vi.fn(),onSpeed:vi.fn(),onPlace:vi.fn(),onRetryMap:vi.fn(),onOverwriteSave:vi.fn(),onOverview:vi.fn(),onZoomStep:vi.fn(),onNorth:vi.fn()}) satisfies HudCallbacks;
 const tree=(selector:string,root:Document|HTMLElement=document)=>{

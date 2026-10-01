@@ -1,6 +1,6 @@
 import type {BaseChunk,Cell,Components,GameState,ManagedChunk,SavedGame,ViewState} from './model';
 import {CHUNK,chunkOrigin} from './coordinates';
-import {VIEW_ZOOM_MAX,VIEW_ZOOM_MIN} from './model';
+import {FORMAT_VERSION,RULES_VERSION,VIEW_ZOOM_MAX,VIEW_ZOOM_MIN} from './model';
 import {assertJsonSafe,canonicalJson,cloneJson,isComponentKey,isEntityId} from './protocol';
 export const SAVE_VERSION = 1;
 const RESERVED = ['__proto__','constructor','prototype'];
@@ -103,12 +103,17 @@ function chunks(value: unknown): Record<string,ManagedChunk> {
  for (const id of Object.keys(value)) rebuilt[id] = managedChunk(id, value[id]);
  return rebuilt;
 }
+// The rules a save may have been written under and still be opened: everything the game itself has run. A world is the
+// same shape under them, so an older save is stamped with what the rules mean today and starts behaving like every
+// other city — the same way a game update migrates what a player had. An unknown *future* version is refused rather
+// than guessed at, and a branch written under other rules stays refused by the sessions that would have to share it.
+const OPENABLE_RULES: readonly number[] = [1, RULES_VERSION];
 function gameState(value: unknown): GameState {
  if (!plain(value)) throw new Error('Estado inválido');
  if (value.formatVersion !== 1) throw new Error('Versão de formato desconhecida');
- if (value.rulesVersion !== 1) throw new Error('Versão de regras desconhecida');
+ if (typeof value.rulesVersion !== 'number' || !OPENABLE_RULES.includes(value.rulesVersion)) throw new Error('Versão de regras desconhecida');
  if (typeof value.worldId !== 'string' || !value.worldId.length || value.worldId.length > 80) throw new Error('Mundo inválido');
- return {...extras(value,['formatVersion','rulesVersion','worldId','seed','revision','tick','money','chunks','actors','components']), formatVersion:1, rulesVersion:1, worldId:value.worldId, seed:safeInteger(value.seed,'Semente'), revision:safeCount(value.revision,'Revisão'), tick:safeCount(value.tick,'Relógio'), money:safeCount(value.money,'Saldo'), chunks:chunks(value.chunks), actors:actors(value.actors), components:components(value.components ?? {})};
+ return {...extras(value,['formatVersion','rulesVersion','worldId','seed','revision','tick','money','chunks','actors','components']), formatVersion:FORMAT_VERSION as 1, rulesVersion:RULES_VERSION as 3, worldId:value.worldId, seed:safeInteger(value.seed,'Semente'), revision:safeCount(value.revision,'Revisão'), tick:safeCount(value.tick,'Relógio'), money:safeCount(value.money,'Saldo'), chunks:chunks(value.chunks), actors:actors(value.actors), components:components(value.components ?? {})};
 }
 function viewState(value: unknown): ViewState {
  if (!plain(value)) throw new Error('Visão inválida');

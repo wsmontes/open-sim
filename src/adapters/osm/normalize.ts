@@ -25,6 +25,11 @@ const LAND_USE:Record<string,true>={residential:true,commercial:true,industrial:
 // Only ways a car can use may become road cells. Measured on real tiles (2026-09-29): counting footways, steps, paths,
 // cycleways and plazas as roads covered 55-59% of a downtown chunk and overwrote the imported buildings with asphalt.
 const DRIVEABLE=/^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road)(_link)?$/;
+// The map already knows which roads are which, and throwing that away was leaving variety on the table: a real
+// avenue is imported as an avenue, so a city built on real ground gets the road hierarchy it actually has.
+const MOTORWAY=/^(motorway|trunk)(_link)?$/;
+const ARTERIAL=/^(primary|secondary)(_link)?$/;
+const roadClass=(kind:string)=>MOTORWAY.test(kind)?'highway':ARTERIAL.test(kind)?'avenue':'street';
 const PAVED=/^(pedestrian|service)$/;
 const layerOrder=(f:MapFeature)=>f.layer==='land'||f.layer==='sites'?0:f.layer==='ocean'||f.layer.startsWith('water')?1:f.layer==='buildings'?2:3;
 // One tile carries one `buildings` feature with thousands of rings (São Paulo: 10.137 rings, 108k points). Testing
@@ -77,5 +82,5 @@ function paint(cells:Cell[],landUse:Map<number,Building>,f:MapFeature,i:number,o
  else if(f.layer==='buildings'&&c.terrain!=='water'){
   const hash=variant(origin.x+x,origin.y+y)%10;
   cells[i]={terrain:c.terrain,building:landUse.get(i)??(hash<7?'residential':hash<9?'commercial':'industrial'),stage:1,origin:'imported'};
- }else if(((f.layer==='streets'&&DRIVEABLE.test(f.kind))||(f.layer==='street_polygons'&&PAVED.test(f.kind)))&&(c.terrain!=='water'||f.bridge))cells[i]={terrain:c.terrain,road:true,origin:'imported'};
+ }else if(((f.layer==='streets'&&DRIVEABLE.test(f.kind))||(f.layer==='street_polygons'&&PAVED.test(f.kind)))&&(c.terrain!=='water'||f.bridge))cells[i]={terrain:c.terrain,road:true,...(roadClass(f.kind)==='street'?{}:{roadClass:roadClass(f.kind)}),origin:'imported'};
 }

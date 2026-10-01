@@ -10,6 +10,16 @@ test('only driveable ways become roads',()=>{
  for(const kind of ['footway','steps','path','cycleway','pedestrian','bridleway','rail','subway','track','ferry','','(unknown)'])expect(road(kind)).toBeUndefined();
  for(const kind of ['residential','service','unclassified','tertiary','secondary','primary','trunk','motorway','living_street','road','primary_link'])expect(road(kind)).toBe(true);
 });
+test('the class of a real road survives the import',()=>{
+ // The map already knows which streets are which, and the game has somewhere to put it now: a city built on real
+ // ground gets the avenues and the highways that are actually there instead of a uniform grid of streets.
+ const cell=(kind:string)=>normalizeChunk('0:0',[line('streets',kind,[[0,.5],[30,.5]])]).cells[0];
+ for(const kind of ['motorway','trunk','motorway_link'])expect(cell(kind).roadClass,kind).toBe('highway');
+ for(const kind of ['primary','secondary','primary_link'])expect(cell(kind).roadClass,kind).toBe('avenue');
+ // A street writes no class at all, because that is what a missing class means: the map's own word for the common
+ // case is also the shape every save and every imported region had before the classes existed.
+ for(const kind of ['residential','service','tertiary','living_street','unclassified'])expect(cell(kind).roadClass,kind).toBeUndefined();
+});
 test('parking sites and non-green land uses stay land while parks turn green',()=>{
  const terrain=(layer:string,kind:string)=>normalizeChunk('0:0',[{...polygon(layer,[[[0,0],[32,0],[32,32],[0,32],[0,0]]]),kind}]).cells[0].terrain;
  for(const kind of ['park','forest','grass','garden','meadow','scrub','farmland','recreation_ground','cemetery'])expect(terrain('land',kind)).toBe('green');

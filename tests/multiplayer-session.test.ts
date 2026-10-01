@@ -4,6 +4,7 @@
 // receipt and head advance in one device transaction before confirming anything. Replicas verify the grant, the
 // epoch, the parent, the operation and the result, and ask for the frozen regions they do not have instead of
 // presuming them. Nothing here reads the clock, the network or a device: every one of them is injected.
+import {RULES_VERSION} from '../src/core/model';
 import {expect,test} from 'vitest';
 import {createJcsCodec} from '../src/adapters/codec/jcs';
 import {bytesHasher} from '../src/adapters/hash/content';
@@ -139,7 +140,7 @@ async function scene(options:SceneOptions={}){
  const limits=options.limits??NETWORK_LIMITS;
  const sessionId=options.sessionId??SESSION,epoch=options.epoch??1;
  const actor=await actorOf(ANA,ANA_KEYS,ANA_ROOT,sessionId);
- const host=createHostSession({repository:hostWorlds,transport:net.connect('host'),peer:'host',head:startHead,identity:actor.identity,grants:[await grantOf(actor,actor.keys)],rules:{family:'city',version:1},bases:source.source,verifier,codec,hasher,now:()=>NOW,sessionId,epoch,limits,peers:['beto']});
+ const host=createHostSession({repository:hostWorlds,transport:net.connect('host'),peer:'host',head:startHead,identity:actor.identity,grants:[await grantOf(actor,actor.keys)],rules:{family:'city',version:RULES_VERSION},bases:source.source,verifier,codec,hasher,now:()=>NOW,sessionId,epoch,limits,peers:['beto']});
  let replica:ReplicaSession=createReplicaSession({repository:replicaWorlds,transport:net.connect('beto'),peer:'beto',host:'host',head:replicaHead,verifier,codec,hasher,now:()=>NOW,sessionId,epoch,limits});
  const inbox:WireMessage[]=[];const player=net.connect('ana');player.subscribe((_peer,message)=>inbox.push(message));
  const proposals=new Map<string,Proposal>();
@@ -352,7 +353,7 @@ test('a host that lost the answer before replying repeats the result instead of 
  expect((await branchHead(s.hostWorlds,MAIN.worldId)).generation).toBe(2);
  // A session reopened on the branch reads its receipts out of the history it reopens, so the retry is answered with
  // the version already produced instead of applying the build again.
- const reopened=createHostSession({repository:s.hostWorlds,transport:s.net.connect('host2'),peer:'host2',head:await branchHead(s.hostWorlds,MAIN.worldId),identity:ANA_ACTOR.identity,grants:[await grantOf(ANA_ACTOR,ANA_ACTOR.keys)],rules:{family:'city',version:1},bases:s.source.source,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits:NETWORK_LIMITS});
+ const reopened=createHostSession({repository:s.hostWorlds,transport:s.net.connect('host2'),peer:'host2',head:await branchHead(s.hostWorlds,MAIN.worldId),identity:ANA_ACTOR.identity,grants:[await grantOf(ANA_ACTOR,ANA_ACTOR.keys)],rules:{family:'city',version:RULES_VERSION},bases:s.source.source,verifier,codec,hasher,now:()=>NOW,sessionId:SESSION,epoch:1,limits:NETWORK_LIMITS});
  const retry=await reopened.submit(await propose({id:'p1',intent:build('park',[at(1,1)]),head:s.startHead,revision:0}));
  expect(retry.status).toBe('duplicate');
  expect(retry.head.generation).toBe(2);

@@ -1,6 +1,7 @@
 // Importing a real transit family (plan Task 15) and what it refuses. The synthetic feed here is the same content as
 // the committed fixture `transit-small.zip`: it states its own provenance as a fixture, no stop or route is a copy of
 // anyone's real operation, and the coordinates only need to be plausible for a bounding box.
+import {RULES_VERSION} from '../src/core/model';
 import {expect,test} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {deflateRawSync} from 'node:zlib';
@@ -216,7 +217,7 @@ test('the revision is addressed, quoted and portable, and the same feed always a
  expect(dataset.revision.format).toEqual({name:'GTFS Schedule',files:['agency.txt','calendar.txt','calendar_dates.txt','feed_info.txt','routes.txt','stop_times.txt','stops.txt','trips.txt'],declaredVersion:'fixture-1'});
  const bundle:WorldBundle={
   envelope:{worldProtocol:2,wireVersion:1,kind:'bundle'},
-  definition:{worldId:'victoria',branchId:'main',origin:{kind:'new'},profiles:['city'],rules:{family:'city',version:1}},
+  definition:{worldId:'victoria',branchId:'main',origin:{kind:'new'},profiles:['city'],rules:{family:'city',version:RULES_VERSION}},
   objects:[...dataset.objects],
   terms:[provenanceTerms(dataset.revision)],
   completeness:{complete:true,missing:[]},

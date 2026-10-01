@@ -62,8 +62,8 @@ export async function actorId(principal: Principal, hasher: ContentHasher, codec
 }
 
 // --- capabilities and negotiation (spec §9, §10) ---------------------------------------------------------------
-export type ActionCapability = 'admin' | 'host' | 'build' | 'demolish' | 'tick' | 'component';
-export const WRITE_ACTIONS: readonly ActionCapability[] = ['build', 'demolish', 'tick', 'component'];
+export type ActionCapability = 'admin' | 'host' | 'build' | 'demolish' | 'tick' | 'component' | 'policy';
+export const WRITE_ACTIONS: readonly ActionCapability[] = ['build', 'demolish', 'tick', 'component', 'policy'];
 export type Role = 'owner' | 'host' | 'collaborator' | 'spectator';
 export type NamespaceDecl = {key: string; critical: boolean};
 export type Capabilities = {
@@ -447,7 +447,7 @@ function identityFrom(value: unknown): WorldResult<IdentityProof> {
  if (!delegation.ok) return delegation;
  return ok({kind: 'identity', principal: principal.value, sessionKey: sessionKey.value, scope: scope.value, delegation: delegation.value});
 }
-const CAPABILITY: Record<string, ActionCapability> = {admin: 'admin', host: 'host', build: 'build', demolish: 'demolish', tick: 'tick', component: 'component'};
+const CAPABILITY: Record<string, ActionCapability> = {admin: 'admin', host: 'host', build: 'build', demolish: 'demolish', tick: 'tick', component: 'component', policy: 'policy'};
 function actionsFrom(value: unknown, label: string): WorldResult<ActionCapability[]> {
  if (!Array.isArray(value)) return failed('MALFORMED', `${label} inválidas`);
  const actions: ActionCapability[] = [];
