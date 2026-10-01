@@ -5,6 +5,7 @@
 // structural: an intention is only ever what a command recorded — a legacy overlay becomes an opaque cell replacement
 // instead of an invented build — and a declared author is carried for reading, never consulted as an authorization.
 import type {BaseChunk,Cell,CellCoord,Command,GameState,ManagedChunk,Tool} from '../core/model';
+import {COST} from '../core/model';
 import type {Head,JsonValue,ObjectRef,WorldObject,WorldResult} from './model';
 import {MAX_OBJECT_BYTES,failed,isRef,ok,sameRef} from './model';
 import type {ContentHasher,WorldCodec} from './ports';
@@ -278,6 +279,7 @@ export function changeSetValue(set:ChangeSet):JsonValue{
  return value;
 }
 const INTENT_KINDS:readonly string[]=['build','demolish','tick','component','opaque'];
+const BUILD_TOOLS=new Set<Tool>((Object.keys(COST) as Array<Tool|'demolish'>).filter((tool):tool is Tool=>tool!=='demolish'));
 function placeFrom(value:JsonValue):WorldResult<CellPlace>{
  if(!jsonRecord(value))return failed('MALFORMED','Célula sem endereço');
  const chunk=value['chunkId'],index=value['index'],x=value['x'],y=value['y'];
@@ -317,7 +319,7 @@ function baseReferenceFrom(value:JsonValue):WorldResult<BaseReference>{
 }
 function intentFrom(value:JsonValue):WorldResult<ChangeIntent>{
  if(!jsonRecord(value)||typeof value['kind']!=='string'||!INTENT_KINDS.includes(value['kind']))return failed('MALFORMED','Intenção desconhecida');
- if(value['kind']==='build')return typeof value['tool']==='string'&&value['tool']?ok({kind:'build',tool:value['tool'] as Tool}):failed('MALFORMED','Construção sem ferramenta');
+ if(value['kind']==='build'){const tool=value['tool'];return typeof tool==='string'&&BUILD_TOOLS.has(tool as Tool)?ok({kind:'build',tool:tool as Tool}):failed('MALFORMED','Ferramenta de construção desconhecida');}
  if(value['kind']==='component'){
   const key=value['key'],entity=value['entity'];
   // A namespace travels because another profile owns it; it still has to be one this contract can carry and preserve.
