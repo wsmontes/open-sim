@@ -340,9 +340,11 @@ const loadVisible=async()=>{
  const unknown=visible.filter(id=>{const status=statusOf(id);return !status||status.status==='error';});
  const coarse=closestChunks(unknown,camera,viewport(),OVERVIEW_BUDGET);
  const detailCandidates=visible.filter(id=>{const status=statusOf(id);return !status||status.status==='error'||(status.status==='ready'&&status.level!=='detail');});
- // When the renderer is already in mosaic mode, z14 buildings/lanes are sub-pixel work. Loading them burns CPU and
- // network only to throw the detail away in the renderer. Detail begins when a cell is legible again.
- const detailed=isCoarse(camera)?[]:closestChunks(detailCandidates,camera,viewport(),DETAIL_BUDGET);
+ // When the renderer is already effectively a mosaic, z14 buildings/lanes are invisible work. Near the threshold the
+ // first detail batch is deliberately small; as the player zooms in the budget rises smoothly to its full value.
+ const detailUseful=!isCoarse(camera)&&visible.length<=12;
+ const detailLimit=Math.max(16,Math.min(DETAIL_BUDGET,Math.round(DETAIL_BUDGET*camera.zoom)));
+ const detailed=detailUseful?closestChunks(detailCandidates,camera,viewport(),detailLimit):[];
  if(!coarse.length&&!detailed.length)return;
  for(const id of new Set([...coarse,...detailed]))requested.add(id);
  loadMessage='Carregando mapa…';
@@ -362,7 +364,7 @@ const loadVisible=async()=>{
  }
  refreshChunks();refreshPreview();updateHud();
  showCacheStats();
- if(unknown.length>coarse.length||(!isCoarse(camera)&&detailCandidates.length>detailed.length))scheduleLoad();
+ if(unknown.length>coarse.length||(detailUseful&&detailCandidates.length>detailed.length))scheduleEnrichment();
 };
 // Building inside an approximation is refused by the session; answering with the detailed regions makes the next
 // attempt work instead of leaving the player without an explanation.
@@ -373,6 +375,16 @@ const loadDetailFor=(cells:readonly CellCoord[])=>{
  void session.loadVisible(ids).then(()=>{refreshChunks();refreshPreview();updateHud();});
 };
 const scheduleLoad=createDebounce(()=>{void loadVisible();},LOAD_DEBOUNCE);
+// Filling detail beyond the first useful batch is opportunistic. It must yield to input and drawing instead of starting
+// another geometry pass every 200 ms while the player is trying to move around.
+let enrichmentPending=false;
+const scheduleEnrichment=()=>{
+ if(enrichmentPending)return;
+ enrichmentPending=true;
+ const run=()=>{enrichmentPending=false;void loadVisible();};
+ const idle=(window as Window & {requestIdleCallback?:(cb:()=>void,options?:{timeout:number})=>number}).requestIdleCallback;
+ if(idle)idle(run,{timeout:1200});else setTimeout(run,600);
+};
 // The personal save never claims the work of a session: while the branch belongs to a session, the session's own
 // durable confirmation is what says the device has the version.
 const saveNow=()=>{if(sessions.mode()!=='local')return;void session.save(currentView());};
