@@ -126,8 +126,9 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
     const known = chunks.get(id);
     if (known) remember(id,known);
    }
+   // Visibility is cache policy, not game/session state. Callers already refresh their viewport after changing it;
+   // notifying every listener here turns a pan into an avoidable UI cascade.
    evict();
-   notify();
   },
   dispatch(action: Action): CommandResult {
    if (!state) throw new Error('Sessão não iniciada');
