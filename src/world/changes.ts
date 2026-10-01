@@ -13,7 +13,7 @@ import {getCell} from '../core/world';
 import {isComponentKey,isEntityId} from '../core/protocol';
 
 // --- what a change is made of (spec §5.3) ----------------------------------------------------------------------
-export type CellField='terrain'|'road'|'building'|'stage'|'origin';
+export type CellField='terrain'|'road'|'roadClass'|'building'|'stage'|'origin';
 // A cell is addressed by region and index, and it also carries the coordinates it came from so a reviewer never has to
 // reconstruct them and two clients cannot disagree about which cell an operation means.
 export type CellPlace={chunkId:string;index:number;x:number;y:number};
@@ -87,7 +87,7 @@ export type PreparedChange={
 // Importing a project is the destination's own action, so it never borrows the sequence of whoever produced the file.
 export const PROJECT_ACTOR='project';
 
-const CELL_FIELDS:readonly CellField[]=['terrain','road','building','stage','origin'];
+const CELL_FIELDS:readonly CellField[]=['terrain','road','roadClass','building','stage','origin'];
 const editIndexes=(chunk:ManagedChunk):number[]=>Object.keys(chunk.edits).map(Number).sort((a,b)=>a-b);
 
 export function sameCell(a:Cell,b:Cell):boolean{return CELL_FIELDS.every(field=>a[field]===b[field]);}
