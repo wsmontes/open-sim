@@ -84,7 +84,9 @@ export function createOsmSource(config:OsmConfig={}):OsmSource {
      const response=await fetcher(url,{signal:abort.signal});if(!response.ok)throw new Error(`Mapa indisponível (${response.status}). Tente novamente.`);
      bytes=new Uint8Array(await response.arrayBuffer());
      // Only bytes the service actually sent are stored: the cache is a copy of the answer, never a transformation.
-     if(kept)await kept.put(key,bytes).catch(()=>{});
+     // Persisting a fetched tile is a background optimization, never part of first paint. IndexedDB may need to
+     // count/prune tens of megabytes; waiting for that here makes the map visibly arrive in waves.
+     if(kept)void kept.put(key,bytes).catch(()=>{});
     }
     const decoded=new VectorTile(new PbfReader(bytes));const features:MapFeature[]=[];
     const cellsPerSide=cellsPerTile(zoom),originX=tileX*cellsPerSide,originY=tileY*cellsPerSide;
