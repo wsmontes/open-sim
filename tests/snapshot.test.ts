@@ -64,6 +64,8 @@ test('decodeSave rejects every malformed snapshot',()=>{
   ['stage too high',x=>{x.state.chunks['0:0'].base.cells[5]={terrain:'land',building:'park',stage:9};}],
   ['unknown origin',x=>{x.state.chunks['0:0'].base.cells[5]={terrain:'land',origin:'alien'};}],
   ['non boolean road',x=>{x.state.chunks['0:0'].base.cells[5]={terrain:'land',road:1};}],
+  ['unknown road class',x=>{x.state.chunks['0:0'].base.cells[5]={terrain:'land',road:true,roadClass:'boulevard'};}],
+  ['road class without a road',x=>{x.state.chunks['0:0'].base.cells[5]={terrain:'land',roadClass:'avenue'};}],
   ['reserved actor',x=>{x.state.actors={['__proto__']:1};}],
   ['negative actor counter',x=>{x.state.actors={'local-player':-1};}],
   ['fractional actor counter',x=>{x.state.actors={'local-player':0.5};}],
@@ -82,6 +84,16 @@ test('decodeSave rejects every malformed snapshot',()=>{
  expect(()=>decodeSave(null)).toThrow();
  expect(()=>decodeSave([])).toThrow();
 });
+test('road classes round trip as a validated part of the cell schema',()=>{
+ const x=saved();
+ x.state.chunks['0:0']!.base.cells[5]={terrain:'land',road:true,roadClass:'avenue',origin:'imported'};
+ x.state.chunks['0:0']!.edits['6']={terrain:'land',road:true,roadClass:'highway',origin:'player'};
+ const decoded=decodeSave(encodeSave(x));
+ expect(decoded.state.chunks['0:0']!.base.cells[5].roadClass).toBe('avenue');
+ expect(decoded.state.chunks['0:0']!.edits['6']!.roadClass).toBe('highway');
+ expect(encodeSave(decoded)).toBe(encodeSave(x));
+});
+
 test('a decoded save keeps working with the core commands',()=>{
  const restored=decodeSave(encodeSave(saved())), before=restored.state.money;
  const replay=applyCommand(restored.state,{version:1,worldId:'mundo',actorId:'local-player',sequence:3,expectedRevision:restored.state.revision,action:{type:'build',tool:'park',cells:[{x:3,y:3}]}},[]);
