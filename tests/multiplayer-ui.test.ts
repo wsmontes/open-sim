@@ -156,6 +156,19 @@ async function scene(options:{fault?:Fault;limits?:Limits;costLimit?:number}={})
  };
 }
 
+test('the experience layer treats a not-yet-initialized personal game as starting, not as an exception',async()=>{
+ let dispatches=0;
+ const cold={
+  getState():GameState{throw new Error('Sessão não iniciada');},
+  dispatch():CommandResult{dispatches+=1;throw new Error('dispatch não deveria rodar antes do estado');},
+ };
+ const view=createGameSessionView({worldId:MAIN.worldId,branchId:MAIN.branchId,local:cold});
+ expect(view.state()).toBeNull();
+ const action=build('road',[at(1,1)]);
+ await expect(view.submitAction(action)).resolves.toMatchObject({status:'failed',code:'NOT_FOUND',reason:'A partida ainda está iniciando.'});
+ await expect(view.tick()).resolves.toMatchObject({ok:false,error:{code:'NOT_FOUND'}});
+ expect(dispatches).toBe(0);
+});
 // --- 1. who is allowed to advance the clock -------------------------------------------------------------------
 test('a replica never schedules a tick and refuses to order one',async()=>{
  const s=await scene();
