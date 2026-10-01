@@ -6,6 +6,7 @@
 // destination's own price table, and data that arrived now pays no retroactive income. And a cell, region or ancestor
 // the merge cannot compare cell by cell is refused with a reason instead of being composed by guesswork.
 import type {BaseChunk,Cell,CityStats,GameState,ManagedChunk,Tool} from '../core/model';
+import {roadClassOf} from '../core/model';
 import {CHUNK,cellIndex,coordAt} from '../core/coordinates';
 import {cloneJson} from '../core/protocol';
 import {summarize} from '../core/simulation';
@@ -75,13 +76,13 @@ export type MergePreview={
  bases:readonly WorldObject[];
 };
 
-const SIDES:readonly CellField[]=['terrain','road','building','stage','origin'];
+const SIDES:readonly CellField[]=['terrain','road','roadClass','building','stage','origin'];
 type CellPart=Cell[CellField];
 const DEPENDENCIES=new Map(CITY_PROFILE.dependencies.map(entry=>[entry.field,entry.dependsOn]));
 const depends=(field:CellField,other:CellField):boolean=>(DEPENDENCIES.get(field)??[]).includes(other);
 const sameCell=(a:Cell|undefined,b:Cell|undefined):boolean=>(a&&b?SIDES.every(field=>a[field]===b[field]):a===b);
 const placeOf=(region:string,index:number):CellPlace=>{const at=coordAt(region,index);return{chunkId:region,index,x:at.x,y:at.y};};
-const toolOf=(cell:Cell|undefined):Tool|null=>cell?.road?'road':(cell?.building??null);
+const toolOf=(cell:Cell|undefined):Tool|null=>cell?.road?(roadClassOf(cell)==='street'?'road':roadClassOf(cell)):(cell?.building??null);
 const sameBase=(a:BaseChunk,b:BaseChunk):boolean=>a.id===b.id&&a.source===b.source&&a.normalizerVersion===b.normalizerVersion&&a.cells.length===b.cells.length&&a.cells.every((cell,index)=>sameCell(cell,b.cells[index]));
 const originOf=(version:MergeVersion):ChangeOrigin=>({worldId:version.head.worldId,branchId:version.head.branchId});
 const statsOf=(before:GameState,after:GameState)=>({before:summarize(before),after:summarize(after)});
@@ -89,12 +90,13 @@ const compareRegions=(a:string,b:string)=>(Number(a.split(':')[0])-Number(b.spli
 const record=(value:JsonValue|undefined):value is {[key:string]:JsonValue}=>!!value&&typeof value==='object'&&!Array.isArray(value);
 // A cell is written field by field through one record, so a merge can compose exactly the fields the two sides
 // changed instead of replacing the whole cell and losing what only one of them decided.
-const partsOf=(cell:Cell):Record<CellField,CellPart>=>({terrain:cell.terrain,road:cell.road,building:cell.building,stage:cell.stage,origin:cell.origin});
+const partsOf=(cell:Cell):Record<CellField,CellPart>=>({terrain:cell.terrain,road:cell.road,roadClass:cell.roadClass,building:cell.building,stage:cell.stage,origin:cell.origin});
 // A field nobody decided is absent, not present-and-undefined: carrying `road: undefined` as an own key would put a
 // value the JSON contract does not have into the world state, and the canonical writer is right to refuse it.
 const cellOf=(parts:Record<CellField,CellPart>):Cell=>{
  const cell:Cell={terrain:parts.terrain as Cell['terrain']};
  if(parts.road!==undefined)cell.road=parts.road as boolean;
+ if(parts.roadClass!==undefined)cell.roadClass=parts.roadClass as Cell['roadClass'];
  if(parts.building!==undefined)cell.building=parts.building as Cell['building'];
  if(parts.stage!==undefined)cell.stage=parts.stage as number;
  if(parts.origin!==undefined)cell.origin=parts.origin as Cell['origin'];
@@ -436,14 +438,16 @@ export function prepareCompensation(target:MergeVersion,commit:CommitRecord):Wor
   if(!managed)return failed('MISSING_OBJECT',`A região ${region} não está nesta versão`);
   const cell=getCell(target.state,{x:at.x,y:at.y});
   if(!cell)return failed('MISSING_OBJECT',`A célula ${at.x},${at.y} não está nesta versão`);
-  const holds=build[1]==='road'?!!cell.road:cell.building===build[1];
+  const recordedTool=build[1] as Tool;
+  if(!CITY_PROFILE.tools.includes(recordedTool))return failed('MALFORMED',`A versão registra uma ferramenta desconhecida: ${build[1]}`);
+  const holds=toolOf(cell)===recordedTool;
   if(!holds)return failed('CONFLICT',`A ${build[1]} registrada em ${at.x},${at.y} já não está nesta versão`);
   const left:Cell={terrain:cell.terrain};
   operations.push({
    id:`demolish@${region}#${index}`,
    intent:{kind:'demolish'},
    places:[at],
-   reads:SIDES.filter(field=>field==='road'||field==='building').map(field=>({scope:'cell',at,field})),
+   reads:SIDES.filter(field=>field==='road'||field==='roadClass'||field==='building').map(field=>({scope:'cell',at,field})),
    writes:SIDES.filter(field=>cell[field]!==left[field]).map(field=>({scope:'cell',at,field})),
    requires:[{kind:'cell-occupied',at}],
    basedOn:[{chunkId:region,source:managed.base.source,normalizerVersion:managed.base.normalizerVersion}],
