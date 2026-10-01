@@ -110,9 +110,10 @@ export function createOsmSource(config:OsmConfig={}):OsmSource {
   attribution:{...ATTRIBUTION},
   metadata:{source:{id:'openstreetmap-shortbread-v1',dataset:DATASET,url:template},zooms:{detail:DETAIL_ZOOM,overview:overviewZoom},normalizer:{...NORMALIZER},attribution:{...ATTRIBUTION}},
   async loadChunk(id,level:MapLevel='detail'){
-  const key=`${NORMALIZER.version}:${level}:${id}`,cached=normalized?await normalized.get(key).catch(()=>null):null;
+  const zoom=level==='overview'?overviewZoom:DETAIL_ZOOM;
+  const key=`${NORMALIZER.name}:${NORMALIZER.version}:${level}:z${zoom}:${template}:${id}`,cached=normalized?await normalized.get(key).catch(()=>null):null;
   if(cached?.id===id)return cached;
-  const p=chunkOrigin(id),zoom=level==='overview'?overviewZoom:DETAIL_ZOOM,cellsPerSide=cellsPerTile(zoom);
+  const p=chunkOrigin(id),cellsPerSide=cellsPerTile(zoom);
   const data=await tile(zoom,tileOf(p.x,cellsPerSide),tileOf(p.y,cellsPerSide));
   const source=level==='overview'?`${DATASET} (aproximação z${zoom})`:DATASET;
   const chunk=normalizeChunk(id,data.byChunk.get(id)??[],source);
