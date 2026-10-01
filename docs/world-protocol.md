@@ -2,7 +2,7 @@
 
 Este documento diz o que do mundo durável é contrato (e portanto prometido a qualquer cliente) e o que ainda é implementação do perfil cidade. Ele é o mapa entre a direção arquitetural da carta (`docs/architecture.md`), os precedentes pesquisados (`docs/research/interoperability-precedents.md`) e o código que existe hoje.
 
-A evolução proposta está na [especificação de mundos versionados e colaboração federada](superpowers/specs/2026-09-29-federated-world-design.md) e no [plano de implementação](superpowers/plans/2026-09-29-federated-world.md). Ela amplia procedência, linhagem e composição, sem declarar o manifesto v2 ou o multiplayer como implementados. A ordem futura passa a incluir colaboração assíncrona antes da sessão em rede; a lista abaixo continua registrando as lacunas do contrato atual.
+A evolução foi executada pela [especificação de mundos versionados e colaboração federada](superpowers/specs/2026-09-29-federated-world-design.md) e pelo [plano de implementação](superpowers/plans/2026-09-29-federated-world.md). O pacote v2, histórico endereçado por conteúdo, composição, autoridade escopada e sessões host/réplica já existem; Nostr e Matrix são adaptadores opcionais de identidade/sinalização. O que permanece futuro é evolução de escala ou produto (por exemplo particionamento espacial maior e empacotamento desktop), não uma lacuna no contrato básico.
 
 ## O que já é contrato
 
@@ -88,7 +88,7 @@ Duas políticas convivem, e a diferença é o ponto: **registro de protocolo é 
 completude recusam campo que não conhecem, e acrescentar um exige versão nova), **componente é aberto** (campo e
 namespace desconhecidos atravessam intactos, como já acontece no save e no manifesto).
 
-O que ainda depende desta decisão está nas tarefas 8–17 do [plano](superpowers/plans/2026-09-29-federated-world.md#reconciliação-com-o-opensim-protocol-01).
+As tarefas 8–17 dessa reconciliação estão registradas como concluídas no [plano](superpowers/plans/2026-09-29-federated-world.md#reconciliação-com-o-opensim-protocol-01); a matriz corrente de capacidades e limites fica em `docs/protocol/adapters.md`.
 
 O que já saiu desta decisão (tarefa 17, verificado por testes):
 
@@ -115,44 +115,27 @@ O que já saiu desta decisão (tarefa 17, verificado por testes):
 
 ### 2. Entidades genéricas
 
-O que falta para o contrato não ser a grade do motor: uma entidade com identificador estável (`entityId`), tipo declarado por namespace e componentes. Proposta mínima, sem quebrar nada do que existe:
-
-- um namespace reservado `entity.index` no perfil que cria a entidade, mapeando `entityId → {kind, key components}`;
-- endereço geográfico obrigatório nas entidades portáveis, em `geo.position` (`lon`, `lat`, `altitude?`), derivável da grade via `toGeo`;
-- a célula continua sendo o endereço do motor (`toCell`), não do contrato.
+Implementado em `src/world/entities.ts`. A identidade portátil é um `entityId` estável; `entity.index` registra tipo, procedência, geometria e componentes. Endereços geodésicos viajam em longitude/latitude, enquanto a grade isométrica permanece detalhe interno do perfil cidade.
 
 ### 3. Materialização (o invariante)
 
-Receita da carta: agregado 64 → quatro moradores materializados → restante agregado 60 → total 64. Concretamente, no perfil cidade:
-
-- componente `population.materialized` com uma entrada por unidade materializada: `{cell, count, owner}`;
-- `summarize()` **subtrai** de cada construção o que já estiver materializado, então a cidade passa a contar 60 enquanto o outro perfil tem 4 pessoas;
-- identificadores determinísticos derivados de `(worldId, cell, índice, seed)`, para dois clientes não criarem pessoas diferentes para o mesmo lugar;
-- desmaterializar devolve o efeito por uma operação definida, não por remoção;
-- testes: `64 = 60 + 4`; dois clientes derivam os mesmos ids; remover o componente não muda o resto do estado.
+Implementada em `src/world/materialization.ts` e integrada ao resumo da cidade. Materializar transforma parte do agregado em entidades sem alterar o total: os testes cobrem `64 = 60 agregados + 4 entidades`, reenvio idempotente e desmaterialização explícita. Remover um componente genérico não é usado como atalho para alterar a contabilidade.
 
 ### 4. Prova com um segundo perfil
 
-O experimento recomendado pela pesquisa, reduzido a um cliente pequeno:
-
-1. o perfil cidade cria ou modifica uma construção e exporta o mundo (manifesto + snapshot endereçado);
-2. um "explorador" (residente ou veículo) abre o mesmo mundo, sem importar nada de `src/presentation` nem de `src/browser`;
-3. ele materializa uma casa/pessoa como componente de namespace próprio e salva;
-4. o perfil cidade recarrega, ignora o que não entende, mas reflete o agregado compatível.
-
-O teste que prova a última linha é de dependência: o explorador usa apenas `src/core` e os adaptadores que ele mesmo escolher, e o `tests/architecture.test.ts` recusa o contrário.
+Implementada em `src/profiles/explorer/model.ts` e `src/profiles/explorer/commands.ts`. O teste cruzado abre o mesmo mundo no perfil explorador, materializa entidades, grava componentes próprios e volta ao perfil cidade preservando estado desconhecido e o total populacional. O teste de arquitetura mantém esse perfil fora de browser/apresentação.
 
 ### 5. Endereçamento geodésico
 
-Camadas de interoperabilidade não podem exigir Web Mercator: fatos portáveis usam longitude/latitude (e altitude opcional) com nome explícito nos campos; a grade `2^22 × 32` continua sendo *endereço do motor*, derivado. Nada de migração de save: componentes novos já podem nascer com `geo.position`, e os comandos do perfil cidade continuam falando em células porque isso é regra dele, não do contrato.
+Implementado para fatos portáveis: entidades e geometrias usam longitude/latitude em componentes/transformações do protocolo. `toCell` e a grade global continuam sendo endereço do motor cidade, não identidade interoperável. Saves antigos não precisam de migração para participar: a informação portátil nasce nos componentes novos.
 
 ### 6. Autoridade e transporte
 
-Decisões registradas, nada implementado: a autoridade é um papel (cliente local, anfitrião eleito, serviço comunitário) e é **escopada** (por namespace, entidade, região ou sessão), nunca concedida por assinatura; metadados duráveis e de baixa frequência vão bem em Nostr (manifestos assinados, convites, descoberta, ponteiros para blobs endereçados); tráfego de tempo real pede WebRTC/libp2p; nada disso pode ser requisito para o núcleo, e o teste de arquitetura já proíbe `nostr`, `electron` e afins dentro de `src`.
+Implementados fora do núcleo, como exigido pela arquitetura. `src/world/permissions.ts` define concessões escopadas; sessões host/réplica e recuperação vivem em `src/session`; WebRTC e sinalização manual vivem em adaptadores de rede; Nostr e Matrix oferecem identidade/descoberta/sinalização opcionais. Assinatura identifica autoria, não concede permissão por si só. O núcleo continua sem dependência desses SDKs.
 
 ### 7. Mundos derivados
 
-O manifesto já tem `parent` e `snapshot`; falta o armazenamento por divergência (o filho guarda só o que difere do pai) e a decisão de descoberta (`real-world base → mundo de alguém → fork`). Sem merge global: um mundo estrangeiro decide o que aceita.
+Implementados no repositório de mundos: commits e árvores são endereçados por conteúdo, forks reutilizam objetos imutáveis e novos commits armazenam apenas os objetos novos/referenciados. Merge e composição têm contratos próprios. A otimização ainda aberta é particionar o grande `city-state` por interesse espacial para reduzir bytes e memória em mundos muito maiores; isso não muda a semântica de fork existente.
 
 ## Como verificar hoje
 
