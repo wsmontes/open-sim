@@ -49,6 +49,7 @@ function actionOf(operation:ChangeOperation):Action|null{
  if(intent.kind==='build')return {type:'build',tool:intent.tool,cells};
  if(intent.kind==='demolish')return {type:'demolish',cells};
  if(intent.kind==='component')return {type:'component',key:intent.key,entity:intent.entity,value:operation.after[0]??null};
+ if(intent.kind==='policy')return {type:'policy',...(intent.tax!==undefined?{tax:intent.tax}:{}),...(intent.services!==undefined?{services:intent.services}:{}),...(intent.borrow!==undefined?{borrow:intent.borrow}:{})};
  return null;
 }
 // The frozen base a change rests on has to be the one the destination already has, or one it can adopt from the
@@ -108,23 +109,26 @@ export function prepareProject(target:ProjectTarget,changes:ChangeSet,selection:
   }
  }
  const available=[...Object.keys(projected.chunks).sort().map(id=>projected.chunks[id]!.base)];
- let cost=0;
+ let cost=0,preview=projected;
  for(const operation of chosen){
   const action=actionOf(operation);
   if(!action)return failed('MALFORMED',`A operação ${operation.id} não pode ser precificada`);
-  const quote=CITY_PROFILE.quote(projected,action,available);
+  const quote=CITY_PROFILE.quote(preview,action,available);
   if(quote.status==='blocked'){
    const message=quote.reason??`A operação ${operation.id} foi recusada na prévia`;
    return failed(message.includes('Espere o mapa carregar')?'MISSING_OBJECT':'CONFLICT',message);
   }
   cost+=quote.cost;
+  // The preview follows the exact command path the integration will use. This matters for policy/borrowing and for
+  // dependent operations: a second action sees the state left by the first instead of being quoted against a fiction.
+  const command:Command={version:1,worldId:preview.worldId,actorId:PROJECT_ACTOR,sequence:(preview.actors[PROJECT_ACTOR]??0)+1,expectedRevision:preview.revision,action};
+  const applied=applyCommand(preview,command,available);
+  if(applied.status!=='applied')return failed('CONFLICT',`A operação ${operation.id} foi recusada na prévia: ${applied.reason??applied.status}`);
+  preview=applied.state;
  }
- // The balance the project has to fit is the destination's, and it has to fit all of it: two individually affordable
- // operations that together exceed the balance are one refused project, not one applied and one missing.
- if(cost>target.state.money)return failed('CONFLICT',`O projeto custa ${cost} e o destino tem ${target.state.money}`);
  return ok({
   origins:changes.origins,target:target.head,selection:[...selection],operations:chosen,bases:changes.bases,
-  cost,moneyAfter:target.state.money-cost,tick:target.state.tick,
+  cost,moneyAfter:preview.money,tick:target.state.tick,
   requires:chosen.flatMap(operation=>operation.requires),
  });
 }
