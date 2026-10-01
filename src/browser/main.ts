@@ -1,6 +1,7 @@
 import {createOsmSource} from '../adapters/osm/provider';
 import {createIndexedDbTileCache} from '../adapters/osm/tile-cache';
 import {createWikidataDirectory} from '../adapters/reality/wikidata';
+import {createIbgeDirectory} from '../adapters/reality/ibge';
 import type {CityFacts} from '../adapters/reality/wikidata';
 import {createIndexedDbStore} from '../adapters/storage/indexed-db';
 import {createIndexedDbWorldStorage} from '../adapters/storage/world-indexed-db';
@@ -20,7 +21,6 @@ import {createWorldRepository} from '../session/world-repository';
 import type {WorldVersion} from '../session/world-repository';
 import type {ChunkStatus} from '../session/ports';
 import type {Action,BaseChunk,CellCoord,CityStats,GameState,Tool,ViewState} from '../core/model';
-import {EMPTY_ECONOMY} from '../core/model';
 import {SAVE_VERSION} from '../core/snapshot';
 import {decodeBundle,encodeBundle} from '../world/codec';
 import {MAX_DEPTH} from '../world/model';
@@ -44,8 +44,9 @@ import {compareScenarios,layerWrites,runScenario} from '../world/composition';
 import type {Composition,ScenarioRun} from '../world/composition';
 import {quoteAction} from '../core/quote';
 import {summarize} from '../core/simulation';
+import {EMPTY_ECONOMY} from '../core/model';
 import type {Camera,Viewport} from '../presentation/camera';
-import {centerOn,clampZoom,closestChunks,normalizeAngle,pick,rotateTo,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
+import {GLIDE_PER_SECOND,approach,arrived,centerOn,clampZoom,closestChunks,normalizeAngle,pick,rotateTo,snapZoom,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
 import type {WorldView} from '../presentation/canvas-renderer';
 import {render} from '../presentation/canvas-renderer';
 import {createTickClock} from '../presentation/clock';
@@ -92,6 +93,10 @@ const showCityFacts=(facts:CityFacts|null)=>{
  rowOf(cityPopulationEl,facts?.population!==undefined?`${facts.population.toLocaleString('pt-BR')}${facts.populationYear?` · ${facts.populationYear}`:''}`:null);
  rowOf(cityCountryEl,facts?.country??null);
  rowOf(cityAreaEl,facts?.areaKm2!==undefined?`${facts.areaKm2.toLocaleString('pt-BR')} km²`:null);
+ // Density and the municipal product are what the country's statistics office adds: how tightly people live, and what
+ // the place produces. Both are shown as stated, with the year they belong to.
+ rowOf(cityDensityEl,facts?.densityPerKm2!==undefined?`${Math.round(facts.densityPerKm2).toLocaleString('pt-BR')} hab/km²`:null);
+ rowOf(cityGdpEl,facts?.gdpThousandsBrl!==undefined?`R$ ${(facts.gdpThousandsBrl/1_000_000).toLocaleString('pt-BR',{maximumFractionDigits:1})} bi${facts.gdpYear?` · ${facts.gdpYear}`:''}`:null);
  if(citySourceEl)citySourceEl.textContent=facts?`${facts.source.dataset} · ${facts.source.license} · ${facts.source.url}`:'';
  updateCityScale();
 };
@@ -100,10 +105,24 @@ const showCityFacts=(facts:CityFacts|null)=>{
 const publishCityFacts=(facts:CityFacts)=>{
  void sessions.submitAction({type:'component',key:'city.census',entity:slugOf(facts.label),value:{population:facts.population??null,year:facts.populationYear??null,country:facts.country??null,dataset:facts.source.dataset,url:facts.source.url}});
 };
+// The city's own statistics office answers for the country it covers. When Wikidata hands over a municipal code, the
+// census figure takes the place of the encyclopedic one and brings the density and the municipal product with it — two
+// sources are never averaged, because an average of two censuses of different boundaries is a number nobody published.
+// The year travels with every figure, and the credit names both sources.
+const municipalDirectory=createIbgeDirectory();
 const lookUpCity=async(lat:number,lon:number,name?:string)=>{
  const live=name?await cityDirectory.named(name,'pt'):null;
- const facts=live??await cityDirectory.near(lat,lon,25);
- if(!facts)return;
+ const found=live??await cityDirectory.near(lat,lon,25);
+ if(!found)return;
+ const municipal=found.municipalCode?await municipalDirectory.byMunicipalCode(found.municipalCode):null;
+ const facts=!municipal?found:{
+  ...found,
+  ...(municipal.population!==undefined?{population:municipal.population,populationYear:municipal.populationYear}:{}),
+  ...(municipal.areaKm2!==undefined?{areaKm2:municipal.areaKm2}:{}),
+  ...(municipal.densityPerKm2!==undefined?{densityPerKm2:municipal.densityPerKm2}:{}),
+  ...(municipal.gdpThousandsBrl!==undefined?{gdpThousandsBrl:municipal.gdpThousandsBrl,gdpYear:municipal.gdpYear}:{}),
+  source:{...municipal.source,license:`${municipal.source.license} · também ${found.source.dataset} (${found.source.license})`},
+ };
  showCityFacts(facts);
  publishCityFacts(facts);
 };
@@ -135,6 +154,8 @@ const cityCountryEl=hudRoot.querySelector<HTMLElement>('#city-country');
 const cityAreaEl=hudRoot.querySelector<HTMLElement>('#city-area');
 const cityScaleEl=hudRoot.querySelector<HTMLElement>('#city-scale');
 const citySourceEl=hudRoot.querySelector<HTMLElement>('#city-source');
+const cityDensityEl=hudRoot.querySelector<HTMLElement>('#city-density');
+const cityGdpEl=hudRoot.querySelector<HTMLElement>('#city-gdp');
 const tileCacheInfo=hudRoot.querySelector<HTMLElement>('#tile-cache');
 const placeError=hudRoot.querySelector<HTMLElement>('#place-error');
 const placeForm=hudRoot.querySelector<HTMLFormElement>('#place-form');
@@ -169,7 +190,7 @@ function guarded(flow:()=>Promise<void>):void{
  void flow().catch(error=>{sessions.notify(describeWorldError(error));updateHud();});
 }
 const multiplayer=createMultiplayerPanel(hudRoot,{onCreate:()=>guarded(createCooperativeSession),onJoin:text=>guarded(()=>joinCooperativeSession(text)),onInvite:shareInvite,onLeave:()=>guarded(()=>closeCooperativeSession()),onContinueLocal:()=>guarded(()=>closeCooperativeSession('A partida continua na versão pessoal; a versão compartilhada ficou na ramificação da sessão.')),onPause:()=>{sessions.pause();updateHud();},onTransfer:text=>guarded(()=>transferBranch(text))});
-const hud=createHud(hudRoot,{onTool,onSpeed,onPlace,onRetryMap,onOverwriteSave,onOverview,onZoomStep,onNorth});
+const hud=createHud(hudRoot,{onTool,onSpeed,onPlace,onRetryMap,onOverwriteSave,onOverview,onZoomStep,onNorth,onPolicy});
 const clock=createTickClock(()=>{void sessions.tick();});
 const requested=new Set<string>();
 // The live branch the game commits to, the version the panel is showing, and the queue that keeps one publication at
@@ -304,18 +325,28 @@ const scheduleLoad=createDebounce(()=>{void loadVisible();},LOAD_DEBOUNCE);
 // durable confirmation is what says the device has the version.
 const saveNow=()=>{if(sessions.mode()!=='local')return;void session.save(currentView());};
 const scheduleSave=createDebounce(saveNow,SAVE_DEBOUNCE);
+// The buffer is the CSS size times this, and the zoom ladder is built from it: a tile has to be a whole number of
+// device pixels for a one pixel line to stay one pixel wide.
+const deviceScale=()=>BUFFER_SCALE*Math.max(1,window.devicePixelRatio||1);
 const setCamera=(next:Camera)=>{
- camera={...next,zoom:clampZoom(next.zoom),rotation:normalizeAngle(next.rotation)};
+ // Anything the player does with a pointer is direct manipulation and takes effect at once — and it cancels whatever
+ // camera move was in flight, because the hand wins over the animation.
+ glide=null;
+ camera={...next,zoom:snapZoom(next.zoom,deviceScale()),rotation:normalizeAngle(next.rotation)};
  hover=null;
  refreshPreview();refreshChunks();updateHud();
  scheduleLoad();scheduleSave();
 };
+// A button, a shortcut or a jump to another place is a camera move rather than a drag: it glides, so the player sees
+// where the city went instead of being teleported.
+let glide:Camera|null=null;
+const glideTo=(next:Camera)=>{glide={...next,zoom:snapZoom(next.zoom,deviceScale()),rotation:normalizeAngle(next.rotation)};};
 const moveTo=(lat:number,lon:number,label:string)=>{
  place=label;
- camera=centerOn(toCell(lat,lon),camera,viewport());
+ glideTo(centerOn(toCell(lat,lon),camera,viewport()));
  hover=null;
- refreshPreview();refreshChunks();
- scheduleLoad();scheduleSave();updateHud();
+ refreshPreview();
+ updateHud();
 };
 function onTool(next:SelectedTool){tool=next;stroke=null;refreshPreview();updateHud();}
 function onSpeed(next:Speed){speed=next;clock.setSpeed(next);scheduleSave();updateHud();}
@@ -426,7 +457,7 @@ async function createCooperativeSession():Promise<void>{
   const bound=await localIdentityProvider({root,session:keys,codec}).bindSession({principal,scope:{worldId:WORLD_ID,branchId,sessionId,notBefore:startedAt.toISOString(),notAfter:new Date(startedAt.getTime()+12*3600_000).toISOString()}});
   if(!bound.ok)throw new Error(bound.error.message);
   // A local principal is its root key: what this device signs with is what this device is (src/adapters/crypto/session-keys.ts).
-  const unsigned:Grant={kind:'grant',id:`proprietario-${sessionId}`,principal,worldId:WORLD_ID,branchId,actions:['build','demolish','component','tick'],namespaces:[],spendLimit:SPEND_LIMIT,proof:{kind:'message',algorithm:'Ed25519',sessionKey:root.publicKey,signature:''}};
+  const unsigned:Grant={kind:'grant',id:`proprietario-${sessionId}`,principal,worldId:WORLD_ID,branchId,actions:['build','demolish','component','tick','policy'],namespaces:[],spendLimit:SPEND_LIMIT,proof:{kind:'message',algorithm:'Ed25519',sessionKey:root.publicKey,signature:''}};
   const grant:Grant={...unsigned,proof:{kind:'message',algorithm:'Ed25519',sessionKey:root.publicKey,signature:await signEd25519(root,grantBytes(unsigned,codec))}};
   const scope={worldId:WORLD_ID,branchId,sessionId,epoch};
   const signer={key:keys.publicKey,sign:(bytes:Uint8Array)=>signEd25519(keys,bytes)};
@@ -703,9 +734,19 @@ async function compareFutures():Promise<void>{
   scenarios.update(emptyComposition(describeWorldError(error)));
  }
 }
-function onOverview(){setCamera(zoomTo(camera,viewport(),MIN_ZOOM));}
-function onZoomStep(direction:1|-1){setCamera(zoomTo(camera,viewport(),camera.zoom*(direction>0?1.25:.8)));}
-function onNorth(){setCamera(rotateTo(camera,viewport(),0));}
+// A lever goes through the same door as a building: the session decides, and a refusal is reported instead of applied.
+// The panel then redraws from the world, so what the player sees is always the state that was actually accepted.
+function onPolicy(policy:{tax?:number;services?:number;borrow?:number}):void{
+ void sessions.submitAction({type:'policy',...policy}).then(receipt=>{
+  const refused=sessions.refusal();
+  notice=refused?`${refused.reason}`:'';
+  refreshChunks();updateHud();
+  if(sessions.mode()!=='local'&&(receipt.status==='accepted'||receipt.status==='duplicate'))void refreshHistory();
+ });
+}
+function onOverview(){glideTo(zoomTo(camera,viewport(),MIN_ZOOM));}
+function onZoomStep(direction:1|-1){glideTo(zoomTo(camera,viewport(),camera.zoom*(direction>0?1.25:.8)));}
+function onNorth(){glideTo(rotateTo(camera,viewport(),0));}
 // One entry point for what the player asks: the personal session when the branch is this device's, the live session
 // when it is not. A refusal restores the selection and the preview with the fresh numbers the version brought
 // (§7.4 step 3) instead of throwing the player's work away.
@@ -735,9 +776,22 @@ const resize=()=>{
  camera=centerOn(center,camera,viewport());
  refreshChunks();scheduleLoad();
 };
-const draw=()=>{
+// The traffic's clock: wall time scaled by the game speed, so the streets move while the city runs, move twice as
+// fast at 2x and stand still while it is paused. It is presentation only — no tick reads it, no command carries it.
+let motion=0,lastFrame=0;
+const draw=(now=0)=>{
  const {width,height}=viewport();
- render(ctx,{camera,viewport:{width,height},state:session.getState(),chunks,tool,hover,preview,previewAffordable:affordable,seed:SEED});
+ const seconds=lastFrame?Math.min(0.25,(now-lastFrame)/1000):0;
+ if(lastFrame&&speed!==0)motion+=seconds*speed;
+ lastFrame=now;
+ // A camera move in flight: the map slides and the tiles it is heading for are asked for as it goes, so the city is
+ // there when the camera arrives. Saving waits for the move to end — one save per move, not one per frame.
+ if(glide){
+  camera=approach(camera,glide,1-Math.exp(-GLIDE_PER_SECOND*seconds));
+  if(arrived(camera,glide)){const settled=glide;glide=null;setCamera(settled);}
+  else{refreshPreview();refreshChunks();updateHud();}
+ }
+ render(ctx,{camera,viewport:{width,height},state:session.getState(),chunks,tool,hover,preview,previewAffordable:affordable,seed:SEED,motion});
  requestAnimationFrame(draw);
 };
 async function start(){
@@ -776,6 +830,7 @@ attachInput(canvas,{camera:()=>camera,tool:()=>tool,strokeShape:()=>BOX_TOOLS.ha
   onPreview(cells){stroke=cells.length?cells:null;refreshPreview();},
   onCommit:commit,
   onCamera:setCamera,
+  onTool,
   onCancel(){tool='explore';stroke=null;refreshPreview();updateHud();},
  });
  placeForm?.addEventListener('submit',event=>{

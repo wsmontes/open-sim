@@ -9,6 +9,31 @@ export const TILE_W=32,TILE_H=16,MIN_ZOOM=VIEW_ZOOM_MIN,MAX_ZOOM=VIEW_ZOOM_MAX;
 // switches to a mosaic of blocks per region. 0.05 still lets the whole city and its surroundings fit on screen.
 export const COARSE_STEP=6;
 export const clampZoom=(z:number)=>Math.max(MIN_ZOOM,Math.min(MAX_ZOOM,z));
+// The zoom steps the game actually uses: those where a tile is a whole, even number of device pixels. In between, a
+// one pixel line is drawn as runs of one and two pixels, a checkerboard of single pixels turns into one flat tone below
+// half a pixel per cell, and a stroke that lands on a half pixel is spread over two rows at half alpha. Measuring the
+// ladder rather than the real numbers is what keeps the art crisp at every zoom the player can reach.
+export function zoomLadder(scale:number):readonly number[] {
+ const perTile=TILE_W*scale;
+ // The two ends of the zoom range are steps of the ladder whatever they measure: the whole-city view has to stay
+ // reachable, and at a tile of one or two pixels there is no crispness left to protect.
+ const steps:number[]=[MIN_ZOOM];
+ for(let pixels=Math.max(2,Math.ceil(TILE_W*MIN_ZOOM*scale/2)*2);pixels<=TILE_W*MAX_ZOOM*scale;pixels+=2){
+  const step=pixels/perTile;
+  if(step>MIN_ZOOM&&step<MAX_ZOOM)steps.push(step);
+ }
+ steps.push(MAX_ZOOM);
+ return steps;
+}
+// The nearest step to what the player asked for: the wheel, the buttons and every camera move land on the ladder, so
+// the city is always drawn crisp — including at the end of a glide.
+export function snapZoom(zoom:number,scale:number):number {
+ const steps=zoomLadder(scale);
+ const wanted=clampZoom(zoom);
+ let best=steps[0]!;
+ for(const step of steps)if(Math.abs(step-wanted)<Math.abs(best-wanted))best=step;
+ return best;
+}
 export const cellStep=(camera:Camera)=>TILE_W*camera.zoom;
 export const isCoarse=(camera:Camera)=>cellStep(camera)<COARSE_STEP;
 // The bearing is carried in screen space: the isometric axes turn around the anchor by camera.rotation, 0 keeping
@@ -25,6 +50,29 @@ const unspin=(camera:Camera,dx:number,dy:number):Point=>{
  return {x:c*dx+s*dy,y:c*dy-s*dx};
 };
 // A turned view is the same view, so angles are folded back into (-PI, PI] instead of growing without bound.
+// How fast a camera move closes the distance to where it is going, per second. High enough to feel immediate, low
+// enough that the eye can follow the city sliding into place.
+export const GLIDE_PER_SECOND = 9;
+// One step of a camera move. The approach is exponential, so the move is quick at first and gentle at the end, and it
+// never overshoots: `fraction` is how much of the remaining distance to close this frame. Rotation takes the short way
+// round, so turning from just east of north to just west of it is a couple of degrees and not most of a circle.
+export function approach(from:Camera,to:Camera,fraction:number):Camera {
+ const k=Math.max(0,Math.min(1,fraction));
+ const turn=normalizeAngle(to.rotation-from.rotation);
+ return {
+  x:from.x+(to.x-from.x)*k,
+  y:from.y+(to.y-from.y)*k,
+  zoom:from.zoom+(to.zoom-from.zoom)*k,
+  rotation:normalizeAngle(from.rotation+turn*k),
+ };
+}
+// A move is finished when the camera is close enough that another frame would not be seen: the thresholds are in
+// screen pixels, a fraction of zoom, and radians.
+export function arrived(from:Camera,to:Camera):boolean {
+ return Math.abs(to.x-from.x)<.5&&Math.abs(to.y-from.y)<.5
+  &&Math.abs(to.zoom-from.zoom)<Math.max(.0005,to.zoom*.002)
+  &&Math.abs(normalizeAngle(to.rotation-from.rotation))<.002;
+}
 export function normalizeAngle(radians:number):number {
  const wrapped=((radians+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
  return wrapped===-Math.PI?Math.PI:wrapped;

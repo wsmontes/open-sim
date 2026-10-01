@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import {readFileSync} from 'node:fs';
 import {beforeEach,expect,test,vi} from 'vitest';
-import type {CityStats} from '../src/core/model';
 import {EMPTY_ECONOMY} from '../src/core/model';
+import type {CityEconomy,CityStats} from '../src/core/model';
 import {createHud} from '../src/presentation/hud';
 import type {HudCallbacks,HudInfo} from '../src/presentation/hud';
 // The panels are painted by index.html: the tests mount that very markup instead of a hand-made copy.
@@ -21,9 +21,9 @@ const drag=(handle:Element,from:readonly [number,number],to:readonly [number,num
  pointer(window,'pointermove',to[0],to[1]);
  pointer(window,'pointerup',to[0],to[1]);
 };
-const stats:CityStats={economy:EMPTY_ECONOMY,money:1234,population:56,jobs:7,energySupply:90,energyUsed:30,happiness:80,income:12,managed:3};
+const stats:CityStats={money:1234,population:56,jobs:7,energySupply:90,energyUsed:30,happiness:80,income:12,managed:3,economy:EMPTY_ECONOMY};
 const info=(over:Partial<HudInfo>={}):HudInfo=>({stats,tool:'explore',speed:1,place:'Vancouver',attribution:{text:'© OpenStreetMap contributors',url:'https://www.openstreetmap.org/copyright'},mapMessage:'',notice:'',saveStatus:{status:'idle',blocked:false},canOverwriteSave:false,rotation:0,...over});
-const callbacks=()=>({onTool:vi.fn(),onSpeed:vi.fn(),onPlace:vi.fn(),onRetryMap:vi.fn(),onOverwriteSave:vi.fn(),onOverview:vi.fn(),onZoomStep:vi.fn(),onNorth:vi.fn()}) satisfies HudCallbacks;
+const callbacks=()=>({onTool:vi.fn(),onPolicy:vi.fn(),onSpeed:vi.fn(),onPlace:vi.fn(),onRetryMap:vi.fn(),onOverwriteSave:vi.fn(),onOverview:vi.fn(),onZoomStep:vi.fn(),onNorth:vi.fn()}) satisfies HudCallbacks;
 const tree=(selector:string,root:Document|HTMLElement=document)=>{
  const found=root.querySelector<HTMLElement>(selector);
  if(!found)throw new Error(`Elemento ausente no teste: ${selector}`);
@@ -169,4 +169,43 @@ test('update writes the readouts and turns the compass with the camera',()=>{
  expect(tree('#hud-compass-needle').style.transform).toBe('rotate(0rad)');
  expect(element('map-message').hidden).toBe(true);
  hud.destroy();
+});
+
+// The economy panel is the game's books: every line is read from the state, and a lever becomes one decision when the
+// player lets go of it — not one per pixel of the drag.
+test('the economy panel shows the books the world reports, and a lever is one decision',()=>{
+ const cbs=callbacks();
+ const hud=createHud(element('hud'),cbs);
+ const economy:CityEconomy={taxPercent:15,servicesPercent:80,serviceLevel:0.56,demand:{residential:-40,commercial:12,industrial:200},landValueAverage:88,monthly:{revenue:640,expense:775,net:-135},debt:30_000,interestRate:8,rating:'C',crisis:null};
+ hud.update(info({stats:{...stats,economy}}));
+ expect(element('economy-revenue').textContent).toBe('640');
+ expect(element('economy-expense').textContent).toBe('775');
+ expect(element('economy-net').textContent).toBe('-135');
+ expect(element<HTMLElement>('economy-net').classList.contains('negative')).toBe(true);
+ expect(element('economy-land').textContent).toBe('88');
+ expect(element('economy-debt').textContent).toBe('30.000');
+ expect(element('economy-interest').textContent).toBe('8% ao ano');
+ expect(element('economy-rating').textContent).toBe('C');
+ expect(element('economy-demand').textContent).toBe('-40 / 12 / 200');
+ expect(element<HTMLInputElement>('economy-tax').value).toBe('15');
+ expect(element('economy-tax-value').textContent).toBe('15%');
+ // The services lever shows the budget that was set, not the level it produces.
+ expect(element<HTMLInputElement>('economy-services').value).toBe('80');
+ expect(element('economy-services-value').textContent).toBe('80%');
+ // Dragging writes the number under the finger but sends nothing; letting go sends exactly one decision.
+ const tax=element<HTMLInputElement>('economy-tax');
+ tax.value='18';
+ tax.dispatchEvent(new Event('input',{bubbles:true}));
+ expect(element('economy-tax-value').textContent).toBe('18%');
+ expect(cbs.onPolicy).not.toHaveBeenCalled();
+ tax.dispatchEvent(new Event('change',{bubbles:true}));
+ expect(cbs.onPolicy).toHaveBeenCalledExactlyOnceWith({tax:18});
+ // A loan is a decision with no slider behind it.
+ element<HTMLButtonElement>('economy-borrow').click();
+ expect(cbs.onPolicy).toHaveBeenLastCalledWith({borrow:10_000});
+ // The crisis is the sentence the state carries, shown when the city is out of money.
+ hud.update(info({stats:{...stats,economy:{...economy,monthly:{revenue:0,expense:775,net:-775},crisis:'O caixa acabou.'}}}));
+ const crisis=element('economy-crisis');
+ expect(crisis.hidden).toBe(false);
+ expect(crisis.textContent).toBe('O caixa acabou.');
 });

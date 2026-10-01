@@ -31,6 +31,33 @@
 </div>
 </section>
 
+<section class="panel" id="panel-economy" data-panel="economy" aria-label="Economia da cidade">
+<header class="panel-head" data-drag-handle>
+<h2 class="panel-title">Economia</h2>
+<button class="panel-collapse" type="button" data-collapse aria-expanded="true" aria-label="Minimizar painel Economia" title="Minimizar painel">&#9662;</button>
+</header>
+<div class="panel-body" data-panel-body>
+<dl id="hud-economy">
+<div><dt>Arrecadação</dt><dd id="economy-revenue">0</dd></div>
+<div><dt>Despesa</dt><dd id="economy-expense">0</dd></div>
+<div><dt>Resultado do mês</dt><dd id="economy-net">0</dd></div>
+<div><dt>Valor da terra</dt><dd id="economy-land">0</dd></div>
+<div><dt>Dívida</dt><dd id="economy-debt">0</dd></div>
+<div><dt>Juros</dt><dd id="economy-interest">0%</dd></div>
+<div><dt>Nota</dt><dd id="economy-rating">A</dd></div>
+<div><dt>Demanda</dt><dd id="economy-demand">0 / 0 / 0</dd></div>
+</dl>
+<label class="slider" for="economy-tax"><span>Imposto</span> <output id="economy-tax-value">9%</output>
+<input type="range" id="economy-tax" min="0" max="20" step="1" value="9" aria-label="Imposto sobre a propriedade">
+</label>
+<label class="slider" for="economy-services"><span>Serviços</span> <output id="economy-services-value">100%</output>
+<input type="range" id="economy-services" min="50" max="150" step="5" value="100" aria-label="Nível dos serviços">
+</label>
+<button type="button" id="economy-borrow" title="Emprestar 10.000: entra no caixa agora e a dívida cobra juros todo mês">Emprestar 10.000</button>
+<p id="economy-crisis" class="panel-hint" role="alert" hidden></p>
+</div>
+</section>
+
 <section class="panel" id="panel-tools" data-panel="tools" aria-label="Ferramentas de construção">
 <header class="panel-head" data-drag-handle>
 <h2 class="panel-title">Ferramentas</h2>
@@ -38,13 +65,15 @@
 </header>
 <nav class="panel-body" id="hud-tools" data-panel-body aria-label="Ferramentas">
 <button type="button" data-tool="explore" title="Explorar a cidade"><span class="tool-name">Explorar</span></button>
-<button type="button" data-tool="road" title="Construir rua"><span class="tool-name">Rua</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="residential" title="Zoneamento residencial"><span class="tool-name">Residencial</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="commercial" title="Zoneamento comercial"><span class="tool-name">Comércio</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="industrial" title="Zoneamento industrial"><span class="tool-name">Indústria</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="power" title="Usina de energia"><span class="tool-name">Energia</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="park" title="Parque"><span class="tool-name">Parque</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="demolish" title="Demolir construção"><span class="tool-name">Demolir</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="road" title="Rua (2): barata, e a cidade cresce até dois andares em volta dela"><span class="tool-name">Rua</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="avenue" title="Avenida (3): carrega mais tráfego, valoriza os lotes e é onde a cidade cresce para cima"><span class="tool-name">Avenida</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="highway" title="Estrada (4): carrega o tráfego que a rua não carrega, mas o barulho afasta quem mora perto"><span class="tool-name">Estrada</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="residential" title="Residencial (5): moradias, que crescem onde há rua, energia, serviços e um lugar agradável"><span class="tool-name">Residencial</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="commercial" title="Comércio (6): empregos e clientes — o valor da terra em volta sobe"><span class="tool-name">Comércio</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="industrial" title="Indústria (7): muitos empregos, e a vizinhança perde valor"><span class="tool-name">Indústria</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="power" title="Usina (9): sem energia nada cresce"><span class="tool-name">Energia</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="park" title="Parque (8): deixa o bairro mais valioso e mais feliz"><span class="tool-name">Parque</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="demolish" title="Demolir (0)"><span class="tool-name">Demolir</span><span class="tool-cost"></span></button>
 </nav>
 </section>
 
@@ -59,6 +88,8 @@
 <div><dt>População real</dt><dd id="city-population">—</dd></div>
 <div><dt>País</dt><dd id="city-country">—</dd></div>
 <div><dt>Área</dt><dd id="city-area">—</dd></div>
+<div><dt>Densidade</dt><dd id="city-density">—</dd></div>
+<div><dt>Produto municipal</dt><dd id="city-gdp">—</dd></div>
 </dl>
 <p id="city-scale" hidden></p>
 <p id="city-source" class="panel-hint"></p>

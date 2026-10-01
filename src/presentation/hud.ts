@@ -1,11 +1,13 @@
 import type {CityStats,Tool} from '../core/model';
-import {COST} from '../core/model';
+import {BORROW_STEP,COST,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN} from '../core/model';
 import type {Speed} from './clock';
 import type {SaveStatus} from '../session/local-session';
 // The toolbar selects one of the domain tools, plain exploration, or demolition.
 export type SelectedTool = Tool|'explore'|'demolish';
 export type HudCallbacks = {
  onTool(tool:SelectedTool):void;
+ // The city's levers. One call per decision, not per pixel: the panel sends what the player settled on.
+ onPolicy(policy:{tax?:number;services?:number;borrow?:number}):void;
  onSpeed(speed:Speed):void;
  onPlace(place:string):void;
  onRetryMap():void;
@@ -140,6 +142,34 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
  const placeLabel=el('#hud-place'),money=el('#hud-money'),population=el('#hud-population'),energy=el('#hud-energy'),happiness=el('#hud-happiness');
  const message=el('#map-message'),retry=el('#map-retry'),saveStatus=el('#save-status'),overwrite=el('#save-overwrite'),notice=el('#command-notice');
  const needle=el('#hud-compass-needle'),attribution=root.querySelector<HTMLAnchorElement>('#hud-attribution');
+ const economyRevenue=el('#economy-revenue'),economyExpense=el('#economy-expense'),economyNet=el('#economy-net');
+ const economyLand=el('#economy-land'),economyDebt=el('#economy-debt'),economyInterest=el('#economy-interest');
+ const economyRating=el('#economy-rating'),economyDemand=el('#economy-demand'),economyCrisis=el('#economy-crisis');
+ const taxInput=el('#economy-tax') as HTMLInputElement,taxValue=el('#economy-tax-value');
+ const servicesInput=el('#economy-services') as HTMLInputElement,servicesValue=el('#economy-services-value');
+ const borrowButton=el('#economy-borrow') as HTMLButtonElement;
+ // The range belongs to the core: a slider that offered a value the command refuses would be a lie, so the bounds are
+ // read from the same constants `applyCommand` checks instead of being written into the markup.
+ taxInput.min=String(TAX_MIN);taxInput.max=String(TAX_MAX);taxInput.step='1';
+ servicesInput.min=String(SERVICES_MIN);servicesInput.max=String(SERVICES_MAX);servicesInput.step='5';
+ // A lever is dragged while the player watches and sent when they let go: `input` moves the number under the finger,
+ // `change` is the decision. Sending per pixel would spend a version of the world on every step of the drag.
+ const lever=(input:HTMLInputElement,output:HTMLElement,send:(value:number)=>void)=>{
+  const show=()=>{output.textContent=`${input.value}%`;};
+  on(input,'input',show);
+  on(input,'change',()=>{show();send(Number(input.value));});
+ };
+ lever(taxInput,taxValue,value=>callbacks.onPolicy({tax:value}));
+ lever(servicesInput,servicesValue,value=>callbacks.onPolicy({services:value}));
+ on(borrowButton,'click',()=>callbacks.onPolicy({borrow:BORROW_STEP}));
+ // The levers are held while the player drags them, so the state does not push back mid-gesture.
+ let leverHeld=false;
+ for(const input of [taxInput,servicesInput]){
+  on(input,'pointerdown',()=>{leverHeld=true;});
+  on(input,'pointerup',()=>{leverHeld=false;});
+  on(input,'pointercancel',()=>{leverHeld=false;});
+ }
+
  const toolButtons=[...root.querySelectorAll<HTMLButtonElement>('[data-tool]')];
  const speedButtons=[...root.querySelectorAll<HTMLButtonElement>('[data-speed]')];
  for(const button of toolButtons){
@@ -166,6 +196,30 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
    energy.textContent=`${info.stats.energyUsed}/${info.stats.energySupply}`;
    energy.title='energia usada / fornecida';
    happiness.textContent=`${info.stats.happiness}%`;
+   // The economy panel: every number is a consequence of something the player did, and the crisis line is a sentence
+   // with the ways out rather than a number to interpret.
+   const economy=info.stats.economy,grouped=(value:number)=>value.toLocaleString('pt-BR');
+   economyRevenue.textContent=grouped(economy.monthly.revenue);
+   economyExpense.textContent=grouped(economy.monthly.expense);
+   economyNet.textContent=`${economy.monthly.net>0?'+':''}${grouped(economy.monthly.net)}`;
+   economyNet.classList.toggle('negative',economy.monthly.net<0);
+   economyLand.textContent=grouped(economy.landValueAverage);
+   economyDebt.textContent=grouped(economy.debt);
+   economyInterest.textContent=`${economy.interestRate}% ao ano`;
+   economyRating.textContent=economy.rating;
+   economyDemand.textContent=`${economy.demand.residential} / ${economy.demand.commercial} / ${economy.demand.industrial}`;
+   economyDemand.title='moradia / comércio / indústria: o que a cidade está pedindo';
+   economyCrisis.textContent=economy.crisis??'';
+   economyCrisis.hidden=!economy.crisis;
+   // The levers follow the world, so a change a session refused leaves the slider where the world says it is — but not
+   // while the player is holding it, or the drag would fight the state.
+   if(!leverHeld){
+    taxInput.value=String(economy.taxPercent);taxValue.textContent=`${economy.taxPercent}%`;
+    // The slider is the budget the player set, never the level it produced: writing the derived number here would
+    // push the lever to the floor of its own range on the next update.
+    servicesInput.value=String(economy.servicesPercent);servicesValue.textContent=`${economy.servicesPercent}%`;
+   }
+   money.textContent=grouped(info.stats.money);
    needle.style.transform=`rotate(${info.rotation}rad)`;
    for(const button of toolButtons){
     const active=button.dataset.tool===info.tool;

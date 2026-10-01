@@ -19,7 +19,7 @@ function harness(tool:SelectedTool,shape:'line'|'box'='line'){
   onPreview:cells=>previews.push([...cells]),
   onCommit:cells=>commits.push([...cells]),
   onCamera:next=>{camera=next;},
-  onCancel:()=>{},
+  onTool:()=>{},onCancel:()=>{},
  });
  const fire=(type:string,init:MouseEventInit={},target:EventTarget=canvas)=>target.dispatchEvent(new MouseEvent(type,{bubbles:true,...init}));
  const key=(value:string,target:EventTarget=window,init:KeyboardEventInit={})=>target.dispatchEvent(new KeyboardEvent('keydown',{key:value,bubbles:true,...init}));
@@ -237,4 +237,28 @@ test('two fingers zoom about their midpoint, carry the map, and build nothing ev
  h.fire('pointerup',click,window);
  expect(h.commits).toHaveLength(1);
  h.detach();
+});
+
+test('a number key picks the tool, and typing does not',()=>{
+ // The panel shows the tools in this order and the keys follow it, so the player can lay a street, an avenue and a
+ // zone without reaching for the mouse. The attachment is this test's own: what it needs from the canvas is nothing,
+ // because a key is not a pointer.
+ const chosen:string[]=[];
+ const canvas=document.createElement('canvas');
+ const context:InputContext={camera:()=>({x:0,y:0,zoom:1,rotation:0}),tool:()=>'explore'};
+ const detach=attachInput(canvas,context,{onHover:()=>{},onPreview:()=>{},onCommit:()=>{},onCamera:()=>{},onCancel:()=>{},onTool:tool=>chosen.push(tool)});
+ const press=(key:string,target:EventTarget=window)=>target.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}));
+ press('3');
+ expect(chosen).toEqual(['avenue']);
+ press('4');
+ expect(chosen).toEqual(['avenue','highway']);
+ press('0');
+ expect(chosen).toEqual(['avenue','highway','demolish']);
+ // A key pressed while the player is typing a place name is a letter, not a tool.
+ const field=document.createElement('input');
+ document.body.append(field);
+ press('5',field);
+ expect(chosen).toEqual(['avenue','highway','demolish']);
+ field.remove();
+ detach();
 });

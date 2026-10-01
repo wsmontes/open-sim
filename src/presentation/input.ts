@@ -8,6 +8,8 @@ export type InputCallbacks = {
  onCommit(cells:readonly CellCoord[]):void;
  onCamera(camera:Camera):void;
  onCancel():void;
+ // The number keys pick a tool, so the player can build a whole street without leaving the keyboard.
+ onTool(tool:SelectedTool):void;
 };
 export type InputContext = {
  camera:()=>Camera;
@@ -25,6 +27,8 @@ const ZOOM_RATE=.002;
 // Keyboard panning moves the camera in screen pixels: it is a camera, so "up" is up on screen however the view is
 // turned. Shift walks four times as far, which is what makes a long trip bearable at a close zoom.
 const PAN_STEP=48,PAN_FAST=4;
+// The tool each number key selects, matching the order of the tools panel.
+const TOOL_KEYS:Record<string,SelectedTool>={'1':'explore','2':'road','3':'avenue','4':'highway','5':'residential','6':'commercial','7':'industrial','8':'park','9':'power','0':'demolish'};
 const PAN_KEYS:Record<string,{x:number;y:number}>={ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},
  a:{x:-1,y:0},d:{x:1,y:0},w:{x:0,y:-1},s:{x:0,y:1},A:{x:-1,y:0},D:{x:1,y:0},W:{x:0,y:-1},S:{x:0,y:1}};
 // A drag of one pixel sideways turns the view half a degree; Q/E step a whole 15 degrees per press.
@@ -169,6 +173,13 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   if(event.key==='q'||event.key==='Q'||event.key==='e'||event.key==='E'){
    const camera=context.camera(),step=event.key==='q'||event.key==='Q'?-ROTATE_STEP:ROTATE_STEP;
    return callbacks.onCamera(rotateTo(camera,{width:canvas.width,height:canvas.height},camera.rotation+step));
+  }
+  // One key per tool, in the order the panel shows them: the fastest way through a build session is never moving the
+  // hand off the keyboard, and it is the shortcut players of this genre reach for first.
+  const chosen=TOOL_KEYS[event.key];
+  if(chosen){
+   event.preventDefault();
+   return callbacks.onTool(chosen);
   }
   const panDirection=PAN_KEYS[event.key];
   if(panDirection){

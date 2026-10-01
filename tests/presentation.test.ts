@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {expect,test,vi} from 'vitest';
-import {COARSE_STEP,MAX_ZOOM,MIN_ZOOM,TILE_H,TILE_W,cellSpace,centerOn,clampZoom,closestChunks,isCoarse,pick,project,visibleChunks,zoomTo} from '../src/presentation/camera';
+import {COARSE_STEP,MAX_ZOOM,MIN_ZOOM,TILE_H,TILE_W,approach,arrived,cellSpace,normalizeAngle,snapZoom,zoomLadder,centerOn,clampZoom,closestChunks,isCoarse,pick,project,visibleChunks,zoomTo} from '../src/presentation/camera';
 import {aggregateCells} from '../src/presentation/canvas-renderer';
 import {createTickClock} from '../src/presentation/clock';
 import {attachInput,beginStroke,extendStroke,strokeCells} from '../src/presentation/input';
@@ -90,7 +90,7 @@ test('dragging previews and commits the very same stroke, even released outside'
  canvas.width=320;canvas.height=200;document.body.append(canvas);
  let camera={x:160,y:100,zoom:1,rotation:0};
  const previews:CellCoord[][]=[],commits:CellCoord[][]=[],hovers:(CellCoord|null)[]=[],cancels:number[]=[],detach=attachInput(canvas,{camera:()=>camera,tool:()=>'road' as const},{
-  onHover:c=>hovers.push(c),onPreview:c=>previews.push([...c]),onCommit:c=>commits.push([...c]),onCamera:c=>{camera=c;},onCancel:()=>cancels.push(cancels.length+1),
+  onHover:c=>hovers.push(c),onPreview:c=>previews.push([...c]),onCommit:c=>commits.push([...c]),onCamera:c=>{camera=c;},onTool:vi.fn(),onCancel:()=>cancels.push(cancels.length+1),
  });
  const fire=(type:string,cell:CellCoord,target:EventTarget=canvas)=>{const p=project(cell,camera);target.dispatchEvent(new MouseEvent(type,{clientX:p.x,clientY:p.y,button:0,bubbles:true}));};
  fire('pointerdown',{x:0,y:0});
@@ -122,7 +122,7 @@ test('wheel zooms anchored on the pointer and space drag pans the camera',()=>{
  const canvas=document.createElement('canvas');
  canvas.width=320;canvas.height=200;document.body.append(canvas);
  let camera={x:160,y:100,zoom:1,rotation:0};
- const detach=attachInput(canvas,{camera:()=>camera,tool:()=>'road' as const},{onHover:()=>{},onPreview:()=>{},onCommit:()=>{},onCamera:c=>{camera=c;},onCancel:()=>{}});
+ const detach=attachInput(canvas,{camera:()=>camera,tool:()=>'road' as const},{onHover:()=>{},onPreview:()=>{},onCommit:()=>{},onCamera:c=>{camera=c;},onTool:vi.fn(),onCancel:()=>{}});
  const pointer={x:160,y:100},before=pick(pointer,camera);
  canvas.dispatchEvent(new WheelEvent('wheel',{deltaY:-240,clientX:pointer.x,clientY:pointer.y,bubbles:true,cancelable:true}));
  expect(camera.zoom).toBeGreaterThan(1);expect(pick(pointer,camera)).toEqual(before);
@@ -211,4 +211,60 @@ test('region blocks summarise what dominates them and follow player edits',()=>{
  const edited=blank();edited.cells[0]={terrain:'water'};
  expect(aggregateCells(edited.cells)[0]).not.toBe(blocks[0]);
  expect(aggregateCells(edited.cells).slice(1)).toEqual(blocks.slice(1));
+});
+
+test('a camera move closes the distance, turns the short way, and never overshoots',()=>{
+ // What the player sees when they press a button: the map slides into place instead of jumping. The properties that
+ // make that pleasant are also the ones a naive lerp gets wrong — rotation across the seam, and passing the target.
+ const from={x:0,y:0,zoom:1,rotation:3.0};
+ // Just across the +-pi seam, so the short way is a few hundredths of a radian and not most of a circle.
+ const to={x:120,y:-60,zoom:2.5,rotation:-3.0};
+ let at=from,travelled=0,previous=Math.hypot(to.x-at.x,to.y-at.y);
+ for(let step=0;step<200;step+=1){
+  const next=approach(at,to,1-Math.exp(-9*(1/60)));
+  travelled+=Math.abs(normalizeAngle(next.rotation-at.rotation));
+  const distance=Math.hypot(to.x-next.x,to.y-next.y);
+  // Every frame is closer than the last, and none of them is past the target.
+  expect(distance).toBeLessThanOrEqual(previous+1e-9);
+  expect(next.x).toBeGreaterThanOrEqual(Math.min(from.x,to.x)-1e-9);
+  expect(next.x).toBeLessThanOrEqual(Math.max(from.x,to.x)+1e-9);
+  previous=distance;at=next;
+  if(arrived(at,to))break;
+ }
+ expect(arrived(at,to)).toBe(true);
+ // The turn taken is the short one, whatever the signs of the angles.
+ expect(travelled).toBeLessThan(Math.PI);
+ expect(Math.abs(normalizeAngle(at.rotation-to.rotation))).toBeLessThan(0.01);
+});
+
+test('every zoom the game uses puts a tile on a whole, even number of device pixels',()=>{
+ // The reason the wheel snaps instead of sliding: at other zooms a one pixel line is drawn as runs of one and two
+ // pixels, and below half a pixel per cell a checkerboard becomes one flat tone. The ladder is what stops the art from
+ // going soft, so its one property is what the test checks.
+ for(const scale of [0.5,1,1.25,2]){
+  const steps=zoomLadder(scale);
+  expect(steps.length,`escada em ${scale}`).toBeGreaterThan(3);
+  // The ends of the range are steps too, so the whole-city view stays reachable; between them, a tile is a whole even
+  // number of device pixels.
+  expect(steps[0]).toBe(MIN_ZOOM);
+  expect(steps[steps.length-1]).toBe(MAX_ZOOM);
+  for(const step of steps.slice(1,-1)){
+   expect(step).toBeGreaterThan(MIN_ZOOM);
+   expect(step).toBeLessThan(MAX_ZOOM);
+   const devicePixels=TILE_W*step*scale;
+   expect(Math.abs(devicePixels-Math.round(devicePixels)),`${step} em ${scale}`).toBeLessThan(1e-6);
+   expect(Math.round(devicePixels)%2,`${step} em ${scale}`).toBe(0);
+  }
+  // Snapping is a step of the ladder, it is idempotent, and it never moves the zoom more than half a step.
+  const spacing=Math.min(...steps.slice(1).map((step,index)=>step-steps[index]!));
+  for(const wanted of steps.slice(1,-1)){
+   const snapped=snapZoom(wanted,scale);
+   expect(steps).toContain(snapped);
+   expect(snapZoom(snapped,scale)).toBe(snapped);
+   expect(Math.abs(snapped-wanted)).toBeLessThanOrEqual(spacing*0.500001);
+  }
+  // And outside the range the camera stays at its ends instead of running away.
+  expect(snapZoom(0.0001,scale)).toBe(MIN_ZOOM);
+  expect(snapZoom(99,scale)).toBe(MAX_ZOOM);
+ }
 });
