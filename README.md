@@ -109,3 +109,8 @@ Os nomes de arquivo levam hash, então ninguém fica preso ao JavaScript antigo.
 ## Próxima etapa: mundos versionados e colaboração
 
 A [especificação de mundos reais e colaboração federada](docs/superpowers/specs/2026-09-29-federated-world-design.md) propõe procedência dos dados reais, cenários e ramificações inspiradas em Git, integração de alterações e multiplayer sem servidor dedicado de simulação. O [plano de implementação](docs/superpowers/plans/2026-09-29-federated-world.md) divide o trabalho em seis entregas e registra, tarefa por tarefa, o commit e a evidência real de cada uma; é o documento que diz o que está pronto, o que é experimental e o que é futuro.
+
+
+### Diagnóstico de performance
+
+Abra o cliente com `?debug=1` para expor `window.openSimPerf()`: os marcos `session-ready`, `first-frame`, `map-visible-ready` e `history-ready` mostram exatamente o que bloqueou a abertura. O smoke de navegador também mede uma segunda abertura com o mesmo perfil para impedir regressões no warm start.
