@@ -884,7 +884,23 @@ const draw=(now:number,seconds:number)=>{
 };
 const frames=createFrameScheduler({draw});
 invalidateFrame=frames.invalidate;
-if(PERF_DEBUG)(window as unknown as {openSimFrames?:()=>ReturnType<typeof frames.stats>}).openSimFrames=()=>frames.stats();
+if(PERF_DEBUG){
+ const debugWindow=window as unknown as {
+  openSimFrames?:()=>ReturnType<typeof frames.stats>;
+  openSimDebug?:()=>unknown;
+ };
+ debugWindow.openSimFrames=()=>frames.stats();
+ debugWindow.openSimDebug=()=>{
+  const current=stateOf();
+  return{
+   marks:{...PERF_MARKS},
+   frames:frames.stats(),
+   map:maps.decodeStats(),
+   visible:{requested:requested.size,ready:[...chunks.values()].filter(status=>status.status==='ready').length},
+   state:current?{revision:current.revision,tick:current.tick,managed:Object.keys(current.chunks).length}:null,
+  };
+ };
+}
 async function start(){
  resize();
  const home=PLACES[START],startCell=toCell(home.lat,home.lon);
