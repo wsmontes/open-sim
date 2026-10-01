@@ -163,6 +163,18 @@ test('changing only the visible retention set does not wake session subscribers'
  expect(count).toBe(0);
  off();
 });
+test('starting a visible batch announces loading once, then each arrival progressively',async()=>{
+ const {s,m}=await boot(createMemoryStore());
+ let count=0;const off=s.subscribe(()=>{count++;});
+ const loading=s.loadVisible(['0:0','1:0','2:0']);
+ await Promise.all([m.arrival('0:0'),m.arrival('1:0'),m.arrival('2:0')]);
+ expect(count).toBe(1);
+ m.resolve('0:0');await Promise.resolve();expect(count).toBe(2);
+ m.resolve('1:0');await Promise.resolve();expect(count).toBe(3);
+ m.resolve('2:0');await loading;expect(count).toBe(4);
+ off();
+});
+
 test('the save queue is serial and the newest state wins',async()=>{
  const inner=createMemoryStore(),order:number[]=[],waits:Array<()=>void>=[];
  let active=0,maxActive=0,last='';
