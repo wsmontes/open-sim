@@ -72,7 +72,7 @@ type StoredTile={bytes:ArrayBuffer;storedAt:number};
 export function createIndexedDbTileCache(options:TileCacheOptions={}):InspectableTileCache {
  const maxAgeMs=options.maxAgeMs??DEFAULTS.maxAgeMs,maxBytes=options.maxBytes??DEFAULTS.maxBytes,now=options.now??Date.now;
  let opening:Promise<IDBDatabase|null>|null=null;
- let knownBytes:number|null=null,measuring:Promise<number>|null=null,pruneTimer:ReturnType<typeof setTimeout>|null=null;
+ let knownBytes:number|null=null,measuring:Promise<number>|null=null,pruneTimer:ReturnType<typeof setTimeout>|null=null,mutation=0;
  const open=():Promise<IDBDatabase|null>=>{
   if(opening)return opening;
   opening=new Promise<IDBDatabase|null>(resolve=>{
@@ -108,29 +108,31 @@ export function createIndexedDbTileCache(options:TileCacheOptions={}):Inspectabl
  const total=async():Promise<number>=>{
   if(knownBytes!==null)return knownBytes;
   if(measuring)return measuring;
+  const observed=mutation;
   measuring=(async()=>{
    const db=await open();
-   if(!db)return 0;
-   return new Promise<number>(resolve=>{
+   let measured=0;
+   if(db)measured=await new Promise<number>(resolve=>{
     let sum=0;
     try{
      const request=db.transaction(STORE,'readonly').objectStore(STORE).openCursor();
-     request.onsuccess=()=>{
-      const cursor=request.result;
-      if(!cursor){resolve(sum);return;}
-      const value=cursor.value as {bytes?:ArrayBuffer};sum+=value.bytes?.byteLength??0;cursor.continue();
-     };
+     request.onsuccess=()=>{const cursor=request.result;if(!cursor){resolve(sum);return;}const value=cursor.value as {bytes?:ArrayBuffer};sum+=value.bytes?.byteLength??0;cursor.continue();};
      request.onerror=()=>resolve(sum);
     }catch{resolve(sum);}
    });
+   // IndexedDB readonly transactions are snapshots. If a writer ran while this scan was alive, discard the snapshot
+   // and measure again instead of publishing a permanently stale byte total.
+   if(observed!==mutation){measuring=null;return total();}
+   knownBytes=measured;measuring=null;return measured;
   })();
-  try{const measured=await measuring;knownBytes=measured;return measured;}finally{measuring=null;}
+  return measuring;
  };
  const prune=async():Promise<void>=>{
   let bytes=await total();
   if(bytes<=maxBytes)return;
   const db=await open();
   if(!db)return;
+  mutation+=1;
   await new Promise<void>(resolve=>{
    try{
     const transaction=db.transaction(STORE,'readwrite'),store=transaction.objectStore(STORE),cursor=store.index('storedAt').openCursor();
@@ -159,6 +161,7 @@ export function createIndexedDbTileCache(options:TileCacheOptions={}):Inspectabl
     const stored=await withStore<StoredTile|undefined>('readonly',store=>store.get(key) as IDBRequest<StoredTile|undefined>);
     if(!stored)return null;
     if(now()-stored.storedAt>maxAgeMs){
+     mutation+=1;
      await withStore('readwrite',store=>store.delete(key));
      if(knownBytes!==null)knownBytes=Math.max(0,knownBytes-(stored.bytes?.byteLength??0));
      return null;
@@ -172,6 +175,7 @@ export function createIndexedDbTileCache(options:TileCacheOptions={}):Inspectabl
    try{
     // If the total is already known, subtract an overwritten value instead of counting the same tile twice.
     const previous=knownBytes!==null?await withStore<StoredTile|undefined>('readonly',store=>store.get(key) as IDBRequest<StoredTile|undefined>):null;
+    mutation+=1;
     const done=await withStore('readwrite',store=>store.put(stored));
     if(done===null&&!(await open()))return;
     if(knownBytes!==null)knownBytes=Math.max(0,knownBytes-(previous?.bytes?.byteLength??0)+copy.byteLength);
