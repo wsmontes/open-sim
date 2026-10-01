@@ -154,6 +154,15 @@ test('subscribers hear applied commands and region status changes only',async()=
  off();s.dispatch({type:'demolish',cells:[at(1,1)]});expect(count).toBe(before+1);
  off();
 });
+test('changing only the visible retention set does not wake session subscribers',async()=>{
+ const {s,m}=await boot(createMemoryStore());
+ const loaded=s.loadVisible(['0:0']);await m.arrival('0:0');m.resolve('0:0');await loaded;
+ let count=0;const off=s.subscribe(()=>{count+=1;});
+ s.retainVisible(['0:0']);
+ s.retainVisible(['9:9']);
+ expect(count).toBe(0);
+ off();
+});
 test('the save queue is serial and the newest state wins',async()=>{
  const inner=createMemoryStore(),order:number[]=[],waits:Array<()=>void>=[];
  let active=0,maxActive=0,last='';
