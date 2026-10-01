@@ -56,6 +56,8 @@ export function createFrameScheduler(options:{
   },
   running:()=>raf!==null||timer!==null,
   stats():FrameStats{
+   const at=now();
+   while(recent.length&&at-recent[0]!>1000)recent.shift();
    const sorted=samples.slice(0,sampleCount).sort((a,b)=>a-b);
    return{frames,drawn,frameMs:mean,p50:percentile(sorted,.5),p95:percentile(sorted,.95),fps:recent.length,drawing:need.moving||need.ambient};
   },
