@@ -155,18 +155,20 @@ export function describeChange(before:GameState,command:Command,after:GameState,
  }else if(action.type==='policy'){
   const field:ChangeField={scope:'component',key:'city.economy',entity:'policy'};
   const was=componentValue(before,'city.economy','policy'),now=componentValue(after,'city.economy','policy');
-  const writes:ChangeField[]=[field];
-  const reads:ChangeField[]=[field];
-  const beforeValues:JsonValue[]=[was],afterValues:JsonValue[]=[now];
-  if(before.money!==after.money){
-   const money:ChangeField={scope:'world',field:'money'};
-   reads.push(money);writes.push(money);beforeValues.push(before.money);afterValues.push(after.money);
+  if(!sameJson(was,now)||before.money!==after.money){
+   const writes:ChangeField[]=[field];
+   const reads:ChangeField[]=[field];
+   const beforeValues:JsonValue[]=[was],afterValues:JsonValue[]=[now];
+   if(before.money!==after.money){
+    const money:ChangeField={scope:'world',field:'money'};
+    reads.push(money);writes.push(money);beforeValues.push(before.money);afterValues.push(after.money);
+   }
+   operations.push({
+    id:`policy@${after.revision}`,
+    intent:{kind:'policy',...(action.tax!==undefined?{tax:action.tax}:{}),...(action.services!==undefined?{services:action.services}:{}),...(action.borrow!==undefined?{borrow:action.borrow}:{})},
+    places:[],reads,writes,requires:[],basedOn:[],dependsOn:[],before:beforeValues,after:afterValues,
+   });
   }
-  operations.push({
-   id:`policy@${after.revision}`,
-   intent:{kind:'policy',...(action.tax!==undefined?{tax:action.tax}:{}),...(action.services!==undefined?{services:action.services}:{}),...(action.borrow!==undefined?{borrow:action.borrow}:{})},
-   places:[],reads,writes,requires:[],basedOn:[],dependsOn:[],before:beforeValues,after:afterValues,
-  });
  }else if(action.type==='tick'&&before.tick!==after.tick){
   // A tick is not a decision: its world fields are named and the cells it grew are left to the world diff, so a
   // proposal never carries another version's simulation.
