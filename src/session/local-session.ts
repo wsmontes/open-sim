@@ -98,13 +98,14 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
   initialize(initialChunkId: string) {if (!boot) boot = start(initialChunkId);return boot;},
   async loadVisible(ids: readonly string[], level: MapLevel = 'detail') {
    const pending: Array<Promise<void>> = [];
+   let announcedLoading=false;
    for (const id of ids) {
     const known = chunks.get(id);
     // Already good enough: an overview region still upgrades when the caller asks for detail, never the other way.
     if (known && known.status !== 'error' && (known.status === 'loading' || level === 'overview' || known.level === 'detail')) continue;
     const ticket = ++issued;
     tickets.set(id,ticket);
-    remember(id,{status:'loading',level}); notify();
+    remember(id,{status:'loading',level});announcedLoading=true;
     pending.push(maps.loadChunk(id,level).then(base=>{
      if (tickets.get(id) !== ticket) return;   // the region was dropped or asked for again: this answer is history
      tickets.delete(id);
@@ -116,6 +117,9 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
      throw error;
     }));
    }
+   // "These regions started loading" is one state transition for the UI, not N transitions. Arrivals remain
+   // progressive below, so the map can still paint each region as soon as its data is ready.
+   if(announcedLoading)notify();
    await Promise.all(pending);
    evict();
   },
