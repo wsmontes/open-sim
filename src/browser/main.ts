@@ -60,8 +60,14 @@ import {attachInput} from '../presentation/input';
 const WORLD_ID='open-sim',BRANCH_ID='main',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,OVERVIEW_BUDGET=512,DETAIL_BUDGET=120,FUTURE_TICKS=60;
 const PERF_DEBUG=new URLSearchParams(location.search).has('debug'),PERF_ZERO=performance.now();
 const PERF_MARKS:Record<string,number>={script:0};
-const perfMark=(name:string)=>{if(!(name in PERF_MARKS))PERF_MARKS[name]=Math.round((performance.now()-PERF_ZERO)*10)/10;};
-if(PERF_DEBUG)(window as unknown as {openSimPerf?:()=>Readonly<Record<string,number>>}).openSimPerf=()=>({...PERF_MARKS});
+let perfNode:HTMLPreElement|null=null;
+const publishPerf=()=>{
+ if(!PERF_DEBUG)return;
+ if(!perfNode){perfNode=document.createElement('pre');perfNode.id='open-sim-perf';perfNode.hidden=true;document.body.append(perfNode);}
+ perfNode.textContent=JSON.stringify(PERF_MARKS);
+};
+const perfMark=(name:string)=>{if(!(name in PERF_MARKS)){PERF_MARKS[name]=Math.round((performance.now()-PERF_ZERO)*10)/10;publishPerf();}};
+if(PERF_DEBUG){(window as unknown as {openSimPerf?:()=>Readonly<Record<string,number>>}).openSimPerf=()=>({...PERF_MARKS});queueMicrotask(publishPerf);}
 // The terms the frozen base travels under (spec R12): a world exported from here says where its data came from.
 const WORLD_TERMS=[{source:'OpenStreetMap · Shortbread v1',attribution:'© OpenStreetMap contributors',license:'ODbL'}];
 const TOOL_LABELS:Record<Tool,string>={road:'Rua',avenue:'Avenida',highway:'Estrada',residential:'Residencial',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'};
