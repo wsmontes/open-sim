@@ -20,6 +20,19 @@ test('a new browser map source can reuse the already normalized region without t
  expect(restored).toEqual(expected);
  expect(networkTouched).toBe(false);
 });
+test('normalized regions are invalidated when map source or overview zoom changes',async()=>{
+ const chunks=createMemoryChunkCache();
+ const a={requests:0},b={requests:0},counters={requests:0};
+ const first=createOsmSource({tileUrl:'https://a.example/{z}/{x}/{y}',overviewZoom:11,fetcher:serving(a),chunks});
+ await first.loadChunk('0:0','overview');
+ expect(a.requests).toBe(1);
+ const otherZoom=createOsmSource({tileUrl:'https://a.example/{z}/{x}/{y}',overviewZoom:10,fetcher:serving(b),chunks});
+ await otherZoom.loadChunk('0:0','overview');
+ expect(b.requests).toBe(1);
+ const otherSource=createOsmSource({tileUrl:'https://b.example/{z}/{x}/{y}',overviewZoom:11,fetcher:serving(counters),chunks});
+ await otherSource.loadChunk('0:0','overview');
+ expect(counters.requests).toBe(1);
+});
 test('a second visit to the same place does not ask the network again',async()=>{
  const counter={requests:0};
  const cache=createMemoryTileCache();
