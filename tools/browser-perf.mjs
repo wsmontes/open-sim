@@ -60,7 +60,17 @@ try{
  const cold=await marks(30000,'first-frame');
  const coldMap=await marks(30000,'map-visible-ready').catch(()=>cold);
  await waitForSave();
+ const previousOrigin=await evaluate('performance.timeOrigin');
  await send('Page.reload',{ignoreCache:false});
+ // CDP acknowledges reload before the old document necessarily disappears. Never read warm marks from that document.
+ const navigationDeadline=Date.now()+10000;
+ while(Date.now()<navigationDeadline){
+  const origin=await evaluate('performance.timeOrigin').catch(()=>previousOrigin);
+  if(origin!==previousOrigin)break;
+  await sleep(25);
+ }
+ const currentOrigin=await evaluate('performance.timeOrigin');
+ if(currentOrigin===previousOrigin)throw new Error('Reload did not create a new document');
  const warm=await marks(10000,'first-frame');
  const warmMap=await marks(15000,'map-visible-ready').catch(()=>warm);
  const navigation=await evaluate("(()=>{const n=performance.getEntriesByType('navigation')[0];return n?{responseStart:n.responseStart,domInteractive:n.domInteractive,loadEventEnd:n.loadEventEnd}:null})()");
@@ -68,6 +78,7 @@ try{
  console.log('OPEN_SIM_PERF '+JSON.stringify(report));
  if((warm['first-frame']??Infinity)>1200)throw new Error(`Warm first frame ${warm['first-frame']} ms exceeds 1200 ms`);
  if((warm['session-ready']??Infinity)>800)throw new Error(`Warm session-ready ${warm['session-ready']} ms exceeds 800 ms`);
+ if((warm['background-start']??-1)<(warm['first-frame']??Infinity))throw new Error(`Background work started before first frame: ${JSON.stringify(warm)}`);
 }finally{
  try{ws?.close();}catch{}
  child.kill('SIGTERM');await sleep(100);child.kill('SIGKILL');
