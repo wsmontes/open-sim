@@ -961,14 +961,21 @@ attachInput(canvas,{camera:()=>camera,tool:()=>tool,strokeShape:()=>BOX_TOOLS.ha
   if(document.hidden)saveNow();
  });
  window.addEventListener('pagehide',()=>saveNow());
- // First paint is the restored local state. Network map enrichment and version history are background work: neither
- // is allowed to hold the canvas hostage. This is the startup contract of the browser client.
+ // First paint is the restored local state. Merely queueing network/storage work in the same task can still delay the
+ // browser's actual paint on a phone, so background work starts only after one rendered frame has returned to the UA.
  refreshChunks();
  updateHud();
- requestAnimationFrame(draw);
- void loadVisible().then(()=>{perfMark('map-visible-ready');refreshChunks();updateHud();}).catch(()=>{});
- // A device that cannot keep the history must not stop the game from opening: the failure stays in the panel and the
- // player keeps playing the state the session already restored.
- void openWorld().then(()=>{perfMark('history-ready');updateHud();}).catch(error=>{worldMessage=describeWorldError(error);updateHistoryPanel();});
+ requestAnimationFrame(now=>{
+  draw(now);
+  setTimeout(()=>{
+   perfMark('background-start');
+   void loadVisible().then(()=>{perfMark('map-visible-ready');refreshChunks();updateHud();}).catch(()=>{});
+   // History/version materialization is useful but never gameplay-critical. Give input and map restoration first use
+   // of idle time; the timeout guarantees the panel eventually becomes ready even on a continuously busy tab.
+   const history=()=>void openWorld().then(()=>{perfMark('history-ready');updateHud();}).catch(error=>{worldMessage=describeWorldError(error);updateHistoryPanel();});
+   const idle=(window as Window & {requestIdleCallback?:(cb:()=>void,options?:{timeout:number})=>number}).requestIdleCallback;
+   if(idle)idle(history,{timeout:2500});else setTimeout(history,800);
+  },0);
+ });
 }
 void start();
