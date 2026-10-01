@@ -163,6 +163,20 @@ test('two versions that built different things on one cell conflict, and the sam
  expect(same.candidate.money).toBe(park.state.money);
 });
 
+test('avenue and highway on the same cell conflict on roadClass instead of collapsing to road',async()=>{
+ const worlds=device(),shared=createGame(WORLD_ID,1,blank('0:0'));
+ const {head,point:ancestor}=await open(worlds,shared);
+ const avenue=await arm(worlds,head,'avenue',built(shared,{type:'build',tool:'avenue',cells:[{x:6,y:6}]}),'avenue');
+ const highway=await arm(worlds,head,'highway',built(shared,{type:'build',tool:'highway',cells:[{x:6,y:6}]}),'highway');
+ const id=`opaque@0:0#${cellIndex({x:6,y:6})}`;
+ const preview=previewMerge(ancestor,avenue,highway,[id]);
+ expect(preview.conflicts.map(conflict=>conflict.field)).toEqual(['roadClass']);
+ const adopted=resolveMerge(preview,choicesFor(preview,'source'));
+ expect(adopted.ok).toBe(true);
+ if(!adopted.ok)return;
+ expect(getCell(adopted.value.state!,{x:6,y:6})).toMatchObject({road:true,roadClass:'highway'});
+});
+
 test('two selected changes that fit the balance separately are refused together',async()=>{
  const worlds=device();
  const shared=createGame(WORLD_ID,1,blank('0:0'));
