@@ -6,7 +6,10 @@ export type InputCallbacks = {
  onHover(cell:CellCoord|null):void;
  onPreview(cells:readonly CellCoord[]):void;
  onCommit(cells:readonly CellCoord[]):void;
- onCamera(camera:Camera):void;
+ // `snap` is for input that arrives in steps — a wheel notch, a button — where landing on a crisp zoom costs nothing.
+ // A gesture keeps whatever zoom the fingers asked for: quantising mid-pinch makes the position arithmetic describe a
+ // scale that was never applied, and the scene slides away from under the fingers.
+ onCamera(camera:Camera,options?:{snap?:boolean}):void;
  onCancel():void;
  // The number keys pick a tool, so the player can build a whole street without leaving the keyboard.
  onTool(tool:SelectedTool):void;
@@ -165,7 +168,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   event.preventDefault();
   const camera=context.camera(),point=pointInBuffer(event);
   const zoom=clampZoom(camera.zoom*Math.exp(-event.deltaY*ZOOM_RATE)),ratio=zoom/camera.zoom;
-  callbacks.onCamera({x:point.x-(point.x-camera.x)*ratio,y:point.y-(point.y-camera.y)*ratio,zoom,rotation:normalizeAngle(camera.rotation)});
+  callbacks.onCamera({x:point.x-(point.x-camera.x)*ratio,y:point.y-(point.y-camera.y)*ratio,zoom,rotation:normalizeAngle(camera.rotation)},{snap:true});
  };
  const onKeyDown=(event:KeyboardEvent)=>{
   if(isTyping(event.target))return;

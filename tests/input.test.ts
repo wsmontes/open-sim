@@ -12,13 +12,13 @@ function harness(tool:SelectedTool,shape:'line'|'box'='line'){
  const canvas=document.createElement('canvas');
  canvas.width=320;canvas.height=200;document.body.append(canvas);
  let camera:Camera={x:160,y:100,zoom:1,rotation:0};
- const commits:CellCoord[][]=[],previews:CellCoord[][]=[],hovers:(CellCoord|null)[]=[];
+ const commits:CellCoord[][]=[],previews:CellCoord[][]=[],hovers:(CellCoord|null)[]=[],snaps:boolean[]=[];
  const context:InputContext={camera:()=>camera,tool:()=>tool,strokeShape:()=>shape};
  const detach=attachInput(canvas,context,{
   onHover:cell=>hovers.push(cell),
   onPreview:cells=>previews.push([...cells]),
   onCommit:cells=>commits.push([...cells]),
-  onCamera:next=>{camera=next;},
+  onCamera:(next,options)=>{camera=next;snaps.push(options?.snap===true);},
   onTool:()=>{},onCancel:()=>{},
  });
  const fire=(type:string,init:MouseEventInit={},target:EventTarget=canvas)=>target.dispatchEvent(new MouseEvent(type,{bubbles:true,...init}));
@@ -30,7 +30,7 @@ function harness(tool:SelectedTool,shape:'line'|'box'='line'){
   target.dispatchEvent(event);
   return event;
  };
- return {canvas,commits,previews,hovers,detach,fire,key,finger,get camera(){return camera;}};
+ return {canvas,commits,previews,hovers,snaps,detach,fire,key,finger,get camera(){return camera;}};
 }
 const field=()=>{const input=document.createElement('input');document.body.append(input);return input;};
 // A camera that neither moved nor turned: -0 must not be mistaken for a pan.
@@ -261,4 +261,41 @@ test('a number key picks the tool, and typing does not',()=>{
  expect(chosen).toEqual(['avenue','highway','demolish']);
  field.remove();
  detach();
+});
+
+// What a phone expects from two fingers: the city moves with them, and the space between them is the zoom. Both halves
+// are one line of arithmetic each, and both are easy to get subtly wrong — a midpoint delta applied twice moves the
+// scene at twice the speed of the hand, which is exactly what a player notices first.
+const worldUnder=(point:{x:number;y:number},camera:Camera)=>({x:(point.x-camera.x)/camera.zoom,y:(point.y-camera.y)/camera.zoom});
+
+test('two fingers drag the city exactly as far as they move, and not at all further',()=>{
+ const h=harness('explore');
+ h.finger('pointerdown',1,200,150);
+ h.finger('pointerdown',2,280,150);
+ const before={...h.camera};
+ // Both fingers move by the same amount: the gesture is a drag, and a drag must not change the zoom.
+ h.finger('pointermove',1,215,165);
+ h.finger('pointermove',2,295,165);
+ expect(h.camera.zoom).toBeCloseTo(before.zoom,10);
+ expect(h.camera.x).toBeCloseTo(before.x+15,6);
+ expect(h.camera.y).toBeCloseTo(before.y+15,6);
+ h.detach();
+});
+
+test('two fingers spread the city about the point between them',()=>{
+ const h=harness('explore');
+ const between={x:240,y:150};
+ h.finger('pointerdown',1,200,150);
+ h.finger('pointerdown',2,280,150);
+ const anchor=worldUnder(between,h.camera);
+ // The fingers move apart without the midpoint moving: 80 pixels apart becoming 120 is half again as close.
+ h.finger('pointermove',1,180,150);
+ h.finger('pointermove',2,300,150);
+ expect(h.camera.zoom).toBeCloseTo(1.5,6);
+ expect(worldUnder(between,h.camera).x).toBeCloseTo(anchor.x,6);
+ expect(worldUnder(between,h.camera).y).toBeCloseTo(anchor.y,6);
+ // And the gesture asked for that zoom, not for one rounded to a step: rounding is the app's decision and the wrong
+ // one in the middle of a pinch.
+ expect(h.snaps.at(-1)).toBe(false);
+ h.detach();
 });

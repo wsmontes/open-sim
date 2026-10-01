@@ -46,7 +46,7 @@ import {quoteAction} from '../core/quote';
 import {summarize} from '../core/simulation';
 import {EMPTY_ECONOMY} from '../core/model';
 import type {Camera,Viewport} from '../presentation/camera';
-import {GLIDE_PER_SECOND,approach,arrived,centerOn,clampZoom,closestChunks,normalizeAngle,pick,rotateTo,snapZoom,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
+import {GLIDE_PER_SECOND,approach,arrived,centerOn,clampZoom,closestChunks,normalizeAngle,pick,rotateTo,settleZoom,snapZoom,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
 import type {WorldView} from '../presentation/canvas-renderer';
 import {render} from '../presentation/canvas-renderer';
 import {createTickClock} from '../presentation/clock';
@@ -328,11 +328,13 @@ const scheduleSave=createDebounce(saveNow,SAVE_DEBOUNCE);
 // The buffer is the CSS size times this, and the zoom ladder is built from it: a tile has to be a whole number of
 // device pixels for a one pixel line to stay one pixel wide.
 const deviceScale=()=>BUFFER_SCALE*Math.max(1,window.devicePixelRatio||1);
-const setCamera=(next:Camera)=>{
+const setCamera=(next:Camera,options:{snap?:boolean}={})=>{
  // Anything the player does with a pointer is direct manipulation and takes effect at once — and it cancels whatever
- // camera move was in flight, because the hand wins over the animation.
+ // camera move was in flight, because the hand wins over the animation. The zoom is only rounded to a step when the
+ // input arrived in steps: a pinch is continuous, and rounding it mid-gesture would move the scene by the difference
+ // between the scale the fingers asked for and the one that was applied.
  glide=null;
- camera={...next,zoom:snapZoom(next.zoom,deviceScale()),rotation:normalizeAngle(next.rotation)};
+ camera={...next,zoom:settleZoom(next.zoom,deviceScale(),options.snap===true),rotation:normalizeAngle(next.rotation)};
  hover=null;
  refreshPreview();refreshChunks();updateHud();
  scheduleLoad();scheduleSave();

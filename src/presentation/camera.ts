@@ -25,6 +25,13 @@ export function zoomLadder(scale:number):readonly number[] {
  steps.push(MAX_ZOOM);
  return steps;
 }
+// The zoom a camera change lands on. Input that arrives in steps — a wheel notch, a button — is rounded to the ladder,
+// because landing on a crisp zoom costs the player nothing. A gesture keeps exactly what the fingers asked for:
+// rounding it mid-pinch makes the camera arithmetic describe a scale that was never applied, so the city slides away
+// from under the fingers by the difference between the two, every frame, in whichever direction the rounding fell.
+export function settleZoom(zoom:number,scale:number,snap:boolean):number {
+ return snap?snapZoom(zoom,scale):clampZoom(zoom);
+}
 // The nearest step to what the player asked for: the wheel, the buttons and every camera move land on the ladder, so
 // the city is always drawn crisp — including at the end of a glide.
 export function snapZoom(zoom:number,scale:number):number {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {expect,test,vi} from 'vitest';
-import {COARSE_STEP,MAX_ZOOM,MIN_ZOOM,TILE_H,TILE_W,approach,arrived,cellSpace,normalizeAngle,snapZoom,zoomLadder,centerOn,clampZoom,closestChunks,isCoarse,pick,project,visibleChunks,zoomTo} from '../src/presentation/camera';
+import {COARSE_STEP,MAX_ZOOM,MIN_ZOOM,TILE_H,TILE_W,approach,arrived,cellSpace,normalizeAngle,settleZoom,snapZoom,zoomLadder,centerOn,clampZoom,closestChunks,isCoarse,pick,project,visibleChunks,zoomTo} from '../src/presentation/camera';
 import {aggregateCells} from '../src/presentation/canvas-renderer';
 import {createTickClock} from '../src/presentation/clock';
 import {attachInput,beginStroke,extendStroke,strokeCells} from '../src/presentation/input';
@@ -267,4 +267,18 @@ test('every zoom the game uses puts a tile on a whole, even number of device pix
   expect(snapZoom(0.0001,scale)).toBe(MIN_ZOOM);
   expect(snapZoom(99,scale)).toBe(MAX_ZOOM);
  }
+});
+
+test('a gesture keeps the zoom the fingers asked for, and stepped input lands on a crisp one',()=>{
+ // The regression this pins: rounding every camera change made a pinch compute its position from a scale that was
+ // never applied, so the city slid out from under the fingers on every frame — faster the further the gesture was
+ // from a step. A wheel notch has no fingers to argue with, so it still lands on the ladder.
+ const scale=1,asked=1.03;
+ expect(settleZoom(asked,scale,false)).toBe(asked);
+ const stepped=settleZoom(asked,scale,true);
+ expect(stepped).not.toBe(asked);
+ expect(Math.round(TILE_W*stepped*scale)%2).toBe(0);
+ // Both stay inside the zoom the game allows.
+ expect(settleZoom(99,scale,false)).toBe(MAX_ZOOM);
+ expect(settleZoom(0.0001,scale,true)).toBe(MIN_ZOOM);
 });
