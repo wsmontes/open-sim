@@ -1,4 +1,4 @@
-import type {Action,BaseChunk,CellCoord,Command,GameState} from '../core/model';
+import type {BaseChunk,Command,GameState} from '../core/model';
 import {applyCommand} from '../core/commands';
 import {quoteAction} from '../core/quote';
 import type {Quote} from '../core/quote';
@@ -13,7 +13,7 @@ import type {ReceiptWindow} from './world-retention';
 import type {ChangeReceipt} from './world-ports';
 import {NETWORK_LIMITS,replayOf} from '../world/wire';
 import type {Limits,TrafficClass,WireEnvelope,WireMessage} from '../world/wire';
-import {actorId,authorize,controlFrom,grantBytes,identityBytes,proposalBytes} from '../world/permissions';
+import {actorId,authorize,controlFrom,grantBytes,identityBytes,intentFrom,proposalBytes} from '../world/permissions';
 import type {Grant,IdentityProof,Principal,Proposal,ProposalMark,SignatureVerifier} from '../world/permissions';
 import {commandFor} from './multiplayer-ports';
 import type {SessionTransport} from './multiplayer-ports';
@@ -158,39 +158,9 @@ function refsOf(value:JsonValue|undefined,limit:number):ObjectRef[]|null{
  for(const entry of value){const ref=refOf(entry);if(!ref)return null;refs.push(ref);}
  return refs;
 }
-function cellsOf(value:JsonValue|undefined):CellCoord[]|null{
- if(!Array.isArray(value)||!value.length||value.length>1024)return null;
- const cells:CellCoord[]=[];
- for(const entry of value){
-  if(!record(entry))return null;
-  const x=entry['x'],y=entry['y'];
-  if(typeof x!=='number'||typeof y!=='number'||!Number.isInteger(x)||!Number.isInteger(y))return null;
-  cells.push({x,y});
- }
- return cells;
-}
-function actionOf(value:JsonValue|undefined):Action|null{
- if(!record(value))return null;
- const type=value['type'];
- if(type==='tick')return {type:'tick'};
- if(type==='build'||type==='demolish'){
-  const cells=cellsOf(value['cells']);
-  if(!cells)return null;
-  if(type==='demolish')return {type:'demolish',cells};
-  const tool=value['tool'];
-  if(tool!=='road'&&tool!=='residential'&&tool!=='commercial'&&tool!=='industrial'&&tool!=='park'&&tool!=='power')return null;
-  return {type:'build',tool,cells};
- }
- if(type==='component'){
-  const key=textOf(value['key'],120),entity=textOf(value['entity'],120);
-  if(!key||!entity||value['value']===undefined)return null;
-  return {type:'component',key,entity,value:value['value']};
- }
- return null;
-}
 function commandOf(value:JsonValue|undefined):Command|null{
  if(!record(value))return null;
- const worldId=textOf(value['worldId'],80),actorIdValue=textOf(value['actorId'],80),action=actionOf(value['action']);
+ const worldId=textOf(value['worldId'],80),actorIdValue=textOf(value['actorId'],80),parsed=intentFrom(value['action']),action=parsed.ok?parsed.value:null;
  const sequence=value['sequence'],expectedRevision=value['expectedRevision'];
  if(value['version']!==1||!worldId||!actorIdValue||!action)return null;
  if(typeof sequence!=='number'||!Number.isSafeInteger(sequence)||sequence<1)return null;
