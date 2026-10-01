@@ -371,7 +371,11 @@ export function createGameSessionView(options: SessionViewOptions): GameSessionV
  const head = (): Head | null => link ? confirmed?.head ?? null : options.head?.() ?? null;
  const live = (): GameState | null => {
   if(link)return confirmed?.state ?? null;
-  try{return options.local.getState();}catch{return null;}
+  try{return options.local.getState();}
+  catch(error){
+   if(error instanceof Error&&error.message==='Sessão não iniciada')return null;
+   throw error;
+  }
  };
  // Only a receipt counts as a copy (§7.4 step 6): for a host they are the receipts of its peers, for a replica its own
  // adoption — either way the version named is the one the copy holds.
