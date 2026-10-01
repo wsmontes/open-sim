@@ -8,7 +8,7 @@ import {applyCommand,createGame} from '../src/core/commands';
 import {commandFor} from '../src/session/multiplayer-ports';
 import {blank} from './fixtures/world';
 import {NETWORK_LIMITS} from '../src/world/wire';
-import {actorId,authorize,controlFrom,grantBytes,identityBytes,negotiate,proposalBytes,roleFor,verifyGrant} from '../src/world/permissions';
+import {actorId,authorize,controlFrom,grantBytes,identityBytes,intentFrom,negotiate,proposalBytes,roleFor,verifyGrant} from '../src/world/permissions';
 import type {AuthorizationContext,Capabilities,Grant,IdentityProof,IdentityScope,Proposal} from '../src/world/permissions';
 import type {Head,JsonValue} from '../src/world/model';
 
@@ -155,6 +155,14 @@ test('a namespace or entity outside the grant is refused',async()=>{
  expect(await refusal(await grantOf({entities:['ent-1']}),entity)).toBe('PERMISSION');
  const actionless=await proposalOf({intent:{type:'component',key:'cidade.transito',entity:'ent-1',value:{}}});
  expect(await refusal(await grantOf({actions:['build']}),actionless)).toBe('PERMISSION');
+});
+
+test('the shared intent parser covers every action the current city UI can send',()=>{
+ expect(intentFrom({type:'build',tool:'avenue',cells:[here(1,1)]})).toMatchObject({ok:true,value:{type:'build',tool:'avenue'}});
+ expect(intentFrom({type:'build',tool:'highway',cells:[here(2,2)]})).toMatchObject({ok:true,value:{type:'build',tool:'highway'}});
+ expect(intentFrom({type:'policy',tax:12,services:115,borrow:10_000})).toEqual({ok:true,value:{type:'policy',tax:12,services:115,borrow:10_000}});
+ expect(intentFrom({type:'policy'})).toMatchObject({ok:false,error:{code:'MALFORMED'}});
+ expect(intentFrom({type:'build',tool:'monorail',cells:[here(1,1)]})).toMatchObject({ok:false,error:{code:'MALFORMED'}});
 });
 
 test('a proposal replayed in another branch or epoch is refused',async()=>{
