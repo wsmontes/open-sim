@@ -900,6 +900,13 @@ async function start(){
   camera={x:restored.x,y:restored.y,zoom:clampZoom(restored.zoom),rotation:normalizeAngle(restored.rotation??0)};
   speed=restored.speed;place=restored.place;
  }
+ // The transient viewport starts where the restored camera actually is, never at the bundled fallback city. Managed
+ // chunks from the save are therefore eligible for the very first frame and the background loader targets the right
+ // neighbourhood immediately.
+ const restoredVisible=visibleChunks(camera,viewport());
+ session.retainVisible(restoredVisible);
+ requested.clear();
+ for(const id of restoredVisible)requested.add(id);
  revision=session.getState().revision;
  clock.setHidden(document.hidden);clock.setSpeed(speed);
  sessions.setHostVisible(!document.hidden);
