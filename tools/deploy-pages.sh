@@ -27,6 +27,9 @@ room=$(mktemp -d)
 trap 'git worktree remove --force "$room/pages" >/dev/null 2>&1 || true; rm -rf "$room"' EXIT
 git worktree add -q --detach "$room/pages" HEAD
 cd "$room/pages"
+# A branch that already exists would make `--orphan` fail, and publishing has to work the second time as well as the
+# first: the local branch is discarded and rebuilt from the build output, and the push below replaces the remote one.
+git branch -D gh-pages >/dev/null 2>&1 || true
 git checkout -q --orphan gh-pages
 git rm -rq --cached . >/dev/null 2>&1 || true
 find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
