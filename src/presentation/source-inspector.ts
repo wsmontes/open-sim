@@ -119,6 +119,7 @@ export function createSourceInspector(root:HTMLElement):SourceInspectorPanel{
  const panel=make('section','panel');
  panel.id='panel-source';
  panel.dataset.panel='source';
+ panel.dataset.sheet='fontes';
  panel.setAttribute('aria-label','Dados de origem');
  panel.style.left='8px';
  panel.style.top='660px';
@@ -126,12 +127,11 @@ export function createSourceInspector(root:HTMLElement):SourceInspectorPanel{
  const head=make('header','panel-head');
  head.dataset.dragHandle='';
  const title=make('h2','panel-title','Dados de origem');
- const collapse=button('▾','panel-collapse');
- collapse.dataset.close='';
- collapse.setAttribute('aria-expanded','true');
- collapse.setAttribute('aria-label','Minimizar painel Dados de origem');
- collapse.title='Minimizar painel';
- head.append(title,collapse);
+ const close=button('×','panel-close');
+ close.dataset.close='';
+ close.setAttribute('aria-label','Fechar Dados de origem');
+ close.title='Fechar';
+ head.append(title,close);
  const body=make('div','panel-body');
  body.dataset.panelBody='';
  const message=make('p');
@@ -143,13 +143,6 @@ export function createSourceInspector(root:HTMLElement):SourceInspectorPanel{
  body.append(message,subtitle,ledger,notes);
  panel.append(head,body);
  root.append(panel);
- const onCollapse=()=>{
-  const open=collapse.getAttribute('aria-expanded')==='true';
-  collapse.setAttribute('aria-expanded',open?'false':'true');
-  collapse.textContent=open?'▸':'▾';
-  body.hidden=open;
- };
- collapse.addEventListener('click',onCollapse);
  return {
   update(info){
    message.textContent=info.message;
@@ -161,7 +154,6 @@ export function createSourceInspector(root:HTMLElement):SourceInspectorPanel{
    for(const note of info.notes)notes.append(make('li',undefined,note));
   },
   destroy(){
-   collapse.removeEventListener('click',onCollapse);
    panel.remove();
   },
  };

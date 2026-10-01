@@ -53,6 +53,7 @@ import {createTickClock} from '../presentation/clock';
 import type {Speed} from '../presentation/clock';
 import {createHud} from '../presentation/hud';
 import {createInspector} from '../presentation/inspector';
+import {createSourceInspector} from '../presentation/source-inspector';
 import {layoutFor} from '../presentation/layout';
 import type {SelectedTool} from '../presentation/hud';
 import {attachInput} from '../presentation/input';
@@ -73,6 +74,7 @@ const PLACES:Record<string,{lat:number;lon:number;facts:CityFacts}>={
 // accounts for eleven million people.
 const cityDirectory=createWikidataDirectory();
 let cityFacts:CityFacts|null=null;
+let sourcePanel:ReturnType<typeof createSourceInspector>|null=null;
 const slugOf=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'cidade';
 const rowOf=(element:HTMLElement|null,value:string|null)=>{
  if(!element)return;
@@ -89,6 +91,27 @@ const updateCityScale=()=>{
  cityScaleEl.hidden=false;
  cityScaleEl.textContent=fact?`Sua cidade reúne ${simPopulation.toLocaleString('pt-BR')} moradores simulados; a cidade real tem ${cityFacts.population.toLocaleString('pt-BR')} — o que você constrói é um bairro dentro dela.`:'';
 };
+const updateSourcePanel=()=>{
+ if(!sourcePanel)return;
+ const rows=[
+  {label:'Mapa e geometria',value:'OpenStreetMap · Shortbread v1'},
+  {label:'Termos do mapa',value:'ODbL · © OpenStreetMap contributors'},
+ ];
+ if(cityFacts){
+  rows.push({label:'Demografia',value:cityFacts.source.dataset});
+  rows.push({label:'Termos da demografia',value:cityFacts.source.license});
+  rows.push({label:'Endereço da demografia',value:cityFacts.source.url});
+ }
+ sourcePanel.update({
+  title:cityFacts?`Fontes · ${cityFacts.label}`:'Fontes desta cidade',
+  rows,
+  notes:[
+   'Mapa, demografia e simulação são camadas diferentes: uma fonte real nunca vira automaticamente uma decisão do jogador.',
+   'Quando há uma fonte estatística oficial compatível, ela substitui o valor enciclopédico; números de fontes diferentes não são misturados por média.',
+  ],
+  message:cityFacts?'':'A fonte demográfica aparece quando o lugar sob a câmera é identificado.',
+ });
+};
 const showCityFacts=(facts:CityFacts|null)=>{
  cityFacts=facts;
  if(cityFactsEl)cityFactsEl.hidden=!facts;
@@ -101,6 +124,7 @@ const showCityFacts=(facts:CityFacts|null)=>{
  rowOf(cityGdpEl,facts?.gdpThousandsBrl!==undefined?`R$ ${(facts.gdpThousandsBrl/1_000_000).toLocaleString('pt-BR',{maximumFractionDigits:1})} bi${facts.gdpYear?` · ${facts.gdpYear}`:''}`:null);
  if(citySourceEl)citySourceEl.textContent=facts?`${facts.source.dataset} · ${facts.source.license} · ${facts.source.url}`:'';
  updateCityScale();
+ updateSourcePanel();
 };
 // The census travels into the world as a component of the city profile, so a shared session sees the same figure the
 // screen shows instead of each client asking again.
@@ -192,6 +216,10 @@ function guarded(flow:()=>Promise<void>):void{
  void flow().catch(error=>{sessions.notify(describeWorldError(error));updateHud();});
 }
 const multiplayer=createMultiplayerPanel(hudRoot,{onCreate:()=>guarded(createCooperativeSession),onJoin:text=>guarded(()=>joinCooperativeSession(text)),onInvite:shareInvite,onLeave:()=>guarded(()=>closeCooperativeSession()),onContinueLocal:()=>guarded(()=>closeCooperativeSession('A partida continua na versão pessoal; a versão compartilhada ficou na ramificação da sessão.')),onPause:()=>{sessions.pause();updateHud();},onTransfer:text=>guarded(()=>transferBranch(text))});
+// The source screen belongs to the same shell as history, scenarios and people. It reports only sources this client
+// actually uses; transit and weather are not invented just because the protocol can represent them.
+sourcePanel=createSourceInspector(hudRoot);
+updateSourcePanel();
 const hud=createHud(hudRoot,{onTool,onSpeed,onPlace,onRetryMap,onOverwriteSave,onOverview,onZoomStep,onNorth,onPolicy});
 const clock=createTickClock(()=>{void sessions.tick();});
 const requested=new Set<string>();

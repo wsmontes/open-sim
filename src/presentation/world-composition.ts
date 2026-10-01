@@ -95,6 +95,7 @@ export function createWorldComposition(root:HTMLElement,actions:CompositionActio
  const panel=make('section','panel');
  panel.id='panel-composition';
  panel.dataset.panel='composition';
+ panel.dataset.sheet='planejamento';
  panel.setAttribute('aria-label','Cenários comparados');
  panel.style.left='8px';
  panel.style.top='400px';

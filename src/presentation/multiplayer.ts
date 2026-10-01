@@ -678,6 +678,7 @@ export function createMultiplayerPanel(root: HTMLElement, actions: MultiplayerAc
  const panel = make('section', 'panel');
  panel.id = 'panel-multiplayer';
  panel.dataset.panel = 'multiplayer';
+ panel.dataset.sheet = 'pessoas';
  panel.setAttribute('aria-label', 'Sessão cooperativa');
  panel.style.left = '8px';
  panel.style.top = '480px';

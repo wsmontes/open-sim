@@ -36,6 +36,7 @@ export function createWorldHistory(root:HTMLElement,actions:HistoryActions):Worl
  const panel=make('section','panel');
  panel.id='panel-history';
  panel.dataset.panel='history';
+ panel.dataset.sheet='historia';
  panel.setAttribute('aria-label','Versões da cidade');
  // A corner of the hud of its own: the player drags it like every other card and the hud remembers where it stayed.
  panel.style.left='8px';

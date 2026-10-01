@@ -4,6 +4,10 @@ import {beforeEach,expect,test,vi} from 'vitest';
 import {EMPTY_ECONOMY} from '../src/core/model';
 import type {CityEconomy,CityStats} from '../src/core/model';
 import {createHud} from '../src/presentation/hud';
+import {createWorldHistory} from '../src/presentation/world-history';
+import {createWorldComposition} from '../src/presentation/world-composition';
+import {createMultiplayerPanel} from '../src/presentation/multiplayer';
+import {createSourceInspector} from '../src/presentation/source-inspector';
 import type {HudCallbacks,HudInfo} from '../src/presentation/hud';
 import type {LayoutMode} from '../src/presentation/layout';
 // The shell is painted by index.html: the tests mount that very markup instead of a hand-made copy.
@@ -87,6 +91,28 @@ test('a screen opens from the dock, closes with its own button and with Escape, 
  hud.destroy();
 });
 
+test('every dynamic management screen has a shell address and reopens with its body intact',()=>{
+ const root=element('hud'),noop=()=>{};
+ const history=createWorldHistory(root,{onCreateVersion:noop,onExport:noop,onImport:noop,onBranch:noop,onCompare:noop,onRegion:noop});
+ const composition=createWorldComposition(root,{onCompare:noop,onRegion:noop});
+ const multiplayer=createMultiplayerPanel(root,{onCreate:noop,onJoin:noop,onInvite:noop,onLeave:noop,onContinueLocal:noop,onPause:noop,onTransfer:noop});
+ const sources=createSourceInspector(root);
+ const hud=createHud(root,callbacks());
+ const screens:[string,string][]=[['historia','panel-history'],['planejamento','panel-composition'],['pessoas','panel-multiplayer'],['fontes','panel-source']];
+ for(const [sheet,id] of screens){
+  const panel=element(id),body=tree('[data-panel-body]',panel);
+  expect(panel.dataset.sheet,id).toBe(sheet);
+  hud.openSheet(sheet);
+  expect(root.dataset.sheet,id).toBe(sheet);
+  expect(hud.sheet(),id).toBe(sheet);
+  expect(body.hidden,id).toBe(false);
+  tree('[data-close]',panel).click();
+  expect(hud.sheet(),id).toBeNull();
+  hud.openSheet(sheet);
+  expect(body.hidden,id).toBe(false);
+ }
+ hud.destroy();history.destroy();composition.destroy();multiplayer.destroy();sources.destroy();
+});
 test('a screen is dragged where dragging means something, and left to the stylesheet where it does not',()=>{
  const hud=createHud(element('hud'),callbacks());
  const economy=element('panel-economy');
