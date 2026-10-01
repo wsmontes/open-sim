@@ -3,12 +3,13 @@ import {createWikidataDirectory} from '../src/adapters/reality/wikidata';
 
 // Real demography has to arrive with its own honesty: the number a source states is the number the game shows, and a
 // value nobody stated stays absent. These tests fix that alongside the two ways of finding a city.
-const sparql=(rows:Array<{qid:string;label:string;pop?:number;year?:number;area?:number;country?:string}>=[])=>({
+const sparql=(rows:Array<{qid:string;label:string;pop?:number;year?:number;area?:number;country?:string;municipalCode?:string}>=[])=>({
  results:{bindings:rows.flatMap(row=>{
   const bindings:Array<Record<string,{value:string}>>=[];
   if(row.pop!==undefined)bindings.push({city:{value:`http://www.wikidata.org/entity/${row.qid}`},cityLabel:{value:row.label},pop:{value:String(row.pop)},...(row.year?{date:{value:`${row.year}-01-01T00:00:00Z`}}:{}),...(row.area?{area:{value:String(row.area)}}:{})});
   else bindings.push({city:{value:`http://www.wikidata.org/entity/${row.qid}`},cityLabel:{value:row.label}});
   if(row.country)for(const entry of bindings)entry['countryLabel']={value:row.country};
+  if(row.municipalCode)for(const entry of bindings)entry['municipalCode']={value:row.municipalCode};
   return bindings;
  })},
 });
@@ -90,3 +91,35 @@ test.skipIf(!process.env.OSIM_LIVE_WIKIDATA)('the real Wikidata answers for a na
  expect(vancouver?.label).toBe('Vancouver');
  expect(vancouver?.population).toBeGreaterThan(500_000);
 },30000);
+
+test('a municipal code is carried through only when it has the shape a statistics office uses',async()=>{
+ // It is what joins the two sources without trusting that two cities with the same name are the same city, so a value
+ // of the wrong shape is dropped rather than handed to the second source.
+ const read=async(value:string)=>{
+  const directory=createWikidataDirectory({fetcher:async()=>response(sparql([{qid:'Q174',label:'São Paulo',pop:11_904_961,year:2025,...({municipalCode:value} as Record<string,string>)}]))});
+  return (await directory.named('São Paulo','pt'))?.municipalCode;
+ };
+ expect(await read('3550308')).toBe('3550308');
+ expect(await read('35503')).toBeUndefined();
+ expect(await read('Q174')).toBeUndefined();
+});
+
+test('both queries ask the service for a place, and for the code that joins the second source',async()=>{
+ // The one test here that reads the query instead of the answer, and on purpose: it is the *service* that decides
+ // whether "Rio de Janeiro" means the city or the 2016 Olympic Games, so no fake payload can notice that the filter
+ // went missing. Before that line existed, this adapter reported an event's population — or none at all — for Rio,
+ // Campinas, Salvador and Recife, and the municipal code never arrived from a coordinate.
+ const bodies:string[]=[];
+ const directory=createWikidataDirectory({fetcher:async(_input:RequestInfo|URL,init?:RequestInit)=>{
+  bodies.push(String(init?.body??''));
+  return response(sparql([{qid:'Q174',label:'São Paulo',pop:11_904_961,year:2025}]));
+ }});
+ await directory.named('São Paulo','pt');
+ await directory.near(-23.55,-46.63,25);
+ expect(bodies).toHaveLength(2);
+ for(const body of bodies){
+  const query=decodeURIComponent(body.replace(/^query=/,''));
+  expect(query).toContain('wdt:P31/wdt:P279* wd:Q486972');
+  expect(query).toContain('wdt:P1585');
+ }
+});

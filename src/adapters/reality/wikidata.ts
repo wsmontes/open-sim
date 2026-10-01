@@ -8,20 +8,8 @@
 // absent — a city without a census does *not* get a zero — and a source that fails, lies or answers garbage leaves the
 // game without a number instead of with an invented one. What arrives carries where it came from and its year, so the
 // screen can say "11.904.961 (Wikidata, 2025)" instead of pretending to be authoritative on its own.
-export type CityFactsSource = {dataset: string; url: string; license: string};
-export type CityFacts = {
- id: string;
- label: string;
- country?: string;
- population?: number;
- populationYear?: number;
- areaKm2?: number;
- source: CityFactsSource;
-};
-export interface CityDirectory {
- named(name: string, language: string): Promise<CityFacts | null>;
- near(lat: number, lon: number, radiusKm: number): Promise<CityFacts | null>;
-}
+export type {CityFacts,CityDirectory,CityFactsSource} from './city';
+import type {CityDirectory,CityFacts} from './city';
 export type WikidataOptions = {
  fetcher?: typeof fetch;
  endpoint?: string;
@@ -39,29 +27,39 @@ const MIN_GAP_MS=120;
 
 // `wikibase:mwapi` is what turns "the player typed Lisboa" into an entity without a second round trip, and the label
 // service gives the human names in the language the player is reading.
-const namedQuery=(name:string,language:string)=>`SELECT ?city ?cityLabel ?countryLabel ?pop ?date ?area WHERE {
+//
+// The `wdt:P31/wdt:P279* wd:Q486972` line is what keeps the answer a place. A search returns everything the words
+// match, and the most relevant result for "Rio de Janeiro" is the 2016 Olympic Games: without asking for a human
+// settlement — and its subclasses, which is what a city, a town and a municipality are — the adapter would report the
+// population of an event, or of nothing at all. It is also what makes a municipal code meaningful, since only a place
+// has one.
+const namedQuery=(name:string,language:string)=>`SELECT ?city ?cityLabel ?countryLabel ?pop ?date ?area ?municipalCode WHERE {
   SERVICE wikibase:mwapi {
     bd:serviceParam wikibase:api "EntitySearch" ; wikibase:endpoint "www.wikidata.org" ;
                     mwapi:search ${JSON.stringify(name)} ; mwapi:language ${JSON.stringify(language)} .
     ?city wikibase:apiOutputItem mwapi:item .
   }
+  ?city wdt:P31/wdt:P279* wd:Q486972 .
   OPTIONAL { ?city p:P1082 ?statement . ?statement ps:P1082 ?pop . OPTIONAL { ?statement pq:P585 ?date } }
   OPTIONAL { ?city wdt:P2046 ?area }
   OPTIONAL { ?city wdt:P17 ?country }
+  OPTIONAL { ?city wdt:P1585 ?municipalCode }
   SERVICE wikibase:label { bd:serviceParam wikibase:language ${JSON.stringify(`${language},en`)} . }
-} LIMIT 60`;
+} LIMIT 300`;
 // Around a point, nearest first: the city the player is standing in, not the biggest one in the country.
-const nearQuery=(lat:number,lon:number,radiusKm:number)=>`SELECT ?city ?cityLabel ?countryLabel ?pop ?date ?area ?distance WHERE {
+const nearQuery=(lat:number,lon:number,radiusKm:number)=>`SELECT ?city ?cityLabel ?countryLabel ?pop ?date ?area ?municipalCode ?distance WHERE {
   SERVICE wikibase:around {
     ?city wdt:P625 ?location .
     bd:serviceParam wikibase:center "Point(${lon} ${lat})"^^geo:wktLiteral ; wikibase:radius ${JSON.stringify(String(radiusKm))} .
   }
+  ?city wdt:P31/wdt:P279* wd:Q486972 .
   ?city wdt:P1082 ?anyPop .
   OPTIONAL { ?city p:P1082 ?statement . ?statement ps:P1082 ?pop . OPTIONAL { ?statement pq:P585 ?date } }
   OPTIONAL { ?city wdt:P2046 ?area }
   OPTIONAL { ?city wdt:P17 ?country }
+  OPTIONAL { ?city wdt:P1585 ?municipalCode }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "pt,en" . }
-} ORDER BY ?distance LIMIT 20`;
+} ORDER BY ?distance LIMIT 60`;
 
 const entityId=(uri:string)=>uri.slice(uri.lastIndexOf('/')+1);
 const plainNumber=(value:string|undefined):number|null=>{
@@ -88,6 +86,10 @@ function factsFrom(bindings:readonly Binding[]):CityFacts|null {
   const population=plainNumber(row['pop']?.value);
   const year=yearOf(row['date']?.value);
   const area=plainNumber(row['area']?.value);
+  // A statistics code is only useful if it has the shape the statistics office uses: anything else is ignored rather
+  // than passed on to a second source that would then answer about some other city.
+  const code=row['municipalCode']?.value;
+  const municipalCode=code&&/^\d{7}$/.test(code)?code:undefined;
   // A `near` query states how far each candidate is; a `named` query does not, and then relevance order is the answer.
   const distance=plainNumber(row['distance']?.value);
   const current=byCity.get(id)??{id,label,source:{dataset:DATASET,url:`https://www.wikidata.org/wiki/${id}`,license:LICENSE},bestYear:-1,distanceKm:distance??Number.POSITIVE_INFINITY};
@@ -101,6 +103,7 @@ function factsFrom(bindings:readonly Binding[]):CityFacts|null {
    else delete current.populationYear;
   }
   if(area!==null)current.areaKm2=area;
+  if(municipalCode&&!current.municipalCode)current.municipalCode=municipalCode;
   if(country&&!current.country)current.country=country;
   byCity.set(id,current);
  }
