@@ -7,7 +7,7 @@ import {CHUNK,cellIndex,chunkId} from '../src/core/coordinates';
 import {WORLD} from '../src/core/coordinates';
 import {adopt,getCell} from '../src/core/world';
 import {decodeUtf8,parseStrictJson} from '../src/world/codec';
-import {attachBases,changeSetValue,combineChanges,describeChange,describeEdits,parseChangeSet,verifyChangeSet} from '../src/world/changes';
+import {attachBases,changeSetValue,combineChanges,describeChange,describeEdits,parseChangeSet,sameCell,verifyChangeSet} from '../src/world/changes';
 import {integrateProject,prepareProject} from '../src/world/city-profile';
 import {diffWorlds} from '../src/presentation/world-diff';
 import {createWorldRepository} from '../src/session/world-repository';
@@ -79,6 +79,18 @@ test('a described change names the intent, the fields read and written and the b
  expect(undo.intent).toEqual({kind:'demolish'});
  expect(undo.writes.map(field=>field.scope==='cell'?field.field:'')).toEqual(['building','stage','origin']);
  expect(undo.requires.some(requirement=>requirement.kind==='cell-occupied')).toBe(true);
+});
+
+test('portable changes distinguish a street from an avenue and carry the road class',()=>{
+ const before=createGame(WORLD_ID,1,blank('0:0'));
+ const commandAvenue=command(before,{type:'build',tool:'avenue',cells:[{x:3,y:0}]});
+ const applied=applyCommand(before,commandAvenue,[]);
+ expect(applied.status).toBe('applied');
+ const operation=describeChange(before,commandAvenue,applied.state).operations[0]!;
+ expect(operation.intent).toEqual({kind:'build',tool:'avenue'});
+ expect(operation.writes.map(field=>field.scope==='cell'?field.field:'')).toEqual(['road','roadClass','origin']);
+ expect(operation.after[0]).toMatchObject({road:true,roadClass:'avenue'});
+ expect(sameCell({terrain:'land',road:true},{terrain:'land',road:true,roadClass:'avenue'})).toBe(false);
 });
 
 test('independent cells have no dependency and different fields, the same cell depends on the earlier operation',()=>{
