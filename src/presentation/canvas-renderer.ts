@@ -170,7 +170,7 @@ function drawShore(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord,p
  ctx.fillStyle='rgba(238,247,255,.5)';
  const half={x:tw*.5,y:th*.5};
  for(const [dx,dy,ax,ay] of [[0,-1,half.x,-half.y],[0,1,-half.x,half.y],[-1,0,-half.x,-half.y],[1,0,half.x,half.y]] as const){
-  const neighbour=lookupCell(view,{x:wrapX(coord.x+dx),y:wrapX(coord.y+dy)}).cell;
+  const ny=coord.y+dy;\n  if(ny<0||ny>=WORLD)continue;\n  const neighbour=lookupCell(view,{x:wrapX(coord.x+dx),y:ny}).cell;
   if(!neighbour||neighbour.terrain==='water')continue;
   const edge={x:p.x+ax,y:p.y+ay};
   ctx.beginPath();
@@ -474,22 +474,19 @@ export function aggregateCells(cells:readonly Cell[],blocks=BLOCKS):string[]{
  }
  return out;
 }
-const mosaicCache=new Map<string,string[]>();
+const mosaicCache=new WeakMap<object,string[]>();
 function cachedMosaic(view:WorldView,id:string):string[]|null {
  const managed=view.state.chunks[id],status=view.chunks.get(id);
- // The key carries whatever can change the summary: player edits (through the revision) and the level of the
- // loaded data, so a region that arrives coarse is redrawn once its detailed tiles replace it.
- const key=managed?`${id}#${view.state.revision}`:`${id}#${status?.status==='ready'?status.level:'none'}`;
- const cached=mosaicCache.get(key);
+ // Commands and ticks replace changed chunk objects. Caching by that object means an edit invalidates only its own
+ // region; the old global revision key made every visible managed region aggregate all 1,024 cells after any command.
+ const owner=managed??(status?.status==='ready'?status.base:null);
+ if(!owner)return null;
+ const cached=mosaicCache.get(owner);
  if(cached)return cached;
  const cells=managed?effectiveCells(managed):status?.status==='ready'?status.base.cells:null;
  if(!cells)return null;
  const blocks=aggregateCells(cells);
- // A wide view holds hundreds of regions, each possibly cached at both levels while it upgrades, so the cache is
- // generous and the level that was just replaced is dropped instead of waiting for eviction.
- if(!managed)mosaicCache.delete(`${id}#${status?.status==='ready'&&status.level==='overview'?'detail':'overview'}`);
- mosaicCache.set(key,blocks);
- while(mosaicCache.size>2048)mosaicCache.delete(mosaicCache.keys().next().value!);
+ mosaicCache.set(owner,blocks);
  return blocks;
 }
 type Box={minX:number;maxX:number;minY:number;maxY:number};
@@ -501,18 +498,17 @@ function renderMosaic(ctx:CanvasRenderingContext2D,view:WorldView,box:Box):void{
  const absCos=Math.abs(cosT),absSin=Math.abs(sinT);
  const firstX=Math.floor((box.minX-1)/CHUNK),lastX=Math.floor((box.maxX+1)/CHUNK);
  const firstY=Math.max(0,Math.floor((box.minY-1)/CHUNK)),lastY=Math.min(WORLD/CHUNK-1,Math.floor((box.maxY+1)/CHUNK));
- const regions:string[]=[];
+ const regions:Array<{x:number;y:number;id:string;order:number;tie:number}>=[];
  for(let cy=firstY;cy<=lastY;cy++)for(let cx=firstX;cx<=lastX;cx++){
   const x=cx*CHUNK,y=cy*CHUNK,centre=project({x:x+CHUNK/2,y:y+CHUNK/2},camera);
   const halfW=CHUNK*TILE_W*camera.zoom,halfH=CHUNK*TILE_H*camera.zoom;
   const reach=halfW*absCos+halfH*absSin,drop=halfH*absCos+halfW*absSin;
   if(centre.x+reach<0||centre.x-reach>viewport.width||centre.y+drop<0||centre.y-drop>viewport.height)continue;
-  regions.push(`${cy*100000+cx}:${x}:${y}`);
+  regions.push({x,y,id:chunkId({x,y}),order:x+y,tie:cy*100000+cx});
  }
- // Back to front, then left to right inside each region, so the mosaic never depends on insertion order.
- regions.sort((a,b)=>{const [ka,ax,ay]=a.split(':').map(Number),[kb,bx,by]=b.split(':').map(Number);return (Number(ax)+Number(ay))-(Number(bx)+Number(by))||ka-kb;});
- for(const entry of regions){
-  const [,xs,ys]=entry.split(':');const x=Number(xs),y=Number(ys),id=chunkId({x,y});
+ // Back to front, then left to right inside each region, without serialising/parsing region coordinates every frame.
+ regions.sort((a,b)=>a.order-b.order||a.tie-b.tie);
+ for(const {x,y,id} of regions){
   const blocks=cachedMosaic(view,id);
   if(!blocks){
    const failed=view.chunks.get(id)?.status==='error';
