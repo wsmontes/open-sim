@@ -113,7 +113,10 @@ export function createWorkerMapDecoder(factory:MapWorkerFactory=defaultWorkerFac
    if(!worker||failed)return fallback.decode(request);
    try{return await decodeWorker(request);}
    catch(error){
-    if(!isRequestError(error))disable(error);
+    // A fetch/cache read failure is not a worker failure: the main decoder would need the same bytes and retrying here
+    // would silently turn one map request into two. Let the map loader decide when an explicit retry is appropriate.
+    if(isRequestError(error))throw error;
+    disable(error);
     return fallback.decode(request);
    }
   },
