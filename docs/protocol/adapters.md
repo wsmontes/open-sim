@@ -49,10 +49,10 @@ implementação de teste, sem serviço real. **Futuro** = desenhado, não implem
 | Nostr: identidade NIP-07 / chave local | Implementado | `tests/nostr-adapter.test.ts` |
 | Nostr: relay como `KernelTransport` (kind 1 público, kind 4 privado) | Implementado e **exercitado** | `tests/nostr-adapter.test.ts` com `OSIM_NOSTR_RELAY=ws://127.0.0.1:7777` (túnel local até o strfry do operador): publicação e leitura de volta |
 | Nostr: NIP-46 (bunker) | Futuro | Só entra com os testes completos de identidade/permissão; NIP-78 nunca é usado para descoberta pública |
-| Nostr: sinalização automática | Futuro | O caminho exercitado é o sinal manual assinado (copiar/colar) |
+| Nostr: sinalização por relay | Implementado, com fallback manual | `src/adapters/nostr/signaling.ts`, `tests/nostr-signaling.test.ts`; o mesmo documento assinado do caminho manual viaja em canal privado e, se o relay falha, permanece copiável/colável |
 | Matrix: conta, sala privada, capacidade | Implementado | `tests/matrix-adapter.test.ts`, `tests/federated-adapters.test.ts` |
 | Matrix: homeserver real | Contrato nesta máquina | O teste é pulado sem `OSIM_MATRIX_HOMESERVER` (e `OSIM_MATRIX_SECRET_FILE`); o laboratório descartável de Synapse está descrito no plano (`wawa-irc/tests/e2e/matrix`, cópia local com `ports: 6167:8008`) |
-| Matrix: sinalização por sala | Futuro | Mesma decisão do Nostr: a sinalização exercitada é manual/assinada; nada de declarar federação validada sem prova |
+| Matrix: sinalização por sala | Implementado | `src/adapters/matrix/signaling.ts`, `tests/matrix-signaling.test.ts`; a sala transporta o mesmo sinal assinado e a verificação de sessão/época/chave continua no gate comum |
 | WebRTC: sessão e transferência de objetos | Implementado | `tests/webrtc-adapter.test.ts`, `tests/object-transfer.test.ts` — com portas WebRTC falsas, sem rede pública; compatibilidade ampla de NAT **não** foi medida |
 | WebRTC: TURN com credenciais temporárias | Implementado (configuração) | `src/adapters/network/webrtc.ts`; nunca segredo permanente no pacote do aplicativo |
 | Objetos privados (selagem AEAD, chaves fora de referências públicas) | Implementado | `tests/world-blobs.test.ts` |

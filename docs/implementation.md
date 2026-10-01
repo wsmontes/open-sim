@@ -139,11 +139,13 @@ Um cenário é um documento `{version, worldId, seed, initial, commands}` (o `wo
 - Browser: `tests/browser/replay.html` importa a **mesma** função e imprime o mesmo texto.
 - Verificado em 2026-09-29: os dois textos têm o mesmo SHA-256 (`b1d35e43…`), 20.623 bytes, e `tests/replay.test.ts` também prova que salvar e restaurar no meio do cenário produz o mesmo estado final.
 
-## Caminho futuro para Nostr (não implementado)
+## Sessões cooperativas e transporte social
 
-Nada aqui abre conexão, pede chave ou define kind. O que já existe é o que um adaptador de rede vai consumir: comandos serializáveis com sequência e revisão, deduplicação, recuperação por snapshot e um envelope com `actorId` opaco.
+O **núcleo continua sem abrir conexão nem depender de conta**. A rede vive atrás das portas de sessão/adaptador: o perfil cidade pode criar uma ramificação cooperativa com anfitrião e réplicas determinísticos, transportar a sessão por WebRTC e usar descoberta/identidade opcionais sem mover regras para a interface ou para um servidor.
 
-Decisões registradas para essa etapa: identidade por chave pública **não** concede permissão (NIP-02 descreve listas de contatos, não autorização); um anfitrião autoritativo ordena e publica resultados com sequência crescente; réplicas verificam anfitrião, sessão e sequência; horários de evento não são consenso; reenvio, lacuna de sequência, reconexão e recuperação por snapshot são obrigatórios; snapshots carregam `rulesVersion` e a base geográfica congelada para dois jogadores não simularem bases diferentes. Migração de anfitrião e colaboração offline simultânea estão fora do escopo.
+A implementação atual separa identidade de permissão: chave pública não concede autoridade por si só; grants escopados autorizam ações, o anfitrião ordena a ramificação, réplicas recomputam o comando antes de adotar o head e recibos tornam reenvio idempotente. Transferência de anfitrião, recuperação, objetos privados e retenção por alcançabilidade também têm contratos próprios.
+
+Nostr (NIP-07/chave local, relay e sinalização com fallback manual) e Matrix (conta/sala e sinalização por sala) possuem adaptadores opcionais. NIP-46, empacotamento desktop, IPFS/libp2p e compatibilidade ampla de NAT permanecem evoluções separadas. A fonte de verdade para o estado de cada capacidade é `docs/protocol/adapters.md`; este documento descreve apenas como essas peças se encaixam no cliente cidade.
 
 ## Notas de ferramenta
 

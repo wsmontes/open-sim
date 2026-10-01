@@ -88,6 +88,8 @@ Base da análise: commit `631bb49`, branch `codex/open-sim-design`, árvore inic
 
 ## Continuidade após esse ciclo
 
+> **Estado em 2026-10-01:** esta tabela é histórica. As entregas 4–7 e 9 foram concluídas pelos ciclos posteriores de mundo federado; a 8 (desktop) continua futura. O estado corrente do contrato está em `docs/world-protocol.md` e a matriz de transporte/adaptadores em `docs/protocol/adapters.md`.
+
 Cada linha abaixo merece um plano pequeno próprio quando chegar sua vez; não executar tudo de uma vez.
 
 | Ordem | Entrega | Critério de conclusão |
