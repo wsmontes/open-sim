@@ -33,6 +33,7 @@ export type ChangeIntent=
  | {kind:'demolish'}
  | {kind:'tick'}
  | {kind:'component';key:string;entity:string}
+ | {kind:'policy';tax?:number;services?:number;borrow?:number}
  | {kind:'opaque';note:string};
 export type Precondition=
  | {kind:'chunk-base';base:BaseReference}
@@ -151,6 +152,21 @@ export function describeChange(before:GameState,command:Command,after:GameState,
     before:[was],after:[now],
    });
   }
+ }else if(action.type==='policy'){
+  const field:ChangeField={scope:'component',key:'city.economy',entity:'policy'};
+  const was=componentValue(before,'city.economy','policy'),now=componentValue(after,'city.economy','policy');
+  const writes:ChangeField[]=[field];
+  const reads:ChangeField[]=[field];
+  const beforeValues:JsonValue[]=[was],afterValues:JsonValue[]=[now];
+  if(before.money!==after.money){
+   const money:ChangeField={scope:'world',field:'money'};
+   reads.push(money);writes.push(money);beforeValues.push(before.money);afterValues.push(after.money);
+  }
+  operations.push({
+   id:`policy@${after.revision}`,
+   intent:{kind:'policy',...(action.tax!==undefined?{tax:action.tax}:{}),...(action.services!==undefined?{services:action.services}:{}),...(action.borrow!==undefined?{borrow:action.borrow}:{})},
+   places:[],reads,writes,requires:[],basedOn:[],dependsOn:[],before:beforeValues,after:afterValues,
+  });
  }else if(action.type==='tick'&&before.tick!==after.tick){
   // A tick is not a decision: its world fields are named and the cells it grew are left to the world diff, so a
   // proposal never carries another version's simulation.
@@ -225,8 +241,10 @@ const jsonRecord=(value:JsonValue|undefined):value is Record<string,JsonValue>=>
 const TERRAINS:readonly Cell['terrain'][]=['land','water','green'];
 function cellFrom(value:JsonValue):Cell|null{
  if(!jsonRecord(value)||!TERRAINS.includes(value['terrain'] as Cell['terrain']))return null;
- const road=value['road'],building=value['building'],stage=value['stage'],origin=value['origin'];
+ const road=value['road'],roadClass=value['roadClass'],building=value['building'],stage=value['stage'],origin=value['origin'];
  if(road!==undefined&&typeof road!=='boolean')return null;
+ if(roadClass!==undefined&&!['street','avenue','highway'].includes(roadClass as string))return null;
+ if(roadClass!==undefined&&road!==true)return null;
  if(building!==undefined&&!['residential','commercial','industrial','park','power'].includes(building as string))return null;
  if(stage!==undefined&&!Number.isSafeInteger(stage))return null;
  if(origin!==undefined&&origin!=='imported'&&origin!=='player')return null;
@@ -278,7 +296,7 @@ export function changeSetValue(set:ChangeSet):JsonValue{
  if(set.author!==undefined)value['author']=set.author;
  return value;
 }
-const INTENT_KINDS:readonly string[]=['build','demolish','tick','component','opaque'];
+const INTENT_KINDS:readonly string[]=['build','demolish','tick','component','policy','opaque'];
 const BUILD_TOOLS=new Set<Tool>((Object.keys(COST) as Array<Tool|'demolish'>).filter((tool):tool is Tool=>tool!=='demolish'));
 function placeFrom(value:JsonValue):WorldResult<CellPlace>{
  if(!jsonRecord(value))return failed('MALFORMED','Célula sem endereço');
@@ -320,6 +338,12 @@ function baseReferenceFrom(value:JsonValue):WorldResult<BaseReference>{
 function intentFrom(value:JsonValue):WorldResult<ChangeIntent>{
  if(!jsonRecord(value)||typeof value['kind']!=='string'||!INTENT_KINDS.includes(value['kind']))return failed('MALFORMED','Intenção desconhecida');
  if(value['kind']==='build'){const tool=value['tool'];return typeof tool==='string'&&BUILD_TOOLS.has(tool as Tool)?ok({kind:'build',tool:tool as Tool}):failed('MALFORMED','Ferramenta de construção desconhecida');}
+ if(value['kind']==='policy'){
+  const tax=value['tax'],services=value['services'],borrow=value['borrow'];
+  if(tax===undefined&&services===undefined&&borrow===undefined)return failed('MALFORMED','Política sem alteração');
+  for(const entry of [tax,services,borrow])if(entry!==undefined&&(typeof entry!=='number'||!Number.isFinite(entry)))return failed('MALFORMED','Política com valor inválido');
+  return ok({kind:'policy',...(tax!==undefined?{tax}:{}),...(services!==undefined?{services}:{}),...(borrow!==undefined?{borrow}:{})} as ChangeIntent);
+ }
  if(value['kind']==='component'){
   const key=value['key'],entity=value['entity'];
   // A namespace travels because another profile owns it; it still has to be one this contract can carry and preserve.
