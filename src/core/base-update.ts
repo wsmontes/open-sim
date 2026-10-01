@@ -21,7 +21,7 @@ export type ApprovedBaseUpdate={
  resolutions:readonly CellResolution[];
 };
 
-const FIELDS:readonly (keyof Cell)[]=['terrain','road','building','stage','origin'];
+const FIELDS:readonly (keyof Cell)[]=['terrain','road','roadClass','building','stage','origin'];
 const sameCell=(a:Cell,b:Cell):boolean=>FIELDS.every(field=>a[field]===b[field]);
 
 // The cells where the new region and the player's overlay claim the same cell: the ground moved there and the overlay
