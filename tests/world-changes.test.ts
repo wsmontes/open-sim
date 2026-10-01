@@ -93,6 +93,16 @@ test('portable changes distinguish a street from an avenue and carry the road cl
  expect(sameCell({terrain:'land',road:true},{terrain:'land',road:true,roadClass:'avenue'})).toBe(false);
 });
 
+test('ChangeSet parser refuses a build tool outside the current city schema',()=>{
+ const before=createGame(WORLD_ID,1,blank('0:0'));
+ const build=command(before,{type:'build',tool:'park',cells:[{x:4,y:0}]});
+ const applied=applyCommand(before,build,[]);
+ const value=structuredClone(changeSetValue(describeChange(before,build,applied.state))) as Record<string,unknown>;
+ const operations=value['operations'] as Array<Record<string,unknown>>;
+ operations[0]!.intent={kind:'build',tool:'teleporter'};
+ expect(parseChangeSet(value as JsonValue)).toMatchObject({ok:false,error:{code:'MALFORMED'}});
+});
+
 test('independent cells have no dependency and different fields, the same cell depends on the earlier operation',()=>{
  const before=createGame(WORLD_ID,1,blank('0:0'));
  const first=command(before,{type:'build',tool:'park',cells:[{x:1,y:0}]});
