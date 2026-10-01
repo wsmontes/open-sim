@@ -5,7 +5,8 @@ import {expect,test,vi} from 'vitest';
 import {createJcsCodec} from '../src/adapters/codec/jcs';
 import {createWorldMemoryStorage} from '../src/adapters/storage/world-memory';
 import {createWorldRepository} from '../src/session/world-repository';
-import {applyCommand} from '../src/core/commands';
+import {importLegacy} from '../src/session/world-bundle';
+import {applyCommand,createGame} from '../src/core/commands';
 import {bytesHasher,sha256Hex} from '../src/adapters/hash/content';
 import {createWorldCard} from '../src/adapters/social/world-card';
 import type {PublicWorldInfo} from '../src/adapters/social/world-card';
@@ -263,7 +264,7 @@ test('the fixture declares its licence and its limits like any other published e
 });
 
 // --- published schemas ------------------------------------------------------------------------------------------
-type Schema={type?:string|string[];required?:string[];properties?:Record<string,Schema>;additionalProperties?:boolean|Schema;enum?:unknown[];items?:Schema;oneOf?:Schema[];pattern?:string;minLength?:number;minimum?:number;$ref?:string;$defs?:Record<string,Schema>};
+type Schema={type?:string|string[];required?:string[];properties?:Record<string,Schema>;additionalProperties?:boolean|Schema;enum?:unknown[];const?:unknown;items?:Schema;oneOf?:Schema[];pattern?:string;minLength?:number;minimum?:number;$ref?:string;$defs?:Record<string,Schema>};
 const schemaDir=join(process.cwd(),'schemas/world-v2');
 const loaded=new Map<string,Schema>();
 function schema(name:string):Schema{
@@ -300,6 +301,7 @@ function problemsWith(value:unknown,schema:Schema,path:string,file:string):strin
   if(!matches)problems.push(`${path}: ${kind} não é ${expected.join('|')}`);
  }
  if(rule.enum&&!rule.enum.includes(value))problems.push(`${path}: valor fora do enum`);
+ if('const' in rule&&!Object.is(value,rule.const))problems.push(`${path}: valor diferente de const`);
  if(typeof value==='string'){
   if(rule.pattern&&!new RegExp(rule.pattern).test(value))problems.push(`${path}: não casa ${rule.pattern}`);
   if(rule.minLength!==undefined&&value.length<rule.minLength)problems.push(`${path}: curto demais`);
@@ -341,6 +343,23 @@ test('the published schemas describe the objects this client emits',async()=>{
  // describes something else.
  expect(checkEnvelope({osim:'0.1',type:'event',id:'osim:event:1',actor:ACTOR,body:{}})).toMatchObject({ok:true});
  expect(problemsWith({osim:'0.1',type:'event',id:'osim:event:1',actor:ACTOR,body:{},extra:1},schema('envelope.schema.json'),'envelope','envelope.schema.json')).not.toEqual([]);
+});
+
+test('the published city-state schema accepts both legacy and current rules, and const really means const',async()=>{
+ // The frozen conformance vectors are rules v1, while a world exported by the current city client is rules v3.
+ // Both are legitimate inputs; no other rules version is.
+ const cells=Array.from({length:1024},()=>({terrain:'land' as const}));
+ const state=createGame('current-schema',1,{id:'0:0',source:'synthetic',normalizerVersion:1,cells});
+ const portable=await importLegacy({version:1,state,view:{x:0,y:0,zoom:1,speed:1,place:'Teste'}},hasher,codec);
+ if(!portable.ok)throw new Error(portable.error.message);
+ const current=portable.value.objects.find(object=>object.value&&typeof object.value==='object'&&!Array.isArray(object.value)&&object.value['kind']==='city-state');
+ if(!current)throw new Error('Objeto city-state atual ausente');
+ conformsTo('snapshot.schema.json',current.value);
+ const snapshot=schema('snapshot.schema.json');
+ expect(problemsWith({...portable.value.envelope,worldProtocol:999},schema('envelope.schema.json'),'envelope','envelope.schema.json')).not.toEqual([]);
+ // The explicit enum is the compatibility promise: v2 never existed in this game, and future rules are not guessed.
+ const bad={...(current.value as Record<string,unknown>),state:{...((current.value as Record<string,unknown>).state as Record<string,unknown>),rulesVersion:2}};
+ expect(problemsWith(bad,snapshot,'snapshot','snapshot.schema.json')).not.toEqual([]);
 });
 
 test('a checkpoint from the repository satisfies the replay checkpoint shape',async()=>{
