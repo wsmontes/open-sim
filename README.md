@@ -88,9 +88,19 @@ Indicadores: dinheiro, população, energia (usada/fornecida), felicidade e os n
 
 ## Publicar
 
-O jogo é um site estático: não há servidor, nenhuma chamada precisa de proxy (o OpenStreetMap e a Wikidata respondem `access-control-allow-origin: *`) e o `vite.config.ts` usa `base: './'`, então o mesmo build roda na raiz de um domínio ou numa subpasta como `https://usuario.github.io/open-sim/`. Verificado neste repositório servindo o `dist/` a partir de uma subpasta: nenhuma requisição falha, nenhum 404, e o jogo guarda saves e tiles no IndexedDB normalmente.
+**Jogar agora: <https://wsmontes.github.io/open-sim/>** — é o mesmo jogo que roda aqui, servido como site estático.
 
-`npm run build` gera `dist/`; publicar é copiar essa pasta para a branch que o Pages serve (`gh-pages`, `main` + `docs/`, ou publicar pela interface). Como o Pages serve o último commit daquela branch, um build novo aparece assim que ela é atualizada — os nomes de arquivo levam hash, então ninguém fica preso ao JavaScript antigo. Save e cache vivem no IndexedDB, que é por **origem** (esquema + host + porta): trocar de subpasta mantém o save, trocar de domínio ou de `localhost` para `github.io` começa do zero.
+O jogo é um site estático: não há servidor, nenhuma chamada precisa de proxy (o OpenStreetMap, a Wikidata e o IBGE respondem `access-control-allow-origin: *`) e o `vite.config.ts` usa `base: './'`, então o mesmo build roda na raiz de um domínio ou numa subpasta como esta. Verificado na página publicada: o jogo abre, carrega tiles e demografia reais do OpenStreetMap, da Wikidata e do IBGE, guarda save e tiles no IndexedDB, e não faz nenhuma requisição falha.
+
+Publicar é **um comando**:
+
+```
+npm run deploy
+```
+
+Ele constrói, escreve o resultado num commit órfão na branch `gh-pages` (a branch de trabalho nunca recebe artefato de build) e empurra; o Pages, configurado em *Settings → Pages* para servir `gh-pages` na raiz, reconstrói sozinho ao receber o push. O script recusa publicar uma árvore com alterações não commitadas — um site que mostra código que ninguém revisou é a única forma de uma página publicada mentir sobre o jogo — e carimba no commit de publicação de qual commit do jogo ele veio. Rodar duas vezes seguidas publica o mesmo estado.
+
+Os nomes de arquivo levam hash, então ninguém fica preso ao JavaScript antigo. Save e cache vivem no IndexedDB, que é por **origem** (esquema + host + porta): trocar de subpasta mantém o save, trocar de domínio ou de `localhost` para `github.io` começa do zero.
 
 `docs/implementation.md` descreve os contratos, os limites entre módulos e como trocar a fonte de mapa, o armazenamento e o renderizador. `docs/architecture.md` é a carta de arquitetura de longo prazo (mundos interoperáveis, autoridade e transporte). A fronteira pública está em `docs/protocol/world-v2.md` e a API dos adaptadores, com a matriz de capacidades comprovadas (implementado, exercitado contra serviço real, contrato e futuro), em `docs/protocol/adapters.md`.
 
