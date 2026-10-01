@@ -2,7 +2,7 @@
 
 Jogo fofo de construir e reformar cidades reais, em perspectiva isométrica fixa, inspirado na simplicidade do SimCity 2000. O mundo parte da geografia do OpenStreetMap: a cidade aparece com ruas, construções, água e vegetação que existem na fonte, e o jogador reforma quarteirões, abre ruas, oferece energia e expande para áreas vazias do mesmo terreno contínuo.
 
-Este repositório é um protótipo com escopo aprovado: cliente de referência no navegador, partida individual, salvamento local e terreno plano (sem relevo real). Aplicativo desktop empacotado, contas e partida em rede ficam para etapas posteriores — a arquitetura já está preparada para eles (ver `docs/implementation.md`).
+Este repositório é um protótipo com cliente de referência no navegador, salvamento local, mundos versionados e sessões cooperativas opcionais, sobre terreno plano (sem relevo real). A simulação continua local-first: WebRTC/Nostr/Matrix vivem em adaptadores e não são requisito para jogar sozinho. Aplicativo desktop empacotado e relevo real continuam etapas posteriores (ver `docs/implementation.md`).
 
 ## Executar
 
