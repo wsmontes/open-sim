@@ -6,6 +6,7 @@ export const SAVE_VERSION = 1;
 const RESERVED = ['__proto__','constructor','prototype'];
 const TERRAIN = ['land','water','green'];
 const BUILDINGS = ['residential','commercial','industrial','park','power'];
+const ROAD_CLASSES = ['street','avenue','highway'];
 const ORIGINS = ['imported','player'];
 const plain = (value: unknown): value is Record<string,unknown> => {
  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -61,15 +62,18 @@ function cell(value: unknown, label: string): Cell {
  if (!plain(value)) throw new Error(`${label}: célula inválida`);
  if (!TERRAIN.includes(value.terrain as string)) throw new Error(`${label}: terreno inválido`);
  if (value.road !== undefined && typeof value.road !== 'boolean') throw new Error(`${label}: via inválida`);
+ if (value.roadClass !== undefined && !ROAD_CLASSES.includes(value.roadClass as string)) throw new Error(`${label}: classe de via inválida`);
+ if (value.roadClass !== undefined && value.road !== true) throw new Error(`${label}: classe de via sem via`);
  if (value.building !== undefined && !BUILDINGS.includes(value.building as string)) throw new Error(`${label}: ocupação inválida`);
  if (value.stage !== undefined && (!Number.isSafeInteger(value.stage) || (value.stage as number) < 0 || (value.stage as number) > 8)) throw new Error(`${label}: estágio inválido`);
  if (value.origin !== undefined && !ORIGINS.includes(value.origin as string)) throw new Error(`${label}: origem inválida`);
  const rebuilt: Cell = {terrain:value.terrain as Cell['terrain']};
  if (value.road !== undefined) rebuilt.road = value.road as boolean;
+ if (value.roadClass !== undefined) rebuilt.roadClass = value.roadClass as NonNullable<Cell['roadClass']>;
  if (value.building !== undefined) rebuilt.building = value.building as NonNullable<Cell['building']>;
  if (value.stage !== undefined) rebuilt.stage = value.stage as number;
  if (value.origin !== undefined) rebuilt.origin = value.origin as NonNullable<Cell['origin']>;
- return {...extras(value,['terrain','road','building','stage','origin']), ...rebuilt} as Cell;
+ return {...extras(value,['terrain','road','roadClass','building','stage','origin']), ...rebuilt} as Cell;
 }
 function managedChunk(id: string, value: unknown): ManagedChunk {
  try {chunkOrigin(id);} catch {throw new Error('Endereço de trecho inválido');}
