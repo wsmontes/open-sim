@@ -1,12 +1,25 @@
 import {expect,test} from 'vitest';
 import {createOsmSource} from '../src/adapters/osm/provider';
 import {createMemoryTileCache,type TileCache} from '../src/adapters/osm/tile-cache';
+import {createMemoryChunkCache} from '../src/adapters/osm/chunk-cache';
 
 // The cache exists so a revisit costs nothing: the same vector tile covers 64 regions, so the bytes are worth keeping
 // and the decoded features are not. These tests fix the four things that make such a cache safe to have.
 const RESPONSE_BYTES=new Uint8Array([1,2,3,4,5]);
 const serving=(counter:{requests:number})=>async()=>{counter.requests+=1;return new Response(RESPONSE_BYTES.slice());};
 
+test('a new browser map source can reuse the already normalized region without tile decode or network',async()=>{
+ const chunks=createMemoryChunkCache();
+ const firstCount={requests:0};
+ const first=createOsmSource({fetcher:serving(firstCount),chunks});
+ const expected=await first.loadChunk('0:0');
+ expect(firstCount.requests).toBe(1);
+ let networkTouched=false;
+ const reopened=createOsmSource({fetcher:async()=>{networkTouched=true;throw new Error('network should stay cold');},chunks});
+ const restored=await reopened.loadChunk('0:0');
+ expect(restored).toEqual(expected);
+ expect(networkTouched).toBe(false);
+});
 test('a second visit to the same place does not ask the network again',async()=>{
  const counter={requests:0};
  const cache=createMemoryTileCache();
