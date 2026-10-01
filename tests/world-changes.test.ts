@@ -192,6 +192,37 @@ test('an unknown namespace survives the proposal round trip and applying it',asy
  expect(integrated.value.money).toBe(target.state.money);
 });
 
+test('city policy is a portable intention and its preview includes borrowing',async()=>{
+ const source=createGame(WORLD_ID,1,blank('0:0'));
+ const change=command(source,{type:'policy',tax:12,services:110,borrow:10_000});
+ const applied=applyCommand(source,change,[]);
+ expect(applied.status).toBe('applied');
+ const set=describeChange(source,change,applied.state);
+ expect(set.operations).toHaveLength(1);
+ expect(set.operations[0]!.intent).toEqual({kind:'policy',tax:12,services:110,borrow:10_000});
+ expect(set.operations[0]!.writes).toContainEqual({scope:'component',key:'city.economy',entity:'policy'});
+ expect(set.operations[0]!.writes).toContainEqual({scope:'world',field:'money'});
+ const encoded=codec.encode(changeSetValue(set)),parsed=parseStrictJson(textOf(encoded));
+ if(!parsed.ok)throw new Error(parsed.error.message);
+ const imported=parseChangeSet(parsed.value);
+ expect(imported.ok).toBe(true);
+ if(!imported.ok)return;
+ const target=await targetOf({money:1234,tick:7});
+ const prepared=prepareProject(target,imported.value,ids(imported.value));
+ expect(prepared.ok).toBe(true);
+ if(!prepared.ok)return;
+ expect(prepared.value.cost).toBe(0);
+ expect(prepared.value.moneyAfter).toBe(11_234);
+ const integrated=integrateProject(target.state,prepared.value);
+ expect(integrated.ok).toBe(true);
+ if(!integrated.ok)return;
+ expect(integrated.value.money).toBe(11_234);
+ expect(integrated.value.components['city.economy']?.['policy']).toMatchObject({tax:12,services:110,debt:10_000});
+ // The same policy again is not advertised as executable when the core would reject it as a no-op.
+ const again=describeChange(integrated.value,command(integrated.value,{type:'policy',tax:12,services:110}),integrated.value);
+ expect(again.operations).toEqual([]);
+});
+
 test('a legacy overlay edit is an opaque cell, never an invented build or demolish',async()=>{
  const set=describeEdits(legacySave.state,{worldId:legacySave.state.worldId,branchId:'main'});
  expect(set.operations).toHaveLength(1);
