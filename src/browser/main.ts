@@ -782,9 +782,9 @@ async function compareFutures():Promise<void>{
   const writes=layerWrites(state,projected);
   if(!writes.ok)throw new Error(writes.error.message);
   const composition:Composition={
-   worldId:state.worldId,branchId:`cenario-${id}`,actor:'did:key:local-player',rules:{family:'city',version:1},
+   worldId:state.worldId,branchId:`cenario-${id}`,actor:'did:key:local-player',rules:{family:'city',version:state.rulesVersion},
    base:{commit:baseCommit,identity:ground,bases},
-   layers:[{commit,contract:{id,source:`jogador local · futuro ${id}`,priority:10,effect:'durable',rules:{family:'city',version:1},reads:[],writes:writes.value,dependsOn:[],areas:[region],capabilities:[]}}],
+   layers:[{commit,contract:{id,source:`jogador local · futuro ${id}`,priority:10,effect:'durable',rules:{family:'city',version:state.rulesVersion},reads:[],writes:writes.value,dependsOn:[],areas:[region],capabilities:[]}}],
    parameters:{},
    // §11: a scenario is a derived timeline, and both futures derive from the same frame at the same instant.
    temporal:{timeline:`osim:timeline:cenario-${id}`,parent:'osim:timeline:local',forkAt,rate:1},
