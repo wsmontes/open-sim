@@ -79,7 +79,7 @@ export type ComposedWorld={
 };
 
 type ResolvedLayer={contract:LayerContract;commit:ObjectRef;state:GameState;writes:readonly ChangeField[]};
-const CELL_FIELDS:readonly CellField[]=['terrain','road','building','stage','origin'];
+const CELL_FIELDS:readonly CellField[]=['terrain','road','roadClass','building','stage','origin'];
 // ISO-8601 instants as §13 states them, the same form the boundary validates (`src/world/osim.ts`).
 const INSTANT=/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))$/;
 const INDICATORS:readonly (keyof ScenarioIndicators)[]=['money','population','jobs','energySupply','energyUsed','happiness','income','managed','tick'];
@@ -279,6 +279,7 @@ function pick<K extends CellField>(base:Cell,claimed:readonly {field:CellField;f
 function mergeCell(base:Cell,claimed:readonly {field:CellField;from:Cell}[]):Cell{
  const merged:Cell={terrain:pick(base,claimed,'terrain')};
  const road=pick(base,claimed,'road');if(road!==undefined)merged.road=road;
+ const roadClass=pick(base,claimed,'roadClass');if(roadClass!==undefined)merged.roadClass=roadClass;
  const building=pick(base,claimed,'building');if(building!==undefined)merged.building=building;
  const stage=pick(base,claimed,'stage');if(stage!==undefined)merged.stage=stage;
  const origin=pick(base,claimed,'origin');if(origin!==undefined)merged.origin=origin;
