@@ -686,8 +686,8 @@ export function createMultiplayerPanel(root: HTMLElement, actions: MultiplayerAc
  head.dataset.dragHandle = '';
  const title = make('h2', 'panel-title', 'Sessão');
  const collapse = button('▾', 'multiplayer-collapse');
- collapse.className = 'panel-collapse';
- collapse.dataset.collapse = '';
+ collapse.className = 'panel-close';
+ collapse.dataset.close = '';
  collapse.setAttribute('aria-expanded', 'true');
  collapse.setAttribute('aria-label', 'Minimizar painel Sessão');
  collapse.title = 'Minimizar painel';

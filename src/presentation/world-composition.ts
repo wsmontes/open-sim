@@ -103,7 +103,7 @@ export function createWorldComposition(root:HTMLElement,actions:CompositionActio
  head.dataset.dragHandle='';
  const title=make('h2','panel-title','Cenários');
  const collapse=button('▾','panel-collapse');
- collapse.dataset.collapse='';
+ collapse.dataset.close='';
  collapse.setAttribute('aria-expanded','true');
  collapse.setAttribute('aria-label','Minimizar painel Cenários');
  collapse.title='Minimizar painel';

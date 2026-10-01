@@ -90,7 +90,7 @@ test('dragging previews and commits the very same stroke, even released outside'
  canvas.width=320;canvas.height=200;document.body.append(canvas);
  let camera={x:160,y:100,zoom:1,rotation:0};
  const previews:CellCoord[][]=[],commits:CellCoord[][]=[],hovers:(CellCoord|null)[]=[],cancels:number[]=[],detach=attachInput(canvas,{camera:()=>camera,tool:()=>'road' as const},{
-  onHover:c=>hovers.push(c),onPreview:c=>previews.push([...c]),onCommit:c=>commits.push([...c]),onCamera:c=>{camera=c;},onTool:vi.fn(),onCancel:()=>cancels.push(cancels.length+1),
+  onHover:c=>hovers.push(c),onPreview:c=>previews.push([...c]),onCommit:c=>commits.push([...c]),onCamera:c=>{camera=c;},onTool:vi.fn(),onTap:()=>{},onCancel:()=>cancels.push(cancels.length+1),
  });
  const fire=(type:string,cell:CellCoord,target:EventTarget=canvas)=>{const p=project(cell,camera);target.dispatchEvent(new MouseEvent(type,{clientX:p.x,clientY:p.y,button:0,bubbles:true}));};
  fire('pointerdown',{x:0,y:0});
@@ -122,7 +122,7 @@ test('wheel zooms anchored on the pointer and space drag pans the camera',()=>{
  const canvas=document.createElement('canvas');
  canvas.width=320;canvas.height=200;document.body.append(canvas);
  let camera={x:160,y:100,zoom:1,rotation:0};
- const detach=attachInput(canvas,{camera:()=>camera,tool:()=>'road' as const},{onHover:()=>{},onPreview:()=>{},onCommit:()=>{},onCamera:c=>{camera=c;},onTool:vi.fn(),onCancel:()=>{}});
+ const detach=attachInput(canvas,{camera:()=>camera,tool:()=>'road' as const},{onHover:()=>{},onPreview:()=>{},onCommit:()=>{},onCamera:c=>{camera=c;},onTool:vi.fn(),onTap:()=>{},onCancel:()=>{}});
  const pointer={x:160,y:100},before=pick(pointer,camera);
  canvas.dispatchEvent(new WheelEvent('wheel',{deltaY:-240,clientX:pointer.x,clientY:pointer.y,bubbles:true,cancelable:true}));
  expect(camera.zoom).toBeGreaterThan(1);expect(pick(pointer,camera)).toEqual(before);

@@ -1,4 +1,4 @@
-import type {CellCoord,CityStats,Demand,GameState,MonthlyLedger,Tool} from './model';
+import type {CellCoord,CityStats,Demand,GameState,MonthlyLedger,RoadClass,Tool} from './model';
 import {ROAD_CLASS,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN,roadClassOf} from './model';
 import {cellEconomy,effectiveCells,getCell,occupied} from './world';
 import {coordAt,wrapX} from './coordinates';
@@ -196,6 +196,40 @@ export function economyOf(s:GameState):CityStats['economy'] {
   // A month in the red is a decision waiting to be made, so it is a sentence with the three ways out rather than a
   // number the player has to interpret.
   crisis:monthly.net<0&&s.money<=0?'A cidade gastou mais do que arrecadou e o caixa acabou. Corte serviços, aumente o imposto ou tome um empréstimo.':null,
+ };
+}
+
+// What the world says about one cell, in the words the interface needs and the rules the simulation already applies:
+// a house holds four people per floor, a shop six jobs and a factory ten, land value is what the neighbourhood makes of
+// it, and a road is the class it was built as. Nothing here is new arithmetic — it is the same rules, asked about a
+// single cell — which is the only way a card about a building can be trusted to agree with the city around it.
+export type CellReading = {
+ terrain:'land'|'water'|'green';
+ road?:RoadClass;
+ building?:Tool;
+ stage?:number;
+ origin?:'imported'|'player';
+ occupied:boolean;
+ residents:number;
+ jobs:number;
+ landValue:number;
+};
+export function describeCell(s:GameState,p:CellCoord):CellReading|null {
+ const cell=getCell(s,p);
+ if(!cell)return null;
+ const building=cell.building as Tool|undefined;
+ const stage=cell.stage??0;
+ const working=!!building&&building!=='park'&&building!=='power'&&stage>0;
+ return {
+  terrain:cell.terrain,
+  ...(cell.road?{road:roadClassOf(cell)}:{}),
+  ...(building?{building}:{}),
+  ...(cell.stage!==undefined?{stage:cell.stage}:{}),
+  ...(cell.origin?{origin:cell.origin}:{}),
+  occupied:working,
+  residents:working&&building==='residential'?4*stage:0,
+  jobs:working?building==='commercial'?6*stage:building==='industrial'?10*stage:0:0,
+  landValue:landValueAt(s,p),
  };
 }
 

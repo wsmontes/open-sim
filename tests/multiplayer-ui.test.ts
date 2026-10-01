@@ -373,7 +373,7 @@ test('the panel shows the branch, the participants and the save states',async()=
  expect(node?.dataset.panel).toBe('multiplayer');
  expect(node?.querySelector('[data-drag-handle]')).not.toBeNull();
  expect(node?.querySelector('[data-panel-body]')).not.toBeNull();
- expect(node?.querySelector('[data-collapse]')).not.toBeNull();
+ expect(node?.querySelector('[data-close]')).not.toBeNull();
  expect(node?.textContent).toContain('victoria/main');
  expect(node?.textContent).toContain('ana');
  expect(node?.textContent).toContain('beto');

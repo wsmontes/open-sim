@@ -12,14 +12,17 @@ function harness(tool:SelectedTool,shape:'line'|'box'='line'){
  const canvas=document.createElement('canvas');
  canvas.width=320;canvas.height=200;document.body.append(canvas);
  let camera:Camera={x:160,y:100,zoom:1,rotation:0};
- const commits:CellCoord[][]=[],previews:CellCoord[][]=[],hovers:(CellCoord|null)[]=[],snaps:boolean[]=[];
+ const commits:CellCoord[][]=[],previews:CellCoord[][]=[],hovers:(CellCoord|null)[]=[],snaps:boolean[]=[],taps:CellCoord[]=[];
+ // What the player is told about a cell has to be what the cell became, so the order of the two reports is part of
+ // the gesture's contract, not an implementation detail.
+ const order:string[]=[];
  const context:InputContext={camera:()=>camera,tool:()=>tool,strokeShape:()=>shape};
  const detach=attachInput(canvas,context,{
   onHover:cell=>hovers.push(cell),
   onPreview:cells=>previews.push([...cells]),
-  onCommit:cells=>commits.push([...cells]),
+  onCommit:cells=>{order.push('commit');commits.push([...cells]);},
   onCamera:(next,options)=>{camera=next;snaps.push(options?.snap===true);},
-  onTool:()=>{},onCancel:()=>{},
+  onTool:()=>{},onTap:cell=>{order.push('tap');taps.push(cell);},onCancel:()=>{},
  });
  const fire=(type:string,init:MouseEventInit={},target:EventTarget=canvas)=>target.dispatchEvent(new MouseEvent(type,{bubbles:true,...init}));
  const key=(value:string,target:EventTarget=window,init:KeyboardEventInit={})=>target.dispatchEvent(new KeyboardEvent('keydown',{key:value,bubbles:true,...init}));
@@ -30,7 +33,7 @@ function harness(tool:SelectedTool,shape:'line'|'box'='line'){
   target.dispatchEvent(event);
   return event;
  };
- return {canvas,commits,previews,hovers,snaps,detach,fire,key,finger,get camera(){return camera;}};
+ return {canvas,commits,previews,hovers,snaps,taps,order,detach,fire,key,finger,get camera(){return camera;}};
 }
 const field=()=>{const input=document.createElement('input');document.body.append(input);return input;};
 // A camera that neither moved nor turned: -0 must not be mistaken for a pan.
@@ -246,7 +249,7 @@ test('a number key picks the tool, and typing does not',()=>{
  const chosen:string[]=[];
  const canvas=document.createElement('canvas');
  const context:InputContext={camera:()=>({x:0,y:0,zoom:1,rotation:0}),tool:()=>'explore'};
- const detach=attachInput(canvas,context,{onHover:()=>{},onPreview:()=>{},onCommit:()=>{},onCamera:()=>{},onCancel:()=>{},onTool:tool=>chosen.push(tool)});
+ const detach=attachInput(canvas,context,{onHover:()=>{},onPreview:()=>{},onCommit:()=>{},onCamera:()=>{},onTap:()=>{},onCancel:()=>{},onTool:tool=>chosen.push(tool)});
  const press=(key:string,target:EventTarget=window)=>target.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}));
  press('3');
  expect(chosen).toEqual(['avenue']);
@@ -298,4 +301,44 @@ test('two fingers spread the city about the point between them',()=>{
  // one in the middle of a pinch.
  expect(h.snaps.at(-1)).toBe(false);
  h.detach();
+});
+
+test('a short touch selects, and a drag does not',()=>{
+ // Selecting is how the player asks about a building, so it must be a touch that did not travel: a pan, a stroke or a
+ // gesture all begin and end somewhere else, and none of them is a question about a cell.
+ const h=harness('explore');
+ h.fire('pointerdown',{clientX:150,clientY:120,button:0});
+ h.fire('pointerup',{clientX:151,clientY:121,button:0},window);
+ expect(h.taps).toHaveLength(1);
+ const moved=harness('explore');
+ moved.fire('pointerdown',{clientX:150,clientY:120,button:0});
+ moved.fire('pointermove',{clientX:200,clientY:160});
+ moved.fire('pointerup',{clientX:200,clientY:160,button:0},window);
+ expect(moved.taps).toEqual([]);
+ // Two fingers are a gesture about the whole map, never a question about one cell.
+ const pinched=harness('explore');
+ pinched.finger('pointerdown',1,120,120);
+ pinched.finger('pointerdown',2,200,120);
+ pinched.finger('pointerup',1,120,120);
+ pinched.finger('pointerup',2,200,120);
+ expect(pinched.taps).toEqual([]);
+ h.detach();moved.detach();pinched.detach();
+});
+
+test('a tap that lays a street reports the cell after the build, not before',()=>{
+ const built=harness('road');
+ built.finger('pointerdown',1,100,100);
+ built.finger('pointerup',1,100,100);
+ expect(built.order).toEqual(['commit','tap']);
+ // Both reports are about the same cell: the one the player touched.
+ expect(built.commits).toHaveLength(1);
+ expect(built.commits[0]).toEqual(built.taps);
+});
+
+test('a tap with nothing selected is only a question about the cell',()=>{
+ const asked=harness('explore');
+ asked.finger('pointerdown',1,100,100);
+ asked.finger('pointerup',1,100,100);
+ expect(asked.order).toEqual(['tap']);
+ expect(asked.commits).toHaveLength(0);
 });

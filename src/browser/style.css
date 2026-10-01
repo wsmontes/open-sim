@@ -1,98 +1,187 @@
-:root{--panel:#f2e8d2;--edge:#3b3025;--ink:#2b2318;--accent:#4a77be;--pressed:#ffe293;--shadow:2px 3px 0 rgba(0,0,0,.45),0 6px 14px rgba(0,0,0,.28)}
+:root{
+ --panel:#f2e8d2;--edge:#3b3025;--ink:#2b2318;--accent:#4a77be;--pressed:#ffe293;
+ --shadow:2px 3px 0 rgba(0,0,0,.45),0 6px 14px rgba(0,0,0,.28);
+ --muted:#6d5f49;--hint:#4c5f74;
+ /* A phone has corners and a notch, and the interface is the part that must not sit under them. */
+ --safe-top:env(safe-area-inset-top,0px);--safe-right:env(safe-area-inset-right,0px);
+ --safe-bottom:env(safe-area-inset-bottom,0px);--safe-left:env(safe-area-inset-left,0px);
+ --gap:8px;--target:28px;--dock:64px;--rail:0px;--attribution:26px;
+}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{background:#16222f;color:var(--ink);font:13px/1.35 "Lucida Grande",Verdana,system-ui,sans-serif;overscroll-behavior:none}
 #app{position:fixed;inset:0;overflow:hidden}
 #game{position:absolute;inset:0;width:100%;height:100%;display:block;background:#16222f;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair;touch-action:none}
-/* The hud is a pointer-transparent layer of independent floating cards: the middle of the screen stays free. */
+/* The shell is an overlay of pointer-transparent layers: the middle of the screen is always the city. */
 #hud{position:absolute;inset:0;pointer-events:none}
-.panel{position:absolute;pointer-events:auto;background:var(--panel);border:2px solid var(--edge);border-radius:7px;box-shadow:var(--shadow)}
-.panel.dragging{box-shadow:4px 6px 0 rgba(0,0,0,.5),0 10px 20px rgba(0,0,0,.35)}
-.panel-head{display:flex;align-items:center;gap:8px;padding:3px 4px 3px 8px;border-bottom:1px solid rgba(59,48,37,.25)}
+#hud button,#hud a,#hud input,#hud textarea,#hud select,#hud label{pointer-events:auto}
+
+/* --- level one: the permanent bar ---------------------------------------------------------------------------- */
+#hud-top{position:absolute;left:0;right:0;top:0;--bar:auto;display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;
+ padding:calc(6px + var(--safe-top)) calc(10px + var(--safe-right)) 6px calc(10px + var(--safe-left));
+ background:linear-gradient(180deg,rgba(18,28,38,.82),rgba(18,28,38,.55) 70%,rgba(18,28,38,0));color:#f4ecd8;
+ pointer-events:none}
+#hud-where{margin:0;font-size:12px;letter-spacing:.02em;color:#d9d2bf;pointer-events:none}
+#hud-place{color:#fff;font-weight:700;font-size:14px}
+#hud-vitals{display:flex;align-items:baseline;gap:12px;margin:0;pointer-events:none}
+#hud-vitals>div{display:flex;align-items:baseline;gap:5px}
+#hud-vitals dt{margin:0;font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#a99f8a}
+#hud-vitals dd{margin:0;font-variant-numeric:tabular-nums;font-weight:700;font-size:14px}
+#hud-pulse{display:flex;align-items:center;gap:8px;margin:0 0 0 auto;font-size:12px;color:#e6dcc4;min-height:1px}
+#hud-pulse:empty{display:none}
+#command-notice,#map-message{color:#ffd9a8}
+#save-status{color:#bcd0e6}
+#hud-pulse button{padding:4px 8px}
+
+/* --- level two: what the player touched --------------------------------------------------------------------- */
+#hud-inspector{position:absolute;pointer-events:auto;background:var(--panel);border:2px solid var(--edge);border-radius:8px;
+ box-shadow:var(--shadow);padding:8px 10px;max-width:min(300px,72vw);font-size:12px}
+#hud-inspector h3{margin:0 0 4px;font-size:13px}
+#hud-inspector dl{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:0}
+#hud-inspector dt{margin:0;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+#hud-inspector dd{margin:0;font-variant-numeric:tabular-nums;font-weight:700;text-align:right}
+#hud-inspector .inspector-source{margin:6px 0 0;color:var(--hint);font-size:11px}
+
+/* --- level three: the screens, opened one at a time --------------------------------------------------------- */
+#hud-sheets{position:absolute;inset:0;pointer-events:none}
+.panel{pointer-events:auto;background:var(--panel);border:2px solid var(--edge);border-radius:7px;box-shadow:var(--shadow);display:none}
+/* One attribute on the shell decides which screen is open, so the shell itself needs no bookkeeping per panel. */
+#hud[data-sheet="prefeitura"] #panel-economy,#hud[data-sheet="lugares"] #panel-places,
+#hud[data-sheet="historia"] #panel-history,#hud[data-sheet="planejamento"] #panel-composition,
+#hud[data-sheet="pessoas"] #panel-multiplayer,#hud[data-sheet="fontes"] #panel-source{display:flex;flex-direction:column}
+.panel-head{display:flex;align-items:center;gap:8px;padding:5px 5px 5px 9px;border-bottom:1px solid rgba(59,48,37,.25)}
 [data-drag-handle]{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 [data-drag-handle]:active{cursor:grabbing}
-.panel.collapsed .panel-head{border-bottom:0}
-.panel-title{margin:0;color:#6d5f49;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
-.panel-collapse{margin-left:auto;width:20px;height:18px;padding:0;line-height:1;font-size:10px}
-.panel-body{display:flex;flex-direction:column;gap:6px;padding:6px 8px 7px}
-.panel.collapsed .panel-body{display:none}
+.panel-title{margin:0;color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.panel-close{margin-left:auto;width:var(--target);height:var(--target);padding:0;line-height:1;font-size:12px}
+.panel-body{display:flex;flex-direction:column;gap:6px;padding:7px 9px 8px;overflow:auto;overscroll-behavior:contain}
 [hidden]{display:none!important}
-/* Initial distribution: corners and the right edge, so no card sits over the centre of the map. */
-#panel-stats{left:8px;top:8px;width:min(320px,calc(100vw - 16px))}
-#panel-tools{left:8px;bottom:8px;width:min(280px,calc(100vw - 16px))}
-#panel-places{right:8px;top:8px;width:min(250px,calc(100vw - 16px))}
-#panel-nav{right:8px;top:46%}
-#panel-status{right:8px;bottom:8px;width:min(320px,calc(100vw - 16px))}
-/* The middle of the screen is the one column nothing else claims — the left and the right both belong to panels that
-   position themselves — so the books open there, where the player can reach them on the first load. */
-#panel-economy{left:calc(50% - 158px);top:8px;width:min(316px,calc(100vw - 16px))}
-#hud-economy{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px;margin:0}
-#hud-economy>div{display:flex;align-items:baseline;justify-content:space-between;gap:4px}
-#hud-economy dt{margin:0;color:#6d5f49;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-#hud-economy dd{margin:0;font-variant-numeric:tabular-nums;font-weight:700}
-#hud-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px;margin:0}
-#hud-stats>div{display:flex;align-items:baseline;justify-content:space-between;gap:4px}
-#hud-stats dt{margin:0;color:#6d5f49;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-#hud-stats dd{margin:0;font-variant-numeric:tabular-nums;font-weight:700}
-#hud-speed{display:flex;gap:3px}
-#hud-speed button{flex:1}
-#hud-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px}
-#hud-tools button{display:flex;justify-content:space-between;gap:6px;text-align:left}
-#hud-now{margin:0;color:#6d5f49;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-/* What the real city is, next to what the player built: two different orders of magnitude, said plainly. */
+.panel h3{margin:0;font-size:12px}
+#hud-economy,#hud-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px;margin:0}
+#hud-economy>div,#hud-stats>div{display:flex;align-items:baseline;justify-content:space-between;gap:4px}
+#hud-economy dt,#hud-stats dt,#city-facts dt{margin:0;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+#hud-economy dd,#hud-stats dd,#city-facts dd{margin:0;font-variant-numeric:tabular-nums;font-weight:700}
 #city-facts{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:0}
-#city-facts dt{margin:0;color:#6d5f49;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-#city-facts dd{margin:0;font-variant-numeric:tabular-nums;font-weight:700}
-#city-scale{margin:0;color:#4c5f74;font-size:11px}
-#city-source{margin:0;font-size:11px}
-#hud-place{color:var(--ink);font-size:13px;font-weight:700;text-transform:none;letter-spacing:0}
+#city-scale{margin:0;color:var(--hint);font-size:11px}
+#city-source{margin:0;font-size:11px;word-break:break-word}
+#hud-now{margin:0;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
 #hud-places{display:flex;gap:4px;flex-wrap:wrap}
 #place-form{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-#hud-nav{display:flex;align-items:center;gap:4px}
-#hud-nav button{min-width:28px}
-#hud-overview{width:100%}
-.compass{display:block;width:20px;height:20px;border:2px solid var(--edge);border-radius:50%;background:#fdf8ec}
+label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+input{font:inherit;color:var(--ink);background:#fffdf7;border:2px solid var(--edge);border-radius:5px;padding:2px 5px;width:8.5em}
+#place-error{color:#a3341f;margin:0;font-weight:700}
+
+/* --- what the player does: the dock ------------------------------------------------------------------------ */
+#hud-dock{position:absolute;left:0;right:0;bottom:0;display:flex;flex-wrap:nowrap;align-items:flex-end;gap:6px;
+ padding:0 calc(var(--gap) + var(--safe-right)) calc(var(--gap) + var(--safe-bottom)) calc(var(--gap) + var(--safe-left))}
+#hud-tools{display:flex;gap:5px;flex:1 1 auto;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;padding:2px}
+#hud-tools::-webkit-scrollbar{height:6px}
+#hud-tools button{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:var(--target);min-height:var(--target);padding:5px 7px;line-height:1.05;flex:0 0 auto}
+.tool-icon{font-size:15px}
+.tool-name{font-size:11px;white-space:nowrap}
+#hud-actions{display:flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px}
+#hud-speed{display:flex;gap:3px}
+#hud-speed button{min-width:var(--target);min-height:var(--target)}
+#hud-actions button{min-height:var(--target)}
+#hud-more{position:absolute;right:calc(var(--gap) + var(--safe-right));bottom:calc(var(--dock) + var(--safe-bottom));max-height:calc(100dvh - var(--dock) - var(--bar) - 16px);overflow:auto;
+ display:flex;flex-direction:column;gap:4px;background:var(--panel);border:2px solid var(--edge);border-radius:8px;
+ box-shadow:var(--shadow);padding:6px;width:min(260px,80vw)}
+#hud-more button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;min-height:var(--target);padding:5px 8px}
+#hud-more button span{color:var(--muted);font-size:11px;text-transform:none;letter-spacing:0}
+#hud-more button.selected{background:var(--pressed)}
+#hud.touch #hud-more{bottom:calc(72px + var(--safe-bottom))}
+.tool-cost{color:#8a6b31;font-size:11px;font-variant-numeric:tabular-nums}
+.tool-cost::before{content:"$"}
+.tool-cost:empty{display:none}
+
+/* --- how the player looks: the camera cluster, which belongs to the map ------------------------------------ */
+#hud-view{position:absolute;right:calc(var(--gap) + var(--safe-right));bottom:calc(var(--dock) + var(--safe-bottom));
+ display:flex;flex-direction:column;gap:5px;align-items:stretch}
+#hud-nav{display:flex;gap:4px;justify-content:flex-end}
+#hud-nav button{min-width:var(--target);min-height:var(--target)}
+#hud-overview{min-height:var(--target)}
+.compass{display:block;width:20px;height:20px;margin:0 auto;border:2px solid var(--edge);border-radius:50%;background:#fdf8ec}
 .compass-needle{display:block;color:#a3341f;font-size:10px;line-height:16px;text-align:center;transform-origin:50% 50%;transition:transform .12s linear}
-#hud-bottom{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.panel-attribution{align-self:flex-end;margin-left:auto;color:#3d5f8f;font-size:11px}
-button{font:inherit;color:var(--ink);background:#fdf8ec;border:2px solid var(--edge);border-radius:5px;padding:2px 7px;cursor:pointer}
+
+/* --- the terms, at every size, in every mode --------------------------------------------------------------- */
+#hud-attribution{position:absolute;left:calc(var(--gap) + var(--safe-left) + var(--rail));bottom:calc(var(--dock) + 4px + var(--safe-bottom));
+ color:#dfe8f2;font-size:11px;text-decoration:none;background:rgba(18,28,38,.55);border-radius:5px;padding:2px 6px}
+#tile-cache{position:absolute;left:calc(var(--gap) + var(--safe-left) + var(--rail));bottom:calc(var(--dock) + var(--safe-bottom) + var(--attribution));
+ color:#cfd8e2;font-size:11px;background:rgba(18,28,38,.5);border-radius:5px;padding:1px 5px}
+
+/* --- generic controls ------------------------------------------------------------------------------------- */
+button{font:inherit;color:var(--ink);background:#fdf8ec;border:2px solid var(--edge);border-radius:6px;padding:3px 8px;cursor:pointer}
 button:hover{background:#fffdf6}
 button:active{transform:translate(1px,1px)}
 button.selected{background:var(--pressed);box-shadow:inset 0 0 0 1px #b9873a}
+button:disabled{opacity:.55;cursor:default}
 button:focus-visible,input:focus-visible,a:focus-visible,canvas:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
-input{font:inherit;color:var(--ink);background:#fffdf7;border:2px solid var(--edge);border-radius:5px;padding:1px 4px;width:8.5em}
-label{color:#6d5f49;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-.tool-cost{color:#8a6b31;margin-left:4px;font-variant-numeric:tabular-nums}
-.tool-cost::before{content:"$"}
-.tool-cost:empty{display:none}
 #cost-preview{min-width:11em;font-variant-numeric:tabular-nums;font-weight:700;color:#3f6b3d}
-#map-message{color:#8c4a2f;font-weight:700}
-#command-notice{color:#8c4a2f}
-#save-status{color:#4c5f74}
-/* What the device already holds: the map a revisit does not have to download again. */
-.panel-hint{color:#4c5f74;font-variant-numeric:tabular-nums}
+#save-status,#tile-cache{color:var(--hint);font-variant-numeric:tabular-nums}
+.panel-hint{color:var(--hint);font-variant-numeric:tabular-nums}
 .panel-hint:empty{display:none}
-#place-error{color:#a3341f;margin:0;font-weight:700}
-#hud-attribution{color:#3d5f8f}
-/* A cooperative session reads as its own card: the branch, who is in it, the descriptor and the save state. */
-#panel-multiplayer{left:8px;top:480px;width:min(340px,calc(100vw - 16px))}
+.slider{display:grid;gap:.25rem;font-size:.85rem;text-transform:none;letter-spacing:0}
+.slider>span{color:var(--muted)}
+.slider output{float:right;font-variant-numeric:tabular-nums}
+.slider input[type=range]{width:100%;accent-color:var(--accent)}
+#economy-net.negative{color:#a3341f}
+
+/* --- a cooperative session reads as its own screen --------------------------------------------------------- */
 .multiplayer-where{margin:0;font-weight:700}
 #multiplayer-status{margin:0;font-weight:700;color:#3f6b3d}
 #multiplayer-status[data-state=pending]{color:#8a6b31}
 #multiplayer-status[data-state=paused],#multiplayer-status[data-state=source-error],#multiplayer-status[data-state=storage-error]{color:#8c4a2f}
-#multiplayer-detail,#multiplayer-presence,#multiplayer-descriptor{margin:0;color:#6d5f49;font-size:11px}
-#multiplayer-participants{margin:0;padding-left:16px;color:#4c5f74}
+#multiplayer-detail,#multiplayer-presence,#multiplayer-descriptor{margin:0;color:var(--muted);font-size:11px}
+#multiplayer-participants{margin:0;padding-left:16px;color:var(--hint)}
 .multiplayer-controls{display:flex;flex-wrap:wrap;gap:4px}
 #multiplayer-invite{width:100%;resize:vertical;font:inherit;color:var(--ink);background:#fffdf7;border:2px solid var(--edge);border-radius:5px;padding:2px 4px}
 #multiplayer-message{margin:0;color:#8c4a2f}
 #multiplayer-message:empty{display:none}
 textarea:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
-@media (max-width:720px){#game{cursor:default}#hud-stats{grid-template-columns:1fr}}
 
-/* The city's levers: a range whose value is written next to the label, so the number and the slider can never disagree. */
-.panel .slider{display:grid;gap:.25rem;margin:.5rem 0;font-size:.85rem}
-.panel .slider>span{color:var(--muted,#9aa4b2)}
-.panel .slider output{float:right;font-variant-numeric:tabular-nums}
-.panel .slider input[type=range]{width:100%;accent-color:var(--accent,#7fd4c1)}
-#economy-borrow{margin-top:.25rem}
-#economy-net.negative{color:var(--danger,#ff8b7a)}
+/* --- the modes: how the same shell arranges itself for the area a device actually has ---------------------- */
+/* Touch: targets a thumb can hit, and nothing floats where it can be lost. */
+#hud.touch{--target:44px}
+#hud.touch #hud-tools button{padding:7px 9px}
+#hud.touch .tool-icon{font-size:19px}
+#hud.touch .tool-name{font-size:12px}
+
+/* Sheet: the screen rises from the edge its dock button sits at, and the city stays behind it. */
+#hud.sheets-sheet #hud-sheets .panel{position:absolute;left:calc(var(--gap) + var(--safe-left) + var(--rail));right:calc(var(--gap) + var(--safe-right));
+ bottom:calc(var(--dock) + var(--attribution) + var(--safe-bottom));max-height:calc(62dvh - var(--dock));width:auto;border-radius:10px}
+#hud.sheets-sheet .panel-head{cursor:default}
+#hud.sheets-sheet #hud-view{display:none}
+#hud.sheets-sheet [data-drag-handle]{cursor:default}
+#hud.sheets-sheet #hud-inspector{left:var(--gap);right:var(--gap);bottom:calc(var(--dock) + var(--safe-bottom));max-width:none}
+
+/* Drawer: there is room beside the city, so the screen opens there instead of on top of it. */
+#hud.sheets-drawer #hud-sheets .panel{position:absolute;right:calc(var(--gap) + var(--safe-right));
+ top:calc(var(--bar) + var(--safe-top));bottom:calc(var(--dock) + var(--safe-bottom));width:min(380px,42vw);max-height:none;border-radius:10px}
+
+/* Floating: a large screen with a mouse may keep a screen where the player put it, as before. */
+#hud.floating .panel{position:absolute}
+#hud.floating #panel-economy{left:calc(50% - 158px);top:8px;width:min(316px,calc(100vw - 16px))}
+#hud.floating #panel-places{right:8px;top:calc(52px + var(--safe-top));width:min(280px,calc(100vw - 16px))}
+#hud.floating #panel-history{left:8px;top:calc(52px + var(--safe-top));width:min(320px,calc(100vw - 16px))}
+#hud.floating #panel-composition{left:calc(50% - 160px);bottom:72px;width:min(320px,calc(100vw - 16px))}
+#hud.floating #panel-multiplayer{left:8px;bottom:72px;width:min(340px,calc(100vw - 16px))}
+#hud.floating #panel-source{right:8px;bottom:72px;width:min(320px,calc(100vw - 16px))}
+
+/* A narrow screen shows the numbers without their names: the names are read once, the numbers every moment, and the
+   bar has to stay a bar. The accessible names stay in the document for anyone who needs them. */
+@media (max-width:560px){
+ #hud-top{gap:2px 10px;padding:calc(5px + var(--safe-top)) calc(8px + var(--safe-right)) 5px calc(8px + var(--safe-left))}
+ #hud-where{font-size:11px}
+ #hud-place{font-size:13px}
+ #hud-vitals{gap:10px}
+ #hud-vitals dt{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ #hud-vitals dd{font-size:13px}
+ .tool-name{font-size:10px}
+}
+#hud.bar-short #hud-top{gap:2px 10px}
+
+/* Rail: a very wide screen puts the actions down the side and gives the rest to the city. */
+#hud.dock-rail #hud-dock{left:0;right:auto;top:calc(56px + var(--safe-top));bottom:0;width:max-content;flex-direction:column;align-items:stretch}
+#hud.dock-rail #hud-tools{flex-direction:column;overflow-x:visible;overflow-y:auto;flex:0 1 auto}
+#hud.dock-rail #hud-actions{flex-direction:column;align-items:stretch}
+#hud.dock-rail #hud-view{right:calc(var(--gap) + var(--safe-right))}

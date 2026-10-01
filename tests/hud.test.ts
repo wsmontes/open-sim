@@ -5,9 +5,10 @@ import {EMPTY_ECONOMY} from '../src/core/model';
 import type {CityEconomy,CityStats} from '../src/core/model';
 import {createHud} from '../src/presentation/hud';
 import type {HudCallbacks,HudInfo} from '../src/presentation/hud';
-// The panels are painted by index.html: the tests mount that very markup instead of a hand-made copy.
+import type {LayoutMode} from '../src/presentation/layout';
+// The shell is painted by index.html: the tests mount that very markup instead of a hand-made copy.
 const hudMarkup=new DOMParser().parseFromString(readFileSync('index.html','utf8'),'text/html').querySelector('#hud')?.outerHTML??'';
-const element=<T extends HTMLElement>(id:string)=>{
+const element=<T extends HTMLElement=HTMLElement>(id:string)=>{
  const found=document.getElementById(id);
  if(!found)throw new Error(`Elemento ausente no teste: ${id}`);
  return found as T;
@@ -29,151 +30,152 @@ const tree=(selector:string,root:Document|HTMLElement=document)=>{
  if(!found)throw new Error(`Elemento ausente no teste: ${selector}`);
  return found;
 };
-const body=(panel:string)=>tree(`#${panel} [data-panel-body]`);
-const handle=(panel:string)=>tree(`#${panel} [data-drag-handle]`);
-const collapse=(panel:string)=>tree(`#${panel} [data-collapse]`);
-// A 1024x600 viewport with panels sized like the real ones: the layout is faked so the drag maths and the viewport
-// clamp are exercised with real sizes.
+const DRESSER:LayoutMode={dock:'bottom',sheets:'drawer',inspector:'panel',floating:true,touch:false};
+const SHEET:LayoutMode={dock:'bottom',sheets:'sheet',inspector:'card',floating:false,touch:true};
+// A 1024x600 viewport with the screens sized like the real ones: the layout maths and the viewport clamp are exercised
+// with real sizes rather than zeroes.
 const mount=()=>{
  document.body.innerHTML=hudMarkup;
  Object.defineProperty(window,'innerWidth',{value:1024,configurable:true});
  Object.defineProperty(window,'innerHeight',{value:600,configurable:true});
- stubRect(element('hud'),0,0,1024,600);
- stubRect(element('panel-stats'),8,8,320,100);
- stubRect(element('panel-tools'),8,450,250,140);
- stubRect(element('panel-places'),766,8,250,180);
- stubRect(element('panel-nav'),900,276,90,80);
- stubRect(element('panel-status'),696,500,320,92);
- return element('hud');
+ const hud=element('hud');
+ stubRect(hud,0,0,1024,600);
+ stubRect(element('panel-economy'),300,8,316,400);
+ stubRect(element('panel-places'),700,52,280,300);
+ return hud;
 };
 beforeEach(()=>{window.localStorage.clear();mount();});
-test('dragging a header moves its panel and clamps it inside the viewport',()=>{
+
+test('the bar is always there, and it is the only thing that always is',()=>{
  const hud=createHud(element('hud'),callbacks());
- const tools=element('panel-tools');
- drag(handle('panel-tools'),[20,460],[120,300]);
- expect(tools.style.left).toBe('108px');
- expect(tools.style.top).toBe('290px');
- expect(tools.style.right).toBe('auto');
- expect(tools.style.bottom).toBe('auto');
- drag(handle('panel-tools'),[10,10],[9000,9000]);
- expect(tools.style.left).toBe('774px');
- expect(tools.style.top).toBe('460px');
- drag(handle('panel-tools'),[5000,5000],[-5000,-5000]);
- expect(tools.style.left).toBe('0px');
- expect(tools.style.top).toBe('0px');
- expect(JSON.parse(localStorage.getItem('open-sim:panels')??'null')).toEqual({tools:{x:0,y:0,collapsed:false}});
- hud.destroy();
-});
-test('a header drag leaves the other panels alone and a right click never starts one',()=>{
- const hud=createHud(element('hud'),callbacks());
- pointer(handle('panel-stats'),'pointerdown',20,20,2);
- pointer(window,'pointermove',400,400);
- pointer(window,'pointerup',400,400);
- expect(element('panel-stats').style.left).toBe('');
- drag(handle('panel-stats'),[20,20],[60,60]);
- expect(element('panel-stats').style.left).toBe('48px');
- expect(element('panel-stats').style.top).toBe('48px');
- expect(element('panel-tools').style.left).toBe('');
- expect(element('panel-tools').style.top).toBe('');
- hud.destroy();
-});
-test('a tool button still fires after its panel was dragged',()=>{
- const cb=callbacks(),hud=createHud(element('hud'),cb);
- drag(handle('panel-tools'),[20,460],[300,120]);
- expect(cb.onTool).not.toHaveBeenCalled();
- tree('#panel-tools [data-tool="road"]').click();
- expect(cb.onTool).toHaveBeenCalledTimes(1);
- expect(cb.onTool).toHaveBeenCalledWith('road');
- hud.destroy();
-});
-test('the collapse button hides the body, flips aria-expanded and survives a reload',()=>{
- const cb=callbacks(),hud=createHud(element('hud'),cb);
- expect(body('panel-stats').hidden).toBe(false);
- expect(collapse('panel-stats').getAttribute('aria-expanded')).toBe('true');
- pointer(collapse('panel-stats'),'pointerdown',20,20);
- pointer(window,'pointermove',400,400);
- pointer(window,'pointerup',400,400);
- expect(element('panel-stats').style.left).toBe('');
- collapse('panel-stats').click();
- expect(body('panel-stats').hidden).toBe(true);
- expect(element('panel-stats').classList.contains('collapsed')).toBe(true);
- expect(collapse('panel-stats').getAttribute('aria-expanded')).toBe('false');
- collapse('panel-stats').click();
- expect(body('panel-stats').hidden).toBe(false);
- expect(collapse('panel-stats').getAttribute('aria-expanded')).toBe('true');
- collapse('panel-stats').click();
- hud.destroy();
- const reloaded=createHud(mount(),cb);
- expect(body('panel-stats').hidden).toBe(true);
- expect(collapse('panel-stats').getAttribute('aria-expanded')).toBe('false');
- expect(element('panel-stats').style.left).toBe('8px');
- reloaded.destroy();
-});
-test('panel positions and collapsed state restore from a pre-filled localStorage',()=>{
- window.localStorage.setItem('open-sim:panels',JSON.stringify({tools:{x:100,y:200,collapsed:false},places:{x:5000,y:-40,collapsed:true},ghost:{x:10,y:10,collapsed:false},broken:{x:'nope',y:3},junk:null}));
- const hud=createHud(element('hud'),callbacks());
- expect(element('panel-tools').style.left).toBe('100px');
- expect(element('panel-tools').style.top).toBe('200px');
- expect(element('panel-places').style.left).toBe('774px');
- expect(element('panel-places').style.top).toBe('0px');
- expect(body('panel-places').hidden).toBe(true);
- expect(collapse('panel-places').getAttribute('aria-expanded')).toBe('false');
- expect(element('panel-nav').style.left).toBe('');
- drag(handle('panel-tools'),[100,200],[110,210]);
- const saved=JSON.parse(localStorage.getItem('open-sim:panels')??'null');
- expect(saved.tools).toEqual({x:110,y:210,collapsed:false});
- expect(saved.places).toEqual({x:774,y:0,collapsed:true});
- expect(saved.ghost).toBeUndefined();
- hud.destroy();
-});
-test('destroy stops listening to drags, collapses and clicks',()=>{
- const cb=callbacks(),hud=createHud(element('hud'),cb);
- drag(handle('panel-tools'),[20,460],[120,300]);
- const moved=element('panel-tools').style.left;
- hud.destroy();
- pointer(handle('panel-tools'),'pointerdown',500,500);
- pointer(window,'pointermove',0,0);
- pointer(window,'pointerup',0,0);
- expect(element('panel-tools').style.left).toBe(moved);
- collapse('panel-tools').click();
- expect(body('panel-tools').hidden).toBe(false);
- tree('#panel-tools [data-tool="park"]').click();
- expect(cb.onTool).not.toHaveBeenCalled();
-});
-test('the map panel steps the zoom and asks for north',()=>{
- const cb=callbacks(),hud=createHud(element('hud'),cb);
- element('hud-zoom-in').click();
- element('hud-zoom-out').click();
- element('hud-zoom-out').click();
- element('hud-north').click();
- element('hud-overview').click();
- expect(cb.onZoomStep.mock.calls).toEqual([[1],[-1],[-1]]);
- expect(cb.onNorth).toHaveBeenCalledTimes(1);
- expect(cb.onOverview).toHaveBeenCalledTimes(1);
- hud.destroy();
-});
-test('update writes the readouts and turns the compass with the camera',()=>{
- const hud=createHud(element('hud'),callbacks());
- hud.update(info({rotation:Math.PI/2,tool:'road',speed:2,place:'Lisboa',mapMessage:'Falha no mapa',notice:'Sem energia',saveStatus:{status:'error',blocked:true,message:'versão'},canOverwriteSave:true}));
- expect(element('hud-place').textContent).toBe('Lisboa');
- expect(element('hud-money').textContent).toBe((1234).toLocaleString('pt-BR'));
- expect(element('hud-energy').textContent).toBe('30/90');
+ // Nothing is open until the player opens it: the city is the screen.
+ expect(element('hud').dataset.sheet).toBeUndefined();
+ expect(element('panel-economy').style.display).toBe('');
+ hud.update(info());
+ expect(element('hud-place').textContent).toBe('Vancouver');
+ expect(element('hud-money').textContent).toBe('1.234');
+ expect(element('hud-population').textContent).toBe('56');
  expect(element('hud-happiness').textContent).toBe('80%');
- expect(tree('#panel-tools [data-tool="road"]').getAttribute('aria-pressed')).toBe('true');
- expect(element('map-message').hidden).toBe(false);
- expect(element('save-overwrite').hidden).toBe(false);
- const turn=/rotate\((-?[\d.]+)rad\)/.exec(tree('#hud-compass-needle').style.transform);
- expect(turn).not.toBeNull();
- expect(Number(turn?.[1])).toBeCloseTo(Math.PI/2,9);
- hud.update(info({rotation:0,mapMessage:''}));
- expect(tree('#hud-compass-needle').style.transform).toBe('rotate(0rad)');
- expect(element('map-message').hidden).toBe(true);
+ expect(element('hud-energy').textContent).toBe('30/90');
+ expect(element('hud-attribution').textContent).toContain('OpenStreetMap');
  hud.destroy();
 });
 
-// The economy panel is the game's books: every line is read from the state, and a lever becomes one decision when the
-// player lets go of it — not one per pixel of the drag.
-test('the economy panel shows the books the world reports, and a lever is one decision',()=>{
+test('a screen opens from the dock, closes with its own button and with Escape, and only one is ever open',()=>{
+ const hud=createHud(element('hud'),callbacks());
+ const open=(sheet:string)=>tree(`button[data-sheet="${sheet}"]`);
+ open('prefeitura').click();
+ expect(element('hud').dataset.sheet).toBe('prefeitura');
+ expect(open('prefeitura').getAttribute('aria-expanded')).toBe('true');
+ // Opening another one replaces it: two screens over the city is the thing this shell exists to stop.
+ open('lugares').click();
+ expect(element('hud').dataset.sheet).toBe('lugares');
+ expect(open('prefeitura').getAttribute('aria-expanded')).toBe('false');
+ expect(hud.sheet()).toBe('lugares');
+ // The screen's own button closes it, and so does Escape, which is the key that already means "back".
+ tree('#panel-places [data-close]').click();
+ expect(element('hud').dataset.sheet).toBeUndefined();
+ expect(hud.sheet()).toBeNull();
+ open('prefeitura').click();
+ window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+ expect(hud.sheet()).toBeNull();
+ // And the menu of screens is a way in, not a place to stay.
+ element('hud-more-toggle').click();
+ expect(element('hud-more').hidden).toBe(false);
+ open('prefeitura').click();
+ expect(element('hud-more').hidden).toBe(true);
+ hud.destroy();
+});
+
+test('a screen is dragged where dragging means something, and left to the stylesheet where it does not',()=>{
+ const hud=createHud(element('hud'),callbacks());
+ const economy=element('panel-economy');
+ hud.setMode(DRESSER);
+ hud.openSheet('prefeitura');
+ drag(tree('#panel-economy [data-drag-handle]'),[320,20],[420,300]);
+ expect(economy.style.left).toBe('400px');
+ // The screen is 400 tall in a 600 viewport: the drag asks for 288 and the clamp gives what fits.
+ expect(economy.style.top).toBe('200px');
+ // A phone has no room for a window the player can lose: the same drag leaves nothing behind, inline or otherwise.
+ hud.setMode(SHEET);
+ expect(economy.style.left).toBe('');
+ drag(tree('#panel-economy [data-drag-handle]'),[320,20],[520,500]);
+ expect(economy.style.left).toBe('');
+ expect(economy.style.top).toBe('');
+ hud.destroy();
+});
+
+test('an arrangement is remembered where it can be, and forgotten when the layout changes',()=>{
+ window.localStorage.setItem('open-sim:panels',JSON.stringify({economy:{x:120,y:90}}));
+ const hud=createHud(element('hud'),callbacks());
+ hud.setMode(DRESSER);
+ expect(element('panel-economy').style.left).toBe('120px');
+ // A rotation is not a reason to keep a screen where it was: the arrangement starts again from the stylesheet.
+ hud.setMode(SHEET);
+ expect(element('panel-economy').style.left).toBe('');
+ hud.destroy();
+});
+
+test('destroy stops listening to drags, to the dock and to the keyboard',()=>{
+ const hud=createHud(element('hud'),callbacks());
+ const cbs=callbacks();
+ const other=createHud(element('hud'),cbs);
+ other.setMode(DRESSER);
+ other.openSheet('prefeitura');
+ other.destroy();
+ const economy=element('panel-economy');
+ drag(tree('#panel-economy [data-drag-handle]'),[320,20],[420,300]);
+ expect(economy.style.left).toBe('');
+ tree('button[data-tool="road"]').click();
+ expect(cbs.onTool).not.toHaveBeenCalled();
+ window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+ expect(other.sheet()).toBe('prefeitura');
+ hud.destroy();
+});
+
+test('the dock fires the tool, the speed, the places and the camera cluster',()=>{
+ const cbs=callbacks();
+ const hud=createHud(element('hud'),cbs);
+ hud.update(info());
+ tree('button[data-tool="avenue"]').click();
+ expect(cbs.onTool).toHaveBeenCalledWith('avenue');
+ tree('button[data-speed="2"]').click();
+ expect(cbs.onSpeed).toHaveBeenCalledWith(2);
+ tree('button[data-place="Lisboa"]').click();
+ expect(cbs.onPlace).toHaveBeenCalledWith('Lisboa');
+ tree('#hud-zoom-in').click();
+ expect(cbs.onZoomStep).toHaveBeenCalledWith(1);
+ tree('#hud-zoom-out').click();
+ expect(cbs.onZoomStep).toHaveBeenLastCalledWith(-1);
+ tree('#hud-north').click();
+ expect(cbs.onNorth).toHaveBeenCalled();
+ tree('#hud-overview').click();
+ expect(cbs.onOverview).toHaveBeenCalled();
+ // The cost is on the button, so the price of a tool is where the player chooses it.
+ expect(tree('button[data-tool="highway"] .tool-cost').textContent).toBe('60');
+ // Exploring the city costs nothing, so it shows no price at all.
+ expect(tree('button[data-tool="explore"]').querySelector('.tool-cost')).toBeNull();
+ hud.destroy();
+});
+
+test('the readouts turn with the camera and report what the city is saying',()=>{
+ const hud=createHud(element('hud'),callbacks());
+ hud.update(info({rotation:.5,notice:'Nada a mudar',mapMessage:'Carregando mapa…',saveStatus:{status:'saving',blocked:false}}));
+ expect(element('hud-compass-needle').style.transform).toBe('rotate(0.5rad)');
+ expect(element('command-notice').hidden).toBe(false);
+ expect(element('command-notice').textContent).toBe('Nada a mudar');
+ expect(element('map-message').hidden).toBe(false);
+ expect(element('map-retry').hidden).toBe(false);
+ expect(element('save-status').textContent).toBe('Salvando…');
+ // A refusal that is not there leaves nothing behind it.
+ hud.update(info());
+ expect(element('command-notice').hidden).toBe(true);
+ expect(element('map-message').hidden).toBe(true);
+ expect(element('save-status').textContent).toBe('');
+ hud.destroy();
+});
+
+test('the economy screen shows the books the world reports, and a lever is one decision',()=>{
  const cbs=callbacks();
  const hud=createHud(element('hud'),cbs);
  const economy:CityEconomy={taxPercent:15,servicesPercent:80,serviceLevel:0.56,demand:{residential:-40,commercial:12,industrial:200},landValueAverage:88,monthly:{revenue:640,expense:775,net:-135},debt:30_000,interestRate:8,rating:'C',crisis:null};
@@ -181,7 +183,7 @@ test('the economy panel shows the books the world reports, and a lever is one de
  expect(element('economy-revenue').textContent).toBe('640');
  expect(element('economy-expense').textContent).toBe('775');
  expect(element('economy-net').textContent).toBe('-135');
- expect(element<HTMLElement>('economy-net').classList.contains('negative')).toBe(true);
+ expect(element('economy-net').classList.contains('negative')).toBe(true);
  expect(element('economy-land').textContent).toBe('88');
  expect(element('economy-debt').textContent).toBe('30.000');
  expect(element('economy-interest').textContent).toBe('8% ao ano');
@@ -200,12 +202,10 @@ test('the economy panel shows the books the world reports, and a lever is one de
  expect(cbs.onPolicy).not.toHaveBeenCalled();
  tax.dispatchEvent(new Event('change',{bubbles:true}));
  expect(cbs.onPolicy).toHaveBeenCalledExactlyOnceWith({tax:18});
- // A loan is a decision with no slider behind it.
  element<HTMLButtonElement>('economy-borrow').click();
  expect(cbs.onPolicy).toHaveBeenLastCalledWith({borrow:10_000});
- // The crisis is the sentence the state carries, shown when the city is out of money.
  hud.update(info({stats:{...stats,economy:{...economy,monthly:{revenue:0,expense:775,net:-775},crisis:'O caixa acabou.'}}}));
- const crisis=element('economy-crisis');
- expect(crisis.hidden).toBe(false);
- expect(crisis.textContent).toBe('O caixa acabou.');
+ expect(element('economy-crisis').hidden).toBe(false);
+ expect(element('economy-crisis').textContent).toBe('O caixa acabou.');
+ hud.destroy();
 });

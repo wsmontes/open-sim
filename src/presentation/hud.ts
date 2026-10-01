@@ -1,5 +1,6 @@
 import type {CityStats,Tool} from '../core/model';
-import {BORROW_STEP,COST,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN} from '../core/model';
+import {BORROW_STEP,COST,SERVICES_MAX,SERVICES_MIN,TAX_MAX,TAX_MIN} from '../core/model';
+import type {LayoutMode} from './layout';
 import type {Speed} from './clock';
 import type {SaveStatus} from '../session/local-session';
 // The toolbar selects one of the domain tools, plain exploration, or demolition.
@@ -28,9 +29,19 @@ export type HudInfo = {
  canOverwriteSave:boolean;
  rotation:number;
 };
-// Panels are painted by index.html and dragged by their header. Position and collapsed flag live in localStorage so a
-// reload keeps the arrangement the player chose: {id:{x,y,collapsed}}.
-type PanelState = {x:number;y:number;collapsed:boolean};
+// The shell has three levels: the bar that is always there, the screen the player opened, and the notes the city is
+// leaving. Everything the panels used to be — positions, collapse flags, whether they float — is decided by the layout
+// mode the browser hands in, not by what the player last dragged.
+export type Hud = {
+ update(info:HudInfo):void;
+ setMode(mode:LayoutMode):void;
+ // Which management screen is open, or null for the city alone. Opened from the dock, closed by its own button.
+ openSheet(sheet:string|null):void;
+ sheet():string|null;
+ destroy():void;
+};
+type Panel={id:string;sheet:string;node:HTMLElement;body:HTMLElement;close:HTMLButtonElement|null;label:string};
+type PanelState={x:number;y:number};
 const STORAGE_KEY='open-sim:panels';
 function saveText(status:SaveStatus):string {
  if(status.status==='saving')return 'Salvando…';
@@ -48,9 +59,9 @@ function readPanels(storage:Storage|null):Record<string,PanelState> {
   const panels:Record<string,PanelState>={};
   for(const [id,value] of Object.entries(parsed as Record<string,unknown>)){
    if(!value||typeof value!=='object')continue;
-   const {x,y,collapsed}=value as {x?:unknown;y?:unknown;collapsed?:unknown};
+   const {x,y}=value as {x?:unknown;y?:unknown};
    if(typeof x!=='number'||typeof y!=='number'||!Number.isFinite(x)||!Number.isFinite(y))continue;
-   panels[id]={x,y,collapsed:collapsed===true};
+   panels[id]={x,y};
   }
   return panels;
  }catch{return {};}
@@ -62,9 +73,9 @@ function writePanels(storage:Storage|null,panels:Record<string,PanelState>):void
 function storageOf(root:HTMLElement):Storage|null {
  try{return root.ownerDocument.defaultView?.localStorage??null;}catch{return null;}
 }
-export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:HudInfo):void;destroy():void} {
- const el=(selector:string)=>{
-  const found=root.querySelector<HTMLElement>(selector);
+export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
+ const el=<T extends HTMLElement=HTMLElement>(selector:string)=>{
+  const found=root.querySelector<T>(selector);
   if(!found)throw new Error(`Elemento ausente: ${selector}`);
   return found;
  };
@@ -74,59 +85,47 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
   target.addEventListener(type,listener);
   listeners.push({target,type,handler:listener});
  };
- type Panel={id:string;node:HTMLElement;body:HTMLElement;toggle:HTMLButtonElement;label:string;state:PanelState|null};
  const view=root.ownerDocument.defaultView,storage=storageOf(root),stored=readPanels(storage),placed:Record<string,PanelState>={};
  const panels:Panel[]=[];
- let drag:{panel:Panel;pointerX:number;pointerY:number;x:number;y:number;collapsed:boolean}|null=null;
- // Keeps a panel inside the viewport and remembers its position; the anchors pinned by the stylesheet are cleared.
- const place=(panel:Panel,x:number,y:number,collapsed:boolean):PanelState=>{
+ let mode:LayoutMode={dock:'bottom',sheets:'sheet',inspector:'card',floating:false,touch:false};
+ let open:string|null=null;
+ let drag:{panel:Panel;pointerX:number;pointerY:number;x:number;y:number}|null=null;
+
+ // A floating screen stays where the player put it; the others are arranged by the stylesheet. Clearing the inline
+ // position is what lets the stylesheet win again when the layout changes underneath.
+ const place=(panel:Panel,x:number,y:number)=>{
   const rect=panel.node.getBoundingClientRect(),width=view?view.innerWidth:0,height=view?view.innerHeight:0;
-  const state=panel.state??{x:0,y:0,collapsed};
-  state.x=Math.max(0,Math.min(x,Math.max(0,width-rect.width)));
-  state.y=Math.max(0,Math.min(y,Math.max(0,height-rect.height)));
-  state.collapsed=collapsed;
+  const state={x:Math.max(0,Math.min(x,Math.max(0,width-rect.width))),y:Math.max(0,Math.min(y,Math.max(0,height-rect.height)))};
   panel.node.style.left=`${state.x}px`;
   panel.node.style.top=`${state.y}px`;
   panel.node.style.right='auto';
   panel.node.style.bottom='auto';
-  panel.state=state;
   placed[panel.id]=state;
-  if(panel.body.hidden!==collapsed){
-   panel.node.classList.toggle('collapsed',collapsed);
-   panel.body.hidden=collapsed;
-   panel.toggle.setAttribute('aria-expanded',String(!collapsed));
-   panel.toggle.textContent=collapsed?'▸':'▾';
-   panel.toggle.setAttribute('aria-label',`${collapsed?'Expandir':'Minimizar'} painel ${panel.label}`);
-   panel.toggle.title=`${collapsed?'Expandir':'Minimizar'} painel`;
-  }
-  return state;
  };
- // Where the panel is on screen right now, relative to the hud layer: the dragged anchors win, the stylesheet default
- // is measured.
- const anchor=(panel:Panel)=>{
-  const {style}=panel.node,left=parseFloat(style.left),top=parseFloat(style.top);
-  if(Number.isFinite(left)&&Number.isFinite(top))return {x:left,y:top};
-  const rect=panel.node.getBoundingClientRect(),host=root.getBoundingClientRect();
-  return {x:rect.left-host.left,y:rect.top-host.top};
+ const release=(panel:Panel)=>{
+  panel.node.style.left='';
+  panel.node.style.top='';
+  panel.node.style.right='';
+  panel.node.style.bottom='';
+  delete placed[panel.id];
  };
  for(const node of root.querySelectorAll<HTMLElement>('[data-panel]')){
-  const id=node.dataset.panel??'',handle=node.querySelector<HTMLElement>('[data-drag-handle]');
-  const body=node.querySelector<HTMLElement>('[data-panel-body]'),toggle=node.querySelector<HTMLButtonElement>('[data-collapse]');
-  if(!id||!handle||!body||!toggle)throw new Error(`Painel incompleto: ${id||'sem data-panel'}`);
-  const panel:Panel={id,node,body,toggle,label:node.querySelector('.panel-title')?.textContent?.trim()||id,state:null};
+  const id=node.dataset.panel??'',sheet=node.dataset.sheet??'';
+  const body=node.querySelector<HTMLElement>('[data-panel-body]'),close=node.querySelector<HTMLButtonElement>('[data-close]');
+  if(!id||!body)throw new Error(`Painel incompleto: ${id||'sem data-panel'}`);
+  const panel:Panel={id,sheet,node,body,close,label:node.querySelector('.panel-title')?.textContent?.trim()||id};
   panels.push(panel);
-  on(handle,'pointerdown',(event:PointerEvent)=>{
-   if(event.button!==0||(event.target as Element|null)?.closest('[data-collapse]'))return;
-   const at=anchor(panel);
-   drag={panel,pointerX:event.clientX,pointerY:event.clientY,x:at.x,y:at.y,collapsed:panel.body.hidden===true};
+  const handle=node.querySelector<HTMLElement>('[data-drag-handle]');
+  if(handle)on(handle,'pointerdown',(event:PointerEvent)=>{
+   // Dragging is a workstation habit: on a phone a window dragged off the edge is a window the player cannot get back,
+   // and in a sheet or a drawer the screen already belongs to the edge it came from.
+   if(!mode.floating||event.button!==0||(event.target as Element|null)?.closest('[data-close]'))return;
+   const rect=panel.node.getBoundingClientRect(),host=root.getBoundingClientRect();
+   drag={panel,pointerX:event.clientX,pointerY:event.clientY,x:rect.left-host.left,y:rect.top-host.top};
    panel.node.classList.add('dragging');
    event.preventDefault();
   });
-  on(toggle,'click',()=>{
-   const at=anchor(panel);
-   place(panel,at.x,at.y,!panel.body.hidden);
-   writePanels(storage,placed);
-  });
+  if(close)on(close,'click',()=>openSheet(null));
  }
  const endDrag=()=>{
   if(!drag)return;
@@ -135,21 +134,47 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
   writePanels(storage,placed);
  };
  on(view??root.ownerDocument,'pointermove',(event:PointerEvent)=>{
-  if(drag)place(drag.panel,drag.x+event.clientX-drag.pointerX,drag.y+event.clientY-drag.pointerY,drag.collapsed);
+  if(drag)place(drag.panel,drag.x+event.clientX-drag.pointerX,drag.y+event.clientY-drag.pointerY);
  });
  on(view??root.ownerDocument,'pointerup',endDrag);
  on(view??root.ownerDocument,'pointercancel',endDrag);
+
+ const openSheet=(next:string|null)=>{
+  open=next;
+  if(moreList&&moreList.hidden!==true){moreList.hidden=true;more?.setAttribute('aria-expanded','false');more?.classList.remove('selected');}
+  // One attribute drives the whole level: the stylesheet shows the screen it names and hides the rest.
+  if(next)root.dataset.sheet=next;else delete root.dataset.sheet;
+  for(const button of root.querySelectorAll<HTMLElement>('[data-sheet]')){
+   if(button.tagName!=='BUTTON')continue;
+   button.setAttribute('aria-expanded',String(button.dataset.sheet===next));
+   button.classList.toggle('selected',button.dataset.sheet===next);
+  }
+ };
+ for(const button of root.querySelectorAll<HTMLButtonElement>('button[data-sheet]')){
+  on(button,'click',()=>openSheet(open===button.dataset.sheet?null:(button.dataset.sheet??null)));
+ }
+ const more=root.querySelector<HTMLButtonElement>('#hud-more-toggle'),moreList=root.querySelector<HTMLElement>('#hud-more');
+ if(more&&moreList)on(more,'click',()=>{
+  const showing=moreList.hidden===true;
+  moreList.hidden=!showing;
+  more.setAttribute('aria-expanded',String(showing));
+  more.classList.toggle('selected',showing);
+ });
+ // Escape leaves the screen, the same way it drops the tool: one key that always means "back".
+ on(view??root.ownerDocument,'keydown',(event:KeyboardEvent)=>{
+  if((event as KeyboardEvent).key!=='Escape'||!open)return;
+  openSheet(null);
+ });
+
  const placeLabel=el('#hud-place'),money=el('#hud-money'),population=el('#hud-population'),energy=el('#hud-energy'),happiness=el('#hud-happiness');
  const message=el('#map-message'),retry=el('#map-retry'),saveStatus=el('#save-status'),overwrite=el('#save-overwrite'),notice=el('#command-notice');
  const needle=el('#hud-compass-needle'),attribution=root.querySelector<HTMLAnchorElement>('#hud-attribution');
  const economyRevenue=el('#economy-revenue'),economyExpense=el('#economy-expense'),economyNet=el('#economy-net');
  const economyLand=el('#economy-land'),economyDebt=el('#economy-debt'),economyInterest=el('#economy-interest');
  const economyRating=el('#economy-rating'),economyDemand=el('#economy-demand'),economyCrisis=el('#economy-crisis');
- const taxInput=el('#economy-tax') as HTMLInputElement,taxValue=el('#economy-tax-value');
- const servicesInput=el('#economy-services') as HTMLInputElement,servicesValue=el('#economy-services-value');
- const borrowButton=el('#economy-borrow') as HTMLButtonElement;
- // The range belongs to the core: a slider that offered a value the command refuses would be a lie, so the bounds are
- // read from the same constants `applyCommand` checks instead of being written into the markup.
+ const taxInput=el<HTMLInputElement>('#economy-tax'),taxValue=el('#economy-tax-value');
+ const servicesInput=el<HTMLInputElement>('#economy-services'),servicesValue=el('#economy-services-value');
+ const borrowButton=el<HTMLButtonElement>('#economy-borrow');
  taxInput.min=String(TAX_MIN);taxInput.max=String(TAX_MAX);taxInput.step='1';
  servicesInput.min=String(SERVICES_MIN);servicesInput.max=String(SERVICES_MAX);servicesInput.step='5';
  // A lever is dragged while the player watches and sent when they let go: `input` moves the number under the finger,
@@ -162,14 +187,12 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
  lever(taxInput,taxValue,value=>callbacks.onPolicy({tax:value}));
  lever(servicesInput,servicesValue,value=>callbacks.onPolicy({services:value}));
  on(borrowButton,'click',()=>callbacks.onPolicy({borrow:BORROW_STEP}));
- // The levers are held while the player drags them, so the state does not push back mid-gesture.
  let leverHeld=false;
  for(const input of [taxInput,servicesInput]){
   on(input,'pointerdown',()=>{leverHeld=true;});
   on(input,'pointerup',()=>{leverHeld=false;});
   on(input,'pointercancel',()=>{leverHeld=false;});
  }
-
  const toolButtons=[...root.querySelectorAll<HTMLButtonElement>('[data-tool]')];
  const speedButtons=[...root.querySelectorAll<HTMLButtonElement>('[data-speed]')];
  for(const button of toolButtons){
@@ -184,11 +207,47 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
  on(retry,'click',()=>callbacks.onRetryMap());
  on(overwrite,'click',()=>callbacks.onOverwriteSave());
  on(el('#hud-overview'),'click',()=>callbacks.onOverview());
- for(const panel of panels){
-  const state=stored[panel.id];
-  if(state)place(panel,state.x,state.y,state.collapsed);
- }
+
+ // Everything that has to sit above the dock needs to know how tall the dock actually is, which changes with the width
+// of the screen, the length of the labels and whether the tools fit on one row. Measuring beats guessing, and the
+// attribution in particular must never end up behind a row of buttons.
+ const dock=root.querySelector<HTMLElement>('#hud-dock');
+ const top=root.querySelector<HTMLElement>('#hud-top');
+ const measure=()=>{
+  // `--dock` is the room the actions take from the bottom edge, not the height of the box they are in: on a wide screen
+  // they move to a rail down the side and take no room from the bottom at all, and a screen opened beside them must
+  // still have the whole height of the window to open into.
+  const rail=mode.dock==='rail';
+  if(dock){
+   const box=dock.getBoundingClientRect();
+   root.style.setProperty('--dock',`${rail?0:Math.round(box.height)}px`);
+   // On a wide screen the actions live down the side, so what the bottom edge has to clear is their width instead.
+   root.style.setProperty('--rail',`${rail?Math.round(box.width):0}px`);
+  }
+  if(top)root.style.setProperty('--bar',`${Math.round(top.getBoundingClientRect().height)}px`);
+ };
+ const observer=typeof ResizeObserver==='function'?new ResizeObserver(measure):null;
+ if(observer){if(dock)observer.observe(dock);if(top)observer.observe(top);}
+ measure();
+ const setMode=(next:LayoutMode)=>{
+  mode=next;
+  root.classList.toggle('touch',next.touch);
+  root.classList.toggle('floating',next.floating);
+  root.classList.toggle('sheets-sheet',next.sheets==='sheet');
+  root.classList.toggle('sheets-drawer',next.sheets==='drawer');
+  root.classList.toggle('dock-rail',next.dock==='rail');
+  // What a dragged screen was arranged for is not what the screen it is on now can show, so the arrangement starts
+  // again from the stylesheet: a rotation or a split view must never leave a screen off the edge.
+  for(const panel of panels){
+   if(next.floating&&stored[panel.id])place(panel,stored[panel.id]!.x,stored[panel.id]!.y);
+   else release(panel);
+  }
+  measure();
+ };
  return {
+  setMode,
+  openSheet,
+  sheet:()=>open,
   update(info){
    placeLabel.textContent=info.place;
    money.textContent=info.stats.money.toLocaleString('pt-BR');
@@ -196,8 +255,6 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
    energy.textContent=`${info.stats.energyUsed}/${info.stats.energySupply}`;
    energy.title='energia usada / fornecida';
    happiness.textContent=`${info.stats.happiness}%`;
-   // The economy panel: every number is a consequence of something the player did, and the crisis line is a sentence
-   // with the ways out rather than a number to interpret.
    const economy=info.stats.economy,grouped=(value:number)=>value.toLocaleString('pt-BR');
    economyRevenue.textContent=grouped(economy.monthly.revenue);
    economyExpense.textContent=grouped(economy.monthly.expense);
@@ -211,15 +268,10 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
    economyDemand.title='moradia / comércio / indústria: o que a cidade está pedindo';
    economyCrisis.textContent=economy.crisis??'';
    economyCrisis.hidden=!economy.crisis;
-   // The levers follow the world, so a change a session refused leaves the slider where the world says it is — but not
-   // while the player is holding it, or the drag would fight the state.
    if(!leverHeld){
     taxInput.value=String(economy.taxPercent);taxValue.textContent=`${economy.taxPercent}%`;
-    // The slider is the budget the player set, never the level it produced: writing the derived number here would
-    // push the lever to the floor of its own range on the next update.
     servicesInput.value=String(economy.servicesPercent);servicesValue.textContent=`${economy.servicesPercent}%`;
    }
-   money.textContent=grouped(info.stats.money);
    needle.style.transform=`rotate(${info.rotation}rad)`;
    for(const button of toolButtons){
     const active=button.dataset.tool===info.tool;
@@ -245,6 +297,7 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):{update(info:
   },
   destroy(){
    drag=null;
+   observer?.disconnect();
    for(const {target,type,handler} of listeners)target.removeEventListener(type,handler);
    listeners.length=0;
   },

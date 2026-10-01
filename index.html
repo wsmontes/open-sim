@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Open Sim</title>
 <link rel="stylesheet" href="/src/browser/style.css">
 <!-- The icon is drawn here rather than shipped as a file: it is the same city the game draws, in the same palette, and
@@ -12,32 +12,41 @@
 <body>
 <main id="app">
 <canvas id="game" width="600" height="400" aria-label="Cidade isométrica"></canvas>
-<section id="hud" aria-label="Painéis do jogo">
+<!-- The interface has three levels and only the first one is always on screen. What the player watches lives in the bar
+     at the top; what the player touched appears beside the touch; and everything the player manages is opened on
+     purpose, one screen at a time, over a city that keeps being visible. -->
+<section id="hud" aria-label="Interface do jogo">
 
-<section class="panel" id="panel-stats" data-panel="stats" aria-label="Estatísticas da cidade">
-<header class="panel-head" data-drag-handle>
-<h2 class="panel-title">Cidade</h2>
-<button class="panel-collapse" type="button" data-collapse aria-expanded="true" aria-label="Minimizar painel Cidade" title="Minimizar painel">&#9662;</button>
-</header>
-<div class="panel-body" data-panel-body>
-<dl id="hud-stats">
-<div><dt>Dinheiro</dt><dd id="hud-money">0</dd></div>
-<div><dt>População</dt><dd id="hud-population">0</dd></div>
-<div><dt>Energia</dt><dd id="hud-energy">0/0</dd></div>
+<header id="hud-top">
+<p id="hud-where">Agora em <strong id="hud-place">—</strong></p>
+<dl id="hud-vitals">
+<div><dt>Saldo</dt><dd id="hud-money">0</dd></div>
+<div><dt>Pessoas</dt><dd id="hud-population">0</dd></div>
 <div><dt>Felicidade</dt><dd id="hud-happiness">0%</dd></div>
+<div><dt>Energia</dt><dd id="hud-energy">0/0</dd></div>
 </dl>
-<div id="hud-speed" role="group" aria-label="Velocidade da partida">
-<button type="button" data-speed="0" aria-label="Pausar" title="Pausar">&#10074;&#10074;</button>
-<button type="button" data-speed="1" aria-label="Velocidade 1×" title="Velocidade 1×">1×</button>
-<button type="button" data-speed="2" aria-label="Velocidade 2×" title="Velocidade 2×">2×</button>
-</div>
-</div>
-</section>
+<!-- What the city is saying right now: a save in flight, a map still loading, a command refused. It is one line, it
+     is always in the same place, and it is never a screen the player has to go and open. -->
+<p id="hud-pulse">
+<span id="save-status" role="status"></span>
+<span id="command-notice" role="status" hidden></span>
+<span id="map-message" role="status" hidden></span>
+<button id="map-retry" type="button" hidden>Tentar novamente</button>
+<button id="save-overwrite" type="button" hidden>Sobrescrever save incompatível</button>
+</p>
+</header>
 
-<section class="panel" id="panel-economy" data-panel="economy" aria-label="Economia da cidade">
+<!-- Level two: what the player touched. Empty and hidden until something is selected, so the city is the screen. -->
+<aside id="hud-inspector" aria-live="polite" hidden></aside>
+
+<!-- Level three: the screens a player opens on purpose. They are the same panels as before — the same identities, so
+     every other module keeps working — arranged by the shell instead of floating over the map. -->
+<div id="hud-sheets">
+
+<section class="panel" id="panel-economy" data-panel="economy" data-sheet="prefeitura" aria-label="Economia da cidade">
 <header class="panel-head" data-drag-handle>
-<h2 class="panel-title">Economia</h2>
-<button class="panel-collapse" type="button" data-collapse aria-expanded="true" aria-label="Minimizar painel Economia" title="Minimizar painel">&#9662;</button>
+<h2 class="panel-title">Prefeitura</h2>
+<button class="panel-close" type="button" data-close aria-label="Fechar Prefeitura" title="Fechar">&#10005;</button>
 </header>
 <div class="panel-body" data-panel-body>
 <dl id="hud-economy">
@@ -61,32 +70,12 @@
 </div>
 </section>
 
-<section class="panel" id="panel-tools" data-panel="tools" aria-label="Ferramentas de construção">
-<header class="panel-head" data-drag-handle>
-<h2 class="panel-title">Ferramentas</h2>
-<button class="panel-collapse" type="button" data-collapse aria-expanded="true" aria-label="Minimizar painel Ferramentas" title="Minimizar painel">&#9662;</button>
-</header>
-<nav class="panel-body" id="hud-tools" data-panel-body aria-label="Ferramentas">
-<button type="button" data-tool="explore" title="Explorar a cidade"><span class="tool-name">Explorar</span></button>
-<button type="button" data-tool="road" title="Rua (2): barata, e a cidade cresce até dois andares em volta dela"><span class="tool-name">Rua</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="avenue" title="Avenida (3): carrega mais tráfego, valoriza os lotes e é onde a cidade cresce para cima"><span class="tool-name">Avenida</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="highway" title="Estrada (4): carrega o tráfego que a rua não carrega, mas o barulho afasta quem mora perto"><span class="tool-name">Estrada</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="residential" title="Residencial (5): moradias, que crescem onde há rua, energia, serviços e um lugar agradável"><span class="tool-name">Residencial</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="commercial" title="Comércio (6): empregos e clientes — o valor da terra em volta sobe"><span class="tool-name">Comércio</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="industrial" title="Indústria (7): muitos empregos, e a vizinhança perde valor"><span class="tool-name">Indústria</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="power" title="Usina (9): sem energia nada cresce"><span class="tool-name">Energia</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="park" title="Parque (8): deixa o bairro mais valioso e mais feliz"><span class="tool-name">Parque</span><span class="tool-cost"></span></button>
-<button type="button" data-tool="demolish" title="Demolir (0)"><span class="tool-name">Demolir</span><span class="tool-cost"></span></button>
-</nav>
-</section>
-
-<section class="panel" id="panel-places" data-panel="places" aria-label="Lugares e coordenadas">
+<section class="panel" id="panel-places" data-panel="places" data-sheet="lugares" aria-label="Lugares e coordenadas">
 <header class="panel-head" data-drag-handle>
 <h2 class="panel-title">Lugares</h2>
-<button class="panel-collapse" type="button" data-collapse aria-expanded="true" aria-label="Minimizar painel Lugares" title="Minimizar painel">&#9662;</button>
+<button class="panel-close" type="button" data-close aria-label="Fechar Lugares" title="Fechar">&#10005;</button>
 </header>
 <div class="panel-body" data-panel-body>
-<p id="hud-now">Agora em <strong id="hud-place">—</strong></p>
 <dl id="city-facts" hidden>
 <div><dt>População real</dt><dd id="city-population">—</dd></div>
 <div><dt>País</dt><dd id="city-country">—</dd></div>
@@ -112,12 +101,44 @@
 </div>
 </section>
 
-<section class="panel" id="panel-nav" data-panel="nav" aria-label="Navegação do mapa">
-<header class="panel-head" data-drag-handle>
-<h2 class="panel-title">Mapa</h2>
-<button class="panel-collapse" type="button" data-collapse aria-expanded="true" aria-label="Minimizar painel Mapa" title="Minimizar painel">&#9662;</button>
-</header>
-<div class="panel-body" data-panel-body>
+</div>
+
+<!-- What the player does to the city: one row of tools, reachable with a thumb, plus the way into the screens above. -->
+<nav id="hud-dock" aria-label="Ferramentas">
+<div id="hud-tools" role="group" aria-label="Ferramentas de construção">
+<button type="button" data-tool="explore" title="Explorar a cidade (1)"><span class="tool-icon" aria-hidden="true">&#9995;</span><span class="tool-name">Explorar</span></button>
+<button type="button" data-tool="road" title="Rua (2): barata, e a cidade cresce até dois andares em volta dela"><span class="tool-icon" aria-hidden="true">&#9776;</span><span class="tool-name">Rua</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="avenue" title="Avenida (3): carrega mais tráfego, valoriza os lotes e é onde a cidade cresce para cima"><span class="tool-icon" aria-hidden="true">&#9568;</span><span class="tool-name">Avenida</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="highway" title="Estrada (4): carrega o tráfego que a rua não carrega, mas o barulho afasta quem mora perto"><span class="tool-icon" aria-hidden="true">&#9553;</span><span class="tool-name">Estrada</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="residential" title="Residencial (5): moradias, que crescem onde há rua, energia, serviços e um lugar agradável"><span class="tool-icon" aria-hidden="true">&#127968;</span><span class="tool-name">Moradia</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="commercial" title="Comércio (6): empregos e clientes — o valor da terra em volta sobe"><span class="tool-icon" aria-hidden="true">&#127978;</span><span class="tool-name">Comércio</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="industrial" title="Indústria (7): muitos empregos, e a vizinhança perde valor"><span class="tool-icon" aria-hidden="true">&#127981;</span><span class="tool-name">Indústria</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="park" title="Parque (8): deixa o bairro mais valioso e mais feliz"><span class="tool-icon" aria-hidden="true">&#127795;</span><span class="tool-name">Parque</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="power" title="Usina (9): sem energia nada cresce"><span class="tool-icon" aria-hidden="true">&#9889;</span><span class="tool-name">Usina</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="demolish" title="Demolir (0)"><span class="tool-icon" aria-hidden="true">&#128296;</span><span class="tool-name">Demolir</span><span class="tool-cost"></span></button>
+</div>
+<div id="hud-actions" role="group" aria-label="Telas e velocidade">
+<div id="hud-speed" role="group" aria-label="Velocidade da partida">
+<button type="button" data-speed="0" aria-label="Pausar" title="Pausar">&#10074;&#10074;</button>
+<button type="button" data-speed="1" aria-label="Velocidade 1×" title="Velocidade 1×">1×</button>
+<button type="button" data-speed="2" aria-label="Velocidade 2×" title="Velocidade 2×">2×</button>
+</div>
+<button type="button" id="hud-more-toggle" aria-expanded="false" aria-controls="hud-more" title="Telas da cidade">&#8943;</button>
+</div>
+<!-- Everything the player manages, in one place. The city keeps being visible behind it: these are screens to open,
+     not windows that live on the map. -->
+<div id="hud-more" role="menu" aria-label="Telas da cidade" hidden>
+<button type="button" role="menuitem" data-sheet="prefeitura" aria-expanded="false">Prefeitura<span>imposto, serviços, dívida</span></button>
+<button type="button" role="menuitem" data-sheet="lugares" aria-expanded="false">Lugares<span>ir para uma cidade real</span></button>
+<button type="button" role="menuitem" data-sheet="historia" aria-expanded="false">História<span>versões e ramificações</span></button>
+<button type="button" role="menuitem" data-sheet="planejamento" aria-expanded="false">Planejamento<span>comparar cenários</span></button>
+<button type="button" role="menuitem" data-sheet="pessoas" aria-expanded="false">Pessoas<span>sessão cooperativa</span></button>
+<button type="button" role="menuitem" data-sheet="fontes" aria-expanded="false">Fontes<span>de onde vem cada dado</span></button>
+</div>
+</nav>
+
+<!-- How the player looks at the city: a small cluster that belongs to the map rather than to a screen. -->
+<div id="hud-view" role="group" aria-label="Câmera">
 <div id="hud-nav" role="group" aria-label="Zoom e orientação">
 <button id="hud-zoom-out" type="button" data-zoom="-1" aria-label="Reduzir zoom" title="Reduzir zoom">&#8722;</button>
 <button id="hud-zoom-in" type="button" data-zoom="1" aria-label="Aumentar zoom" title="Aumentar zoom">+</button>
@@ -127,25 +148,11 @@
 </div>
 <button id="hud-overview" type="button" title="Ver a cidade inteira e os arredores" aria-label="Visão geral">Visão geral</button>
 </div>
-</section>
 
-<section class="panel" id="panel-status" data-panel="status" aria-label="Situação do jogo">
-<header class="panel-head" data-drag-handle>
-<h2 class="panel-title">Situação</h2>
-<button class="panel-collapse" type="button" data-collapse aria-expanded="true" aria-label="Minimizar painel Situação" title="Minimizar painel">&#9662;</button>
-</header>
-<div class="panel-body" id="hud-bottom" data-panel-body>
-<span id="cost-preview"></span>
-<span id="command-notice" role="status" hidden></span>
-<span id="map-message" role="status" hidden></span>
-<button id="map-retry" type="button" hidden>Tentar novamente</button>
+<!-- The map data's terms travel with the map, at every size and in every mode: the licence asks for it to be seen, and
+     a panel the player can collapse is not a place to put it. -->
+<a id="hud-attribution" target="_blank" rel="noopener" href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>
 <span id="tile-cache" class="panel-hint" role="status" title="Mapa guardado neste dispositivo"></span>
-<span id="save-status" role="status"></span>
-<button id="save-overwrite" type="button" hidden>Sobrescrever save incompatível</button>
-<a id="hud-attribution" class="panel-attribution" target="_blank" rel="noopener" href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>
-</div>
-</section>
-
 </section>
 </main>
 <script type="module" src="/src/browser/main.ts"></script>

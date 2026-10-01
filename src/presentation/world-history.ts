@@ -45,8 +45,8 @@ export function createWorldHistory(root:HTMLElement,actions:HistoryActions):Worl
  head.dataset.dragHandle='';
  const title=make('h2','panel-title','Versões');
  const collapse=button('▾');
- collapse.className='panel-collapse';
- collapse.dataset.collapse='';
+ collapse.className='panel-close';
+ collapse.dataset.close='';
  collapse.setAttribute('aria-expanded','true');
  collapse.setAttribute('aria-label','Minimizar painel Versões');
  collapse.title='Minimizar painel';

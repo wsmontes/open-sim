@@ -43,15 +43,17 @@ import type {JsonValue,ObjectRef} from '../world/model';
 import {compareScenarios,layerWrites,runScenario} from '../world/composition';
 import type {Composition,ScenarioRun} from '../world/composition';
 import {quoteAction} from '../core/quote';
-import {summarize} from '../core/simulation';
+import {describeCell,summarize} from '../core/simulation';
 import {EMPTY_ECONOMY} from '../core/model';
 import type {Camera,Viewport} from '../presentation/camera';
-import {GLIDE_PER_SECOND,approach,arrived,centerOn,clampZoom,closestChunks,normalizeAngle,pick,rotateTo,settleZoom,snapZoom,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
+import {GLIDE_PER_SECOND,approach,arrived,centerOn,clampZoom,closestChunks,normalizeAngle,pick,project,rotateTo,settleZoom,snapZoom,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
 import type {WorldView} from '../presentation/canvas-renderer';
 import {render} from '../presentation/canvas-renderer';
 import {createTickClock} from '../presentation/clock';
 import type {Speed} from '../presentation/clock';
 import {createHud} from '../presentation/hud';
+import {createInspector} from '../presentation/inspector';
+import {layoutFor} from '../presentation/layout';
 import type {SelectedTool} from '../presentation/hud';
 import {attachInput} from '../presentation/input';
 const WORLD_ID='open-sim',BRANCH_ID='main',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,OVERVIEW_BUDGET=512,DETAIL_BUDGET=120,FUTURE_TICKS=60;
@@ -778,11 +780,28 @@ const resize=()=>{
  camera=centerOn(center,camera,viewport());
  refreshChunks();scheduleLoad();
 };
+// The shell asks the browser how much room it has, and asks again whenever that changes: a phone rotated, a split view
+// dragged, a window resized. A browser is never asked what kind of device it is — only how much room there is and
+// whether the pointer is a finger.
+const inspector=createInspector(hudRoot);
+const applyLayout=()=>{
+ const coarse=window.matchMedia?.('(pointer: coarse)').matches??false;
+ hud.setMode(layoutFor(window.innerWidth,window.innerHeight,coarse));
+};
+applyLayout();
+window.addEventListener('resize',applyLayout);
+window.visualViewport?.addEventListener('resize',applyLayout);
+window.screen?.orientation?.addEventListener?.('change',applyLayout);
 // The traffic's clock: wall time scaled by the game speed, so the streets move while the city runs, move twice as
 // fast at 2x and stand still while it is paused. It is presentation only — no tick reads it, no command carries it.
 let motion=0,lastFrame=0;
+// The card the player opened describes one cell. The moment the city slides under it, it is answering about a place
+// that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
+let cardCamera:{x:number;y:number;zoom:number}|null=null;
 const draw=(now=0)=>{
  const {width,height}=viewport();
+ if(cardCamera&&(cardCamera.x!==camera.x||cardCamera.y!==camera.y||cardCamera.zoom!==camera.zoom))inspector.show(null);
+ cardCamera={x:camera.x,y:camera.y,zoom:camera.zoom};
  const seconds=lastFrame?Math.min(0.25,(now-lastFrame)/1000):0;
  if(lastFrame&&speed!==0)motion+=seconds*speed;
  lastFrame=now;
@@ -791,7 +810,9 @@ const draw=(now=0)=>{
  if(glide){
   camera=approach(camera,glide,1-Math.exp(-GLIDE_PER_SECOND*seconds));
   if(arrived(camera,glide)){const settled=glide;glide=null;setCamera(settled);}
-  else{refreshPreview();refreshChunks();updateHud();}
+  // The tiles the camera is heading for are asked for as it goes. Nothing else about the frame needs the interface
+  // rewritten, and rewriting every number of the city sixty times a second is work nobody can see.
+  else refreshChunks();
  }
  render(ctx,{camera,viewport:{width,height},state:session.getState(),chunks,tool,hover,preview,previewAffordable:affordable,seed:SEED,motion});
  requestAnimationFrame(draw);
@@ -833,6 +854,14 @@ attachInput(canvas,{camera:()=>camera,tool:()=>tool,strokeShape:()=>BOX_TOOLS.ha
   onCommit:commit,
   onCamera:setCamera,
   onTool,
+  onTap(cell){
+   // What the player touched, described by the core so the card cannot disagree with the city it describes.
+   const state=stateOf();
+   const reading=state?describeCell(state,cell):null;
+   if(!reading){inspector.show(null);return;}
+   const scale=BUFFER_SCALE*Math.max(1,window.devicePixelRatio||1),point=project(cell,camera);
+   inspector.show({cell,reading,at:{x:point.x/scale,y:point.y/scale}});
+  },
   onCancel(){tool='explore';stroke=null;refreshPreview();updateHud();},
  });
  placeForm?.addEventListener('submit',event=>{

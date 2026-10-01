@@ -127,7 +127,7 @@ export function createSourceInspector(root:HTMLElement):SourceInspectorPanel{
  head.dataset.dragHandle='';
  const title=make('h2','panel-title','Dados de origem');
  const collapse=button('▾','panel-collapse');
- collapse.dataset.collapse='';
+ collapse.dataset.close='';
  collapse.setAttribute('aria-expanded','true');
  collapse.setAttribute('aria-label','Minimizar painel Dados de origem');
  collapse.title='Minimizar painel';

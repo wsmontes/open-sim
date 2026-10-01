@@ -11,6 +11,8 @@ export type InputCallbacks = {
  // scale that was never applied, and the scene slides away from under the fingers.
  onCamera(camera:Camera,options?:{snap?:boolean}):void;
  onCancel():void;
+ // A short touch on the city, told apart from a drag: what the player selected, not where they built.
+ onTap(cell:CellCoord):void;
  // The number keys pick a tool, so the player can build a whole street without leaving the keyboard.
  onTool(tool:SelectedTool):void;
 };
@@ -83,6 +85,9 @@ export function extendStroke(stroke:StrokeState,cell:CellCoord,shape:StrokeShape
 const isTyping=(target:EventTarget|null):boolean=>target instanceof HTMLElement&&(target.isContentEditable||target.tagName==='INPUT'||target.tagName==='TEXTAREA'||target.tagName==='SELECT');
 export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callbacks:InputCallbacks):()=>void {
  let stroke:StrokeState|null=null,pan:{point:Point;camera:Camera}|null=null,rotate:{point:Point;camera:Camera}|null=null,space=false;
+ // Where the finger went down and whether it has wandered since. A finger that lands and lifts without moving is a
+ // selection; one that travels is a drag, a stroke or a gesture, and none of those is a selection.
+ let touch:{id:number;point:Point;moved:boolean}|null=null;
  // Every finger that is down, in the order it arrived: two of them are a pinch, and the first one to arrive may be a
  // drag the player is still making when the second lands.
  const fingers=new Map<number,Point>();
@@ -113,9 +118,11 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   if(typeof canvas.releasePointerCapture!=='function')return;
   try{canvas.releasePointerCapture(event.pointerId);}catch{/* Releasing a pointer the canvas never captured is a no-op the spec allows to throw. */}
  };
+ const TAP_SLOP=6;
  const onPointerDown=(event:PointerEvent)=>{
   const camera=context.camera(),point=pointInBuffer(event);
   fingers.set(event.pointerId,point);
+  if(fingers.size===1)touch={id:event.pointerId,point,moved:false};
   if(fingers.size===2){
    // A second finger turns whatever was happening into a pinch; the drag or stroke in course is abandoned, not left
    // half-finished behind the gesture.
@@ -134,6 +141,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  };
  const onPointerMove=(event:PointerEvent)=>{
   const point=pointInBuffer(event);
+  if(touch&&touch.id===event.pointerId&&!touch.moved&&Math.hypot(point.x-touch.point.x,point.y-touch.point.y)>TAP_SLOP)touch.moved=true;
   if(fingers.has(event.pointerId))fingers.set(event.pointerId,point);
   if(pinch&&fingers.size>=2){
    const distance=spread(),mid=midpoint();
@@ -153,14 +161,21 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   callbacks.onPreview(stroke.cells);
  };
  const onPointerUp=(event:PointerEvent)=>{
+  const tapped=touch&&touch.id===event.pointerId&&!touch.moved;
+  const at=tapped?pointInBuffer(event):null;
   fingers.delete(event.pointerId);
+  if(touch&&touch.id===event.pointerId)touch=null;
   if(fingers.size<2)pinch=null;
   if(fingers.size>0){release(event);return;}
   pan=null;rotate=null;release(event);
-  if(!stroke)return;
-  const cells=stroke.cells;
-  stroke=null;
-  callbacks.onCommit(cells);
+  // The stroke is applied first when there is one: a tap that lays a street is a selection *and* a build, and the card
+  // the player gets has to describe the cell as it ended up rather than as it was.
+  if(stroke){
+   const cells=stroke.cells;
+   stroke=null;
+   callbacks.onCommit(cells);
+  }
+  if(tapped&&at)callbacks.onTap(pick(at,context.camera()));
  };
  const onPointerLeave=()=>callbacks.onHover(null);
  const onContextMenu=(event:Event)=>event.preventDefault();
