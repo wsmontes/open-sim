@@ -230,6 +230,22 @@ test('a build is ordered, persisted with its receipt and replicated with the sam
  expect(s.host.confirmations().at(-1)?.status).toBe('adopted');
 });
 
+test('avenues, highways and city policy survive the full cooperative wire and replica replay',async()=>{
+ const s=await scene();
+ await s.participate({actions:['build','demolish','component','tick','policy']});
+ const avenue=await s.submit({id:'avenue',intent:{type:'build',tool:'avenue',cells:[at(1,1)]}});
+ expect(avenue.status).toBe('accepted');
+ const highway=await s.submit({id:'highway',intent:{type:'build',tool:'highway',cells:[at(2,2)]}});
+ expect(highway.status).toBe('accepted');
+ const policy=await s.submit({id:'policy',intent:{type:'policy',tax:12,services:115,borrow:10_000}});
+ expect(policy.status).toBe('accepted');
+ const host=await stateOf(s.hostWorlds,policy.head),replica=await stateOf(s.replicaWorlds,s.replica().head());
+ expect(host.chunks['9:9']!.edits[String(cellIndex(at(1,1)))]).toMatchObject({road:true,roadClass:'avenue'});
+ expect(host.chunks['9:9']!.edits[String(cellIndex(at(2,2)))]).toMatchObject({road:true,roadClass:'highway'});
+ expect(await semanticHash(replica)).toBe(await semanticHash(host));
+ expect(s.replica().head().commit).toEqual(policy.head.commit);
+});
+
 test('two builds competing for the same balance never spend beyond it',async()=>{
  for(const order of [['p1','p2'],['p2','p1']]){
   const s=await scene({start:{...createGame(MAIN.worldId,7,blank('9:9')),money:50}});
