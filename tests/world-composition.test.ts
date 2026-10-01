@@ -73,7 +73,7 @@ async function layerOf(worlds:WorldRepository,from:Checkpoint,branchId:string,st
  return {contract,commit:committed.value.commit,state};
 }
 const contract=(id:string,effect:LayerEffect,writes:readonly ChangeField[],extra:Partial<LayerContract>={}):LayerContract=>({
- id,source:`scenario:${id}`,priority:10,effect,rules:{family:'city',version:1},
+ id,source:`scenario:${id}`,priority:10,effect,rules:{family:'city',version:RULES_VERSION},
  reads:[],writes,dependsOn:[],areas:[REGION],capabilities:[],...extra,
 });
 type Blocks={worlds:WorldRepository;point:Checkpoint;ground:string;baseJson:string;parque:Layer;industria:Layer;chuva:Layer;transito:Layer;exotica:Layer;nuvem:Layer};
@@ -108,7 +108,7 @@ const resolved=(blocks:Blocks,...layers:readonly Layer[]):ResolvedObjects=>{
  return {states};
 };
 const compositionOf=(blocks:Blocks,layers:readonly Layer[],overrides:Partial<Composition>={}):Composition=>({
- worldId:WORLD_ID,branchId:'main',actor:ACTOR,rules:{family:'city',version:1},
+ worldId:WORLD_ID,branchId:'main',actor:ACTOR,rules:{family:'city',version:RULES_VERSION},
  base:{commit:blocks.point.head.commit,identity:blocks.ground,bases:blocks.point.bases},
  layers:layers.map(layer=>({contract:layer.contract,commit:layer.commit})),
  parameters:{},
@@ -152,6 +152,18 @@ test('two durable layers writing the same field are a conflict, even when they w
  const equal=refusal(composeWorld(compositionOf(blocks,[blocks.parque,twin]),resolved(blocks,blocks.parque,twin)));
  expect(equal.code).toBe('CONFLICT');
  expect(equal.message).toContain('parque-2');
+});
+
+test('roadClass is a durable layer field and survives composition',async()=>{
+ const blocks=await fixture();
+ const avenueState=built(blocks.point.state,{type:'build',tool:'avenue',cells:[CELL.target]});
+ const writes=layerWrites(blocks.point.state,avenueState);
+ expect(writes.ok).toBe(true);
+ if(!writes.ok)return;
+ expect(writes.value).toContainEqual({scope:'cell',at:{chunkId:REGION,index:BLOCK.target,...CELL.target},field:'roadClass'});
+ const avenue=await layerOf(blocks.worlds,blocks.point,'avenue-layer',avenueState,contract('avenue-layer','durable',writes.value));
+ const composed=valueOf(composeWorld(compositionOf(blocks,[avenue]),resolved(blocks,avenue)));
+ expect(composed.state.chunks[REGION]!.edits[String(BLOCK.target)]).toMatchObject({road:true,roadClass:'avenue'});
 });
 
 test('a layer that writes a field it did not declare, or outside its declared areas, is refused',async()=>{
