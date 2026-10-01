@@ -5,10 +5,13 @@ import {CHUNK,WORLD,chunkOrigin} from '../../core/coordinates';
 import type {MapLevel,MapSource} from '../../session/ports';
 import {normalizeChunk,type MapFeature} from './normalize';
 import type {TileCache} from './tile-cache';
+import type {ChunkCache} from './chunk-cache';
 export type OsmConfig={tileUrl?:string;fetcher?:typeof fetch;timeoutMs?:number;overviewZoom?:number;
  // Where the raw tile bytes are kept between visits. Omitting it means "ask every time", which is what a test wants
  // and what a runtime without storage gets.
- cache?:TileCache};
+ cache?:TileCache;
+ // Normalized regions are a disposable warm-start cache: same OSM bytes + same normalizer version => same BaseChunk.
+ chunks?:ChunkCache};
 // What a capture has to record to be honest about where the bytes came from. It is all metadata this adapter already
 // knows, so exposing it costs no request and changes no behaviour.
 export type OsmSourceMetadata={
@@ -62,7 +65,7 @@ export function createOsmSource(config:OsmConfig={}):OsmSource {
  const template=config.tileUrl??DEFAULT_TILE_URL;
  const fetcher=config.fetcher??fetch;
  const overviewZoom=config.overviewZoom??DEFAULT_OVERVIEW_ZOOM;
- const kept=config.cache;
+ const kept=config.cache,normalized=config.chunks;
  // Two caches with different jobs: the decoded features stay only while they are being used, and the raw bytes go to
  // the device so a revisit costs no request. A tile is decoded from whichever of the two answered first.
  const cache=new Map<string,TileData>(),pending=new Map<string,Promise<TileData>>();
@@ -107,9 +110,13 @@ export function createOsmSource(config:OsmConfig={}):OsmSource {
   attribution:{...ATTRIBUTION},
   metadata:{source:{id:'openstreetmap-shortbread-v1',dataset:DATASET,url:template},zooms:{detail:DETAIL_ZOOM,overview:overviewZoom},normalizer:{...NORMALIZER},attribution:{...ATTRIBUTION}},
   async loadChunk(id,level:MapLevel='detail'){
+  const key=`${NORMALIZER.version}:${level}:${id}`,cached=normalized?await normalized.get(key).catch(()=>null):null;
+  if(cached?.id===id)return cached;
   const p=chunkOrigin(id),zoom=level==='overview'?overviewZoom:DETAIL_ZOOM,cellsPerSide=cellsPerTile(zoom);
   const data=await tile(zoom,tileOf(p.x,cellsPerSide),tileOf(p.y,cellsPerSide));
   const source=level==='overview'?`${DATASET} (aproximação z${zoom})`:DATASET;
-  return normalizeChunk(id,data.byChunk.get(id)??[],source);
+  const chunk=normalizeChunk(id,data.byChunk.get(id)??[],source);
+  if(normalized)void normalized.put(key,chunk).catch(()=>{});
+  return chunk;
  }};
 }
