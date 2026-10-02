@@ -235,3 +235,7 @@ test('the economy screen shows the books the world reports, and a lever is one d
  expect(element('economy-crisis').textContent).toBe('O caixa acabou.');
  hud.destroy();
 });
+test('sheet focus returns to its opener when dismissed',()=>{
+ const hud=createHud(mount(),callbacks());const button=tree('button[data-sheet="lugares"]');button.focus();button.click();
+ tree('#panel-places [data-close]').click();expect(document.activeElement).toBe(button);hud.destroy();
+});

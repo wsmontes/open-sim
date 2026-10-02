@@ -22,3 +22,15 @@ test('regions of one coarse tile share a single request',async()=>{
  await Promise.all([maps.loadChunk('0:0','overview'),maps.loadChunk('1:1','overview'),maps.loadChunk('63:63','overview')]);
  expect(requests).toBe(1);
 });
+test('region download budgets are enforced before the provider writes any tile',async()=>{
+ const {createMemoryTileCache}=await import('../src/adapters/osm/tile-cache');const cache=createMemoryTileCache();
+ const maps=createOsmSource({cache,fetcher:async()=>new Response(new Uint8Array(10))});
+ const coverage=await maps.prepareRegion({bounds:{west:-123.13,east:-123.12,south:49.28,north:49.29},levels:['detail'],maxBytes:1},()=>{});
+ expect(coverage.complete).toBe(false);expect((await cache.stats()).bytes).toBe(0);
+});
+test('offline preparation uses the configured overview resolution',async()=>{
+ const {createMemoryTileCache}=await import('../src/adapters/osm/tile-cache');const urls:string[]=[];
+ const maps=createOsmSource({overviewZoom:10,cache:createMemoryTileCache(),fetcher:async url=>{urls.push(String(url));return new Response(new Uint8Array([8,0]));}});
+ await maps.prepareRegion({bounds:{west:-123.13,east:-123.12,south:49.28,north:49.29},levels:['overview'],maxBytes:100},()=>{});
+ expect(urls.length).toBeGreaterThan(0);expect(urls.every(url=>url.includes('/10/'))).toBe(true);
+});

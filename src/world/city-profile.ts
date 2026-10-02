@@ -115,7 +115,7 @@ export function prepareProject(target:ProjectTarget,changes:ChangeSet,selection:
   if(!action)return failed('MALFORMED',`A operação ${operation.id} não pode ser precificada`);
   const quote=CITY_PROFILE.quote(preview,action,available);
   if(quote.status==='blocked'){
-   const message=quote.reason??`A operação ${operation.id} foi recusada na prévia`;
+   const message=quote.reason==='Dinheiro insuficiente'?`O conjunto custa ${cost+quote.cost} e esta versão tem ${target.state.money}`:quote.reason??`A operação ${operation.id} foi recusada na prévia`;
    return failed(message.includes('Espere o mapa carregar')?'MISSING_OBJECT':'CONFLICT',message);
   }
   cost+=quote.cost;
