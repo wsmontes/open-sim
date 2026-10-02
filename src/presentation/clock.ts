@@ -1,4 +1,4 @@
-export type Speed = 0|1|2;
+export type Speed = 0|1|2|3;
 // Only one participant orders a session: the host, or the player alone. A replica applies the ticks it receives as
 // commits, so a clock that fired here would invent a second authority over the same branch (spec §7.5).
 export type ClockRole = 'local'|'host'|'replica';
@@ -8,7 +8,9 @@ export type Every = (ms:number,fn:()=>void)=>()=>void;
 // The platform interval is reached through globalThis, so this module still compiles for runtimes that declare no timers.
 type Timers={setInterval(fn:()=>void,ms:number):unknown;clearInterval(id:unknown):void};
 const intervalEvery:Every=(ms,fn)=>{const timers=globalThis as unknown as Timers,id=timers.setInterval(fn,ms);return ()=>timers.clearInterval(id);};
-export const TICK_PERIOD_MS:Record<Speed,number>={0:0,1:1000,2:500};
+// 3× exists because a growth step is five ticks and a month is thirty: at 2× a quiet city still took fifteen seconds
+// to close a month, and there was no way to hurry past waiting.
+export const TICK_PERIOD_MS:Record<Speed,number>={0:0,1:1000,2:500,3:333};
 export function createTickClock(onTick:()=>void,every:Every=intervalEvery):TickClock {
  let speed:Speed=0,hidden=false,role:ClockRole='local',stopped=false,cancel:()=>void=()=>{};
  // Any change of speed, visibility or authority rebuilds the interval, so time spent paused, hidden or following

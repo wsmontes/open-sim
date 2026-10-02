@@ -7,11 +7,11 @@ import {stepSimulation,summarize} from '../src/core/simulation';
 function denseCity(side:number):GameState{
  const chunks:GameState['chunks']={};
  for(let cy=0;cy<side;cy++)for(let cx=0;cx<side;cx++){
-  const cells=Array.from({length:1024},(_,i):Cell=>i%32%3===0?{terrain:'land',road:true}:{terrain:'land',building:'residential',stage:1});
+  const cells=Array.from({length:1024},(_,i):Cell=>i%32%3===0?{terrain:'land',road:true}:i===1?{terrain:'land',building:'power',stage:1}:{terrain:'land',building:'residential',stage:1});
   const id=`${1000+cx}:${1000+cy}`;
   chunks[id]=adopt({id,source:'cost-test',normalizerVersion:1,cells});
  }
- return {formatVersion:1,rulesVersion:3,worldId:'cost',seed:1,revision:0,tick:4,money:1e6,chunks,actors:{},components:{}};
+ return {formatVersion:1,rulesVersion:4,worldId:'cost',seed:1,revision:0,tick:4,money:1e6,chunks,actors:{},components:{}};
 }
 const fastest=(run:()=>void,times=3)=>{let best=Infinity;for(let i=0;i<times;i++){const t=performance.now();run();best=Math.min(best,performance.now()-t);}return best;};
 

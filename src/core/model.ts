@@ -32,11 +32,12 @@ export type ManagedChunk = { base: BaseChunk; edits: Record<string, Cell>; baseE
 export type Components = Record<string, Record<string, unknown>>;
 // The two versions every saved world carries. `formatVersion` is how the state is written down; `rulesVersion` is what
 // the simulation means by it, and it changes whenever a world saved before would behave differently today: the economy
-// earns and spends, and growth follows demand, since version 2.
+// earns and spends, and growth follows demand, since version 2; a lot grows only where a plant reaches it through the
+// grid, since version 4.
 export const FORMAT_VERSION = 1;
-export const RULES_VERSION = 3;
+export const RULES_VERSION = 4;
 export type VersionedState = { formatVersion: number; rulesVersion: number };
-export type GameState = { formatVersion: 1; rulesVersion: 3; worldId: string; seed: number; revision: number; tick: number; money: number; chunks: Record<string, ManagedChunk>; actors: Record<string, number>; components: Components };
+export type GameState = { formatVersion: 1; rulesVersion: 4; worldId: string; seed: number; revision: number; tick: number; money: number; chunks: Record<string, ManagedChunk>; actors: Record<string, number>; components: Components };
 export type Action =
  | { type: 'build'; tool: Tool; cells: CellCoord[] }
  | { type: 'demolish'; cells: CellCoord[] }
@@ -81,7 +82,7 @@ export const EMPTY_ECONOMY: CityEconomy = {
  crisis: null,
 };
 export type CityStats = { money: number; population: number; jobs: number; energySupply: number; energyUsed: number; happiness: number; income: number; managed: number; economy: CityEconomy };
-export type ViewState = { x: number; y: number; zoom: number; speed: 0 | 1 | 2; place: string; rotation?: number; center?: {x:number;y:number} };
+export type ViewState = { x: number; y: number; zoom: number; speed: 0 | 1 | 2 | 3; place: string; rotation?: number; center?: {x:number;y:number} };
 export type SavedGame = { version: 1; state: GameState; view: ViewState };
 // Zoom limits of a saved view. They live in the core because the snapshot format validates them; the isometric
 // camera is presentation and only reuses these numbers.

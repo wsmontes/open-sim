@@ -106,20 +106,20 @@ function chunks(value: unknown): Record<string,ManagedChunk> {
 // same shape under them, so an older save is stamped with what the rules mean today and starts behaving like every
 // other city — the same way a game update migrates what a player had. An unknown *future* version is refused rather
 // than guessed at, and a branch written under other rules stays refused by the sessions that would have to share it.
-const OPENABLE_RULES: readonly number[] = [1, RULES_VERSION];
+const OPENABLE_RULES: readonly number[] = [1, 3, RULES_VERSION];
 function gameState(value: unknown): GameState {
  if (!isPlainObject(value)) throw new Error('Estado inválido');
  if (value.formatVersion !== 1) throw new Error('Versão de formato desconhecida');
  if (typeof value.rulesVersion !== 'number' || !OPENABLE_RULES.includes(value.rulesVersion)) throw new Error('Versão de regras desconhecida');
  if (typeof value.worldId !== 'string' || !value.worldId.length || value.worldId.length > 80) throw new Error('Mundo inválido');
- return {...extras(value,['formatVersion','rulesVersion','worldId','seed','revision','tick','money','chunks','actors','components']), formatVersion:FORMAT_VERSION as 1, rulesVersion:RULES_VERSION as 3, worldId:value.worldId, seed:safeInteger(value.seed,'Semente'), revision:safeCount(value.revision,'Revisão'), tick:safeCount(value.tick,'Relógio'), money:safeCount(value.money,'Saldo'), chunks:chunks(value.chunks), actors:actors(value.actors), components:components(value.components ?? {})};
+ return {...extras(value,['formatVersion','rulesVersion','worldId','seed','revision','tick','money','chunks','actors','components']), formatVersion:FORMAT_VERSION as 1, rulesVersion:RULES_VERSION as 4, worldId:value.worldId, seed:safeInteger(value.seed,'Semente'), revision:safeCount(value.revision,'Revisão'), tick:safeCount(value.tick,'Relógio'), money:safeCount(value.money,'Saldo'), chunks:chunks(value.chunks), actors:actors(value.actors), components:components(value.components ?? {})};
 }
 function viewState(value: unknown): ViewState {
  if (!isPlainObject(value)) throw new Error('Visão inválida');
  if (typeof value.place !== 'string') throw new Error('Lugar inválido');
  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) throw new Error('Posição da câmera inválida');
  if (!Number.isFinite(value.zoom) || (value.zoom as number) < VIEW_ZOOM_MIN || (value.zoom as number) > VIEW_ZOOM_MAX) throw new Error('Zoom inválido');
- if (value.speed !== 0 && value.speed !== 1 && value.speed !== 2) throw new Error('Velocidade inválida');
+ if (value.speed !== 0 && value.speed !== 1 && value.speed !== 2 && value.speed !== 3) throw new Error('Velocidade inválida');
  if(value.center!==undefined&&(!isPlainObject<number>(value.center)||!Number.isFinite(value.center.x)||!Number.isFinite(value.center.y)))throw new Error('Centro da câmera inválido');
  return {...extras(value,['x','y','zoom','speed','place','rotation']),...(value.center!==undefined?{center:{x:(value.center as Record<string,number>).x,y:(value.center as Record<string,number>).y}}:{} ), x:value.x as number, y:value.y as number, zoom:value.zoom as number, speed:value.speed as ViewState['speed'], place:value.place, rotation:viewRotation(value.rotation)};
 }

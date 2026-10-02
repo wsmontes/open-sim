@@ -386,7 +386,8 @@ test('speed buttons advance ticks at the right rate and population grows', async
  };
  await build('road', [base, {x: base.x + 6, y: base.y}]);
  await build('residential', [{x: base.x, y: base.y + 1}, {x: base.x + 4, y: base.y + 1}]);
- await build('power', [{x: base.x + 8, y: base.y}]);
+ // The plant touches the end of the road: since rules 4 power travels through what is built, not across empty land.
+ await build('power', [{x: base.x + 7, y: base.y}]);
 
  // Speed 1 at the dock: one tick per 1000 ms of wall time.
  el<HTMLButtonElement>(h.doc, '#hud-speed [data-speed="1"]').click();
@@ -407,6 +408,15 @@ test('speed buttons advance ticks at the right rate and population grows', async
  flushFrames(1);
  expect(h.client.view().state!.tick).toBe(tick1 + 20);
 
+ // Speed 3: three ticks a second, so ten seconds are thirty ticks.
+ el<HTMLButtonElement>(h.doc, '#hud-speed [data-speed="3"]').click();
+ await h.client.idle();
+ const tick2 = h.client.view().state!.tick;
+ await h.time.advance(9_990);
+ flushFrames(1);
+ expect(h.client.view().state!.tick).toBe(tick2 + 30);
+ el<HTMLButtonElement>(h.doc, '#hud-speed [data-speed="2"]').click();
+ await h.client.idle();
  // Enough logical time for growth: the fixture starts with imported houses, so population moves upward.
  await h.time.advance(60_000);
  flushFrames(1);

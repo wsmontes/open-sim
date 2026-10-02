@@ -26,6 +26,8 @@ export function cardText(cell: CellCoord, reading: CellReading): CardText {
  if (reading.residents) rows.push(['Moradores', reading.residents.toLocaleString('pt-BR')]);
  if (reading.jobs) rows.push(['Empregos', reading.jobs.toLocaleString('pt-BR')]);
  rows.push(['Valor da terra', reading.landValue.toLocaleString('pt-BR')]);
+ // Energy is a row only where it decides something: a building the grid reaches, or one it does not and so cannot grow.
+ if (reading.powered !== undefined) rows.push(['Energia', reading.powered ? 'ligada à rede' : 'sem rede — ligue a uma usina por rua ou construção']);
  rows.push(['Quadra', `${cell.x}, ${cell.y}`]);
  const source = reading.origin === 'imported'
   ? 'Terreno e construção vieram do mapa (OpenStreetMap)'

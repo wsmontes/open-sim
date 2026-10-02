@@ -346,7 +346,7 @@ test('the published schemas describe the objects this client emits',async()=>{
 });
 
 test('the published city-state schema accepts both legacy and current rules, and const really means const',async()=>{
- // The frozen conformance vectors are rules v1, while a world exported by the current city client is rules v3.
+ // The frozen conformance vectors are rules v1, while a world exported by the current city client is rules v4 (and v3 saves still open).
  // Both are legitimate inputs; no other rules version is.
  const cells=Array.from({length:1024},()=>({terrain:'land' as const}));
  const state=createGame('current-schema',1,{id:'0:0',source:'synthetic',normalizerVersion:1,cells});

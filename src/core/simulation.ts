@@ -1,7 +1,7 @@
 import type {Cell,CellCoord,CityStats,Demand,GameState,ManagedChunk,MonthlyLedger,RoadClass,Tool} from './model';
 import {ROAD_CLASS,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN,roadClassOf} from './model';
 import {cellEconomy,effectiveCells,getCell,occupied} from './world';
-import {CHUNK,coordAt,wrapX} from './coordinates';
+import {CHUNK,WORLD,coordAt,wrapX} from './coordinates';
 
 // --- the shape of the city's economy ---------------------------------------------------------------------------
 // Three demands the player can move, one tax rate, land value that follows what was built and where, a monthly
@@ -233,6 +233,8 @@ export type CellReading = {
  residents:number;
  jobs:number;
  landValue:number;
+ // Whether a plant reaches this cell through the grid — only said of something built, where it decides growth.
+ powered?:boolean;
 };
 export function describeCell(s:GameState,p:CellCoord):CellReading|null {
  const cell=getCell(s,p);
@@ -250,6 +252,7 @@ export function describeCell(s:GameState,p:CellCoord):CellReading|null {
   residents:working&&building==='residential'?4*stage:0,
   jobs:working?building==='commercial'?6*stage:building==='industrial'?10*stage:0:0,
   landValue:landValueAt(s,p),
+  ...(building&&building!=='park'?{powered:isPowered(s,p)}:{}),
  };
 }
 
@@ -303,6 +306,41 @@ function materializedPeople(state:GameState):number {
  }
  return people.size;
 }
+// --- the power grid -------------------------------------------------------------------------------------------
+// Power travels: a plant feeds what it touches, and anything built — a road, a house, a shop — carries it on to its
+// neighbours, the way SimCity's zones conduct. Open land and water break the line. A plant in the wrong place now
+// powers nothing, which is the decision the global pool never asked for. Only the cells of administered regions are
+// part of the grid, so the answer is the same on every client and independent of what the camera has loaded.
+const conducts=(c:Cell|undefined):boolean=>!!c&&(!!c.road||!!c.building);
+const gridKey=(x:number,y:number)=>y*WORLD+x;
+const gridCache=new WeakMap<GameState,Set<number>>();
+export function poweredCells(s:GameState):ReadonlySet<number> {
+ const cached=gridCache.get(s);
+ if(cached)return cached;
+ const read=readerOf(s),powered=new Set<number>(),queue:number[]=[];
+ for(const id of Object.keys(s.chunks).sort()){
+  const cells=effectiveCells(s.chunks[id]!);
+  for(let i=0;i<cells.length;i+=1){
+   if(cells[i]!.building!=='power')continue;
+   const p=coordAt(id,i),key=gridKey(p.x,p.y);
+   if(!powered.has(key)){powered.add(key);queue.push(p.x,p.y);}
+  }
+ }
+ for(let head=0;head<queue.length;head+=2){
+  const x=queue[head]!,y=queue[head+1]!;
+  for(const [dx,dy] of NEIGHBOURS){
+   const ny=y+dy;if(ny<0||ny>=WORLD)continue;
+   const nx=wrapX(x+dx),key=gridKey(nx,ny);
+   if(powered.has(key)||!conducts(read(nx,ny)))continue;
+   powered.add(key);queue.push(nx,ny);
+  }
+ }
+ gridCache.set(s,powered);
+ return powered;
+}
+export const isPowered=(s:GameState,p:CellCoord):boolean=>poweredCells(s).has(gridKey(wrapX(p.x),p.y));
+const NEIGHBOURS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
+
 // How tall a building is allowed to be: the stage the player sees is the zone's level, and it is what the demand, the
 // land under it and the services it gets can pay for. One step per growth turn keeps the city readable.
 const MAX_STAGE=3;
@@ -328,6 +366,7 @@ export function stepSimulation(state:GameState):GameState {
  // deterministic step at a time is a city two clients can agree on.
  if(next.tick%5===0){
   const stats=summarizeWith(state,ctx);let energy=stats.energySupply-stats.energyUsed;
+  const grid=poweredCells(state);
   const valveOf=(tool:Tool)=>tool==='residential'?policy.valves.residential:tool==='commercial'?policy.valves.commercial:tool==='industrial'?policy.valves.industrial:0;
   for(const id of Object.keys(state.chunks).sort()){
    const chunk=state.chunks[id];
@@ -343,6 +382,8 @@ export function stepSimulation(state:GameState):GameState {
      if(facing?.road)access=Math.max(access,ROAD_CLASS[roadClassOf(facing)].height);
     }
     if(!access)continue;
+    // And a lot only grows on the grid: a plant has to reach it through roads and buildings.
+    if(!grid.has(gridKey(wrapX(p.x),p.y)))continue;
     // A zone grows when its own demand is positive and it can pay the upkeep of one more floor; residential also
     // needs somebody willing to live there, which is what its valve is measuring.
     const valve=valveOf(c.building);
@@ -353,7 +394,9 @@ export function stepSimulation(state:GameState):GameState {
     const stage=stageFor(c.building,c,land,aggregateNow.serviceLevel,valve,access);
     if(stage===(c.stage??0))continue;
     const current=next.chunks[id];next.chunks[id]={...current,edits:{...current.edits,[i]:{...c,stage}}};
-    energy+=(stage-(c.stage??0))*2;
+    // A lot that becomes occupied starts drawing its 2 units (summarize counts occupancy, not floors). Until rules 4
+    // this added the energy instead of spending it, so a growth step could never run the pool dry.
+    if((c.stage??0)===0&&stage>0)energy-=2;
     break; // One new building per region per growth step keeps the pace gentle.
    }
   }

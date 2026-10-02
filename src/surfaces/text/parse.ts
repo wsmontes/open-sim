@@ -27,7 +27,7 @@ export const HELP = [
  '  casa|comercio|industria|parque A [B]      constrói o retângulo de A até B',
  '  previa <ferramenta> A [B]                 mostra o custo sem construir; depois "confirmar" ou "cancelar"',
  '  ferramenta <nome>   ver x,y   fechar      escolher ferramenta, abrir e fechar o card de uma célula',
- '  vel 0|1|2   pausar   espera 10s|500ms|2m  velocidade e passagem do tempo',
+ '  vel 0|1|2|3   pausar   espera 10s|500ms|2m velocidade e passagem do tempo',
  '  imposto N   servicos N   emprestar         a prefeitura',
  '  prefeitura                                 as contas: imposto, serviços, receita, despesa, dívida, demanda, crise',
  '  ir <lugar>|ir lat,lon   mover dx,dy        viajar para um lugar, uma coordenada, ou empurrar a câmera em células',
@@ -114,7 +114,7 @@ export function parseCommand(line: string, origin: CellCoord): Parsed {
   case 'pausar': case 'pausa': return {intents: [{do: 'speed', speed: 0}]};
   case 'vel': case 'velocidade': {
    const speed = Number(args[0]);
-   return speed === 0 || speed === 1 || speed === 2 ? {intents: [{do: 'speed', speed}]} : {error: 'Velocidade é 0, 1 ou 2'};
+   return speed === 0 || speed === 1 || speed === 2 || speed === 3 ? {intents: [{do: 'speed', speed}]} : {error: 'Velocidade é 0, 1, 2 ou 3'};
   }
   case 'espera': case 'esperar': {
    const ms = args[0] ? duration(args[0]) : null;
