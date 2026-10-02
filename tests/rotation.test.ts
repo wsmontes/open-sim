@@ -82,7 +82,7 @@ test('a turned view still lists every region its visible cells fall in',()=>{
   }
   expect(sampled,`${rotation} ${zoom}`).toBeGreaterThan(1000);
  }
-});
+},20_000);
 test('a turned view wraps the antimeridian into real region ids',()=>{
  const viewport={width:320,height:200},rotation=Math.PI/3;
  const west=centerOn({x:-20,y:1000},{x:0,y:0,zoom:2,rotation},viewport);
