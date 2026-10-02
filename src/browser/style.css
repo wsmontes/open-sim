@@ -1,11 +1,11 @@
 :root{
- --panel:#f2e8d2;--edge:#3b3025;--ink:#2b2318;--accent:#4a77be;--pressed:#ffe293;
- --shadow:2px 3px 0 rgba(0,0,0,.45),0 6px 14px rgba(0,0,0,.28);
+ --panel:#f7f2e7;--edge:#596453;--ink:#27332a;--accent:#3d7561;--pressed:#dce9d5;
+ --shadow:0 8px 28px rgba(19,36,31,.22);
  --muted:#6d5f49;--hint:#4c5f74;
  /* A phone has corners and a notch, and the interface is the part that must not sit under them. */
  --safe-top:env(safe-area-inset-top,0px);--safe-right:env(safe-area-inset-right,0px);
  --safe-bottom:env(safe-area-inset-bottom,0px);--safe-left:env(safe-area-inset-left,0px);
- --gap:8px;--target:28px;--dock:64px;--rail:0px;--attribution:26px;
+ --gap:8px;--target:40px;--dock:64px;--rail:0px;--attribution:26px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -44,7 +44,7 @@ body{background:#16222f;color:var(--ink);font:13px/1.35 "Lucida Grande",Verdana,
 
 /* --- level three: the screens, opened one at a time --------------------------------------------------------- */
 #hud-sheets{position:absolute;inset:0;pointer-events:none}
-.panel{pointer-events:auto;background:var(--panel);border:2px solid var(--edge);border-radius:7px;box-shadow:var(--shadow);display:none}
+.panel{pointer-events:auto;background:var(--panel);border:1px solid var(--edge);border-radius:12px;box-shadow:var(--shadow);display:none}
 /* One attribute on the shell decides which screen is open, so the shell itself needs no bookkeeping per panel. */
 #hud[data-sheet="prefeitura"] #panel-economy,#hud[data-sheet="lugares"] #panel-places,
 #hud[data-sheet="historia"] #panel-history,#hud[data-sheet="planejamento"] #panel-composition,
@@ -185,3 +185,9 @@ textarea:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
 #hud.dock-rail #hud-tools{flex-direction:column;overflow-x:visible;overflow-y:auto;flex:0 1 auto}
 #hud.dock-rail #hud-actions{flex-direction:column;align-items:stretch}
 #hud.dock-rail #hud-view{right:calc(var(--gap) + var(--safe-right))}
+
+.offline-region{margin-top:12px;padding-top:12px;border-top:1px solid #d7ddcc}
+.offline-actions{display:flex;gap:8px;flex-wrap:wrap}
+#hud button:focus-visible,#hud input:focus-visible{outline:3px solid #80ac96;outline-offset:3px}
+#hud button{transition:background-color .12s ease}
+#hud button:disabled{opacity:.55;cursor:progress}

@@ -98,6 +98,13 @@
 <button type="submit">Ir</button>
 </form>
 <p id="place-error" role="alert" hidden></p>
+<div class="offline-region">
+<h3>Leve esta região com você</h3>
+<p class="panel-hint">Guarde uma área de 12 × 12 km ao redor da câmera, com visão geral e detalhe. Até 64 MB.</p>
+<div class="offline-actions"><button id="offline-prepare" type="button">Guardar região offline</button><button id="offline-stop" type="button" hidden>Pausar</button></div>
+<span id="tile-cache" class="panel-hint" role="status" title="Mapa guardado neste dispositivo"></span>
+<p id="offline-status" class="panel-hint" role="status" aria-live="polite"></p>
+</div>
 </div>
 </section>
 
@@ -152,7 +159,7 @@
 <!-- The map data's terms travel with the map, at every size and in every mode: the licence asks for it to be seen, and
      a panel the player can collapse is not a place to put it. -->
 <a id="hud-attribution" target="_blank" rel="noopener" href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>
-<span id="tile-cache" class="panel-hint" role="status" title="Mapa guardado neste dispositivo"></span>
+
 </section>
 </main>
 <script type="module" src="/src/browser/main.ts"></script>

@@ -281,3 +281,11 @@ test('a stale answer cannot overwrite a region asked for again',async()=>{
  await fresh;
  expect(s.getChunk('6:0')).toMatchObject({status:'ready'});
 });
+
+test('detail enrichment keeps the last good base during loading and failure',async()=>{
+ const {s,m}=await boot(createMemoryStore());
+ const first=s.loadVisible(['10:9'],'overview');await m.arrival('10:9');m.resolve('10:9');await first;
+ const overview=s.getChunk('10:9');const upgraded=s.loadVisible(['10:9'],'detail');
+ expect(s.getChunk('10:9')?.status).toBe('ready');expect((s.getChunk('10:9') as {base:BaseChunk}).base).toBe((overview as {base:BaseChunk}).base);
+ m.reject('10:9');await expect(upgraded).rejects.toThrow();expect(s.getChunk('10:9')?.status).toBe('ready');
+});

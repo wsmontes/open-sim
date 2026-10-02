@@ -164,3 +164,26 @@ Nostr (NIP-07/chave local, relay e sinalização com fallback manual) e Matrix (
 - TypeScript 7 (compilador nativo) não expõe a API JS clássica: `typescript` resolve para `lib/version.cjs` e `typescript/unstable/*` não traz um parser utilizável. Por isso `tests/architecture.test.ts` usa um tokenizador próprio para o grafo de importação e delega a decisão sobre DOM/Node ao próprio compilador.
 - `tsconfig.json` declara `"types": ["node"]` explicitamente (o TypeScript 7 não inclui `@types` automaticamente). `tsconfig.core.json` sobrescreve com `"types": []` e `lib: ["ES2022"]`, que é o que prova a ausência de DOM e Node no núcleo.
 - `vite.config.ts` serve em `127.0.0.1:5173` com alvo `es2022`; o canvas desenha em buffer de metade do tamanho CSS e é esticado sem suavização, o que dá o visual de baixa resolução.
+
+## Mobile navigation and progressive geography (2026-10-02)
+
+The viewpoint is a continuous world centre, zoom and ground bearing. `presentation/viewpoint.ts` converts it to a transient pixel camera. Saves preserve the centre across screen sizes; old saves without a centre reopen at their managed geography. Ground rotation precedes fixed isometric projection, while buildings rise vertically. Picking, culling and rendering use the same projection/inverse.
+
+`session/map-streaming.ts` owns demand priorities; `browser/map-controller.ts` connects the viewport to it. Existing terrain remains ready during detail upgrades, including failed upgrades. The provider still deduplicates raw vector tiles and reuses decoded/normalized data. Screen zoom does not imply a new source tile resolution.
+
+The Places sheet prepares a 12 × 12 km area centred on the camera, bounded to 64 MB, with provider-supported overview and detail tiles. Pause/continue rechecks persisted coverage. Cache quota failures never claim readiness. The production service worker caches the application shell; geography lives in IndexedDB. Coverage describes the declared region, not an unbounded municipality.
+
+### Terminal city client
+
+`npm run city -- saved-city.json [output-city.json]` reads one JSON request per line and emits one JSON response. Without an input save it starts from the default real-map location and requires map connectivity. Loading a save works offline. Node I/O stays in `tools/city.ts`; the importable facade is `session/city-agent.ts`.
+
+```json
+{"op":"inspect"}
+{"op":"inspect","cell":{"x":1,"y":1}}
+{"op":"quote","action":{"type":"build","tool":"road","cells":[{"x":1,"y":1}]}}
+{"op":"act","action":{"type":"policy","tax":8,"services":100}}
+{"op":"advance","ticks":12}
+{"op":"save"}
+```
+
+`load` accepts a validated save as its `save` field. Responses contain `ok`, revision/tick, and either `result` or a structured error. Advancement is bounded to 10,000 ticks per request. Quote/act share existing core rules; overview chunks cannot be adopted for construction. Save/load preserve browser viewpoint and unknown interoperable metadata.

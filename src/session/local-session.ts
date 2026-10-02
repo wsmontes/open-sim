@@ -24,6 +24,8 @@ export type LocalSession = {
  // dependencies. A rejected or repeated command changes nothing, so the record keeps describing the last real change.
  lastChange(): ChangeSet|null;
  save(view: ViewState): Promise<void>;
+ snapshot(view?:ViewState):SavedGame;
+ restore(save:unknown):void;
  getState(): GameState;
  getChunk(id: string): ChunkStatus|undefined;
  getSaveStatus(): SaveStatus;
@@ -83,7 +85,7 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
     const saved = decodeSave(stored);
     state = saved.state; restored = saved.view; saveStatus = {status:'idle',blocked:false};
     envelopeExtras = unknownFields(saved as unknown as Record<string,unknown>, ['version','state','view']);
-    viewExtras = unknownFields(saved.view as unknown as Record<string,unknown>, ['x','y','zoom','speed','place','rotation']);
+    viewExtras = unknownFields(saved.view as unknown as Record<string,unknown>, ['x','y','zoom','speed','place','rotation','center']);
     for (const [id,managed] of Object.entries(saved.state.chunks)) chunks.set(id,{status:'ready',base:managed.base,level:'detail'});
     notify(); return;
    } catch (error) {saveStatus = {status:'error',message:failure(error),blocked:true};}
@@ -102,10 +104,10 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
    for (const id of ids) {
     const known = chunks.get(id);
     // Already good enough: an overview region still upgrades when the caller asks for detail, never the other way.
-    if (known && known.status !== 'error' && (known.status === 'loading' || level === 'overview' || known.level === 'detail')) continue;
+    if (known && known.status !== 'error' && (known.status === 'loading' || (known.status === 'ready' && known.upgrading) || level === 'overview' || known.level === 'detail')) continue;
     const ticket = ++issued;
     tickets.set(id,ticket);
-    remember(id,{status:'loading',level});announcedLoading=true;
+    remember(id,known?.status==='ready'?{status:'ready',base:known.base,level:known.level,upgrading:level}:{status:'loading',level});announcedLoading=true;
     pending.push(maps.loadChunk(id,level).then(base=>{
      if (tickets.get(id) !== ticket) return;   // the region was dropped or asked for again: this answer is history
      tickets.delete(id);
@@ -113,7 +115,7 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
     }, error=>{
      if (tickets.get(id) !== ticket) return;
      tickets.delete(id);
-     remember(id,{status:'error',message:failure(error)}); notify();
+     remember(id,known?.status==='ready'?{status:'ready',base:known.base,level:known.level,upgradeError:failure(error)}:{status:'error',message:failure(error)}); notify();
      throw error;
     }));
    }
@@ -160,6 +162,19 @@ export function createSession(config: {maps:MapSource; saves:SaveStore; worldId:
     else queued = {data,waiters:[waiter]};
     flush();
    });
+  },
+  snapshot(view?:ViewState){
+   if(!state)throw new Error('Sessão não iniciada');
+   return {...envelopeExtras,version:SAVE_VERSION,state,view:{...viewExtras,...(view??restored??{x:0,y:0,zoom:1,speed:0,place:'Terminal',rotation:0})}} as SavedGame;
+  },
+  restore(value:unknown){
+   const saved=decodeSave(value);
+   if(saved.state.worldId!==worldId)throw new Error('Mundo diferente');
+   state=saved.state;restored=saved.view;change=null;chunks.clear();tickets.clear();
+   envelopeExtras=unknownFields(saved as unknown as Record<string,unknown>,['version','state','view']);
+   viewExtras=unknownFields(saved.view as unknown as Record<string,unknown>,['x','y','zoom','speed','place','rotation','center']);
+   for(const [id,managed] of Object.entries(state.chunks))chunks.set(id,{status:'ready',base:managed.base,level:'detail'});
+   notify();
   },
   getState(): GameState {if (!state) throw new Error('Sessão não iniciada');return state;},
   lastChange(): ChangeSet|null {return change;},

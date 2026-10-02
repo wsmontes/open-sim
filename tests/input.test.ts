@@ -342,3 +342,27 @@ test('a tap with nothing selected is only a question about the cell',()=>{
  expect(asked.order).toEqual(['tap']);
  expect(asked.commits).toHaveLength(0);
 });
+
+test('pointer cancellation never commits a build',()=>{
+ const h=harness('road');h.finger('pointerdown',1,160,100);h.finger('pointermove',1,180,110);
+ h.finger('pointercancel',1,180,110,window);expect(h.commits).toEqual([]);expect(h.previews.at(-1)).toEqual([]);h.detach();
+});
+test('lifting one pinch finger rebases the remaining drag',()=>{
+ const h=harness('explore');h.finger('pointerdown',1,120,100);h.finger('pointerdown',2,200,100);
+ h.finger('pointermove',2,240,100);h.finger('pointerup',2,240,100,window);
+ const before=h.camera;h.finger('pointermove',1,125,103);
+ expect(h.camera.x-before.x).toBeCloseTo(5,8);expect(h.camera.y-before.y).toBeCloseTo(3,8);
+ h.finger('pointerup',1,125,103,window);expect(h.taps).toEqual([]);h.detach();
+});
+test('resizing the buffer mid-pinch rebases gesture coordinates',()=>{
+ const h=harness('explore');h.finger('pointerdown',1,120,100);h.finger('pointerdown',2,200,100);
+ h.canvas.width=640;h.canvas.height=400;
+ h.finger('pointermove',2,400,200);
+ expect(h.camera.zoom).toBeCloseTo(1,8);
+ h.finger('pointercancel',2,400,200,window);h.detach();
+});
+test('a stationary pan pointer after resize does not replay its prior movement',()=>{
+ const h=harness('explore');h.finger('pointerdown',1,100,100);h.finger('pointermove',1,120,100);
+ const before=h.camera;h.canvas.width=640;h.canvas.height=400;h.finger('pointermove',1,240,200);
+ expect(h.camera).toEqual(before);h.finger('pointercancel',1,240,200,window);h.detach();
+});

@@ -1,3 +1,4 @@
+import {prepareRegion,type RegionRequest,type RegionCoverage} from './region-cache';
 import type {BaseChunk} from '../../core/model';
 import {WORLD,chunkOrigin} from '../../core/coordinates';
 import type {MapLevel,MapSource} from '../../session/ports';
@@ -18,7 +19,7 @@ export type OsmSourceMetadata={
  normalizer:{name:string;version:BaseChunk['normalizerVersion']};
  attribution:{text:string;url:string};
 };
-export type OsmSource=MapSource&{metadata:OsmSourceMetadata;decodeStats():MapDecodeStats;destroy():void};
+export type OsmSource=MapSource&{metadata:OsmSourceMetadata;decodeStats():MapDecodeStats;prepareRegion(request:RegionRequest,onProgress:(coverage:RegionCoverage)=>void,signal?:AbortSignal):Promise<RegionCoverage>;destroy():void};
 
 const DEFAULT_TILE_URL='https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt';
 const DATASET='OpenStreetMap · Shortbread v1';
@@ -38,7 +39,7 @@ export function createOsmSource(config:OsmConfig={}):OsmSource{
   try{return await job();}
   finally{const next=queue.shift();if(next)next();else active-=1;}
  }
- async function bytes(zoom:number,tileX:number,tileY:number):Promise<Uint8Array>{
+ async function bytes(zoom:number,tileX:number,tileY:number,persist=true):Promise<Uint8Array>{
   const key=`${zoom}:${tileX}:${tileY}`,inflight=pending.get(key);if(inflight)return inflight;
   const request=limited(async()=>{
    const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),config.timeoutMs??15000);
@@ -50,7 +51,7 @@ export function createOsmSource(config:OsmConfig={}):OsmSource{
     if(!response.ok)throw new Error(`Mapa indisponível (${response.status}). Tente novamente.`);
     const result=new Uint8Array(await response.arrayBuffer());
     // IndexedDB persistence is a copy for a later visit, never a prerequisite for this frame.
-    if(kept)void kept.put(key,result).catch(()=>{});
+    if(kept&&persist)void kept.put(key,result).catch(()=>{});
     return result;
    }finally{clearTimeout(timer);}
   });
@@ -61,6 +62,12 @@ export function createOsmSource(config:OsmConfig={}):OsmSource{
  return{
   attribution:{...ATTRIBUTION},
   metadata:{source:{id:'openstreetmap-shortbread-v1',dataset:DATASET,url:template},zooms:{detail:DETAIL_ZOOM,overview:overviewZoom},normalizer:{...NORMALIZER},attribution:{...ATTRIBUTION}},
+  prepareRegion:(request,onProgress,signal)=>prepareRegion(request,{
+   zooms:{overview:overviewZoom,detail:DETAIL_ZOOM},
+   read:key=>kept?kept.get(key):Promise.resolve(null),
+   fetch:tile=>bytes(tile.zoom,tile.x,tile.y,false),
+   write:async(key,value)=>{if(!kept)throw new Error('Armazenamento indisponível');await kept.put(key,value);},
+  },onProgress,signal),
   decodeStats:()=>decoder.stats(),
   destroy:()=>decoder.destroy?.(),
   async loadChunk(id,level:MapLevel='detail'){

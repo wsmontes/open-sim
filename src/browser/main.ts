@@ -1,3 +1,6 @@
+/// <reference types="vite/client" />
+import {attachOfflineRegion} from './offline-controller';
+import {viewpointOf} from '../presentation/viewpoint';
 import {createOsmSource} from '../adapters/osm/provider';
 import {createIndexedDbTileCache} from '../adapters/osm/tile-cache';
 import {createIndexedDbChunkCache} from '../adapters/osm/chunk-cache';
@@ -194,9 +197,15 @@ const placeLat = hudRoot.querySelector<HTMLInputElement>('#place-lat');
 const placeLon = hudRoot.querySelector<HTMLInputElement>('#place-lon');
 // The map service sends vector tiles once and the device keeps them: one tile covers 64 regions, so a revisit — this
 // session or the next one — costs no request at all.
-const tileCache = createIndexedDbTileCache(),
+const tileCache = createIndexedDbTileCache({maxBytes: 256 * 1024 * 1024}),
  chunkCache = createIndexedDbChunkCache();
 const maps = createOsmSource({cache: tileCache, chunks: chunkCache});
+// Saving a region for offline play is a browser act (a download with progress and a stop button); where it is centred
+// is the client's camera.
+attachOfflineRegion(hudRoot, maps, () => {
+ const view = client.view();
+ return viewpointOf(view.camera, view.viewport).center;
+});
 const session = createSession({maps, saves: createIndexedDbStore(), worldId: WORLD_ID, seed: SEED});
 const codec = createJcsCodec(),
  hasher = bytesHasher();
@@ -541,6 +550,12 @@ let motion = 0;
 // that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
 let cardCamera: {x: number; y: number; zoom: number} | null = null;
 const draw = (now: number, seconds: number) => {
+ // Nothing to draw until the city exists: a plain haze instead of a frame over a session that has not opened.
+ if (!client.view().state) {
+  ctx.fillStyle = '#7c8794';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  return {moving: false, ambient: false};
+ }
  perfMark('first-frame');
  // One frame of any camera glide happens inside the client; the browser only reads where it ended up.
  const moving = client.step(seconds);
@@ -737,3 +752,14 @@ async function start() {
  });
 }
 void start();
+
+// The installed game opens without a network: the service worker keeps the shell and the assets this page loaded.
+if(import.meta.env.PROD&&'serviceWorker' in navigator){
+ void navigator.serviceWorker.register(new URL('sw.js',document.baseURI).href).then(async registration=>{
+  await navigator.serviceWorker.ready;
+  const urls=[...document.querySelectorAll<HTMLScriptElement>('script[src]')].map(node=>node.src);
+  urls.push(...[...document.querySelectorAll<HTMLLinkElement>('link[href]')].map(node=>node.href));
+  urls.push(...performance.getEntriesByType('resource').map(entry=>entry.name));
+  (registration.active??navigator.serviceWorker.controller)?.postMessage({type:'cache-shell',urls});
+ }).catch(()=>{});
+}

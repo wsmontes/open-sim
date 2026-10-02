@@ -13,7 +13,7 @@ export interface SaveStore {
 }
 export type ChunkStatus =
  | { status: 'loading'; level: MapLevel }
- | { status: 'ready'; base: BaseChunk; level: MapLevel }
+ | { status: 'ready'; base: BaseChunk; level: MapLevel; upgrading?:MapLevel; upgradeError?:string }
  | { status: 'error'; message: string };
 // What a device reports about what it has already written (spec §6.3). The local session's own save status satisfies
 // `PersistenceReport`, so a live session reports the same words without the presentation layer importing the session

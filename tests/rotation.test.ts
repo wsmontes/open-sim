@@ -27,8 +27,8 @@ test('rotation zero projects and picks exactly like an unturned camera',()=>{
   }
  }
 });
-test('a turned camera orbits the world around its anchor, keeping the distance to it',()=>{
- const cell={x:120,y:-40},anchor={x:640,y:360},radius=(camera:Camera)=>{const p=project(cell,camera);return Math.hypot(p.x-camera.x,p.y-camera.y);};
+test('a turned camera orbits the world around its anchor, keeping ground distance and fixed inclination',()=>{
+ const cell={x:120,y:-40},anchor={x:640,y:360},radius=(camera:Camera)=>{const p=project(cell,camera);return Math.hypot(p.x-camera.x,2*(p.y-camera.y));};
  const straight=radius({...anchor,zoom:1,rotation:0});
  expect(straight).toBeGreaterThan(0);
  for(const rotation of ANGLES)expect(radius({...anchor,zoom:1,rotation})).toBeCloseTo(straight,6);

@@ -5,7 +5,9 @@
 // It reads no clock and touches no screen: time arrives through `TimePort`, and the only way out is `view()`.
 import type {Action,BaseChunk,Cell,CellCoord,CityStats,GameState,ViewState} from '../core/model';
 import {EMPTY_ECONOMY} from '../core/model';
-import {chunkId,cellIndex,chunkOrigin} from '../core/coordinates';
+import {CHUNK,WORLD,chunkId,cellIndex,chunkOrigin} from '../core/coordinates';
+import {createMapStreaming} from '../session/map-streaming';
+import {cameraFor,viewpointOf} from '../presentation/viewpoint';
 import {quoteAction} from '../core/quote';
 import {describeCell,summarize} from '../core/simulation';
 import type {CellReading} from '../core/simulation';
@@ -220,7 +222,8 @@ export function createCityClient(config: CityClientConfig): CityClient {
    ? {cells, cost: quote.cost, affordable: true, message: `Custo: ${quote.cost}`}
    : {cells, cost: quote.cost, affordable: false, message: `Bloqueado: ${quote.reason}`};
  };
- const viewState = (): ViewState => ({x: camera.x, y: camera.y, zoom: camera.zoom, speed, place, rotation: camera.rotation});
+ // The centre (a world point) is what survives a change of projection or screen; x/y stay for older readers.
+ const viewState = (): ViewState => ({x: camera.x, y: camera.y, zoom: camera.zoom, speed, place, rotation: camera.rotation, center: viewpointOf(camera, viewport).center});
  // The personal save never claims the work of a session: while a session owns the branch, its own durable
  // confirmation is what says the device has the version.
  const saveNow = () => { if (ready && router.mode() === 'local') void track(local.save(viewState())); };
@@ -331,9 +334,13 @@ export function createCityClient(config: CityClientConfig): CityClient {
    .then(receipt => { if ((receipt as {code?: string}).code === 'NOT_FOUND') pendingCensus ??= next; }, () => { pendingCensus ??= next; }));
  };
  const showFacts = (next: CityFacts | null, publish: boolean) => { cityFacts = next; if (publish && next) { pendingCensus = next; flushCensus(); } };
+ // Only the newest lookup may change the facts or publish a census: a slow answer about the previous city must not
+ // overwrite the one the player just went to.
+ let lookups = 0;
  const lookUp = (lat: number, lon: number, name?: string) => {
   if (!facts) return;
-  void track((name ? facts.named(name) : Promise.resolve(null)).then(live => live ?? facts.near(lat, lon)).then(found => { if (found) { showFacts(found, true); changed(); } }, () => undefined));
+  const ticket = (lookups += 1);
+  void track((name ? facts.named(name) : Promise.resolve(null)).then(live => live ?? facts.near(lat, lon)).then(found => { if (found && ticket === lookups) { showFacts(found, true); changed(); } }, () => undefined));
  };
  // The reminder that the game is a neighbourhood inside the real place: shown only once the census is in the world, so
  // the sentence never claims the simulation accounts for the real millions before the figure has been published.
@@ -345,52 +352,52 @@ export function createCityClient(config: CityClientConfig): CityClient {
   return `Sua cidade reúne ${simPopulation.toLocaleString('pt-BR')} moradores simulados; a cidade real tem ${cityFacts.population.toLocaleString('pt-BR')} — o que você constrói é um bairro dentro dela.`;
  };
 
- // Loading is rationed from the viewport centre outwards (spec: overview and detail budgets). The session is told what
- // is visible so a long exploration does not grow memory without bound; a failed batch waits for the player's retry.
+ // Loading streams from the viewport centre outwards (src/session/map-streaming.ts): every visible region as an
+ // overview first, the nearest ones in detail, a few at a time, and after the camera rests a small ring of neighbours
+ // is prepared too. The session is told what is visible so a long exploration does not grow memory without bound, and
+ // a region that failed waits for the player's retry instead of an endless automatic loop.
+ let streamFailed = false;
+ const stream = createMapStreaming({
+  concurrency: 4,
+  available: (id, level) => { const status = local.getChunk(id); return status?.status === 'ready' && (status.level === 'detail' || level === 'overview'); },
+  load: async (ids, level) => { await local.loadVisible(ids, level); refreshPreview(); changed(); },
+  onError: () => { streamFailed = true; loadMessage = mapFailureText(); router.setSourceError?.(loadMessage); changed(); },
+ });
+ let cancelNearby: () => void = () => {};
+ const NEARBY_DELAY_MS = 800, NEARBY_CENTRES = 12;
  const loadVisible = async (): Promise<void> => {
-  const visible = visibleChunks(camera, viewport), statusOf = (id: string) => local.getChunk(id);
+  const visible = visibleChunks(camera, viewport);
   local.retainVisible(visible);
   requested.clear();
   for (const id of visible) requested.add(id);
-  const unknown = visible.filter(id => { const status = statusOf(id); return !status || status.status === 'error'; });
-  const coarse = closestChunks(unknown, camera, viewport, OVERVIEW_REGION_BUDGET);
-  const detailCandidates = visible.filter(id => { const status = statusOf(id); return !status || status.status === 'error' || (status.status === 'ready' && status.level !== 'detail'); });
-  // Near the coarse threshold the first detail batch is small; the budget rises with the zoom as the player comes in.
-  const detailUseful = !isCoarse(camera) && visible.length <= 12;
-  const detailLimit = Math.max(16, Math.min(DETAIL_REGION_BUDGET, Math.round(DETAIL_REGION_BUDGET * camera.zoom)));
-  const detailed = detailUseful ? closestChunks(detailCandidates, camera, viewport, detailLimit) : [];
-  if (!coarse.length && !detailed.length) return;
-  for (const id of new Set([...coarse, ...detailed])) requested.add(id);
-  loadMessage = 'Carregando mapa…';
-  changed();
-  try {
-   if (coarse.length) await local.loadVisible(coarse, 'overview');
-   if (detailed.length) await local.loadVisible(detailed);
-   loadMessage = '';
-   router.setSourceError?.(null);
-  } catch {
-   loadMessage = mapFailureText();
-   router.setSourceError?.(loadMessage);
-   refreshPreview();
-   changed();
-   return; // a failed batch is retried by the player, not by an endless automatic loop
-  }
+  const demand = {
+   visible: closestChunks(visible, camera, viewport, OVERVIEW_REGION_BUDGET),
+   detail: isCoarse(camera) ? [] : closestChunks(visible, camera, viewport, DETAIL_REGION_BUDGET),
+   nearby: [] as string[],
+  };
+  const missing = demand.visible.some(id => { const status = local.getChunk(id); return !status || status.status !== 'ready'; });
+  if (missing && !streamFailed) { loadMessage = 'Carregando mapa…'; changed(); }
+  stream.updateDemand(demand);
+  // Preparing the neighbours yields to gestures: it only starts once the camera has rested for a moment.
+  cancelNearby();
+  cancelNearby = time.after(NEARBY_DELAY_MS, () => {
+   const nearby = new Set<string>();
+   for (const id of closestChunks(visible, camera, viewport, NEARBY_CENTRES)) {
+    const origin = chunkOrigin(id);
+    for (const dx of [-CHUNK, 0, CHUNK]) for (const dy of [-CHUNK, 0, CHUNK]) if (origin.y + dy >= 0 && origin.y + dy < WORLD) nearby.add(chunkId({x: origin.x + dx, y: origin.y + dy}));
+   }
+   stream.updateDemand({...demand, nearby: [...nearby]});
+  });
+  await stream.idle();
+  if (!streamFailed) { loadMessage = ''; router.setSourceError?.(null); }
   refreshPreview();
   changed();
-  // Filling detail beyond the first useful batch is opportunistic: it yields to input through the idle timer instead
-  // of starting another geometry pass every debounce while the player is moving around.
-  if (unknown.length > coarse.length || (detailUseful && detailCandidates.length > detailed.length)) scheduleEnrichment();
  };
+ const retryLoad = () => { streamFailed = false; loadMessage = ''; stream.retry(); return loadVisible(); };
  const scheduleLoad = debounce(time, LOAD_DEBOUNCE_MS, () => { void track(loadVisible()); });
  // A non-animating surface lands at once and expects the map to answer at once, so its idle() can wait for it; an
  // animating one coalesces the loads of a glide into one debounced pass instead of one per reported frame.
  const loadSoon = () => { if (animated) scheduleLoad(); else void track(loadVisible()); };
- let enrichmentPending = false;
- const scheduleEnrichment = () => {
-  if (enrichmentPending) return;
-  enrichmentPending = true;
-  time.after(600, () => { enrichmentPending = false; void track(loadVisible()); });
- };
 
  async function submit(action: Action, cells: readonly CellCoord[]): Promise<IntentResult> {
   const receipt = await router.submitAction(action);
@@ -455,7 +462,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
     lookUp(intent.lat, intent.lon);
     break;
    }
-   case 'retryMap': void track(loadVisible()); break;
+   case 'retryMap': void track(retryLoad()); break;
    case 'facts': { const geo = toGeo(centerCell()); lookUp(geo.lat, geo.lon); break; }
    // --- versions, history, comparison (stage C) and two futures (stage D) ----------------------------------------
    case 'openWorld': if (versions) await versions.open(); return {ok: !!versions, message: versions ? '' : 'Sem repositório de versões neste host'};
@@ -530,7 +537,10 @@ export function createCityClient(config: CityClientConfig): CityClient {
    await track(local.initialize(config.initialChunk));
    const restored = local.restoredView;
    if (restored) {
-    camera = {x: restored.x, y: restored.y, zoom: restored.zoom, rotation: restored.rotation ?? 0};
+    // A save from before the centre was recorded is put back over its first managed region: its x/y belong to an older
+    // projection and would land somewhere else.
+    const legacy = Object.keys(local.getState().chunks)[0] ?? config.initialChunk, origin = chunkOrigin(legacy);
+    camera = cameraFor({center: restored.center ?? {x: origin.x + CHUNK / 2, y: origin.y + CHUNK / 2}, zoom: restored.zoom, rotation: normalizeAngle(restored.rotation ?? 0)}, viewport);
     speed = restored.speed;
     place = restored.place;
    } else {
