@@ -1,7 +1,7 @@
-import type {CellCoord,CityStats,Demand,GameState,MonthlyLedger,RoadClass,Tool} from './model';
+import type {Cell,CellCoord,CityStats,Demand,GameState,ManagedChunk,MonthlyLedger,RoadClass,Tool} from './model';
 import {ROAD_CLASS,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN,roadClassOf} from './model';
 import {cellEconomy,effectiveCells,getCell,occupied} from './world';
-import {coordAt,wrapX} from './coordinates';
+import {CHUNK,coordAt,wrapX} from './coordinates';
 
 // --- the shape of the city's economy ---------------------------------------------------------------------------
 // Three demands the player can move, one tax rate, land value that follows what was built and where, a monthly
@@ -46,12 +46,34 @@ export function withPolicy(state:GameState,policy:Policy):GameState {
 // value, and a building that disappears takes its contribution with it. Peace and quiet pays, industry next door does
 // not, and distance from the middle costs — the shape of every bid-rent model and of Micropolis's terrain scan.
 const LAND_MIN=1,LAND_MAX=250;
-export function landValueAt(s:GameState,p:CellCoord):number {
+// A cell reader for one state that remembers the region it last resolved. The neighbourhood scans below read ~145
+// cells around each lot, and nearly all of them share the lot's region: building a `chunkId` string per neighbour was
+// most of their cost. The answer is exactly `getCell`'s — same region, same edit-over-base rule.
+type Reader=(x:number,y:number)=>Cell|undefined;
+function readerOf(s:GameState):Reader {
+ let lastX=Number.NaN,lastY=Number.NaN,chunk:ManagedChunk|undefined;
+ return (x,y)=>{
+  const wx=wrapX(x),rx=Math.floor(wx/CHUNK),ry=Math.floor(y/CHUNK);
+  if(rx!==lastX||ry!==lastY){lastX=rx;lastY=ry;chunk=s.chunks[`${rx}:${ry}`];}
+  if(!chunk)return undefined;
+  const i=(y%CHUNK)*CHUNK+(wx%CHUNK);
+  return chunk.edits[i]??chunk.base.cells[i];
+ };
+}
+// Everything a pass over the city needs that does not change during the pass. The centre and the aggregate used to be
+// recomputed per lot — the centre walks up to 4,096 buildings, so every land value made the whole city quadratic.
+type Context={read:Reader;centre:CellCoord;aggregate:Aggregate};
+function contextOf(s:GameState):Context {
+ const read=readerOf(s),centre=cityCentre(s);
+ return {read,centre,aggregate:aggregate(s,read,centre)};
+}
+export function landValueAt(s:GameState,p:CellCoord):number {return landValueWith(readerOf(s),cityCentre(s),p);}
+function landValueWith(read:Reader,centre:CellCoord,p:CellCoord):number {
  let parks=0,commerce=0,industry=0,avenues=0,highways=0;
  for(let dy=-8;dy<=8;dy++)for(let dx=-8;dx<=8;dx++){
   const reach=Math.abs(dx)+Math.abs(dy);
   if(reach>8)continue;
-  const c=getCell(s,{x:wrapX(p.x+dx),y:p.y+dy});
+  const c=read(p.x+dx,p.y+dy);
   if(!c)continue;
   if(c.building==='park')parks+=1;
   else if(c.building==='commercial'&&occupied(c))commerce+=1;
@@ -64,7 +86,6 @@ export function landValueAt(s:GameState,p:CellCoord):number {
    else if(kind==='highway'&&reach<=3)highways+=1;
   }
  }
- const centre=cityCentre(s);
  const distance=Math.abs(p.x-centre.x)+Math.abs(p.y-centre.y);
  const raw=40+Math.min(60,parks*6)+Math.min(30,commerce*2)-Math.min(70,industry*7)-Math.min(30,distance/256)+Math.min(18,avenues*6)-Math.min(36,highways*9);
  return clamp(whole(raw),LAND_MIN,LAND_MAX);
@@ -96,8 +117,8 @@ export function taxEffect(taxPercent:number):number {
  // the table's shape is Micropolis's `taxTable`, re-anchored so the default tax is the calm point.
  return taxPercent<=TAX_DEFAULT?(TAX_DEFAULT-taxPercent)*22:-(taxPercent-TAX_DEFAULT)*70;
 }
-type Aggregate={population:number;jobs:number;workers:number;housing:number;landValueAverage:number;serviceLevel:number;roadCells:number;parkCells:number;powerCells:number};
-function aggregate(s:GameState):Aggregate {
+export type Aggregate={population:number;jobs:number;workers:number;housing:number;landValueAverage:number;serviceLevel:number;roadCells:number;parkCells:number;powerCells:number};
+function aggregate(s:GameState,read:Reader=readerOf(s),centre:CellCoord=cityCentre(s)):Aggregate {
  let population=0,jobs=0,housing=0,landSum=0,landCount=0,roadCells=0,parkCells=0,powerCells=0;
  for(const id of Object.keys(s.chunks).sort()){
   const chunk=s.chunks[id]!;
@@ -107,7 +128,7 @@ function aggregate(s:GameState):Aggregate {
    if(cell.road)roadCells+=1;
    if(!occupied(cell))continue;
    const p=coordAt(id,i);
-   landSum+=landValueAt(s,p);landCount+=1;
+   landSum+=landValueWith(read,centre,p);landCount+=1;
    if(cell.building==='residential'){const residents=4*(cell.stage??0);population+=residents;housing+=4;continue;}
    if(cell.building==='commercial'){jobs+=6*(cell.stage??0);continue;}
    if(cell.building==='industrial'){jobs+=10*(cell.stage??0);continue;}
@@ -151,38 +172,37 @@ function nextValves(a:Aggregate,policy:Policy):Demand {
 // a formality. Good land — parks, shops, a short walk from the middle — pays several times what a plot next to
 // industry does, and that gap is the game.
 const TRANSFER_SHARE=0.2,CAPITAL_PER_CELL=0.4,PARK_UPKEEP=0.6,PER_CAPITA=18,TAX_PER_POINT=5;
-export function monthlyBudget(s:GameState,policy=policyOf(s)):MonthlyLedger {
- const a=aggregate(s);
+export function monthlyBudget(s:GameState,policy=policyOf(s),a:Aggregate=aggregate(s)):MonthlyLedger {
  const taxRevenue=(a.population*a.landValueAverage/120)*policy.tax*TAX_PER_POINT;
  const revenue=whole(taxRevenue*(1+TRANSFER_SHARE));
  const serviceCost=a.population*PER_CAPITA*(policy.services/100);
  const upkeep=a.roadCells*CAPITAL_PER_CELL+a.parkCells*PARK_UPKEEP;
- const debtService=whole(policy.debt*interestRateFor(s,policy.debt)/100/12);
+ const debtService=whole(policy.debt*interestRateFor(s,policy.debt,a)/100/12);
  const expense=whole(serviceCost+upkeep+debtService);
  return {revenue,expense,net:revenue-expense};
 }
 // The ladder every credit committee uses: the deeper the debt is relative to what the city collects, the more it
 // costs to borrow. The cap is a rate, not a refusal, so a desperate city can still borrow — at a price.
-export function interestRateFor(s:GameState,debt:number):number {
- const a=aggregate(s),revenue=Math.max(1,whole((a.population*a.landValueAverage/120)*policyOf(s).tax*TAX_PER_POINT*(1+TRANSFER_SHARE))*12);
+export function interestRateFor(s:GameState,debt:number,a:Aggregate=aggregate(s)):number {
+ const revenue=Math.max(1,whole((a.population*a.landValueAverage/120)*policyOf(s).tax*TAX_PER_POINT*(1+TRANSFER_SHARE))*12);
  const ratio=debt/Math.max(1,revenue);
  if(ratio<1)return 3.5;
  if(ratio<1.6)return 5.5;
  if(ratio<2.2)return 8;
  return 12;
 }
-export function ratingFor(s:GameState,debt:number):'A'|'B'|'C'|'D' {
- const rate=interestRateFor(s,debt);
+export function ratingFor(s:GameState,debt:number,a:Aggregate=aggregate(s)):'A'|'B'|'C'|'D' {
+ const rate=interestRateFor(s,debt,a);
  return rate<=3.5?'A':rate<=5.5?'B':rate<=8?'C':'D';
 }
 
 // --- what the screen shows -------------------------------------------------------------------------------------
-export function economyOf(s:GameState):CityStats['economy'] {
+export function economyOf(s:GameState):CityStats['economy'] {return economyWith(s,aggregate(s));}
+function economyWith(s:GameState,a:Aggregate):CityStats['economy'] {
  const policy=policyOf(s);
- const a=aggregate(s);
- const monthly=monthlyBudget(s,policy);
- const interestRate=interestRateFor(s,policy.debt);
- const rating=ratingFor(s,policy.debt);
+ const monthly=monthlyBudget(s,policy,a);
+ const interestRate=interestRateFor(s,policy.debt,a);
+ const rating=ratingFor(s,policy.debt,a);
  return {
   taxPercent:policy.tax,
   servicesPercent:policy.services,
@@ -234,17 +254,19 @@ export function describeCell(s:GameState,p:CellCoord):CellReading|null {
 }
 
 // --- the tick -------------------------------------------------------------------------------------------------
-export function happinessAt(s:GameState,p:CellCoord):number {
+export function happinessAt(s:GameState,p:CellCoord):number {return happinessWith(readerOf(s),p);}
+function happinessWith(read:Reader,p:CellCoord):number {
  let parks=0,industry=false;
  for(let dy=-8;dy<=8;dy++)for(let dx=-8;dx<=8;dx++){
   if(Math.abs(dx)+Math.abs(dy)>8)continue;
-  const c=getCell(s,{x:wrapX(p.x+dx),y:p.y+dy});
+  const c=read(p.x+dx,p.y+dy);
   if(c?.building==='park')parks++;if(c?.building==='industrial'&&occupied(c))industry=true;
  }
  return Math.min(100,Math.max(0,60+Math.min(20,parks*5)-(industry?10:0)));
 }
-export function summarize(s:GameState):CityStats {
- const stats:CityStats={money:s.money,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:60,income:0,managed:Object.keys(s.chunks).length,economy:economyOf(s)};
+export function summarize(s:GameState):CityStats {return summarizeWith(s,contextOf(s));}
+function summarizeWith(s:GameState,ctx:Context):CityStats {
+ const stats:CityStats={money:s.money,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:60,income:0,managed:Object.keys(s.chunks).length,economy:economyWith(s,ctx.aggregate)};
  let happy=0;
  for(const id of Object.keys(s.chunks).sort()){
   const ch=s.chunks[id];stats.energySupply+=ch.baseEnergy;stats.income+=ch.balanceAdjustment;
@@ -253,7 +275,7 @@ export function summarize(s:GameState):CityStats {
    if(c.building==='power')stats.energySupply+=64;
    if(!occupied(c))return;
    stats.energyUsed+=2;
-   if(c.building==='residential'){stats.population+=4;happy+=happinessAt(s,coordAt(id,i))*4;}
+   if(c.building==='residential'){stats.population+=4;happy+=happinessWith(ctx.read,coordAt(id,i))*4;}
    if(c.building==='commercial')stats.jobs+=6;
    if(c.building==='industrial')stats.jobs+=10;
   });
@@ -299,12 +321,13 @@ function stageFor(tool:Tool,cell:{stage?:number},land:number,serviceLevel:number
 }
 export function stepSimulation(state:GameState):GameState {
  const policy=policyOf(state);
- const aggregateNow=aggregate(state);
+ const ctx=contextOf(state);
+ const aggregateNow=ctx.aggregate;
  let next={...state,tick:state.tick+1,chunks:{...state.chunks}};
  // Growth every five ticks, one building per region, chosen the same way on every client: a city that grows in one
  // deterministic step at a time is a city two clients can agree on.
  if(next.tick%5===0){
-  const stats=summarize(state);let energy=stats.energySupply-stats.energyUsed;
+  const stats=summarizeWith(state,ctx);let energy=stats.energySupply-stats.energyUsed;
   const valveOf=(tool:Tool)=>tool==='residential'?policy.valves.residential:tool==='commercial'?policy.valves.commercial:tool==='industrial'?policy.valves.industrial:0;
   for(const id of Object.keys(state.chunks).sort()){
    const chunk=state.chunks[id];
@@ -316,7 +339,7 @@ export function stepSimulation(state:GameState):GameState {
     // and a highway frontage is somewhere nobody builds tall. No road at all means no access.
     let access=0;
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]] as const){
-     const facing=getCell(state,{x:wrapX(p.x+dx),y:p.y+dy});
+     const facing=ctx.read(p.x+dx,p.y+dy);
      if(facing?.road)access=Math.max(access,ROAD_CLASS[roadClassOf(facing)].height);
     }
     if(!access)continue;
@@ -324,8 +347,8 @@ export function stepSimulation(state:GameState):GameState {
     // needs somebody willing to live there, which is what its valve is measuring.
     const valve=valveOf(c.building);
     if(valve<=0&&(c.stage??0)>=1)continue;
-    if(c.building==='residential'&&(valve<=0||happinessAt(state,p)<40))continue;
-    const land=landValueAt(state,p);
+    if(c.building==='residential'&&(valve<=0||happinessWith(ctx.read,p)<40))continue;
+    const land=landValueWith(ctx.read,ctx.centre,p);
     if(land<45&&valve<20)continue;
     const stage=stageFor(c.building,c,land,aggregateNow.serviceLevel,valve,access);
     if(stage===(c.stage??0))continue;
@@ -340,7 +363,7 @@ export function stepSimulation(state:GameState):GameState {
  if(next.tick%30===0){
   const valves=nextValves(aggregateNow,policy);
   next=withPolicy(next,{...policy,valves,months:policy.months+1});
-  const monthly=monthlyBudget(next,{...policy,valves});
+  const monthly=monthlyBudget(next,{...policy,valves},aggregate(next));
   const after=next.money+monthly.net;
   next={...next,money:after>=0?whole(after):0};
  }
