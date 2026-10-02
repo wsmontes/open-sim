@@ -119,4 +119,5 @@ test('the core, the world contract and the portable client compile with no DOM a
  expect(run('tsconfig.presentation.json')).not.toThrow();
  expect(filesIn(join(root,'src/core')).length).toBeGreaterThan(5);
  expect(filesIn(join(root,'src/world')).length).toBeGreaterThanOrEqual(3);
-});
+// Four full compiler runs: ~2 s alone, but well past the default 5 s when the whole suite shares the machine.
+},60_000);
