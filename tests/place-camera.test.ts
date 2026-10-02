@@ -130,3 +130,14 @@ test('a non-animating client lands at the camera target immediately, with no gli
  expect(chunkId(view.center)).toBe(chunkId(toCell(PLACES['Vancouver']!.lat, PLACES['Vancouver']!.lon)));
  opened.client.stop();
 });
+
+test('snapping a geographic camera zoom preserves its requested world centre',async()=>{
+ const {centerOn,cellSpace}=await import('../src/presentation/camera');
+ const host=createPlayHost(),opened=await host.open();await opened.client.start();
+ const viewport=opened.client.view().viewport,target=toCell(49.2827,-123.1207);
+ const camera=centerOn(target,{x:0,y:0,zoom:.025,rotation:Math.PI/4},viewport);
+ await opened.client.do({do:'camera',camera});
+ const result=cellSpace({x:viewport.width/2,y:viewport.height/2},opened.client.view().camera);
+ expect(result.x).toBeCloseTo(target.x,6);expect(result.y).toBeCloseTo(target.y,6);
+ opened.client.stop();
+});

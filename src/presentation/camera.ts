@@ -18,12 +18,14 @@ export function zoomLadder(scale:number):readonly number[] {
  // The two ends of the zoom range are steps of the ladder whatever they measure: the whole-city view has to stay
  // reachable, and at a tile of one or two pixels there is no crispness left to protect.
  const steps:number[]=[MIN_ZOOM];
+ for(let step=MIN_ZOOM*2;step<2/perTile;step*=2)steps.push(step);
+ if(.05<2/perTile)steps.push(.05);
  for(let pixels=Math.max(2,Math.ceil(TILE_W*MIN_ZOOM*scale/2)*2);pixels<=TILE_W*MAX_ZOOM*scale;pixels+=2){
   const step=pixels/perTile;
   if(step>MIN_ZOOM&&step<MAX_ZOOM)steps.push(step);
  }
  steps.push(MAX_ZOOM);
- return steps;
+ return [...new Set(steps)].sort((a,b)=>a-b);
 }
 // The zoom a camera change lands on. Input that arrives in steps — a wheel notch, a button — is rounded to the ladder,
 // because landing on a crisp zoom costs the player nothing. A gesture keeps exactly what the fingers asked for:
@@ -79,7 +81,7 @@ export function approach(from:Camera,to:Camera,fraction:number):Camera {
 // screen pixels, a fraction of zoom, and radians.
 export function arrived(from:Camera,to:Camera):boolean {
  return Math.abs(to.x-from.x)<.5&&Math.abs(to.y-from.y)<.5
-  &&Math.abs(to.zoom-from.zoom)<Math.max(.0005,to.zoom*.002)
+  &&Math.abs(to.zoom-from.zoom)<Math.max(1e-9,to.zoom*.002)
   &&Math.abs(normalizeAngle(to.rotation-from.rotation))<.002;
 }
 export function normalizeAngle(radians:number):number {
@@ -107,6 +109,8 @@ export function centerOn(cell:CellCoord,camera:Camera,viewport:Viewport):Camera 
  return {x:p.x,y:p.y,zoom:camera.zoom,rotation:camera.rotation};
 }
 export function visibleChunks(camera:Camera,viewport:Viewport):string[] {
+ // Distant geography is drawn from vector tiles, never enumerated as simulation cells.
+ if(camera.zoom<.035)return [];
  const corners=[[0,0],[viewport.width,0],[0,viewport.height],[viewport.width,viewport.height]];
  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
  for(const [px,py] of corners){const c=cellSpace({x:px,y:py},camera);minX=Math.min(minX,c.x);maxX=Math.max(maxX,c.x);minY=Math.min(minY,c.y);maxY=Math.max(maxY,c.y);}

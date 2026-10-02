@@ -69,7 +69,7 @@ test('turning past half a turn comes back to the same view',()=>{
 });
 test('a turned view still lists every region its visible cells fall in',()=>{
  const viewport={width:480,height:320};
- for(const rotation of ANGLES)for(const zoom of [MIN_ZOOM,0.5,1,MAX_ZOOM]){
+ for(const rotation of ANGLES)for(const zoom of [.05,0.5,1,MAX_ZOOM]){
   const camera=centerOn({x:1000,y:1000},{x:0,y:0,zoom,rotation},viewport),ids=new Set(visibleChunks(camera,viewport));
   expect(ids.size,`${rotation} ${zoom}`).toBeGreaterThan(0);
   for(const id of ids)expect(()=>chunkOrigin(id),id).not.toThrow();

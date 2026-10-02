@@ -2,8 +2,9 @@ import {VectorTile} from '@mapbox/vector-tile';
 import {PbfReader} from 'pbf';
 import {CHUNK,WORLD} from '../../core/coordinates';
 import type {MapFeature} from './normalize';
+import type {GeographicTile} from '../../presentation/geographic-map';
 
-const LAYERS=new Set(['land','sites','ocean','water_polygons','water_lines','buildings','streets','street_polygons']);
+const LAYERS=new Set(['land','sites','ocean','water_polygons','water_lines','buildings','streets','street_polygons','place_labels','street_labels','boundaries']);
 const cellsPerTile=(zoom:number)=>WORLD/2**zoom;
 
 export type DecodedTile={byChunk:Map<string,MapFeature[]>};
@@ -29,20 +30,25 @@ function bucket(tileX:number,tileY:number,cellsPerSide:number,features:readonly 
  return byChunk;
 }
 
-export function decodeTile(bytes:Uint8Array,zoom:number,tileX:number,tileY:number):DecodedTile{
+export function decodeVisualTile(bytes:Uint8Array,zoom:number,tileX:number,tileY:number):GeographicTile{
  const decoded=new VectorTile(new PbfReader(bytes)),features:MapFeature[]=[];
  const side=cellsPerTile(zoom),originX=tileX*side,originY=tileY*side;
  for(const [name,layer] of Object.entries(decoded.layers)){
   if(!LAYERS.has(name))continue;
   for(let index=0;index<layer.length;index++){
    const raw=layer.feature(index);
-   if(raw.type!==2&&raw.type!==3)continue;
+   if(raw.type!==1&&raw.type!==2&&raw.type!==3)continue;
    if(name==='streets'&&(raw.properties.tunnel===true||raw.properties.rail===true))continue;
    features.push({
     layer:name,kind:String(raw.properties.kind??''),bridge:raw.properties.bridge===true,type:raw.type,
+    name:String(raw.properties.name??''),height:Number(raw.properties.height??0)||undefined,
     geometry:raw.loadGeometry().map(ring=>ring.map(point=>({x:originX+point.x/raw.extent*side,y:originY+point.y/raw.extent*side}))),
    });
   }
  }
- return{byChunk:bucket(tileX,tileY,side,features)};
+ return{z:zoom,x:tileX,y:tileY,features};
+}
+export function decodeTile(bytes:Uint8Array,zoom:number,tileX:number,tileY:number):DecodedTile{
+ const visual=decodeVisualTile(bytes,zoom,tileX,tileY);
+ return{byChunk:bucket(tileX,tileY,cellsPerTile(zoom),visual.features.filter(f=>f.type!==1&&!f.layer.endsWith('labels')&&f.layer!=='boundaries'))};
 }

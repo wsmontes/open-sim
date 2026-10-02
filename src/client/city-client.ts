@@ -15,7 +15,7 @@ import type {CellReading} from '../core/simulation';
 import type {LocalSession,SaveStatus} from '../session/local-session';
 import type {ChunkStatus} from '../session/ports';
 import type {Camera,Viewport} from '../presentation/camera';
-import {approach,arrived,nextZoomStep,centerOn,closestChunks,isCoarse,normalizeAngle,pick,rotateTo,settleZoom,visibleChunks,zoomTo,GLIDE_PER_SECOND,MIN_ZOOM} from '../presentation/camera';
+import {approach,arrived,nextZoomStep,centerOn,closestChunks,isCoarse,normalizeAngle,pick,rotateTo,settleZoom,visibleChunks,zoomTo,GLIDE_PER_SECOND} from '../presentation/camera';
 import {createTickClock} from '../presentation/clock';
 import type {ClockRole,Speed} from '../presentation/clock';
 import type {SelectedTool} from '../presentation/tools';
@@ -337,7 +337,8 @@ export function createCityClient(config: CityClientConfig): CityClient {
  // rounding it mid-gesture would slide the scene); a glide target lands on the crisp ladder.
  const moveCamera = (next: Camera, label?: string, quiet = false, settle = false) => {
   const land = settle && animated;
-  const target: Camera = {...next, zoom: land ? next.zoom : settleZoom(next.zoom, zoomScale(), true), rotation: normalizeAngle(next.rotation)};
+  const zoom=land?next.zoom:settleZoom(next.zoom,zoomScale(),true);
+  const target:Camera={...(zoom===next.zoom?next:zoomTo(next,viewport,zoom)),rotation:normalizeAngle(next.rotation)};
   if (label !== undefined) place = label;
   hover = null;
   if (animated && !settle) { glide = target; }
@@ -389,6 +390,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
  const NEARBY_DELAY_MS = 800, NEARBY_CENTRES = 12;
  const loadVisible = async (): Promise<void> => {
   const visible = visibleChunks(camera, viewport);
+  if(camera.zoom<.035){cancelNearby();requested.clear();local.retainVisible([]);stream.updateDemand({visible:[],detail:[],nearby:[]});loadMessage='';changed();return;}
   local.retainVisible(visible);
   requested.clear();
   for (const id of visible) requested.add(id);
@@ -467,7 +469,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
    case 'zoom': moveCamera(stepZoom(intent.direction)); break;
    case 'rotate': moveCamera(rotateTo(camera, viewport, intent.radians)); break;
    case 'north': moveCamera(rotateTo(camera, viewport, 0)); break;
-   case 'overview': moveCamera(zoomTo(camera, viewport, MIN_ZOOM)); break;
+   case 'overview': moveCamera(zoomTo(camera, viewport, .05)); break;
    case 'center': moveCamera(centerOn(intent.cell, camera, viewport), intent.place); break;
    case 'place': {
     const target = placeByName(intent.name);

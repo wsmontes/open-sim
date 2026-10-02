@@ -38,9 +38,9 @@ test('a zoom step always moves to the neighbouring crisp step, from the farthest
 });
 
 test('mouse wheel notches walk from the whole city to street level, one crisp step each, anchored on the pointer', () => {
- const view = mount({x: 160, y: 100, zoom: MIN_ZOOM, rotation: 0});
+ const view = mount({x: 160, y: 100, zoom: .05, rotation: 0});
  const under = pick({x: 160, y: 100}, view.camera());
- for (let i = 0; i < 8; i++) view.wheel({deltaY: -100});
+ for (let i = 0; i < 10; i++) view.wheel({deltaY: -100});
  expect(view.camera().zoom).toBeGreaterThanOrEqual(1);
  expect(view.moves.every(move => move.snap && zoomLadder(SCALE).includes(move.camera.zoom))).toBe(true);
  expect(pick({x: 160, y: 100}, view.camera())).toEqual(under);

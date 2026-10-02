@@ -39,7 +39,7 @@ test('decodeSave rejects every malformed snapshot',()=>{
   ['empty world id',x=>{x.state.worldId='';}],
   ['long world id',x=>{x.state.worldId='m'.repeat(81);}],
   ['zoom out of range',x=>{x.view.zoom=9;}],
-  ['tiny zoom',x=>{x.view.zoom=0.01;}],
+  ['tiny zoom',x=>{x.view.zoom=.0000001;}],
   ['unknown speed',x=>{x.view.speed=3;}],
   ['infinite camera',x=>{x.view.x=Infinity;}],
   ['rotation out of range',x=>{x.view.rotation=7;}],

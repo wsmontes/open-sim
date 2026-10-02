@@ -85,7 +85,7 @@ export type ViewState = { x: number; y: number; zoom: number; speed: 0 | 1 | 2; 
 export type SavedGame = { version: 1; state: GameState; view: ViewState };
 // Zoom limits of a saved view. They live in the core because the snapshot format validates them; the isometric
 // camera is presentation and only reuses these numbers.
-export const VIEW_ZOOM_MIN = .05, VIEW_ZOOM_MAX = 3;
+export const VIEW_ZOOM_MIN = .000003, VIEW_ZOOM_MAX = 3;
 // What the player's levers accept. They are checked when a command is applied and they are the bounds the screen
 // offers, so a slider can never propose a value the world would refuse.
 export const TAX_MIN = 0, TAX_MAX = 20, TAX_DEFAULT = 9;

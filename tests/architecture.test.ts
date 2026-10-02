@@ -53,7 +53,7 @@ const layerOf=(file:string)=>(['core','world','session','adapters','presentation
 const ALLOWED:Record<string,readonly string[]>={core:['core'],world:['core','world'],session:['core','world','session'],adapters:['core','world','session','adapters','profiles','client','presentation'],presentation:['core','world','session','presentation','profiles'],profiles:['core','world','profiles'],client:['core','world','session','profiles','presentation','client'],surfaces:['core','world','session','profiles','presentation','client','surfaces'],browser:['core','world','session','adapters','presentation','profiles','client','surfaces','browser'],other:['core','world','session','adapters','presentation','profiles','client','surfaces','browser']};
 // Only the pure layers are package-free by construction; an adapter is exactly the place where a platform API or an
 // SDK is allowed to live (the map decoders, and later the storage, crypto, network and social adapters).
-const ALLOWED_PACKAGES:Record<string,readonly string[]|null>={core:[],world:[],session:[],profiles:[],presentation:[],client:[],surfaces:[],browser:[],adapters:null,other:null};
+const ALLOWED_PACKAGES:Record<string,readonly string[]|null>={core:[],world:[],session:[],profiles:[],presentation:['polygon-clipping'],client:[],surfaces:['d3-geo'],browser:[],adapters:null,other:null};
 function resolved(from:string,specifier:string):string|'package'{
  if(!specifier.startsWith('.'))return 'package';
  const base=resolve(dirname(from),specifier);

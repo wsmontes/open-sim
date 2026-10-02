@@ -1,3 +1,6 @@
+import {renderGeographicWorld} from './geographic-renderer';
+import type {GeographicScene} from '../../presentation/geographic-map';
+import {GLOBE_ZOOM} from '../../presentation/geographic-map';
 import type {Building,Cell,CellCoord,GameState} from '../../core/model';
 import {CHUNK,WORLD,cellIndex,chunkId,variant,wrapX} from '../../core/coordinates';
 import {effectiveCells} from '../../core/world';
@@ -8,6 +11,8 @@ import type {SelectedTool} from '../../presentation/tools';
 import type {Camera,Viewport} from '../../presentation/camera';
 import {TILE_H,TILE_W,cellSpace,isCoarse} from '../../presentation/camera';
 export type WorldView = {
+ geography?:GeographicScene;
+ pixelRatio?:number;
  camera:Camera;
  viewport:Viewport;
  state:GameState;
@@ -225,6 +230,7 @@ const ensure=(n:number):void=>{
 // Street life is drawn from this tile size on; the host uses it to know when a moving clock changes the picture at all.
 export const drawsStreetLife=(camera:Camera):boolean=>!isCoarse(camera)&&TILE_W*camera.zoom>=24;
 export function render(ctx:CanvasRenderingContext2D,view:WorldView):void{
+ if(view.geography||view.camera.zoom<GLOBE_ZOOM){renderGeographicWorld(ctx,view);return;}
  const {camera,viewport}=view;ctx.imageSmoothingEnabled=false;ctx.lineJoin='round';ctx.fillStyle='#7c8794';ctx.fillRect(0,0,viewport.width,viewport.height);
  setMatrix(camera);resetLookup(view);
  // Include ground behind a tall building whose roof enters the viewport.

@@ -1,6 +1,6 @@
 import type {BaseChunk,Building,Cell,CellCoord} from '../../core/model';
 import {CHUNK,chunkOrigin,variant} from '../../core/coordinates';
-export type MapFeature={layer:string;kind:string;bridge:boolean;type:number;geometry:CellCoord[][]};
+export type MapFeature={layer:string;kind:string;bridge:boolean;type:number;geometry:CellCoord[][];name?:string;height?:number};
 // A ring is tested against one cell at a time; parity over every ring of a feature is even-odd, exactly like the
 // classic point-in-polygon test, so holes and separate parts keep working when rings are visited one by one.
 function ringHits(p:CellCoord,ring:CellCoord[]):boolean {

@@ -1,3 +1,5 @@
+import {decodeVisualTile} from './decode';
+import type {GeographicTile} from '../../presentation/geographic-map';
 import {prepareRegion,type RegionRequest,type RegionCoverage} from './region-cache';
 import type {BaseChunk} from '../../core/model';
 import {WORLD,chunkOrigin} from '../../core/coordinates';
@@ -19,7 +21,7 @@ export type OsmSourceMetadata={
  normalizer:{name:string;version:BaseChunk['normalizerVersion']};
  attribution:{text:string;url:string};
 };
-export type OsmSource=MapSource&{metadata:OsmSourceMetadata;decodeStats():MapDecodeStats;prepareRegion(request:RegionRequest,onProgress:(coverage:RegionCoverage)=>void,signal?:AbortSignal):Promise<RegionCoverage>;destroy():void};
+export type OsmSource=MapSource&{loadVisualTile(z:number,x:number,y:number):Promise<GeographicTile>;metadata:OsmSourceMetadata;decodeStats():MapDecodeStats;prepareRegion(request:RegionRequest,onProgress:(coverage:RegionCoverage)=>void,signal?:AbortSignal):Promise<RegionCoverage>;destroy():void};
 
 const DEFAULT_TILE_URL='https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt';
 const DATASET='OpenStreetMap · Shortbread v1';
@@ -62,6 +64,7 @@ export function createOsmSource(config:OsmConfig={}):OsmSource{
  return{
   attribution:{...ATTRIBUTION},
   metadata:{source:{id:'openstreetmap-shortbread-v1',dataset:DATASET,url:template},zooms:{detail:DETAIL_ZOOM,overview:overviewZoom},normalizer:{...NORMALIZER},attribution:{...ATTRIBUTION}},
+  loadVisualTile:async(z,x,y)=>decodeVisualTile(await bytes(z,x,y),z,x,y),
   prepareRegion:(request,onProgress,signal)=>prepareRegion(request,{
    zooms:{overview:overviewZoom,detail:DETAIL_ZOOM},
    read:key=>kept?kept.get(key):Promise.resolve(null),

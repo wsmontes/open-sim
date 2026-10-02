@@ -1,6 +1,8 @@
+import {GLOBE_ZOOM,dragGlobe,globeCoord,geographicFocus,planetRadius} from '../../presentation/geographic-map';
+import {toCell} from '../../core/coordinates';
 import type {CellCoord} from '../../core/model';
 import type {Camera,Point} from '../../presentation/camera';
-import {clampZoom,nextZoomStep,normalizeAngle,pick,rotateTo} from '../../presentation/camera';
+import {clampZoom,nextZoomStep,normalizeAngle,pick,rotateTo,zoomTo} from '../../presentation/camera';
 import type {SelectedTool} from './hud';
 export type InputCallbacks = {
  onHover(cell:CellCoord|null):void;
@@ -17,6 +19,7 @@ export type InputCallbacks = {
  onTool(tool:SelectedTool):void;
 };
 export type InputContext = {
+ geographic?:boolean;
  camera:()=>Camera;
  tool:()=>SelectedTool;
  // How a drag turns into cells. A street, a plant and a demolition are lines; a zone is a rectangle, which is what the
@@ -44,6 +47,13 @@ import type {StrokeShape,StrokeState} from '../../presentation/strokes';
 // The player is typing in a field: no key may reach the map (holding space in the latitude box used to arm panning).
 const isTyping=(target:EventTarget|null):boolean=>target instanceof HTMLElement&&(target.isContentEditable||target.tagName==='INPUT'||target.tagName==='TEXTAREA'||target.tagName==='SELECT');
 export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callbacks:InputCallbacks):()=>void {
+ const viewport=()=>({width:canvas.width,height:canvas.height});
+ const planetary=(camera:Camera)=>context.geographic&&camera.zoom<GLOBE_ZOOM;
+ const pickPoint=(point:Point,camera:Camera)=>{
+  if(!planetary(camera))return pick(point,camera);
+  const v=viewport(),geo=globeCoord({x:point.x-v.width/2,y:point.y-v.height/2},geographicFocus(camera,v),planetRadius(camera.zoom,v));
+  return geo?toCell(geo.lat,geo.lon):null;
+ };
  let stroke:StrokeState|null=null,pan:{point:Point;camera:Camera}|null=null,rotate:{point:Point;camera:Camera}|null=null,space=false;
  // Where the finger went down and whether it has wandered since. A finger that lands and lifts without moving is a
  // selection; one that travels is a drag, a stroke or a gesture, and none of those is a selection.
@@ -65,6 +75,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  // Zoom about the midpoint and carry the map with it: the world point between the fingers stays between them.
  const pinchTo=(camera:Camera,mid:Point,distance:number,origin:Point,from:number)=>{
   const zoom=clampZoom(camera.zoom*(distance/Math.max(1,from))),ratio=zoom/camera.zoom;
+  if(planetary(camera))return zoomTo(dragGlobe(camera,viewport(),origin,mid),viewport(),zoom);
   return {x:mid.x-(origin.x-camera.x)*ratio,y:mid.y-(origin.y-camera.y)*ratio,zoom,rotation:normalizeAngle(camera.rotation)};
  };
  const pointInBuffer=(event:{clientX:number;clientY:number}):Point=>{
@@ -124,7 +135,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
    return;
   }
   if(rotate)return callbacks.onCamera(rotateTo(rotate.camera,{width:canvas.width,height:canvas.height},rotate.camera.rotation+(point.x-rotate.point.x)*ROTATE_RATE));
-  if(pan)return callbacks.onCamera({x:pan.camera.x+point.x-pan.point.x,y:pan.camera.y+point.y-pan.point.y,zoom:clampZoom(pan.camera.zoom),rotation:normalizeAngle(pan.camera.rotation)});
+  if(pan)return callbacks.onCamera(planetary(pan.camera)?dragGlobe(pan.camera,viewport(),pan.point,point):{x:pan.camera.x+point.x-pan.point.x,y:pan.camera.y+point.y-pan.point.y,zoom:clampZoom(pan.camera.zoom),rotation:normalizeAngle(pan.camera.rotation)});
   const cell=pick(point,context.camera());
   callbacks.onHover(cell);
   if(!stroke)return;
@@ -152,7 +163,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
    stroke=null;
    callbacks.onCommit(cells);
   }
-  if(tapped&&at)callbacks.onTap(pick(at,context.camera()));
+  if(tapped&&at){const picked=pickPoint(at,context.camera());if(picked)callbacks.onTap(picked);}
  };
  const onPointerCancel=(event:PointerEvent)=>{
   fingers.clear();touch=null;pinch=null;pan=null;rotate=null;stroke=null;
@@ -168,7 +179,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   // and is continuous; a mouse notch is a large, line-sized step; a two-finger touchpad swipe is a stream of small
   // deltas in both axes and means "move the map", exactly like dragging it.
   const unit=event.deltaMode===1?16:event.deltaMode===2?canvas.height:1,dx=event.deltaX*unit,dy=event.deltaY*unit;
-  const anchored=(zoom:number)=>{const ratio=zoom/camera.zoom;return {x:point.x-(point.x-camera.x)*ratio,y:point.y-(point.y-camera.y)*ratio,zoom,rotation:normalizeAngle(camera.rotation)};};
+  const anchored=(zoom:number)=>{if(planetary(camera))return zoomTo(camera,viewport(),zoom);const ratio=zoom/camera.zoom;return {x:point.x-(point.x-camera.x)*ratio,y:point.y-(point.y-camera.y)*ratio,zoom,rotation:normalizeAngle(camera.rotation)};};
   if(event.ctrlKey){
    callbacks.onCamera(anchored(clampZoom(camera.zoom*Math.exp(-dy*PINCH_RATE))),{snap:false});
    return;
@@ -185,7 +196,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
    callbacks.onCamera(anchored(zoom),{snap:true});
    return;
   }
-  callbacks.onCamera({x:camera.x-dx*scaleX,y:camera.y-dy*scaleY,zoom:camera.zoom,rotation:normalizeAngle(camera.rotation)});
+  callbacks.onCamera(planetary(camera)?dragGlobe(camera,viewport(),point,{x:point.x-dx*scaleX,y:point.y-dy*scaleY}):{x:camera.x-dx*scaleX,y:camera.y-dy*scaleY,zoom:camera.zoom,rotation:normalizeAngle(camera.rotation)});
  };
  const onKeyDown=(event:KeyboardEvent)=>{
   if(isTyping(event.target))return;
@@ -205,7 +216,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   if(panDirection){
    const camera=context.camera(),step=PAN_STEP*(event.shiftKey?PAN_FAST:1);
    event.preventDefault();
-   return callbacks.onCamera({x:camera.x+panDirection.x*step,y:camera.y+panDirection.y*step,zoom:camera.zoom,rotation:normalizeAngle(camera.rotation)});
+   return callbacks.onCamera(planetary(camera)?dragGlobe(camera,viewport(),{x:0,y:0},{x:panDirection.x*step,y:panDirection.y*step}):{x:camera.x+panDirection.x*step,y:camera.y+panDirection.y*step,zoom:camera.zoom,rotation:normalizeAngle(camera.rotation)});
   }
   if(event.key!=='Escape')return;
   if(stroke){stroke=null;callbacks.onPreview([]);}

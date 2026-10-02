@@ -1,4 +1,6 @@
 /// <reference types="vite/client" />
+import {createGeographicStream} from './geographic-stream';
+import {geographicFocus,mapScale,GLOBE_ZOOM} from '../presentation/geographic-map';
 import {attachOfflineRegion} from './offline-controller';
 import {viewpointOf} from '../presentation/viewpoint';
 import {createOsmSource} from '../adapters/osm/provider';
@@ -25,7 +27,7 @@ import {emptyComposition} from '../presentation/world-composition-model';
 import {chunkId,toCell} from '../core/coordinates';
 import {quoteAction} from '../core/quote';
 import type {Camera} from '../presentation/camera';
-import {normalizeAngle,project,settleZoom} from '../presentation/camera';
+import {normalizeAngle,project,settleZoom,zoomTo,MIN_ZOOM,centerOn} from '../presentation/camera';
 import type {WorldView} from '../surfaces/canvas/canvas-renderer';
 import {drawsStreetLife,render} from '../surfaces/canvas/canvas-renderer';
 import {createFrameScheduler} from '../presentation/frame-scheduler';
@@ -71,7 +73,7 @@ const WORLD_ID = 'open-sim',
  SEED = 1,
  START = 'Vancouver';
 // The drawing buffer is half the CSS size (times the pixel ratio), which is the game's chunky look.
-const BUFFER_SCALE = 0.5;
+const BUFFER_SCALE = 1;
 // How far ahead a project preview simulates the city, in ticks.
 const _PREVIEW_FUTURE_TICKS = 60;
 const PERF_DEBUG = new URLSearchParams(location.search).has('debug'),
@@ -191,6 +193,8 @@ const renderFacts = (cityFacts: CityFacts | null, scale: string) => {
    rows,
    notes: [
     'Mapa, demografia e simulação são camadas diferentes: uma fonte real nunca vira automaticamente uma decisão do jogador.',
+    'Os contornos dos edifícios e ruas vêm do OpenStreetMap. Alturas e fachadas são ilustrativas quando a fonte não informa esses detalhes.',
+    'Continentes do globo: Natural Earth, domínio público.',
     'Quando há uma fonte estatística oficial compatível, ela substitui o valor enciclopédico; números de fontes diferentes não são misturados por média.',
    ],
    message: cityFacts ? '' : 'A fonte demográfica aparece quando o lugar sob a câmera é identificado.',
@@ -323,6 +327,7 @@ const hud = createHud(hudRoot, {
 // client.step, the canvas and the panels.
 let active = false;
 let invalidateFrame = () => {};
+const geography = 'loadVisualTile' in maps ? createGeographicStream((z,x,y)=>(maps as OsmSource).loadVisualTile(z,x,y),()=>invalidateFrame()) : null;
 // The view reads the live branch through `head`, so it is created once the game's own state exists: a session view
 // that ran before those declarations would read a name that is not initialized yet.
 const sessions = createGameSessionView({
@@ -440,7 +445,10 @@ const availableBases = (): BaseChunk[] => {
 };
 // The device cache is invisible unless it is told: how many tiles are kept and how many bytes they take. It is the
 // honest counterpart of the map loading — the player can see that a revisit is costing nothing.
+let lastCacheProbe=-Infinity;
 const showCacheStats = () => {
+ if(performance.now()-lastCacheProbe<1000)return;
+ lastCacheProbe=performance.now();
  if (!tileCacheInfo) return;
  if (!tileCache) return; // no device cache under the test seam: the fixture keeps no tiles.
  void tileCache
@@ -465,14 +473,26 @@ const updateHud = () => {
  // durable confirmation is what then speaks for the branch (the client's view already follows that rule).
  sessions.setPersistence(session.getSaveStatus());
  const view = client.view();
+ const focus=geographicFocus(view.camera,view.viewport),scale=mapScale(view.camera,view.viewport);
+ const nearby=Object.values(PLACES).find(p=>Math.hypot((p.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),p.lat-focus.lat)<.15);
+ const where=geography?(view.camera.zoom<GLOBE_ZOOM?'Terra':nearby?.name??`${focus.lat.toFixed(3)}°, ${focus.lon.toFixed(3)}°`):view.place;
+ const scaleLabel=hudRoot.querySelector<HTMLElement>('#map-scale-label'),scaleBar=hudRoot.querySelector<HTMLElement>('#map-scale-bar'),mapMode=hudRoot.querySelector<HTMLElement>('#map-mode');
+ if(scaleLabel)scaleLabel.textContent=scale.label;
+ if(scaleBar)scaleBar.style.width=`${Math.round(scale.pixels/deviceScale())}px`;
+ if(mapMode)mapMode.textContent=scale.mode;
+ const coordinates=hudRoot.querySelector<HTMLElement>('#map-coordinates');if(coordinates)coordinates.textContent=`${Math.abs(focus.lat).toFixed(3)}° ${focus.lat>=0?'N':'S'} · ${Math.abs(focus.lon).toFixed(3)}° ${focus.lon>=0?'L':'O'}`;
+ hudRoot.classList.toggle('world-view',view.camera.zoom<.035);
+ hudRoot.classList.toggle('planet-view',view.camera.zoom<GLOBE_ZOOM);
+ const visual=geography?.scene();
+ const mapMessage=geography?(visual?.error?'Parte do mapa não carregou. Tente novamente.':visual?.loading?'Carregando mapa…':''):view.map.message;
  if (costEl) costEl.textContent = view.preview.message;
  hud.update({
   stats: view.stats,
   tool: view.tool,
   speed: view.speed,
-  place: view.place,
-  attribution: view.map.attribution,
-  mapMessage: view.map.message,
+  place: where,
+  attribution: view.camera.zoom<GLOBE_ZOOM?{text:'Natural Earth · domínio público',url:'https://www.naturalearthdata.com/about/terms-of-use/'}:view.map.attribution,
+  mapMessage,
   notice: view.notice,
   saveStatus: view.save,
   canOverwriteSave: view.save.blocked,
@@ -511,8 +531,10 @@ function onSpeed(next: Speed) {
 }
 function onPlace(name: string) {
  tell({do: 'place', name});
+ if(geography){const target=PLACES[name],v=client.view();if(target)tell({do:'camera',camera:centerOn(toCell(target.lat,target.lon),{...v.camera,zoom:.35},v.viewport),place:name,settle:true});}
 }
 function onRetryMap() {
+ geography?.retry();
  if (active) {
   tell({do: 'retryMap'});
   return;
@@ -549,15 +571,17 @@ function onPolicy(policy: {tax?: number; services?: number; borrow?: number}): v
  tell({do: 'policy', ...policy});
 }
 function onOverview() {
- tell({do: 'overview'});
+ if(geography){const v=client.view();tell({do:'camera',camera:zoomTo(v.camera,v.viewport,.025),settle:true});}else tell({do: 'overview'});
 }
 function onZoomStep(direction: 1 | -1) {
  tell({do: 'zoom', direction});
 }
+hudRoot.querySelector('#hud-world')?.addEventListener('click',()=>{const v=client.view();tell({do:'camera',camera:zoomTo(v.camera,v.viewport,MIN_ZOOM),settle:true});});
+hudRoot.querySelector('#hud-city')?.addEventListener('click',()=>{const v=client.view();tell({do:'camera',camera:zoomTo(v.camera,v.viewport,.35),settle:true});});
 function onNorth() {
  tell({do: 'north'});
 }
-// The drawing buffer is half the CSS size (times the pixel ratio) and CSS stretches it back, keeping the chunky look.
+// Render at device resolution so footprint edges remain legible at intermediate zooms.
 const resize = () => {
  const scale = deviceScale();
  const width = Math.max(1, Math.round(canvas.clientWidth * scale)),
@@ -587,6 +611,7 @@ window.screen?.orientation?.addEventListener?.('change', applyLayout);
 let motion = 0;
 // The card the player opened describes one cell. The moment the city slides under it, it is answering about a place
 // that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
+let hudCameraStamp='';
 let cardCamera: {x: number; y: number; zoom: number} | null = null;
 const draw = (now: number, seconds: number) => {
  // Nothing to draw until the city exists: a plain haze instead of a frame over a session that has not opened.
@@ -600,12 +625,20 @@ const draw = (now: number, seconds: number) => {
  const moving = client.step(seconds);
  const hand = client.view();
  const camera = hand.camera;
+
  const {width, height} = hand.viewport;
+ geography?.update(camera,hand.viewport);
+ if(geography){
+  const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
+  if(stamp!==hudCameraStamp){hudCameraStamp=stamp;updateHud();}
+ }
  if (cardCamera && (cardCamera.x !== camera.x || cardCamera.y !== camera.y || cardCamera.zoom !== camera.zoom))
   inspector.show(null);
  cardCamera = {x: camera.x, y: camera.y, zoom: camera.zoom};
  if (hand.speed !== 0) motion += seconds * hand.speed;
  const view: WorldView = {
+  geography: geography?.scene(),
+  pixelRatio:deviceScale(),
   camera,
   viewport: {width, height},
   state: hand.state ?? session.getState(),
@@ -629,6 +662,7 @@ const draw = (now: number, seconds: number) => {
 let lastView: WorldView | null = null;
 const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  !!a &&
+ a.geography?.revision === b.geography?.revision &&
  a.camera.x === b.camera.x &&
  a.camera.y === b.camera.y &&
  a.camera.zoom === b.camera.zoom &&
@@ -642,7 +676,7 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  a.previewAffordable === b.previewAffordable &&
  a.hover?.x === b.hover?.x &&
  a.hover?.y === b.hover?.y &&
- (a.motion === b.motion || !drawsStreetLife(b.camera));
+ (a.motion === b.motion || (b.geography?b.camera.zoom<.2:!drawsStreetLife(b.camera)));
 const frames = createFrameScheduler({draw});
 invalidateFrame = frames.invalidate;
 if (PERF_DEBUG) {
@@ -671,6 +705,7 @@ async function start() {
   // The client opens the personal session and restores the player's hand: tool, speed, place, the saved camera and
   // the bundled facts; it also centres a fresh game on its starting region.
   await client.start();
+  if(geography&&!session.restoredView){const v=client.view();tell({do:'camera',camera:centerOn(START_CELL,{...v.camera,zoom:.35,rotation:Math.PI/4},v.viewport),settle:true});}
  } catch {
   updateHud();
   return;
@@ -698,13 +733,15 @@ async function start() {
  attachInput(
   canvas,
   {
+   geographic: !!geography,
    camera: () => client.view().camera,
    zoomScale: deviceScale,
-   tool: () => client.view().tool,
+   tool: () => client.view().camera.zoom<.035?'explore':client.view().tool,
    strokeShape: () => strokeShapeOf(client.view().tool),
   },
   {
    onHover(cell) {
+    if(client.view().camera.zoom<.035)cell=null;
     tell({do: 'hover', cell});
    },
    onPreview(cells) {
@@ -716,6 +753,7 @@ async function start() {
    onCamera: setCamera,
    onTool,
    onTap(cell) {
+    if(geography&&client.view().camera.zoom<.035){const v=client.view();tell({do:'camera',camera:centerOn(cell,{...v.camera,zoom:.35},v.viewport),settle:true});return;}
     // What the player touched, described by the core through the client so the card cannot disagree with the city.
     void client.do({do: 'inspect', cell}).then(() => {
      const view = client.view();
