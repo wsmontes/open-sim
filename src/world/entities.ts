@@ -17,6 +17,7 @@ import type {EventOp,OsimEnvelope,OsimTimeRef} from './osim';
 import {applyEvent,checkCoreComponent,entityUri,envelopeOf,osimTimeFrom} from './osim';
 import {sameJson} from './changes';
 import type {CaptureTimes,SourceMethod} from './reality';
+import {isRecord} from '../core/guards';
 
 // --- the portable geometry (spec §3.4) -------------------------------------------------------------------------
 // Longitude and latitude in degrees, named as such: altitude needs a vertical reference no capture here declares, and
@@ -107,11 +108,8 @@ const EARTH_SPACE = 'osim:space:earth';
 const INSTANT = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
 const URI = /^[a-z][a-z0-9+.-]*:/i, URI_CHARS = /^[^\s\u0000-\u001f]{1,200}$/;
 
-function record(value: unknown): value is Record<string, unknown> {
- return !!value && typeof value === 'object' && !Array.isArray(value);
-}
 const malformed = (message: string): WorldError => ({code:'MALFORMED',message});
-const isPosition = (value: unknown): value is GeoPosition => record(value)
+const isPosition = (value: unknown): value is GeoPosition => isRecord(value)
  && typeof value['lon'] === 'number' && Number.isFinite(value['lon']) && value['lon'] >= -180 && value['lon'] <= 180
  && typeof value['lat'] === 'number' && Number.isFinite(value['lat']) && value['lat'] >= -90 && value['lat'] <= 90;
 const isInstant = (value: unknown): boolean => typeof value === 'string' && INSTANT.test(value) && !Number.isNaN(Date.parse(value));
@@ -145,7 +143,7 @@ function mix(text: string): string {
 
 // --- reading what a source states -------------------------------------------------------------------------------
 function geometryProblem(geometry: unknown): WorldError | null {
- if (!record(geometry)) return malformed('A feição não declara geometria');
+ if (!isRecord(geometry)) return malformed('A feição não declara geometria');
  const type = geometry['type'], positions = geometry['positions'];
  if (typeof type !== 'string' || !KINDS.includes(type as GeoGeometry['type'])) return malformed(`Geometria de tipo desconhecido: ${String(type)}`);
  if (!Array.isArray(positions)) return malformed('Geometria sem posições');
@@ -157,12 +155,12 @@ function geometryProblem(geometry: unknown): WorldError | null {
  return null;
 }
 function timesProblem(times: unknown): WorldError | null {
- if (!record(times)) return malformed('A feição não declara quando foi conhecida');
+ if (!isRecord(times)) return malformed('A feição não declara quando foi conhecida');
  if (!isInstant(times['retrievedAt'])) return malformed('O momento de retirada não é um instante ISO-8601');
  for (const field of ['observedAt','publishedAt']) if (times[field] !== undefined && !isInstant(times[field])) return malformed(`O momento ${field} não é um instante ISO-8601`);
  const interval = times['interval'];
  if (interval === undefined) return null;
- if (!record(interval) || !isInstant(interval['from']) || !isInstant(interval['to'])) return malformed('O período representado não é um par de instantes');
+ if (!isRecord(interval) || !isInstant(interval['from']) || !isInstant(interval['to'])) return malformed('O período representado não é um par de instantes');
  if (Date.parse(interval['from'] as string) > Date.parse(interval['to'] as string)) return malformed('O período representado termina antes de começar');
  return null;
 }
@@ -185,7 +183,7 @@ function identitiesOf(entry: EntityEntry): string[] {
 }
 function geometryIn(components: Record<string, unknown>): GeoGeometry | null {
  const raw = components[ENTITY_GEOMETRY_KEY];
- if (!record(raw)) return null;
+ if (!isRecord(raw)) return null;
  const type = raw['type'], positions = raw['positions'];
  if (typeof type !== 'string' || !KINDS.includes(type as GeoGeometry['type'])) return null;
  if (!Array.isArray(positions) || !positions.every(isPosition)) return null;
@@ -200,7 +198,7 @@ function chunkReferences(components: Record<string, unknown>): string[] {
  if (!found.size) {
   // A declaration that carried only the named position still has a place in the engine's index.
   const transform = components['osim.transform'];
-  const position = record(transform) ? transform['position'] : undefined;
+  const position = isRecord(transform) ? transform['position'] : undefined;
   if (isPosition(position)) found.add(chunkId(toCell(position.lat,position.lon)));
  }
  return [...found].sort(byRegion);
@@ -223,7 +221,7 @@ type Observation = {
  indexes: readonly number[];
 };
 function observationOf(entity: SourceEntity,index: number): WorldResult<Observation> {
- if (!record(entity)) return failed('MALFORMED','Feição inválida');
+ if (!isRecord(entity)) return failed('MALFORMED','Feição inválida');
  const kind = entity.kind, source = entity.source;
  if (typeof kind !== 'string' || !kind.length || kind.length > 80) return failed('MALFORMED','A feição não declara o seu tipo');
  if (typeof source !== 'string' || !source.length || source.length > 200) return failed('MALFORMED','A feição não declara a sua fonte');
@@ -240,7 +238,7 @@ function observationOf(entity: SourceEntity,index: number): WorldResult<Observat
  const attributes = entity.attributes ?? {};
  const extensions = entity.extensions ?? {};
  for (const [values,label] of [[attributes,'Os atributos'],[extensions,'As extensões']] as const) {
-  if (!record(values)) return failed('MALFORMED',`${label} da feição precisam ser um objeto`);
+  if (!isRecord(values)) return failed('MALFORMED',`${label} da feição precisam ser um objeto`);
  }
  const replaces = entity.replaces ?? [];
  if (!replaces.every(entry => typeof entry === 'string' && entry.length > 0)) return failed('MALFORMED','A lista de identificadores substituídos é inválida');
@@ -364,17 +362,17 @@ export function entityIndexValue(index: EntityIndex): Record<string, JsonValue> 
  return table;
 }
 export function entityIndexFrom(value: unknown,actor: string,timeline: string): WorldResult<EntityIndex> {
- if (!record(value)) return failed('MALFORMED','Índice de entidades inválido');
+ if (!isRecord(value)) return failed('MALFORMED','Índice de entidades inválido');
  const entities: Record<string, EntityEntry> = {};
  for (const id of Object.keys(value)) {
   if (!isEntityId(id)) return failed('MALFORMED',`Identificador inválido no índice de entidades: ${id}`);
-  const entry = record(value[id]) ? value[id] as Record<string, unknown> : null;
-  const components = entry && record(entry['components']) ? entry['components'] as Record<string, unknown> : null;
+  const entry = isRecord(value[id]) ? value[id] as Record<string, unknown> : null;
+  const components = entry && isRecord(entry['components']) ? entry['components'] as Record<string, unknown> : null;
   if (!entry || typeof entry['kind'] !== 'string' || !components) return failed('MALFORMED',`Entrada inválida no índice de entidades: ${id}`);
   const claims: EntityClaim[] = [];
   for (const claim of Array.isArray(entry['claims']) ? entry['claims'] : []) {
-   if (!record(claim) || typeof claim['source'] !== 'string' || typeof claim['revision'] !== 'string' || !METHODS.includes(claim['method'] as SourceMethod)) return failed('MALFORMED',`Procedência inválida na entrada ${id}`);
-   const time = record(claim['time']) ? claim['time'] as Record<string, unknown> : null;
+   if (!isRecord(claim) || typeof claim['source'] !== 'string' || typeof claim['revision'] !== 'string' || !METHODS.includes(claim['method'] as SourceMethod)) return failed('MALFORMED',`Procedência inválida na entrada ${id}`);
+   const time = isRecord(claim['time']) ? claim['time'] as Record<string, unknown> : null;
    if (!time || !isIdentifier(time['timeline']) || !isInstant(time['time'])) return failed('MALFORMED',`Procedência sem instante na entrada ${id}`);
    const rebuilt: EntityClaim = {source:claim['source'],revision:claim['revision'],method:claim['method'] as SourceMethod,time:time as unknown as EntityClaim['time']};
    if (claim['sourceId'] !== undefined) {
@@ -382,7 +380,7 @@ export function entityIndexFrom(value: unknown,actor: string,timeline: string): 
     rebuilt.sourceId = claim['sourceId'];
    }
    if (claim['attributes'] !== undefined) {
-    if (!record(claim['attributes'])) return failed('MALFORMED',`Atributos inválidos na entrada ${id}`);
+    if (!isRecord(claim['attributes'])) return failed('MALFORMED',`Atributos inválidos na entrada ${id}`);
     rebuilt.attributes = claim['attributes'] as Record<string, JsonValue>;
    }
    claims.push(rebuilt);

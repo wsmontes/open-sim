@@ -30,7 +30,10 @@ const count=(text:string,char:string)=>text.split(char).length-1;
 type Dependency={file:string;specifier:string;line:number};
 const quoted=(token:Token)=>token.text.slice(1,-1);
 function dependencies(file:string):Dependency[]{
- const tokens=tokenize(readFileSync(file,'utf8')).filter(token=>token.kind!=='comment');
+ // Drop comments and whitespace-only code tokens: the tokenizer emits runs of spaces/newlines as their own `code`
+ // tokens, so without this the token just before a specifier string is a space, never `from`/`import`, and no import
+ // is ever detected (the layer check would silently pass on everything).
+ const tokens=tokenize(readFileSync(file,'utf8')).filter(token=>token.kind!=='comment'&&token.text.trim()!=='');
  const found:Dependency[]=[];
  for(let i=0;i<tokens.length;i++){
   if(tokens[i].kind!=='string')continue;
@@ -43,12 +46,14 @@ function dependencies(file:string):Dependency[]{
 function filesIn(dir:string):string[]{
  return readdirSync(dir).sort().flatMap(name=>{const path=join(dir,name);return statSync(path).isDirectory()?filesIn(path):path.endsWith('.ts')?[path]:[];});
 }
-const layerOf=(file:string)=>(['core','world','session','adapters','presentation','profiles','browser'] as const).find(name=>file.startsWith(join(root,'src',name)))??'other';
-// The portable world contract may only lean on the core; everything else may lean on it, never the other way.
-const ALLOWED:Record<string,readonly string[]>={core:['core'],world:['core','world'],session:['core','world','session'],adapters:['core','world','session','adapters','profiles'],presentation:['core','world','session','presentation','profiles'],profiles:['core','world','profiles'],browser:['core','world','session','adapters','presentation','profiles','browser'],other:['core','world','session','adapters','presentation','profiles','browser']};
+const layerOf=(file:string)=>(['core','world','session','adapters','presentation','profiles','client','surfaces','browser'] as const).find(name=>file.startsWith(join(root,'src',name)))??'other';
+// The portable world contract may only lean on the core; everything else may lean on it, never the other way. An
+// adapter implements ports, so it may reach the layer that declares them: the session/time adapters (stage E/F)
+// implement `TimePort`/`SessionPorts` from `client` and reuse the `session-view` link helpers from `presentation`.
+const ALLOWED:Record<string,readonly string[]>={core:['core'],world:['core','world'],session:['core','world','session'],adapters:['core','world','session','adapters','profiles','client','presentation'],presentation:['core','world','session','presentation','profiles'],profiles:['core','world','profiles'],client:['core','world','session','profiles','presentation','client'],surfaces:['core','world','session','profiles','presentation','client','surfaces'],browser:['core','world','session','adapters','presentation','profiles','client','surfaces','browser'],other:['core','world','session','adapters','presentation','profiles','client','surfaces','browser']};
 // Only the pure layers are package-free by construction; an adapter is exactly the place where a platform API or an
 // SDK is allowed to live (the map decoders, and later the storage, crypto, network and social adapters).
-const ALLOWED_PACKAGES:Record<string,readonly string[]|null>={core:[],world:[],session:[],profiles:[],presentation:[],browser:[],adapters:null,other:null};
+const ALLOWED_PACKAGES:Record<string,readonly string[]|null>={core:[],world:[],session:[],profiles:[],presentation:[],client:[],surfaces:[],browser:[],adapters:null,other:null};
 function resolved(from:string,specifier:string):string|'package'{
  if(!specifier.startsWith('.'))return 'package';
  const base=resolve(dirname(from),specifier);
@@ -102,11 +107,16 @@ test('the core never reads the clock or the global random generator',()=>{
  }
  expect(problems).toEqual([]);
 });
-test('the core and the world contract compile with no DOM and no Node types at all',()=>{
+test('the core, the world contract and the portable client compile with no DOM and no Node types at all',()=>{
  const tsc=join(root,'node_modules','typescript','bin','tsc');
  const run=(project:string)=>()=>execFileSync(process.execPath,[tsc,'-p',project],{cwd:root,encoding:'utf8',stdio:'pipe'});
  expect(run('tsconfig.core.json')).not.toThrow();
  expect(run('tsconfig.world.json')).not.toThrow();
+ // The portable client and the text surface are the game itself, so they answer to the same rule as the core.
+ expect(run('tsconfig.client.json')).not.toThrow();
+ // Stage F: the whole presentation layer is portable now — the DOM and canvas modules moved to src/surfaces/canvas,
+ // so presentation compiles with no DOM and no Node types, like the core.
+ expect(run('tsconfig.presentation.json')).not.toThrow();
  expect(filesIn(join(root,'src/core')).length).toBeGreaterThan(5);
  expect(filesIn(join(root,'src/world')).length).toBeGreaterThanOrEqual(3);
 });

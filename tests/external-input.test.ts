@@ -8,7 +8,7 @@ import {dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {OBSERVATION_FILE_FORMAT,readObservationFile} from '../src/adapters/reality/observation-file';
 import type {RecordedObservations} from '../src/adapters/reality/observation-file';
-import {createSourceInspector,describeExternalInput} from '../src/presentation/source-inspector';
+import {createSourceInspector,describeExternalInput} from '../src/surfaces/canvas/source-inspector';
 import {applyCommand,createGame} from '../src/core/commands';
 import type {GameState} from '../src/core/model';
 import {createKernel} from '../src/world/kernel';

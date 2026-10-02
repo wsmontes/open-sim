@@ -1,0 +1,29 @@
+{
+ "version": 1,
+ "title": "Construir uma rua, casas e uma usina, e ver a cidade crescer",
+ "steps": [
+  {"note": "A cidade de teste já tem uma rua importada na linha 0 e cinco casas na linha 1."},
+  {"expect": {"ready": true, "stats.money": 20000, "stats.population": 20, "tool": "explore", "tick": 0}},
+  {"say": "previa rua 2,3 10,3"},
+  {"expect": {"tool": "road", "preview.cost": 90, "preview.affordable": true, "preview.message": "Custo: 90"}},
+  {"remember": {"money": "stats.money", "cost": "preview.cost"}},
+  {"say": "confirmar"},
+  {"expect": {"result.ok": true, "stats.money": {"plus": ["$money", "-$cost"]}, "notice": "", "preview.cells.length": 0}},
+  {"say": "rua 2,3 2,8"},
+  {"note": "A célula 2,3 já é rua: o traço não cobra duas vezes pela mesma célula."},
+  {"expect": {"result.ok": true, "stats.money": 19860}},
+  {"say": "casa 3,4 6,5"},
+  {"expect": {"result.ok": true, "stats.money": 19540}},
+  {"say": "usina 9,4"},
+  {"expect": {"result.ok": true, "stats.money": 19040, "stats.energySupply": {"min": 64}}},
+  {"say": "ver 3,4"},
+  {"expect": {"card.title": "Moradia · lote vazio", "card.source": "Construído por você nesta partida"}},
+  {"say": "vel 2"},
+  {"say": "espera 60s"},
+  {"expect": {"tick": 120, "stats.population": {"min": 24}}},
+  {"say": "ver 3,4"},
+  {"expect": {"card.title": {"contains": "Moradia · "}, "card.residents": {"min": 4}}},
+  {"say": "ver 3,1"},
+  {"expect": {"card.title": "Moradia · 1 andar", "card.source": "Terreno e construção vieram do mapa (OpenStreetMap)"}}
+ ]
+}

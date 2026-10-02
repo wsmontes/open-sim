@@ -19,6 +19,12 @@ export const isRoadTool = (tool: Tool): tool is 'road' | 'avenue' | 'highway' =>
 // The tool is called `road` because that is the word the player's button has always used; the class it builds is a
 // street. Keeping the two names apart here is what lets the older name stay valid everywhere else.
 export const roadToolClass = (tool: 'road' | 'avenue' | 'highway'): RoadClass => tool === 'road' ? 'street' : tool;
+// The inverse: the tool that would have built what stands on a cell, or null for an empty one.
+export const toolOfCell = (cell: Cell | undefined): Tool | null => {
+ if (!cell?.road) return cell?.building ?? null;
+ const roadClass = roadClassOf(cell);
+ return roadClass === 'street' ? 'road' : roadClass;
+};
 export type BaseChunk = { id: string; source: string; normalizerVersion: 1; cells: Cell[] };
 export type ManagedChunk = { base: BaseChunk; edits: Record<string, Cell>; baseEnergy: number; balanceAdjustment: number };
 // Namespaced components: the city profile writes its own state directly, and other profiles (a life simulator, a

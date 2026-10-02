@@ -13,6 +13,7 @@ import {dematerialize,materialize,populationChanges,populationOf} from '../../wo
 import type {WorldBundle,WorldResult} from '../../world/model';
 import {failed,ok} from '../../world/model';
 import {EXPLORER_RULES,writableByExplorer} from './commands';
+import {isRecord} from '../../core/guards';
 
 export type ExplorerAction =
  | ({type:'materialize'} & MaterializeRequest)
@@ -32,14 +33,13 @@ export const EXPLORER_PENDING = 'x.explorer.pending';
 // The city rules this profile understands: it reads and writes worlds the city kernel owns, so it must declare what
 // the city means today. A world under other rules is one to look at, never to write (see the test for that).
 const CITY_RULES = {family:'city',version:RULES_VERSION};
-const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 // The place a version points at, read the way any other client reads it: the bundle carries values, and the one that
 // declares a city state is the one this profile may change. Exported because a caller that only wants to look at the
 // world asks the same question `runExplorer` does.
 export function explorerState(bundle: WorldBundle): GameState | null {
  for (const object of bundle.objects) {
-  if (!record(object.value) || object.value['kind'] !== 'city-state') continue;
-  const state = record(object.value['state']) ? object.value['state'] as Record<string, unknown> : null;
+  if (!isRecord(object.value) || object.value['kind'] !== 'city-state') continue;
+  const state = isRecord(object.value['state']) ? object.value['state'] as Record<string, unknown> : null;
   if (!state || state['worldId'] !== bundle.definition.worldId || typeof state['revision'] !== 'number') return null;
   return object.value['state'] as unknown as GameState;
  }
@@ -112,13 +112,13 @@ export function runExplorer(bundle: WorldBundle,actions: readonly ExplorerAction
 }
 export function explorerPending(bundle: WorldBundle): WorldResult<ExplorerPending> {
  const value = bundle.extensions[EXPLORER_PENDING];
- if (!record(value)) return failed('NOT_FOUND','Este pacote não traz o que o perfil explorador decidiu');
- const profile = record(value['profile']) ? value['profile'] as Record<string, unknown> : null;
- const components = record(value['components']) ? value['components'] : null;
+ if (!isRecord(value)) return failed('NOT_FOUND','Este pacote não traz o que o perfil explorador decidiu');
+ const profile = isRecord(value['profile']) ? value['profile'] as Record<string, unknown> : null;
+ const components = isRecord(value['components']) ? value['components'] : null;
  if (!profile || typeof profile['family'] !== 'string' || !Number.isSafeInteger(profile['version']) || !components) return failed('MALFORMED','O que o explorador decidiu está incompleto');
  const namespaces: Components = {};
  for (const key of Object.keys(components)) {
-  const namespace = record(components[key]) ? components[key] as Record<string, unknown> : null;
+  const namespace = isRecord(components[key]) ? components[key] as Record<string, unknown> : null;
   if (!namespace || !writableByExplorer(key)) return failed('MALFORMED',`O explorador decidiu escrever ${key}, que não é dele`);
   namespaces[key] = {...namespace};
  }

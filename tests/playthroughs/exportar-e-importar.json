@@ -1,0 +1,18 @@
+{
+ "version": 1,
+ "title": "exportar e importar",
+ "steps": [
+  {"say": "rua 2,3 4,3"},
+  {"expect": {"history.entries.0.generation": 2}},
+  {"note": "Exportar escreve o pacote da versão aberta num arquivo (aqui, em memória do roteiro)."},
+  {"say": "exportar cidade.json"},
+  {"note": "A partida avança: o ramo main fica numa cabeça diferente da que o pacote carrega."},
+  {"say": "casa 6,6"},
+  {"expect": {"history.entries.0.generation": 3}},
+  {"note": "Negativo: importar o pacote antigo cria em main, que já existe noutra cabeça — recusado como CONFLICT."},
+  {"say": "importar cidade.json"},
+  {"expect": {"history.message": {"contains": "nada foi alterado"}}},
+  {"note": "Nada mudou: o ramo e a geração continuam onde estavam."},
+  {"expect": {"history.branchId": "main", "history.entries.0.generation": 3}}
+ ]
+}

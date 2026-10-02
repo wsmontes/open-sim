@@ -13,6 +13,8 @@ import type {ContentHasher,WorldCodec} from '../../world/ports';
 import type {KernelFilter,KernelTransport} from '../../world/kernel';
 import {matrixClient,sendRoomEvent,txnIdFor,userIdOf,userIdOfPrincipal,verifyMatrixBinding} from './identity';
 import type {MatrixAccount,MatrixBinding,MatrixClient,MatrixFetch,MatrixHttpOptions,MatrixIdentity,MatrixRequest} from './identity';
+import {isPlainObject} from '../../core/guards';
+import {instantOf,stringOf,uriOf} from '../../world/readers';
 
 // Matrix rooms as the community a world travels through (task 11 of docs/superpowers/plans/2026-09-29-federated-world
 // .md; docs/OpenSim-Protocol-0.1.txt §30). A private room is the community: membership is an invitation, the
@@ -49,29 +51,13 @@ export const ENCRYPTED_EVENT_TYPE = 'm.room.encrypted';
 // an object of 60 KiB still travels and one of 64 KiB does not.
 export const MATRIX_EVENT_CEILING = 60 * 1024;
 const SESSION_PREFIX = 'osim:session:', INVITE_PREFIX = 'osim:capability:invite-', TIMELINE_PREFIX = 'osim:timeline:';
-const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, SCHEME = /^[a-z][a-z0-9+.-]*:/i, ROOM_ID = /^![^\s:]{1,200}:[^\s/]{1,200}$/;
+const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, ROOM_ID = /^![^\s:]{1,200}:[^\s/]{1,200}$/;
 const CAPABILITY: Record<string, ActionCapability> = {admin: 'admin', host: 'host', build: 'build', demolish: 'demolish', tick: 'tick', component: 'component'};
 const TRANSPORTS = ['matrix', 'nostr', 'webrtc', 'manual'] as const;
 // A room can be large and hostile; the refusals a caller can read are a bounded window, not a log.
 const REFUSAL_WINDOW = 64;
 const hasher = bytesHasher();
 
-function plain(value: unknown): value is Record<string, unknown> {
- return !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
-}
-function stringOf(value: unknown, label: string): WorldResult<string> {
- if (typeof value !== 'string' || !value.length || value.length > 200) return failed('MALFORMED', `${label} inválido`);
- return ok(value);
-}
-function uriOf(value: unknown, label: string): WorldResult<string> {
- const text = stringOf(value, label);
- if (!text.ok) return text;
- return SCHEME.test(value as string) ? text : failed('MALFORMED', `${label} sem esquema: ${text.value}`);
-}
-function instantOf(value: unknown, label: string): WorldResult<string> {
- if (typeof value !== 'string' || !INSTANT.test(value)) return failed('MALFORMED', `${label} fora do formato de instante`);
- return ok(value);
-}
 function samePrincipal(left: Principal, right: Principal): boolean {
  return left.scheme === right.scheme && left.id === right.id;
 }
@@ -86,7 +72,7 @@ function actionsOf(value: unknown): WorldResult<ActionCapability[]> {
  return ok(actions);
 }
 function headOf(value: unknown, worldId: string, branchId: string): WorldResult<Head> {
- if (!plain(value)) return failed('MALFORMED', 'Cabeça de mundo inválida');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Cabeça de mundo inválida');
  if (value['worldId'] !== worldId || value['branchId'] !== branchId) return failed('MALFORMED', 'Cabeça de outro mundo ou ramificação');
  const commit = value['commit'], generation = value['generation'];
  if (!isRef(commit)) return failed('MALFORMED', 'Cabeça sem referência de commit');
@@ -100,7 +86,7 @@ export type RoomEvent = {event_id: string; type: string; sender: string; room_id
 // event of `/messages` carries it. The caller knows which room it asked for, so that is the fallback; an event that
 // names another room keeps its own answer, which is what lets a misrouted read be recognised instead of believed.
 export function roomEventOf(value: unknown, roomId?: string): RoomEvent | null {
- if (!plain(value)) return null;
+ if (!isPlainObject(value)) return null;
  const {event_id, type, sender, room_id, origin_server_ts, content, state_key} = value;
  if (typeof event_id !== 'string' || typeof type !== 'string' || typeof sender !== 'string') return null;
  if (typeof room_id !== 'string' && roomId === undefined) return null;
@@ -113,7 +99,7 @@ async function stateOf(client: MatrixClient, account: MatrixAccount, roomId: str
  // A room that never declared this state has no state event: the homeserver's 404 is the answer "not set".
  if (!answer.ok) return answer.error.code === 'NOT_FOUND' ? ok(null) : failed(answer.error.code, answer.error.message);
  if (answer.value === null) return ok(null);
- return plain(answer.value) ? ok(answer.value as Record<string, JsonValue>) : failed('MALFORMED', `Estado ${type} inválido`);
+ return isPlainObject(answer.value) ? ok(answer.value as Record<string, JsonValue>) : failed('MALFORMED', `Estado ${type} inválido`);
 }
 // What a room is, as the homeserver reports it: the join rule, who can read the history, whether the room is
 // encrypted and what room roles exist. It is evidence a caller records in a `RoomBinding` and shows a person; it is
@@ -131,7 +117,7 @@ export async function roomStanding(account: MatrixAccount, roomId: string, optio
  const encryption = await stateOf(client, account, roomId, 'm.room.encryption');
  if (!encryption.ok) return encryption;
  const users: Record<string, number> = {};
- if (power.value && plain(power.value['users'])) {
+ if (power.value && isPlainObject(power.value['users'])) {
   for (const [userId, level] of Object.entries(power.value['users'])) if (typeof level === 'number') users[userId] = level;
  }
  const fallback = typeof power.value?.['users_default'] === 'number' ? power.value['users_default'] as number : 0;
@@ -146,14 +132,14 @@ export async function createRoom(account: MatrixAccount, input: {name?: string; 
   body: {...(input.name === undefined ? {} : {name: input.name}), ...(input.topic === undefined ? {} : {topic: input.topic}), preset: 'private_chat', invite: [...(input.invite ?? [])]},
  });
  if (!answer.ok) return answer;
- if (!plain(answer.value) || typeof answer.value['room_id'] !== 'string' || !ROOM_ID.test(answer.value['room_id'])) return failed('MALFORMED', 'Homeserver criou a sala sem devolver o identificador');
+ if (!isPlainObject(answer.value) || typeof answer.value['room_id'] !== 'string' || !ROOM_ID.test(answer.value['room_id'])) return failed('MALFORMED', 'Homeserver criou a sala sem devolver o identificador');
  return ok(answer.value['room_id']);
 }
 export async function joinRoom(account: MatrixAccount, roomId: string, options: MatrixHttpOptions = {}): Promise<WorldResult<string>> {
  if (!ROOM_ID.test(roomId)) return failed('MALFORMED', `Sala inválida: ${roomId}`);
  const answer = await matrixClient(account.homeserver, options)({method: 'POST', path: `/_matrix/client/v3/join/${encodeURIComponent(roomId)}`, body: {}, token: account.accessToken});
  if (!answer.ok) return answer;
- if (!plain(answer.value) || answer.value['room_id'] !== roomId) return failed('MALFORMED', 'Homeserver não confirmou a entrada na sala');
+ if (!isPlainObject(answer.value) || answer.value['room_id'] !== roomId) return failed('MALFORMED', 'Homeserver não confirmou a entrada na sala');
  return ok(roomId);
 }
 export async function inviteToRoom(account: MatrixAccount, roomId: string, userId: string, options: MatrixHttpOptions = {}): Promise<WorldResult<void>> {
@@ -293,7 +279,7 @@ export function createMatrixRooms(config: MatrixRoomsConfig): MatrixRooms {
   for (let page = 0; page < pages; page++) {
    const answer = await client({path: `${path}/messages`, query: {dir: 'b', limit: String(limit), ...(from === null ? {} : {from})}, token: account.accessToken});
    if (!answer.ok) return answer;
-   if (!plain(answer.value) || !Array.isArray(answer.value['chunk'])) return failed('MALFORMED', 'Resposta de mensagens sem bloco de eventos');
+   if (!isPlainObject(answer.value) || !Array.isArray(answer.value['chunk'])) return failed('MALFORMED', 'Resposta de mensagens sem bloco de eventos');
    const chunk: readonly JsonValue[] = answer.value['chunk'];
    for (const raw of chunk) {
     const event = roomEventOf(raw, room);
@@ -397,12 +383,12 @@ export function createMatrixRooms(config: MatrixRoomsConfig): MatrixRooms {
   };
   const answer = await client(request);
   if (!answer.ok) return answer;
-  if (!plain(answer.value) || typeof answer.value['next_batch'] !== 'string') return failed('MALFORMED', 'Resposta de sync sem cursor');
+  if (!isPlainObject(answer.value) || typeof answer.value['next_batch'] !== 'string') return failed('MALFORMED', 'Resposta de sync sem cursor');
   const next = answer.value['next_batch'];
-  const rooms = plain(answer.value['rooms']) ? answer.value['rooms'] as Record<string, unknown> : {};
-  const joined = plain(rooms['join']) ? rooms['join'] as Record<string, unknown> : {};
-  const joinedRoom = plain(joined[room]) ? joined[room] as Record<string, unknown> : {};
-  const timeline = plain(joinedRoom['timeline']) ? joinedRoom['timeline'] as Record<string, unknown> : {};
+  const rooms = isPlainObject(answer.value['rooms']) ? answer.value['rooms'] as Record<string, unknown> : {};
+  const joined = isPlainObject(rooms['join']) ? rooms['join'] as Record<string, unknown> : {};
+  const joinedRoom = isPlainObject(joined[room]) ? joined[room] as Record<string, unknown> : {};
+  const timeline = isPlainObject(joinedRoom['timeline']) ? joinedRoom['timeline'] as Record<string, unknown> : {};
   const events: RoomEvent[] = [];
   for (const raw of Array.isArray(timeline['events']) ? timeline['events'] : []) {
    const event = roomEventOf(raw, room);
@@ -525,7 +511,7 @@ function endpointsOf(value: unknown): WorldResult<MatrixEndpoint[]> {
  if (!Array.isArray(value) || !value.length) return failed('MALFORMED', 'Convite sem ponto de encontro');
  const endpoints: MatrixEndpoint[] = [];
  for (const entry of value) {
-  if (!plain(entry)) return failed('MALFORMED', 'Ponto de encontro inválido');
+  if (!isPlainObject(entry)) return failed('MALFORMED', 'Ponto de encontro inválido');
   const uri = stringOf(entry['uri'], 'Endereço do ponto de encontro');
   if (!uri.ok) return uri;
   const transport = entry['transport'];
@@ -535,10 +521,10 @@ function endpointsOf(value: unknown): WorldResult<MatrixEndpoint[]> {
  return ok(endpoints);
 }
 function policyOf(value: unknown): WorldResult<InvitePolicy> {
- if (!plain(value)) return failed('MALFORMED', 'Política de convite inválida');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Política de convite inválida');
  if (value['kind'] === 'open' || value['kind'] === 'approval') return ok({kind: value['kind']});
  if (value['kind'] !== 'recipient') return failed('MALFORMED', `Política de convite desconhecida: ${String(value['kind'])}`);
- if (!plain(value['subject'])) return failed('MALFORMED', 'Política de destinatário sem principal');
+ if (!isPlainObject(value['subject'])) return failed('MALFORMED', 'Política de destinatário sem principal');
  const scheme = stringOf(value['subject']['scheme'], 'Esquema do destinatário'), id = stringOf(value['subject']['id'], 'Identidade do destinatário');
  if (!scheme.ok) return scheme;
  if (!id.ok) return id;
@@ -550,7 +536,7 @@ export async function inviteFromEvent(event: RoomEvent, context: {roomId: string
  if (!ROOM_ID.test(context.roomId)) return failed('MALFORMED', `Sala inválida: ${context.roomId}`);
  if (event.room_id !== context.roomId) return failed('PERMISSION', `Evento da sala ${event.room_id} lido como convite da sala ${context.roomId}`);
  const content = event.content;
- if (!plain(content)) return failed('MALFORMED', 'Convite sem corpo');
+ if (!isPlainObject(content)) return failed('MALFORMED', 'Convite sem corpo');
  if (content['type'] !== 'capability' || content['version'] !== 1) return failed('MALFORMED', `Convite de tipo ou versão desconhecida: ${String(content['type'])}/${String(content['version'])}`);
  const {id: declared, ...rest} = content;
  const id = await inviteIdOf(rest as JsonValue, context.codec);
@@ -566,7 +552,7 @@ export async function inviteFromEvent(event: RoomEvent, context: {roomId: string
  if (!notAfter.ok) return notAfter;
  if (notAfter.value <= notBefore.value) return failed('MALFORMED', 'Convite com validade vazia');
  const session = content['session'];
- if (!plain(session)) return failed('MALFORMED', 'Convite sem descritor de sessão');
+ if (!isPlainObject(session)) return failed('MALFORMED', 'Convite sem descritor de sessão');
  if (session['type'] !== 'session' || session['mode'] !== 'realtime') return failed('MALFORMED', 'Descritor de sessão de outro tipo ou modo');
  const sessionId = stringOf(session['id'], 'Sessão'), timeline = stringOf(session['timeline'], 'Linha do tempo'), host = uriOf(session['host'], 'Anfitrião'), startedAt = instantOf(session['startedAt'], 'Início da sessão');
  if (!sessionId.ok) return sessionId;
@@ -576,7 +562,7 @@ export async function inviteFromEvent(event: RoomEvent, context: {roomId: string
  if (!sessionId.value.startsWith(SESSION_PREFIX) || !timeline.value.startsWith(TIMELINE_PREFIX)) return failed('MALFORMED', 'Sessão ou linha do tempo fora do vocabulário do protocolo');
  if (host.value !== issuer.value) return failed('MALFORMED', 'Anfitrião diferente do emissor do convite');
  const world = session['world'];
- if (!plain(world)) return failed('MALFORMED', 'Descritor sem mundo');
+ if (!isPlainObject(world)) return failed('MALFORMED', 'Descritor sem mundo');
  const worldId = stringOf(world['worldId'], 'Mundo'), branchId = stringOf(world['branchId'], 'Ramificação'), epoch = world['epoch'];
  if (!worldId.ok) return worldId;
  if (!branchId.ok) return branchId;

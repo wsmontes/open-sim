@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import {readFileSync} from 'node:fs';
 import {beforeEach,expect,test} from 'vitest';
-import {createInspector} from '../src/presentation/inspector';
+import {createInspector} from '../src/surfaces/canvas/inspector';
 import type {CellReading} from '../src/core/simulation';
 
 // What the player gets when they touch the city. The card is read at a glance, so what it must not do matters as much

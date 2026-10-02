@@ -20,7 +20,7 @@ import type {Composition,LayerContract,LayerEffect,ResolvedObjects,ScenarioInput
 import {createKernel} from '../src/world/kernel';
 import type {JsonValue,ObjectRef,WorldError,WorldResult} from '../src/world/model';
 import {checkCoreComponent} from '../src/world/osim';
-import {describeScenarios} from '../src/presentation/world-composition';
+import {describeScenarios} from '../src/presentation/world-composition-model';
 import {command} from './fixtures/world';
 import fixtureA from './fixtures/federated-world/base-a.json';
 

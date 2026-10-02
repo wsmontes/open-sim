@@ -1,0 +1,17 @@
+{
+ "version": 1,
+ "title": "Reabrir devolve a mesma câmera e o mesmo lugar; construir sem ferramenta é recusado",
+ "steps": [
+  {"say": "ir São Paulo"},
+  {"say": "zoom -"},
+  {"say": "mover 3,2"},
+  {"expect": {"place": "São Paulo"}},
+  {"remember": {"cx": "camera.x", "cy": "camera.y", "zoom": "camera.zoom", "centerx": "center.x", "centery": "center.y"}},
+  {"note": "Confirmar sem uma ferramenta na mão não constrói nada e diz por quê."},
+  {"say": "explorar"},
+  {"say": "confirmar"},
+  {"expect": {"result.ok": false, "result.message": {"contains": "Escolha uma ferramenta"}}},
+  {"reopen": true},
+  {"expect": {"ready": true, "place": "São Paulo", "camera.x": {"is": "$cx"}, "camera.y": {"is": "$cy"}, "camera.zoom": {"is": "$zoom"}, "center.x": {"is": "$centerx"}, "center.y": {"is": "$centery"}}}
+ ]
+}

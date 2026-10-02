@@ -56,7 +56,6 @@ const unspin=(camera:Camera,dx:number,dy:number):Point=>{
  const c=Math.cos(camera.rotation),s=Math.sin(camera.rotation);
  return {x:c*dx+s*dy,y:c*dy-s*dx};
 };
-// A turned view is the same view, so angles are folded back into (-PI, PI] instead of growing without bound.
 // How fast a camera move closes the distance to where it is going, per second. High enough to feel immediate, low
 // enough that the eye can follow the city sliding into place.
 export const GLIDE_PER_SECOND = 9;
@@ -80,6 +79,7 @@ export function arrived(from:Camera,to:Camera):boolean {
   &&Math.abs(to.zoom-from.zoom)<Math.max(.0005,to.zoom*.002)
   &&Math.abs(normalizeAngle(to.rotation-from.rotation))<.002;
 }
+// A turned view is the same view, so angles are folded back into (-PI, PI] instead of growing without bound.
 export function normalizeAngle(radians:number):number {
  const wrapped=((radians+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
  return wrapped===-Math.PI?Math.PI:wrapped;

@@ -10,6 +10,7 @@ import {assertJsonSafe,isComponentKey,isEntityId} from '../core/protocol';
 import type {JsonValue,WorldResult} from './model';
 import {failed,ok} from './model';
 import type {CaptureTimes} from './reality';
+import {isPlainObject} from '../core/guards';
 
 export const OSIM_VERSION = '0.1';
 // The kinds of the core (§3). `component` is listed because a component may be published on its own, not only inside
@@ -47,13 +48,6 @@ const INSTANT = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|
 // A URI carries a scheme (§4). `osim:entity:house-42` is ours; `did:key:…`, `https://…`, `sha256:…` belong to another
 // ecosystem and are carried as they are, never rewritten into ours.
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i, URI_CHARS = /^[^\s\u0000-\u001f]{1,200}$/;
-const PLAIN = Object.prototype; // used through isPlain below; kept named so the intent is not a bare comparison
-
-function isPlain(value: unknown): value is Record<string, unknown> {
- if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
- const proto: unknown = Object.getPrototypeOf(value);
- return proto === PLAIN || proto === null;
-}
 function json(value: unknown, label: string): WorldResult<JsonValue> {
  try {
   assertJsonSafe(value, label);
@@ -156,7 +150,7 @@ export function envelopeOf(kind: OsimKind, id: string, actor: string, body: Json
  return checked.value;
 }
 export function checkEnvelope(value: unknown): WorldResult<OsimEnvelope> {
- if (!isPlain(value)) return failed('MALFORMED', 'Envelope inválido');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Envelope inválido');
  const known = ['osim','type','id','actor','body'];
  const unknown = Object.keys(value).filter(key => !known.includes(key));
  if (unknown.length) return failed('MALFORMED', `Envelope com campo desconhecido: ${unknown[0]}`);
@@ -175,7 +169,7 @@ export function checkEnvelope(value: unknown): WorldResult<OsimEnvelope> {
 // --- events (§14, §15, §16) -------------------------------------------------------------------------------------
 // Applying an event is pure: the caller keeps the components it had, and a rejected event changes nothing.
 export function applyEvent(components: Components, event: unknown): WorldResult<EventOutcome> {
- if (!isPlain(event)) return failed('MALFORMED', 'Evento inválido');
+ if (!isPlainObject(event)) return failed('MALFORMED', 'Evento inválido');
  if (event['type'] !== 'event') return failed('MALFORMED', 'Objeto não é um evento');
  const eventId = identifier(event['id'], 'Identificador de evento');
  if (!eventId.ok) return eventId;
@@ -223,8 +217,8 @@ export function applyEvent(components: Components, event: unknown): WorldResult<
  // something: fields this client never wrote stay exactly where they were (§15).
  const target = json(namespace[entity] ?? {}, `Componente ${key}/${entity}`);
  if (!target.ok) return target;
- if (!isPlain(value.value)) return failed('MALFORMED', 'Merge precisa de um componente estruturado');
- if (!isPlain(target.value)) return failed('MALFORMED', `Componente ${key}/${entity} não é estruturado`);
+ if (!isPlainObject(value.value)) return failed('MALFORMED', 'Merge precisa de um componente estruturado');
+ if (!isPlainObject(target.value)) return failed('MALFORMED', `Componente ${key}/${entity} não é estruturado`);
  namespace[entity] = {...target.value, ...value.value};
  next[key] = namespace;
  return ok({components: next});
@@ -237,13 +231,13 @@ export function checkCoreComponent(key: string, value: unknown): WorldResult<Rec
  if (typeof key !== 'string' || !isComponentKey(key)) return failed('MALFORMED', `Namespace inválido: ${String(key)}`);
  const safe = json(value, `Componente ${key}`);
  if (!safe.ok) return safe;
- if (!isPlain(value)) return failed('MALFORMED', `Componente ${key} precisa ser um objeto`);
+ if (!isPlainObject(value)) return failed('MALFORMED', `Componente ${key} precisa ser um objeto`);
  if (!key.startsWith('osim.')) return ok({...value});
  switch (key) {
   case 'osim.transform': {
    const space = value['space'], position = value['position'];
    if (typeof space !== 'string' || !URI_CHARS.test(space) || !SCHEME.test(space)) return failed('MALFORMED', 'osim.transform precisa de um espaço nomeado');
-   if (!isPlain(position)) return failed('MALFORMED', 'osim.transform precisa de uma posição');
+   if (!isPlainObject(position)) return failed('MALFORMED', 'osim.transform precisa de uma posição');
    const lat = position['lat'], lon = position['lon'], alt = position['alt'];
    if (typeof lat !== 'number' || !Number.isFinite(lat) || lat < -90 || lat > 90) return failed('MALFORMED', 'Latitude inválida');
    if (typeof lon !== 'number' || !Number.isFinite(lon) || lon < -180 || lon > 180) return failed('MALFORMED', 'Longitude inválida');
@@ -258,7 +252,7 @@ export function checkCoreComponent(key: string, value: unknown): WorldResult<Rec
    if (typeof value['default'] !== 'string' || !value['default'].length) return failed('MALFORMED', 'osim.name precisa de um rótulo padrão');
    const translations = value['translations'];
    if (translations !== undefined) {
-    if (!isPlain(translations)) return failed('MALFORMED', 'Traduções inválidas');
+    if (!isPlainObject(translations)) return failed('MALFORMED', 'Traduções inválidas');
     for (const language of Object.keys(translations)) if (typeof translations[language] !== 'string') return failed('MALFORMED', `Tradução inválida: ${language}`);
    }
    return ok({...value});

@@ -3,6 +3,7 @@ import type {JsonValue,ObjectRef,WorldResult} from '../world/model';
 import {decodeUtf8,parseStrictJson} from '../world/codec';
 import {parseChangeSet} from '../world/changes';
 import type {ChangeReceipt,WorldStorage} from './world-ports';
+import {isRecord} from '../core/guards';
 
 // Retention and resumption over the objects a device already holds (spec §5.5). A pass keeps heads, bases, pending
 // proposals and pinned checkpoints, and collects only what no retained reference reaches. Two properties are
@@ -36,7 +37,6 @@ export type RetentionOptions={capacity?:number;used?:number};
 // The device side of a collection: the collector announces addresses and the device removes them, answering which ones
 // it actually removed. Nothing here reads bytes; a device that removes nothing is a device that answered nothing.
 export type ObjectSink={remove(refs:readonly ObjectRef[]):Promise<WorldResult<readonly ObjectRef[]>>};
-const record=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
 const LEAF_KINDS:readonly string[]=['city-state','base-chunk'];
 const refOf=(value:JsonValue|undefined):ObjectRef|null=>isRef(value)?{hash:value.hash,bytes:value.bytes}:null;
 function refsOf(value:JsonValue|undefined):ObjectRef[]|null {
@@ -48,7 +48,7 @@ function refsOf(value:JsonValue|undefined):ObjectRef[]|null {
 // The object kinds this client stores, and the addresses each one needs. Anything else is opaque on purpose: a wrong
 // guess here would let the collector drop bytes that only a kind it does not know still reaches.
 function referencesOf(value:JsonValue):ObjectRef[]|null {
- if(!record(value))return null;
+ if(!isRecord(value))return null;
  const kind=value['kind'];
  if(typeof kind!=='string'){
   // A frozen change set is the one object this contract carries without a `kind`: a proposal has to be nameable by
@@ -67,7 +67,7 @@ function referencesOf(value:JsonValue):ObjectRef[]|null {
  }
  if(kind==='capture'){
   const revision=value['revision'];
-  if(!record(revision))return null;
+  if(!isRecord(revision))return null;
   const entity=refOf(revision['entity']);
   const previous=revision['previous']===undefined?[]:refsOf(revision['previous']);
   return entity&&previous?[entity,...previous]:null;

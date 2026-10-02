@@ -115,8 +115,11 @@ export function prepareProject(target:ProjectTarget,changes:ChangeSet,selection:
   if(!action)return failed('MALFORMED',`A operação ${operation.id} não pode ser precificada`);
   const quote=CITY_PROFILE.quote(preview,action,available);
   if(quote.status==='blocked'){
-   const message=quote.reason??`A operação ${operation.id} foi recusada na prévia`;
-   return failed(message.includes('Espere o mapa carregar')?'MISSING_OBJECT':'CONFLICT',message);
+   const reason=quote.reason??`A operação ${operation.id} foi recusada na prévia`;
+   // Each operation is quoted against the balance the previous ones left, so a lone "insufficient money" would hide
+   // that it is the project as a whole that does not fit: name the joint price and the balance it was measured against.
+   const message=reason==='Dinheiro insuficiente'?`${reason}: o projeto custa ${cost+quote.cost} e o saldo é ${target.state.money}`:reason;
+   return failed(reason.includes('Espere o mapa carregar')?'MISSING_OBJECT':'CONFLICT',message);
   }
   cost+=quote.cost;
   // The preview follows the exact command path the integration will use. This matters for policy/borrowing and for

@@ -1,0 +1,39 @@
+{
+ "version": 1,
+ "title": "A prefeitura: ver as contas, cair em crise e sair dela com um empréstimo",
+ "steps": [
+  {"note": "A economia fica legível pela vista; antes de 'prefeitura' o terminal não mostrava imposto, dívida nem a crise."},
+  {"expect": {"stats.economy.taxPercent": 9, "stats.economy.servicesPercent": 100, "stats.economy.rating": "A", "stats.economy.crisis": null}},
+
+  {"note": "Hint da superfície: fora do intervalo é recusado antes de chegar ao mundo, com a faixa válida no texto."},
+  {"say": "imposto 25"},
+  {"expect": {"result.ok": false, "result.message": {"contains": "Imposto de 0 a 20"}}},
+  {"say": "servicos 10"},
+  {"expect": {"result.ok": false, "result.message": {"contains": "Serviços de 50 a 150"}}},
+  {"say": "emprestar 999999"},
+  {"expect": {"result.ok": false, "result.message": {"contains": "Empréstimo até 100000"}}},
+
+  {"note": "Gastar quase todo o caixa em usinas e casas, com imposto zero e serviços no máximo: a cidade passa a gastar mais do que arrecada."},
+  {"say": "casa 1,2 15,2"},
+  {"say": "usina 0,8 27,8"},
+  {"say": "usina 0,9 7,9"},
+  {"say": "imposto 0"},
+  {"say": "servicos 150"},
+  {"expect": {"stats.economy.taxPercent": 0, "stats.economy.servicesPercent": 150, "stats.economy.monthly.net": {"max": -1}}},
+  {"say": "vel 2"},
+  {"say": "espera 45s"},
+
+  {"note": "O caixa chega a zero com saldo mensal negativo: é a crise, e agora o terminal a enxerga."},
+  {"expect": {"stats.money": 0, "stats.economy.monthly.net": {"max": -1}, "stats.economy.crisis": {"contains": "caixa acabou"}}},
+
+  {"note": "O jogador segue o conselho da crise: toma um empréstimo, corta serviços e sobe o imposto."},
+  {"say": "emprestar 10000"},
+  {"expect": {"stats.economy.debt": 10000, "stats.money": {"min": 1}}},
+  {"say": "servicos 50"},
+  {"say": "imposto 20"},
+  {"say": "espera 30s"},
+
+  {"note": "As contas viram: saldo mensal positivo e a crise some."},
+  {"expect": {"stats.economy.monthly.net": {"min": 1}, "stats.economy.crisis": null, "stats.economy.taxPercent": 20, "stats.economy.servicesPercent": 50}}
+ ]
+}

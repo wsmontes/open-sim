@@ -304,7 +304,7 @@ export function stepSimulation(state:GameState):GameState {
  // Growth every five ticks, one building per region, chosen the same way on every client: a city that grows in one
  // deterministic step at a time is a city two clients can agree on.
  if(next.tick%5===0){
-  const stats=summarize(state);let energy=stats.energySupply-stats.energyUsed,pop=stats.population,jobs=stats.jobs;
+  const stats=summarize(state);let energy=stats.energySupply-stats.energyUsed;
   const valveOf=(tool:Tool)=>tool==='residential'?policy.valves.residential:tool==='commercial'?policy.valves.commercial:tool==='industrial'?policy.valves.industrial:0;
   for(const id of Object.keys(state.chunks).sort()){
    const chunk=state.chunks[id];
@@ -331,7 +331,6 @@ export function stepSimulation(state:GameState):GameState {
     if(stage===(c.stage??0))continue;
     const current=next.chunks[id];next.chunks[id]={...current,edits:{...current.edits,[i]:{...c,stage}}};
     energy+=(stage-(c.stage??0))*2;
-    if(c.building==='residential')pop+=(stage-(c.stage??0))*4;if(c.building==='commercial')jobs+=(stage-(c.stage??0))*6;if(c.building==='industrial')jobs+=(stage-(c.stage??0))*10;
     break; // One new building per region per growth step keeps the pace gentle.
    }
   }

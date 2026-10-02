@@ -1,9 +1,8 @@
 import {expect,test} from 'vitest';
 import {createGame,applyCommand} from '../src/core/commands';
-import {cellIndex,coordAt} from '../src/core/coordinates';
-import {adopt,getCell} from '../src/core/world';
+import {coordAt} from '../src/core/coordinates';
 import {economyOf,summarize,stepSimulation} from '../src/core/simulation';
-import type {Action,BaseChunk,Cell,GameState,Tool} from '../src/core/model';
+import type {Cell,GameState,Tool} from '../src/core/model';
 import {blank} from './fixtures/world';
 
 // The city economy: three demands, one tax rate, land value, a monthly budget and a debt ladder. The rules that matter

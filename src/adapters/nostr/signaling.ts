@@ -26,7 +26,7 @@
 import {envelopeOf} from '../../world/osim';
 import type {OsimEnvelope} from '../../world/osim';
 import {failed,ok} from '../../world/model';
-import type {JsonValue,WorldError,WorldResult} from '../../world/model';
+import type {WorldError,WorldResult} from '../../world/model';
 import type {WorldCodec} from '../../world/ports';
 import type {SignatureVerifier} from '../../world/permissions';
 import type {Limits} from '../../world/wire';
@@ -36,6 +36,7 @@ import {pubkeyOf} from './identity';
 import type {NostrSigner} from './identity';
 import {createNostrRelay} from './relay';
 import type {NostrRelay,RelaySocketFactory} from './relay';
+import {errorText,isPlainObject} from '../../core/guards';
 
 // A signal travels as a `session` object; the signal's own id fences the replay, and the envelope id names the session
 // because a signaling message is about the session, not a durable object of the world.
@@ -74,12 +75,6 @@ export type NostrSignaling = Signaling & {
  close(): void;
 };
 
-function plain(value: unknown): value is Record<string, JsonValue> {
- return !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
-}
-function textOf(error: unknown): string {
- return error instanceof Error ? error.message : String(error);
-}
 // The object the relay carries: the protocol envelope around the exact document a person would paste, signed by the
 // npub the signal claims, because the relay only accepts an object whose `nostr:` actor is the event's own key.
 function frame(signal: SignedSignal): OsimEnvelope {
@@ -106,7 +101,7 @@ export function createNostrSignaling(config: NostrSignalingConfig): NostrSignali
      key = await config.signer.getPublicKey();
     } catch (error) {
      localIdentity = null;
-     return failed('NOT_FOUND', `Assinador Nostr indisponível: ${textOf(error)}`);
+     return failed('NOT_FOUND', `Assinador Nostr indisponível: ${errorText(error)}`);
     }
     const claimed = pubkeyOf(config.actor);
     if (!claimed.ok) { localIdentity = null; return claimed; }
@@ -139,7 +134,7 @@ export function createNostrSignaling(config: NostrSignalingConfig): NostrSignali
  async function ingest(object: OsimEnvelope): Promise<void> {
   if (object.type !== SIGNAL_OBJECT_TYPE) return;
   const body = object.body;
-  if (!plain(body) || body['kind'] !== 'signal') return;
+  if (!isPlainObject(body) || body['kind'] !== 'signal') return;
   await manual.paste(new TextDecoder().decode(codec.encode(body)));
  }
 

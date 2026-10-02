@@ -1,0 +1,19 @@
+{
+ "version": 1,
+ "title": "Fechar e reabrir devolve a mesma cidade, a mesma velocidade e o mesmo lugar",
+ "steps": [
+  {"say": "rua 2,3 10,3"},
+  {"say": "casa 3,4 6,5"},
+  {"say": "usina 9,4"},
+  {"say": "imposto 12"},
+  {"expect": {"result.ok": true, "stats.economy.taxPercent": 12}},
+  {"say": "vel 1"},
+  {"say": "espera 30s"},
+  {"remember": {"money": "stats.money", "tick": "tick", "population": "stats.population", "revision": "revision"}},
+  {"reopen": true},
+  {"expect": {"ready": true, "stats.money": {"is": "$money"}, "tick": {"is": "$tick"}, "stats.population": {"is": "$population"}, "speed": 1, "place": "Cidade de teste", "tool": "explore", "stats.economy.taxPercent": 12}},
+  {"note": "A cidade continua andando depois de reaberta, na velocidade que foi salva."},
+  {"say": "espera 5s"},
+  {"expect": {"tick": {"plus": ["$tick", 5]}}}
+ ]
+}

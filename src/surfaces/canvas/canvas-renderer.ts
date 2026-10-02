@@ -1,14 +1,15 @@
-import type {Building,Cell,CellCoord,GameState} from '../core/model';
-import {CHUNK,WORLD,cellIndex,chunkId,variant,wrapX} from '../core/coordinates';
-import {effectiveCells,occupied} from '../core/world';
-import {roadClassOf} from '../core/model';
-import type {RoadClass} from '../core/model';
-import {drawLife,lifeAt} from './street-life';
-import type {CellLife,StreetLife} from './street-life';
-import type {ChunkStatus} from '../session/ports';
+import type {Building,Cell,CellCoord,GameState} from '../../core/model';
+import {CHUNK,WORLD,chunkId,variant,wrapX} from '../../core/coordinates';
+import {effectiveCells,occupied} from '../../core/world';
+import {roadClassOf} from '../../core/model';
+import type {RoadClass} from '../../core/model';
+import {lifeAt} from '../../presentation/street-life';
+import type {StreetLife} from '../../presentation/street-life';
+import {drawLife} from './street-life-draw';
+import type {ChunkStatus} from '../../session/ports';
 import type {SelectedTool} from './hud';
-import type {Camera,Point,Viewport} from './camera';
-import {TILE_H,TILE_W,cellSpace,isCoarse,project} from './camera';
+import type {Camera,Point,Viewport} from '../../presentation/camera';
+import {TILE_H,TILE_W,cellSpace,isCoarse,project} from '../../presentation/camera';
 export type WorldView = {
  camera:Camera;
  viewport:Viewport;
@@ -41,13 +42,16 @@ const tint=(hexColour:string,factor:number):string=>{
  return `#${[part(16),part(8),part(0)].map(channel=>channel.toString(16).padStart(2,'0')).join('')}`;
 };
 // Roofs vary in value, never in hue: the colour of a roof is how the player reads what a zone is, so a neighbour
-// differs from the next building by a shade and not by becoming a different kind of building.
-const tones=(colour:string):readonly string[]=>[tint(colour,1),tint(colour,.94),tint(colour,1.06)];
-const ROOF_TONES:Record<Building,readonly string[]>={residential:tones(ROOF.residential),commercial:tones(ROOF.commercial),industrial:tones(ROOF.industrial),park:tones(ROOF.park),power:tones(ROOF.power)};
+// differs from the next building by a shade and not by becoming a different kind of building. The chimney and the
+// vent are darker shades of the roof they stand on, so they are worked out here too.
+type RoofTone={colour:string;chimney:string;vent:string};
+const roofTone=(colour:string):RoofTone=>({colour,chimney:tint(colour,.66),vent:tint(colour,.78)});
+const tones=(colour:string):readonly RoofTone[]=>[roofTone(tint(colour,1)),roofTone(tint(colour,.94)),roofTone(tint(colour,1.06))];
+const ROOF_TONES:Record<Building,readonly RoofTone[]>={residential:tones(ROOF.residential),commercial:tones(ROOF.commercial),industrial:tones(ROOF.industrial),park:tones(ROOF.park),power:tones(ROOF.power)};
 const WALL_TONES:readonly (readonly [string,string])[]=[
  ['#efe7d3','#cabda0'],['#e8dfc9','#c2b498'],['#e2d7bd','#bbac8c'],
 ];
-const WALL_LIGHT='#efe7d3',WALL_DARK='#cabd9f',LOT='#cbb083',MARK='#f6f1e4';
+const LOT='#cbb083',MARK='#f6f1e4';
 // A building casts two shadows: a wide soft one that gives it weight, and a tight dark one that anchors it to the
 // ground. Drawn by hand rather than with `shadowBlur`, which is a blur pass per shape and the most expensive thing a
 // 2D context offers.
@@ -63,14 +67,25 @@ const HOVER={fill:'rgba(255,255,255,.07)',line:'rgba(255,255,255,.65)'};
 const SEAM_PAD=1.12;
 const diamondPath=(ctx:CanvasRenderingContext2D,cx:number,cy:number,hw:number,hh:number)=>{ctx.beginPath();ctx.moveTo(cx,cy-hh);ctx.lineTo(cx+hw,cy);ctx.lineTo(cx,cy+hh);ctx.lineTo(cx-hw,cy);ctx.closePath();};
 const diamond=(ctx:CanvasRenderingContext2D,cx:number,cy:number,hw:number,hh:number)=>{diamondPath(ctx,cx,cy,hw,hh);ctx.fill();};
-const polygon=(ctx:CanvasRenderingContext2D,points:Point[])=>{ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(const p of points)ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fill();};
-const polygonStroke=(ctx:CanvasRenderingContext2D,points:Point[])=>{ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(const p of points)ctx.lineTo(p.x,p.y);ctx.closePath();ctx.stroke();};
+// Quadrilaterals and triangles take their corners as plain numbers: a building is a dozen of them per frame, and an
+// array of point objects per shape was the renderer's largest source of garbage.
+const quadPath=(ctx:CanvasRenderingContext2D,ax:number,ay:number,bx:number,by:number,cx:number,cy:number,dx:number,dy:number)=>{ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.lineTo(cx,cy);ctx.lineTo(dx,dy);ctx.closePath();};
+const quad=(ctx:CanvasRenderingContext2D,ax:number,ay:number,bx:number,by:number,cx:number,cy:number,dx:number,dy:number)=>{quadPath(ctx,ax,ay,bx,by,cx,cy,dx,dy);ctx.fill();};
+const quadStroke=(ctx:CanvasRenderingContext2D,ax:number,ay:number,bx:number,by:number,cx:number,cy:number,dx:number,dy:number)=>{quadPath(ctx,ax,ay,bx,by,cx,cy,dx,dy);ctx.stroke();};
+const triangle=(ctx:CanvasRenderingContext2D,ax:number,ay:number,bx:number,by:number,cx:number,cy:number)=>{ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.lineTo(cx,cy);ctx.closePath();ctx.fill();};
+// Every dash a cell sets is undone before the cell returns, so the context leaves each drawing function solid. The
+// solid pattern is one shared array, and the lane dash is rebuilt only when the zoom changes.
+const SOLID:number[]=[];
+let laneDash:number[]=[],laneDashFor=-1;
+const laneDashOf=(tw:number,th:number):number[]=>{if(laneDashFor!==tw){laneDash=[tw*.14,th*.2];laneDashFor=tw;}return laneDash;};
+// Street life is drawn from this tile size on; main uses it to know when a moving clock changes the picture at all.
+export const drawsStreetLife=(camera:Camera):boolean=>!isCoarse(camera)&&TILE_W*camera.zoom>=LIFE_MIN_TILE;
 export function render(ctx:CanvasRenderingContext2D,view:WorldView):void {
  const {camera,viewport}=view,tw=TILE_W*camera.zoom,th=TILE_H*camera.zoom;
  // The bearing is a context transform: the art below keeps drawing with the unrotated projection, while culling and
  // the visible-region list use the real camera, so a turned view neither leaves a cell out nor paints one it cannot see.
  const turned=camera.rotation!==0,flat:Camera=turned?{...camera,rotation:0}:camera,pad=turned?SEAM_PAD:0;
- const absCos=Math.abs(Math.cos(camera.rotation)),absSin=Math.abs(Math.sin(camera.rotation));
+ const cos=Math.cos(camera.rotation),sin=Math.sin(camera.rotation),absCos=Math.abs(cos),absSin=Math.abs(sin);
  // Conservative screen half-box of one cell: the turned diamond plus the tallest silhouette the art draws (buildings
  // rise at most four tiles above their cell, a lean that grows sideways as the view turns).
  const spanX=tw*absCos+th*absSin+th*4*absSin,spanY=th*absCos+tw*absSin+th*4*absCos;
@@ -92,16 +107,21 @@ export function render(ctx:CanvasRenderingContext2D,view:WorldView):void {
  const span=(maxX-minX+2)*(maxY-minY+2);
  if(isCoarse(camera)||span>MOSAIC_CELLS)renderMosaic(ctx,view,{minX,maxX,minY,maxY});
  else{
-  const x0=Math.floor(minX)-2,x1=Math.ceil(maxX)+2,y0=Math.floor(minY)-2,y1=Math.ceil(maxY)+2;
+  const x0=Math.floor(minX)-2,x1=Math.ceil(maxX)+2,y0=Math.floor(minY)-2,y1=Math.ceil(maxY)+2,zoom=camera.zoom;
+  // One scratch point and one scratch cell for the whole pass: the projection below is `project()` written out, so a
+  // frame of thousands of cells allocates nothing per cell. Nothing downstream keeps either object.
+  const p:Point={x:0,y:0},coord:CellCoord={x:0,y:0};
   // Painter order: rows of equal x+y are drawn back to front, cells with the larger x+y land in front.
   for(let sum=x0+y0;sum<=x1+y1;sum++){
    const from=Math.max(x0,sum-y1),to=Math.min(x1,sum-y0);
    for(let x=from;x<=to;x++){
     const y=sum-x;
     if(y<0||y>=WORLD)continue;
-    const p=project({x,y},flat),q=turned?project({x,y},camera):p;
-    if(q.x+spanX<0||q.x-spanX>viewport.width||q.y+spanY<0||q.y-spanY>viewport.height)continue;
-    drawTile(ctx,view,{x,y},p,tw,th,pad);
+    const u=(x-y)*TILE_W*zoom,v=(x+y)*TILE_H*zoom;
+    const qx=turned?camera.x+cos*u-sin*v:camera.x+u,qy=turned?camera.y+sin*u+cos*v:camera.y+v;
+    if(qx+spanX<0||qx-spanX>viewport.width||qy+spanY<0||qy-spanY>viewport.height)continue;
+    p.x=camera.x+u;p.y=camera.y+v;coord.x=x;coord.y=y;
+    drawTile(ctx,view,coord,p,tw,th,pad);
    }
   }
  }
@@ -109,20 +129,28 @@ export function render(ctx:CanvasRenderingContext2D,view:WorldView):void {
  if(view.hover)drawMarker(ctx,view,view.hover,tw,th,HOVER,false,flat);
  if(turned)ctx.restore();
 }
-function lookupCell(view:WorldView,cell:CellCoord):{cell:Cell|null;error:boolean} {
- const id=chunkId(cell),managed=view.state.chunks[id];
- if(managed){const i=cellIndex(cell);return {cell:managed.edits[i]??managed.base.cells[i],error:false};}
- const status=view.chunks.get(id);
- if(status?.status==='ready')return {cell:status.base.cells[cellIndex(cell)],error:false};
- return {cell:null,error:status?.status==='error'};
+// The cell the view shows at (x,y), or null while its region is not loaded. Plain numbers in, no wrapper object out:
+// this runs once per drawn cell and four more times per road and coast cell. Neighbouring calls almost always land in
+// the same region, so the region is resolved once and remembered until the call asks for another one — which is what
+// keeps the region id, a string, from being built for every cell of every frame.
+let regionView:WorldView|null=null,regionX=NaN,regionY=NaN,regionEdits:Record<string,Cell>|null=null,regionCells:readonly Cell[]|null=null;
+function cellAt(view:WorldView,x:number,y:number):Cell|null {
+ const wx=wrapX(x),rx=Math.floor(wx/CHUNK),ry=Math.floor(y/CHUNK);
+ if(view!==regionView||rx!==regionX||ry!==regionY){
+  const id=`${rx}:${ry}`,managed=view.state.chunks[id],status=managed?undefined:view.chunks.get(id);
+  regionView=view;regionX=rx;regionY=ry;
+  regionEdits=managed?managed.edits:null;
+  regionCells=managed?managed.base.cells:status?.status==='ready'?status.base.cells:null;
+ }
+ if(!regionCells)return null;
+ const i=(y%CHUNK)*CHUNK+(wx%CHUNK);
+ return regionEdits?.[i]??regionCells[i]!;
 }
-// Traffic and pedestrians are drawn from the zoom where a car is more than two pixels: below that the road itself is
-// only a few pixels wide and the cost would buy nothing. Street life never touches the world — it is derived from the
-// neighbouring cells the renderer already resolves and from the animation clock — so a busy street costs four more
-// lookups per road cell, and no state, no command and no network traffic at all.
+const failedAt=(view:WorldView,coord:CellCoord):boolean=>view.chunks.get(chunkId(coord))?.status==='error';
 // What is worth drawing at which zoom. A cell below these sizes is a handful of pixels: a tree is two of them, a
 // window less than one, so the detail costs frames and buys nothing. The gates are the reason a whole city can be on
-// screen at sixty frames a second with the near view still full of trees and windows.
+// screen at sixty frames a second with the near view still full of trees and windows. Street life starts where a car
+// is more than two pixels; it is derived from the four neighbours and the animation clock, never from the world.
 const LIFE_MIN_TILE=16,TREE_MIN_TILE=16,WINDOW_MIN_TILE=15,SHORE_MIN_TILE=14;
 // Below this the city is drawn in its simple form: ground, a road, a box with a roof. A cell is under eleven pixels
 // across there, so the lanes, the windows and the paving lines would be sub-pixel marks that cost frames — and a dash
@@ -132,11 +160,12 @@ const SIMPLE_TILE=11;
 // per-cell art costs more of the frame than the detail is worth at that size.
 const MOSAIC_CELLS=6000;
 const NEIGHBOURS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
+const SIGNS=[1,-1] as const;
 function streetLife(view:WorldView,coord:CellCoord,tw:number,cell:Cell):StreetLife|null {
  if(tw<LIFE_MIN_TILE)return null;
  let stage=0,social=false;
  for(const [dx,dy] of NEIGHBOURS){
-  const found=lookupCell(view,{x:wrapX(coord.x+dx),y:coord.y+dy}).cell;
+  const found=cellAt(view,coord.x+dx,coord.y+dy);
   if(!found||!occupied(found))continue;
   if(found.building==='park'||found.building==='commercial')social=true;
   else if(found.building)stage=Math.max(stage,found.stage??0);
@@ -145,9 +174,8 @@ function streetLife(view:WorldView,coord:CellCoord,tw:number,cell:Cell):StreetLi
 }
 function drawTile(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord,p:Point,tw:number,th:number,pad:number) {
  const simple=tw<SIMPLE_TILE;
- const found=lookupCell(view,coord),v=variant(coord.x,coord.y,view.seed);
- if(!found.cell)return drawUnknown(ctx,p,tw,th,v,found.error,pad);
- const cell=found.cell;
+ const cell=cellAt(view,coord.x,coord.y),v=variant(coord.x,coord.y,view.seed);
+ if(!cell)return drawUnknown(ctx,p,tw,th,v,failedAt(view,coord),pad);
  if(cell.terrain==='water'){drawWater(ctx,p,tw,th,v,pad);if(tw>=SHORE_MIN_TILE)drawShore(ctx,view,coord,p,tw,th);return;}
  ctx.fillStyle=(cell.terrain==='green'?MEADOW:GRASS)[v%3];
  diamond(ctx,p.x,p.y,tw+pad,th+pad);
@@ -166,21 +194,17 @@ function drawTile(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord,p:
 // A coastline is the most attractive thing a map gives us for free, and a hard edge between blue and green wastes it.
 // The foam is drawn from the water's side: whoever draws later paints over the neighbour anyway, so a cell only has to
 // know what it is, not what surrounds it.
+const SHORE_EDGES=[[0,-1,1,-1],[0,1,-1,1],[-1,0,-1,-1],[1,0,1,1]] as const;
 function drawShore(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord,p:Point,tw:number,th:number) {
  ctx.fillStyle='rgba(238,247,255,.5)';
- const half={x:tw*.5,y:th*.5};
- for(const [dx,dy,ax,ay] of [[0,-1,half.x,-half.y],[0,1,-half.x,half.y],[-1,0,-half.x,-half.y],[1,0,half.x,half.y]] as const){
+ const hx=tw*.5,hy=th*.5;
+ for(const [dx,dy,sx,sy] of SHORE_EDGES){
   const ny=coord.y+dy;
   if(ny<0||ny>=WORLD)continue;
-  const neighbour=lookupCell(view,{x:wrapX(coord.x+dx),y:ny}).cell;
+  const neighbour=cellAt(view,coord.x+dx,ny);
   if(!neighbour||neighbour.terrain==='water')continue;
-  const edge={x:p.x+ax,y:p.y+ay};
-  ctx.beginPath();
-  ctx.moveTo(edge.x,edge.y);
-  ctx.lineTo(edge.x+(dx?0:half.x),edge.y+(dx?half.y:0));
-  ctx.lineTo(edge.x+(dx?0:-half.x),edge.y+(dx?-half.y:0));
-  ctx.closePath();
-  ctx.fill();
+  const ex=p.x+sx*hx,ey=p.y+sy*hy;
+  triangle(ctx,ex,ey,ex+(dx?0:hx),ey+(dx?hy:0),ex+(dx?0:-hx),ey+(dx?-hy:0));
  }
 }
 function drawWater(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:number,pad:number) {
@@ -188,7 +212,6 @@ function drawWater(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:nu
  diamond(ctx,p.x,p.y,tw+pad,th+pad);
  ctx.strokeStyle='rgba(232,244,255,.4)';
  ctx.lineWidth=Math.max(1,tw*.03);
- ctx.setLineDash([]);
  const ox=(v%3-1)*tw*.2;
  ctx.beginPath();ctx.moveTo(p.x+ox-tw*.3,p.y+th*.28);ctx.lineTo(p.x+ox+tw*.14,p.y+th*.28);ctx.stroke();
 }
@@ -212,15 +235,15 @@ function drawRoad(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:num
  }
  ctx.fillStyle=art.shade;
  diamond(ctx,p.x,p.y,tw+pad,th+pad);
- const ua={x:tw/2,y:th/2},ub={x:tw/2,y:-th/2},wa={x:ub.x*art.lane,y:ub.y*art.lane},wb={x:ua.x*art.lane,y:ua.y*art.lane};
+ const uax=tw/2,uay=th/2,ubx=tw/2,uby=-th/2,wax=ubx*art.lane,way=uby*art.lane,wbx=uax*art.lane,wby=uay*art.lane;
  ctx.fillStyle=art.surface;
- polygon(ctx,[{x:p.x-ua.x+wa.x,y:p.y-ua.y+wa.y},{x:p.x+ua.x+wa.x,y:p.y+ua.y+wa.y},{x:p.x+ua.x-wa.x,y:p.y+ua.y-wa.y},{x:p.x-ua.x-wa.x,y:p.y-ua.y-wa.y}]);
- polygon(ctx,[{x:p.x-ub.x+wb.x,y:p.y-ub.y+wb.y},{x:p.x+ub.x+wb.x,y:p.y+ub.y+wb.y},{x:p.x+ub.x-wb.x,y:p.y+ub.y-wb.y},{x:p.x-ub.x-wb.x,y:p.y-ub.y-wb.y}]);
+ quad(ctx,p.x-uax+wax,p.y-uay+way,p.x+uax+wax,p.y+uay+way,p.x+uax-wax,p.y+uay-way,p.x-uax-wax,p.y-uay-way);
+ quad(ctx,p.x-ubx+wbx,p.y-uby+wby,p.x+ubx+wbx,p.y+uby+wby,p.x+ubx-wbx,p.y+uby-wby,p.x-ubx-wbx,p.y-uby-wby);
  ctx.strokeStyle='rgba(246,241,228,.7)';
  ctx.lineWidth=Math.max(1,tw*.05);
- ctx.setLineDash([tw*.14,th*.2]);
- ctx.beginPath();ctx.moveTo(p.x-ua.x,p.y-ua.y);ctx.lineTo(p.x+ua.x,p.y+ua.y);ctx.stroke();
- ctx.setLineDash([]);
+ ctx.setLineDash(laneDashOf(tw,th));
+ ctx.beginPath();ctx.moveTo(p.x-uax,p.y-uay);ctx.lineTo(p.x+uax,p.y+uay);ctx.stroke();
+ ctx.setLineDash(SOLID);
  // An avenue gets a planted middle and a highway gets a rail: the two things a player reads from far away.
  if(kind==='avenue'){
   // The middle of an avenue is planted: the same trees as everywhere else, in a line, which is what makes an avenue
@@ -231,11 +254,10 @@ function drawRoad(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:num
  }else if(art.rail){
   ctx.strokeStyle='rgba(226,232,238,.55)';
   ctx.lineWidth=Math.max(1,tw*.035);
-  ctx.setLineDash([]);
-  for(const sign of [1,-1]){
+  for(const sign of SIGNS){
    ctx.beginPath();
-   ctx.moveTo(p.x+(ua.x-wa.x*2.4)*sign,p.y+(ua.y-wa.y*2.4)*sign);
-   ctx.lineTo(p.x+(ub.x+wb.x*2.4)*sign,p.y+(ub.y+wb.y*2.4)*sign);
+   ctx.moveTo(p.x+(uax-wax*2.4)*sign,p.y+(uay-way*2.4)*sign);
+   ctx.lineTo(p.x+(ubx+wbx*2.4)*sign,p.y+(uby+wby*2.4)*sign);
    ctx.stroke();
   }
  }
@@ -277,39 +299,39 @@ function drawBuilding(ctx:CanvasRenderingContext2D,cell:Cell,p:Point,tw:number,t
  ctx.fillStyle=SHADE_CORE;
  diamond(ctx,p.x+tw*.07,p.y+th*.08,tw*.86,th*.86);
  ctx.fillStyle=wallDark;
- polygon(ctx,[{x:p.x-w,y:p.y},{x:p.x,y:p.y+d},{x:p.x,y:p.y+d-h},{x:p.x-w,y:p.y-h}]);
+ quad(ctx,p.x-w,p.y,p.x,p.y+d,p.x,p.y+d-h,p.x-w,p.y-h);
  ctx.fillStyle=wallLight;
- polygon(ctx,[{x:p.x,y:p.y+d},{x:p.x+w,y:p.y},{x:p.x+w,y:p.y-h},{x:p.x,y:p.y+d-h}]);
+ quad(ctx,p.x,p.y+d,p.x+w,p.y,p.x+w,p.y-h,p.x,p.y+d-h);
  if((kind==='residential'||kind==='commercial')&&tw>=WINDOW_MIN_TILE){
-  const step=h/floors;
+  const step=h/floors,ux=w*.5,uy=-d*.5,vy=-step*.42;
   ctx.fillStyle='#3c4a5c';
   for(let f=0;f<floors;f++){
    const t=(v>>(f*3))%2?.34:.62;
-   const corner={x:p.x+w*t*2,y:p.y+d*(1-t)-(f+.28)*step},du={x:w*.5,y:-d*.5},dv={x:0,y:-step*.42};
-   polygon(ctx,[corner,{x:corner.x+du.x,y:corner.y+du.y},{x:corner.x+du.x,y:corner.y+du.y+dv.y},{x:corner.x,y:corner.y+dv.y}]);
+   const cx=p.x+w*t*2,cy=p.y+d*(1-t)-(f+.28)*step;
+   quad(ctx,cx,cy,cx+ux,cy+uy,cx+ux,cy+uy+vy,cx,cy+vy);
   }
   // A shop on the ground floor gets an awning: one stripe that tells the player which buildings are the shops when the
   // roofs are all the same colour.
-  if(kind==='commercial'&&tw>=WINDOW_MIN_TILE){
+  if(kind==='commercial'){
    ctx.fillStyle='#f2c46b';
-   polygon(ctx,[{x:p.x+w*.15,y:p.y+d*.85},{x:p.x+w*.85,y:p.y+d*.15},{x:p.x+w*.85,y:p.y+d*.02},{x:p.x+w*.15,y:p.y+d*.72}]);
+   quad(ctx,p.x+w*.15,p.y+d*.85,p.x+w*.85,p.y+d*.15,p.x+w*.85,p.y+d*.02,p.x+w*.15,p.y+d*.72);
   }
  }else{
   ctx.fillStyle='rgba(40,48,58,.25)';
-  polygon(ctx,[{x:p.x,y:p.y+d},{x:p.x+w*.6,y:p.y+d*.4},{x:p.x+w*.6,y:p.y+d*.4-h*.25},{x:p.x,y:p.y+d-h*.25}]);
+  quad(ctx,p.x,p.y+d,p.x+w*.6,p.y+d*.4,p.x+w*.6,p.y+d*.4-h*.25,p.x,p.y+d-h*.25);
  }
  // The roof shades the walls a little, so a building has a top and not just a colour, and its rim gives the silhouette
  // an edge: it is the first thing that reads at any zoom.
  const roof=ROOF_TONES[kind][(v>>>11)%3]!;
- ctx.fillStyle=roof;
- polygon(ctx,[{x:p.x-w,y:p.y-h},{x:p.x,y:p.y+d-h},{x:p.x+w,y:p.y-h},{x:p.x,y:p.y-d-h}]);
+ ctx.fillStyle=roof.colour;
+ quad(ctx,p.x-w,p.y-h,p.x,p.y+d-h,p.x+w,p.y-h,p.x,p.y-d-h);
  // The whole silhouette gets one thin dark line — walls and roof together. Distant buildings are then read as shapes
  // instead of as colour patches, which is what the art direction calls the silhouette pass.
  ctx.strokeStyle='rgba(58,50,40,.35)';
  ctx.lineWidth=Math.max(1,tw*.03);
- polygonStroke(ctx,[{x:p.x-w,y:p.y-h},{x:p.x,y:p.y+d-h},{x:p.x+w,y:p.y-h},{x:p.x,y:p.y-d-h}]);
- polygonStroke(ctx,[{x:p.x-w,y:p.y},{x:p.x,y:p.y+d},{x:p.x,y:p.y+d-h},{x:p.x-w,y:p.y-h}]);
- polygonStroke(ctx,[{x:p.x,y:p.y+d},{x:p.x+w,y:p.y},{x:p.x+w,y:p.y-h},{x:p.x,y:p.y+d-h}]);
+ quadStroke(ctx,p.x-w,p.y-h,p.x,p.y+d-h,p.x+w,p.y-h,p.x,p.y-d-h);
+ quadStroke(ctx,p.x-w,p.y,p.x,p.y+d,p.x,p.y+d-h,p.x-w,p.y-h);
+ quadStroke(ctx,p.x,p.y+d,p.x+w,p.y,p.x+w,p.y-h,p.x,p.y+d-h);
  // A lamp post in the yard, and flowers where the lot is deep enough for a garden: the props that carry the human
  // scale. One per building, deterministic, and only where a few pixels can show it.
  if(tw>=WINDOW_MIN_TILE){
@@ -333,10 +355,10 @@ function drawBuilding(ctx:CanvasRenderingContext2D,cell:Cell,p:Point,tw:number,t
   const spot=(v>>>17)%3;
   const rx=p.x-w*.35+spot*w*.35,ry=p.y-h+(spot-1)*d*.3;
   if(kind==='residential'){
-   ctx.fillStyle=tint(roof,.66);
+   ctx.fillStyle=roof.chimney;
    ctx.fillRect(rx-Math.max(1,tw*.045),ry-th*.34,Math.max(2,tw*.09),th*.34);
   }else if(kind==='commercial'){
-   ctx.fillStyle=tint(roof,.78);
+   ctx.fillStyle=roof.vent;
    ctx.fillRect(rx-tw*.1,ry-th*.12,tw*.2,th*.2);
   }else{
    ctx.fillStyle='#cfd3d8';
@@ -395,12 +417,12 @@ function drawLot(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,pad:nu
  ctx.setLineDash([tw*.16,th*.2]);
  diamondPath(ctx,p.x,p.y,tw*.66,th*.66);
  ctx.stroke();
- ctx.setLineDash([]);
+ ctx.setLineDash(SOLID);
  ctx.strokeStyle='#7a5b34';
  ctx.lineWidth=Math.max(1,tw*.08);
  ctx.beginPath();ctx.moveTo(p.x,p.y-th*.05);ctx.lineTo(p.x,p.y-th*.55);ctx.stroke();
  ctx.fillStyle='#e0563f';
- polygon(ctx,[{x:p.x,y:p.y-th*.55},{x:p.x+tw*.2,y:p.y-th*.42},{x:p.x,y:p.y-th*.3}]);
+ triangle(ctx,p.x,p.y-th*.55,p.x+tw*.2,p.y-th*.42,p.x,p.y-th*.3);
 }
 function drawUnknown(ctx:CanvasRenderingContext2D,p:Point,tw:number,th:number,v:number,failed:boolean,pad:number) {
  ctx.fillStyle=(failed?ERROR:UNKNOWN)[v%2];
@@ -443,7 +465,7 @@ function drawMarker(ctx:CanvasRenderingContext2D,view:WorldView,cell:CellCoord,t
  if(strong)ctx.setLineDash([w*.14,h*.18]);
  diamondPath(ctx,p.x,p.y,w*.96,h*.96);
  ctx.stroke();
- ctx.setLineDash([]);
+ if(strong)ctx.setLineDash(SOLID);
 }
 
 // --- Wide view: one mosaic block per 4x4 cells instead of one diamond per cell -------------------------------

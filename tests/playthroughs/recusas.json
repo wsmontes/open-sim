@@ -1,0 +1,24 @@
+{
+ "version": 1,
+ "title": "O que não cabe no saldo ou no terreno é recusado inteiro, com o motivo",
+ "steps": [
+  {"say": "usina 0,10 27,10"},
+  {"note": "28 usinas a 500 cada: 14.000 de 20.000 (as colunas 28 e 29 são o rio)."},
+  {"expect": {"result.ok": true, "stats.money": 6000}},
+  {"remember": {"money": "stats.money"}},
+  {"say": "usina 0,12 27,12"},
+  {"expect": {"result.ok": false, "notice": {"contains": "Dinheiro insuficiente"}, "stats.money": {"is": "$money"}}},
+  {"note": "A recusa devolve o traço ao jogador: a prévia continua ali, vermelha, com o preço inteiro."},
+  {"expect": {"preview.cells.length": 28, "preview.affordable": false, "preview.cost": 14000}},
+  {"say": "cancelar"},
+  {"expect": {"tool": "explore", "preview.cells.length": 0}},
+  {"say": "rua 28,5"},
+  {"expect": {"result.ok": false, "result.message": {"contains": "água"}, "stats.money": {"is": "$money"}}},
+  {"say": "casa 3,1"},
+  {"expect": {"result.ok": false, "result.message": {"contains": "Demolir primeiro"}}},
+  {"say": "demolir 3,1"},
+  {"expect": {"result.ok": true, "stats.money": 5995, "stats.population": 16}},
+  {"say": "ferramenta voadora"},
+  {"expect": {"result.ok": false, "result.message": {"contains": "Ferramentas:"}}}
+ ]
+}

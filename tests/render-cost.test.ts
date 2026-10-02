@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import {expect,test} from 'vitest';
-import {render} from '../src/presentation/canvas-renderer';
-import type {WorldView} from '../src/presentation/canvas-renderer';
+import {render} from '../src/surfaces/canvas/canvas-renderer';
+import type {WorldView} from '../src/surfaces/canvas/canvas-renderer';
 import {createGame} from '../src/core/commands';
 import {TILE_H,TILE_W} from '../src/presentation/camera';
 import {WORLD,chunkId} from '../src/core/coordinates';

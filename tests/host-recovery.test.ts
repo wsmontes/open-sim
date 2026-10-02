@@ -32,7 +32,7 @@ import type {Grant,IdentityProof,IdentityScope,Proposal,Principal} from '../src/
 import {NETWORK_LIMITS} from '../src/world/wire';
 import type {Limits,TrafficClass,WireMessage} from '../src/world/wire';
 import type {Action,BaseChunk,CellCoord,GameState,SavedGame,ViewState} from '../src/core/model';
-import type {Head,JsonValue,ObjectRef,WorldResult} from '../src/world/model';
+import type {Head,JsonValue,} from '../src/world/model';
 import {blank} from './fixtures/world';
 import chaos from './fixtures/federated-world/session-chaos.json';
 

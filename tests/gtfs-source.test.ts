@@ -11,7 +11,7 @@ import {createJcsCodec} from '../src/adapters/codec/jcs';
 import {bytesHasher} from '../src/adapters/hash/content';
 import {TRANSIT_LIMITS,associateTransit,importTransit} from '../src/adapters/reality/gtfs';
 import type {TransitDataset} from '../src/adapters/reality/gtfs';
-import {describeTransitDataset} from '../src/presentation/source-inspector';
+import {describeTransitDataset} from '../src/surfaces/canvas/source-inspector';
 import {decodeBundle,encodeBundle,verifyBundle} from '../src/world/codec';
 import {createKernel} from '../src/world/kernel';
 import type {JsonValue,WorldBundle} from '../src/world/model';

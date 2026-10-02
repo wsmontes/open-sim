@@ -2,8 +2,8 @@
 // frozen data a provider published, the overlay a player decided, the simulation, or the metadata of the version
 // itself. Keeping those apart is the whole point — a cell a later capture drew can never be presented as work somebody
 // did here, and a player's park can never pass as provider data.
-import type {Cell,ManagedChunk,Tool} from '../core/model';
-import {roadClassOf} from '../core/model';
+import type {Cell,ManagedChunk,} from '../core/model';
+import {toolOfCell} from '../core/model';
 import type {ObjectRef,JsonValue} from '../world/model';
 import type {Checkpoint} from '../session/world-repository';
 import {CITY_PROFILE} from '../world/city-profile';
@@ -66,7 +66,7 @@ const editIndexes=(...chunks:readonly ManagedChunk[]):number[]=>{
  for(const chunk of chunks)for(const key of Object.keys(chunk.edits))indexes.add(Number(key));
  return [...indexes].sort((a,b)=>a-b);
 };
-const toolOf=(cell:Cell|undefined):Tool|null=>cell?.road?(roadClassOf(cell)==='street'?'road':roadClassOf(cell)):(cell?.building??null);
+const toolOf=toolOfCell;
 const compareChunks=(a:string,b:string)=>(Number(a.split(':')[0])-Number(b.split(':')[0]))||(Number(a.split(':')[1])-Number(b.split(':')[1]));
 const jsonValue=(value:unknown):JsonValue=>value as JsonValue;
 

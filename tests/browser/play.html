@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Paridade do jogo — roteiro no navegador</title>
+</head>
+<body>
+<h1>A mesma partida em Node e no navegador</h1>
+<p>
+Esta página executa um <strong>roteiro</strong> de <code>tests/playthroughs/</code> através do mesmo
+cliente portátil (<code>/src/client/city-client.ts</code>) que o terminal e o Vitest usam, com um mapa
+sintético (<code>fixture:town</code>), um relógio manual e armazenamento em memória, e mostra a
+transcrição por passo, o relatório e o <strong>hash semântico</strong>. Ele deve ser idêntico ao do
+executor Node (<code>npx tsx tools/play.ts --script tests/playthroughs/&lt;roteiro&gt;.json</code>).
+</p>
+<p>
+O roteiro padrão é <code>construir-e-crescer</code>; troque com <code>?roteiro=nome</code>. Nada aqui
+sai para a rede além de buscar a própria fixture servida pelo Vite.
+</p>
+<pre id="resultado">executando…</pre>
+<pre id="erro"></pre>
+<script type="module" src="/tests/browser/play.ts"></script>
+</body>
+</html>

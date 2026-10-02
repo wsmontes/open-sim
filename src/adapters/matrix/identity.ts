@@ -6,6 +6,7 @@ import type {IdentityProof,IdentityProvider,Principal,Proof,SessionBindingReques
 import {failed,ok} from '../../world/model';
 import type {JsonValue,WorldResult} from '../../world/model';
 import type {WorldCodec} from '../../world/ports';
+import {errorText,isPlainObject} from '../../core/guards';
 
 // Matrix as an identity adapter (docs/superpowers/plans/2026-09-29-federated-world.md task 11, docs/kernel.md delta:
 // `matrix:…` is the actor URI). This is the only place a Matrix account is spoken to, and it exists to answer one
@@ -50,12 +51,6 @@ const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, HEX = /^[0-9a-f]{64}$/
 // text before it decides whether the answer was even JSON.
 const RESPONSE_CEILING = 8 * 1024 * 1024;
 
-function plain(value: unknown): value is Record<string, unknown> {
- return !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
-}
-function messageOf(error: unknown): string {
- return error instanceof Error ? error.message : String(error);
-}
 // The homeserver's own answer, mapped to the codes this project already speaks. `errcode`/`error` is the Matrix
 // specification's shape and is carried into the message verbatim: a caller deciding whether to retry needs the
 // service's words, not this adapter's guess at them.
@@ -63,7 +58,7 @@ function failureOf(status: number, raw: string): WorldResult<never> {
  let detail = '';
  try {
   const body = JSON.parse(raw) as unknown;
-  if (plain(body) && typeof body['error'] === 'string') detail = body['error'];
+  if (isPlainObject(body) && typeof body['error'] === 'string') detail = body['error'];
  } catch {
   detail = raw.slice(0, 200);
  }
@@ -99,7 +94,7 @@ export function matrixClient(homeserver: string, options: MatrixHttpOptions = {}
   try {
    answer = await send(`${base}${request.path}${query}`, body === undefined ? {method: request.method ?? 'GET', headers, signal: controller.signal} : {method: request.method ?? 'GET', headers, body, signal: controller.signal});
   } catch (error) {
-   return failed('NOT_FOUND', `Homeserver ${base} inacessível: ${messageOf(error)}`);
+   return failed('NOT_FOUND', `Homeserver ${base} inacessível: ${errorText(error)}`);
   } finally {
    clearTimeout(timer);
   }
@@ -107,7 +102,7 @@ export function matrixClient(homeserver: string, options: MatrixHttpOptions = {}
   try {
    raw = await answer.text();
   } catch (error) {
-   return failed('NOT_FOUND', `Resposta do homeserver ${base} ilegível: ${messageOf(error)}`);
+   return failed('NOT_FOUND', `Resposta do homeserver ${base} ilegível: ${errorText(error)}`);
   }
   if (raw.length > RESPONSE_CEILING) return failed('LIMIT', `Resposta de ${raw.length} bytes acima do teto de ${RESPONSE_CEILING}`);
   if (answer.status < 200 || answer.status >= 300) return failureOf(answer.status, raw);
@@ -139,7 +134,7 @@ export function userIdOfPrincipal(principal: Principal): WorldResult<string> {
 const serverNameOf = (userId: string): string => userId.slice(userId.indexOf(':') + 1);
 
 function accountOf(value: JsonValue, homeserver: string): WorldResult<MatrixAccount> {
- if (!plain(value)) return failed('MALFORMED', 'Resposta de registro sem conta');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Resposta de registro sem conta');
  const userId = value['user_id'], accessToken = value['access_token'], deviceId = value['device_id'];
  if (typeof userId !== 'string' || !userIdOf(userId).ok) return failed('MALFORMED', `Resposta de registro com user_id inválido: ${String(userId)}`);
  if (typeof accessToken !== 'string' || !accessToken.length) return failed('MALFORMED', 'Resposta de registro sem token de acesso');
@@ -158,7 +153,7 @@ export async function registerAccount(input: {homeserver: string; secret: string
  const client = matrixClient(input.homeserver, input);
  const nonce = await client({path: '/_synapse/admin/v1/register'});
  if (!nonce.ok) return nonce;
- if (!plain(nonce.value) || typeof nonce.value['nonce'] !== 'string' || !nonce.value['nonce'].length) return failed('MALFORMED', 'Homeserver não devolveu o nonce do registro');
+ if (!isPlainObject(nonce.value) || typeof nonce.value['nonce'] !== 'string' || !nonce.value['nonce'].length) return failed('MALFORMED', 'Homeserver não devolveu o nonce do registro');
  const mac = await hmacSha1(input.secret, [nonce.value['nonce'], input.username, input.password, input.admin ? 'admin' : 'notadmin'].join('\u0000'));
  const registered = await client({method: 'POST', path: '/_synapse/admin/v1/register', body: {nonce: nonce.value['nonce'], username: input.username, password: input.password, admin: !!input.admin, mac}});
  if (!registered.ok) return registered;
@@ -176,7 +171,7 @@ export async function verifyAccount(account: MatrixAccount, options: MatrixHttpO
  const client = matrixClient(account.homeserver, options);
  const answer = await client({path: '/_matrix/client/v3/account/whoami', token: account.accessToken});
  if (!answer.ok) return answer;
- if (!plain(answer.value) || typeof answer.value['user_id'] !== 'string') return failed('MALFORMED', 'Resposta de whoami sem conta');
+ if (!isPlainObject(answer.value) || typeof answer.value['user_id'] !== 'string') return failed('MALFORMED', 'Resposta de whoami sem conta');
  if (answer.value['user_id'] !== account.userId) return failed('SIGNATURE', `O token é da conta ${answer.value['user_id']}, não de ${account.userId}`);
  const deviceId = answer.value['device_id'];
  return ok({...account, ...(typeof deviceId === 'string' && deviceId.length ? {deviceId} : {})});
@@ -192,7 +187,7 @@ export async function sendRoomEvent(account: MatrixAccount, input: {roomId: stri
  const path = `/_matrix/client/v3/rooms/${encodeURIComponent(input.roomId)}/send/${encodeURIComponent(input.type)}/${encodeURIComponent(input.txnId)}`;
  const answer = await client({method: 'PUT', path, body: input.content, token: account.accessToken});
  if (!answer.ok) return answer;
- if (!plain(answer.value) || typeof answer.value['event_id'] !== 'string' || !EVENT_ID.test(answer.value['event_id'])) return failed('MALFORMED', 'Homeserver aceitou o evento sem devolver o seu identificador');
+ if (!isPlainObject(answer.value) || typeof answer.value['event_id'] !== 'string' || !EVENT_ID.test(answer.value['event_id'])) return failed('MALFORMED', 'Homeserver aceitou o evento sem devolver o seu identificador');
  return ok(answer.value['event_id']);
 }
 
@@ -252,11 +247,11 @@ export async function confirmBinding(account: MatrixAccount, binding: MatrixBind
  const path = `/_matrix/client/v3/rooms/${encodeURIComponent(binding.attestation.roomId)}/event/${encodeURIComponent(binding.attestation.eventId)}`;
  const answer = await client({path, token: account.accessToken});
  if (!answer.ok) return answer;
- if (!plain(answer.value)) return failed('MALFORMED', 'Evento de atestação inválido');
+ if (!isPlainObject(answer.value)) return failed('MALFORMED', 'Evento de atestação inválido');
  const event = answer.value;
  if (event['type'] !== IDENTITY_EVENT_TYPE) return failed('SIGNATURE', `O evento de atestação é do tipo ${String(event['type'])}`);
  if (event['sender'] !== binding.userId) return failed('SIGNATURE', `O evento de atestação foi escrito por ${String(event['sender'])}, não por ${binding.userId}`);
- if (!plain(event['content'])) return failed('MALFORMED', 'Evento de atestação sem conteúdo');
+ if (!isPlainObject(event['content'])) return failed('MALFORMED', 'Evento de atestação sem conteúdo');
  const expected = bindingBody(binding) as Record<string, JsonValue>;
  for (const field of ['kind', 'version', 'userId', 'serverName', 'homeserver', 'deviceKey', 'issuedAt']) {
   if (event['content'][field] !== expected[field]) return failed('SIGNATURE', `O evento de atestação diz outra coisa em ${field}`);
@@ -309,7 +304,7 @@ export type MatrixIdentity = {
  verifier(base?: SignatureVerifier): SignatureVerifier;
 };
 export async function createMatrixIdentity(input: {account: MatrixAccount; device: KeyPair; session: KeyPair; codec: WorldCodec; now: () => string; roomId: string} & MatrixHttpOptions): Promise<WorldResult<MatrixIdentity>> {
- const {account, device, session, codec, roomId, now} = input;
+ const {account, device, session, roomId, now} = input;
  // The account authenticates before anything binds to it: a token that does not speak for its user id is not an
  // identity this client may write into a room.
  const verified = await verifyAccount(account, input);

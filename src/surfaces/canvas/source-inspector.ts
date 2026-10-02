@@ -7,8 +7,8 @@
 // The view types below are what the panel reads, not the adapters' data types: presentation may not import an adapter
 // (tests/architecture.test.ts), and a view that names exactly what it shows is what keeps the panel from growing a
 // dependency on a provider format.
-import type {ExternalInput} from '../world/observations';
-import type {DatasetProvenance} from '../world/observations';
+import type {ExternalInput} from '../../world/observations';
+import type {DatasetProvenance} from '../../world/observations';
 
 export type SourceRow={label:string;value:string};
 export type SourceInfo={title:string;rows:readonly SourceRow[];notes:readonly string[];message:string};

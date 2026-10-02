@@ -11,6 +11,8 @@ import type {ContentHasher,WorldCodec} from '../../world/ports';
 import type {Head,JsonValue,WorldResult} from '../../world/model';
 import {contentText,epochSeconds,npubOfPrincipal,verifyBinding} from './identity';
 import type {NostrBinding,NostrEvent,NostrEventTemplate,NostrIdentity} from './identity';
+import {isPlainObject} from '../../core/guards';
+import {instantOf,stringOf,uriOf} from '../../world/readers';
 
 // Invitations (task 10 of docs/superpowers/plans/2026-09-29-federated-world.md; docs/OpenSim-Protocol-0.1.txt §27, §28
 // and the task 10 delta in docs/kernel.md). An invitation is a signed `capability` document: it says who may ask to
@@ -24,29 +26,13 @@ import type {NostrBinding,NostrEvent,NostrEventTemplate,NostrIdentity} from './i
 // The descriptor — head, epoch, endpoints — travels privately, so the announcement commits to it without disclosing
 // it, and no announcement ever contains a key or a world snapshot.
 const CAPABILITY: Record<string, ActionCapability> = {admin: 'admin', host: 'host', build: 'build', demolish: 'demolish', tick: 'tick', component: 'component'};
-const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, HEX = /^[0-9a-f]{64}$/, SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, HEX = /^[0-9a-f]{64}$/;
 const TRANSPORTS = ['nostr', 'webrtc', 'manual'] as const;
 const INVITE_PREFIX = 'osim:capability:invite-', SESSION_PREFIX = 'osim:session:';
 // One stateless SHA-256 port instance for the ids this module derives; a caller verifying a request injects the same
 // port, so an id and its verification can never disagree about which bytes are addressed.
 const hasher = bytesHasher();
 
-function plain(value: unknown): value is Record<string, unknown> {
- return !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
-}
-function stringOf(value: unknown, label: string): WorldResult<string> {
- if (typeof value !== 'string' || !value.length || value.length > 200) return failed('MALFORMED', `${label} inválido`);
- return ok(value);
-}
-function uriOf(value: unknown, label: string): WorldResult<string> {
- const text = stringOf(value, label);
- if (!text.ok) return text;
- return SCHEME.test(value as string) ? text : failed('MALFORMED', `${label} sem esquema: ${text.value}`);
-}
-function instantOf(value: unknown, label: string): WorldResult<string> {
- if (typeof value !== 'string' || !INSTANT.test(value)) return failed('MALFORMED', `${label} fora do formato de instante`);
- return ok(value);
-}
 function actionsOf(value: unknown): WorldResult<ActionCapability[]> {
  if (!Array.isArray(value) || !value.length) return failed('MALFORMED', 'Convite sem ações propostas');
  const actions: ActionCapability[] = [];
@@ -58,7 +44,7 @@ function actionsOf(value: unknown): WorldResult<ActionCapability[]> {
  return ok(actions);
 }
 function headOf(value: unknown, worldId: string, branchId: string): WorldResult<Head> {
- if (!plain(value)) return failed('MALFORMED', 'Cabeça de mundo inválida');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Cabeça de mundo inválida');
  if (value['worldId'] !== worldId || value['branchId'] !== branchId) return failed('MALFORMED', 'Cabeça de outro mundo ou ramificação');
  const commit = value['commit'], generation = value['generation'];
  if (!isRef(commit)) return failed('MALFORMED', 'Cabeça sem referência de commit');
@@ -69,7 +55,7 @@ function endpointsOf(value: unknown): WorldResult<InviteEndpoint[]> {
  if (!Array.isArray(value) || !value.length) return failed('MALFORMED', 'Convite sem ponto de encontro');
  const endpoints: InviteEndpoint[] = [];
  for (const entry of value) {
-  if (!plain(entry)) return failed('MALFORMED', 'Ponto de encontro inválido');
+  if (!isPlainObject(entry)) return failed('MALFORMED', 'Ponto de encontro inválido');
   const transport = entry['transport'], uri = stringOf(entry['uri'], 'Endereço do ponto de encontro');
   if (!uri.ok) return uri;
   if (typeof transport !== 'string' || !(TRANSPORTS as readonly string[]).includes(transport)) return failed('MALFORMED', `Transporte desconhecido: ${String(transport)}`);
@@ -78,10 +64,10 @@ function endpointsOf(value: unknown): WorldResult<InviteEndpoint[]> {
  return ok(endpoints);
 }
 function policyOf(value: unknown): WorldResult<InvitePolicy> {
- if (!plain(value)) return failed('MALFORMED', 'Política de convite inválida');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Política de convite inválida');
  if (value['kind'] === 'open' || value['kind'] === 'approval') return ok({kind: value['kind']});
  if (value['kind'] !== 'recipient') return failed('MALFORMED', `Política de convite desconhecida: ${String(value['kind'])}`);
- if (!plain(value['subject'])) return failed('MALFORMED', 'Política de destinatário sem principal');
+ if (!isPlainObject(value['subject'])) return failed('MALFORMED', 'Política de destinatário sem principal');
  const scheme = stringOf(value['subject']['scheme'], 'Esquema do destinatário'), id = stringOf(value['subject']['id'], 'Identidade do destinatário');
  if (!scheme.ok) return scheme;
  if (!id.ok) return id;
@@ -150,7 +136,7 @@ export function inviteText(invite: {id: string; event: NostrEvent}, codec: World
  return contentText(codec, {kind: 'invite', version: 1, id: invite.id, event: invite.event});
 }
 function bodyFrom(value: unknown): WorldResult<InviteBody> {
- if (!plain(value)) return failed('MALFORMED', 'Convite sem corpo');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Convite sem corpo');
  if (value['type'] !== 'capability' || value['version'] !== 1) return failed('MALFORMED', `Convite de tipo ou versão desconhecida: ${String(value['type'])}/${String(value['version'])}`);
  const issuer = uriOf(value['issuer'], 'Emissor'), entity = stringOf(value['entity'], 'Entidade do convite');
  if (!issuer.ok) return issuer;
@@ -163,7 +149,7 @@ function bodyFrom(value: unknown): WorldResult<InviteBody> {
  if (!notAfter.ok) return notAfter;
  if (notAfter.value <= notBefore.value) return failed('MALFORMED', 'Convite com validade vazia');
  const session = value['session'];
- if (!plain(session)) return failed('MALFORMED', 'Convite sem descritor de sessão');
+ if (!isPlainObject(session)) return failed('MALFORMED', 'Convite sem descritor de sessão');
  if (session['type'] !== 'session' || session['mode'] !== 'realtime') return failed('MALFORMED', 'Descritor de sessão de outro tipo ou modo');
  const id = stringOf(session['id'], 'Sessão'), timeline = stringOf(session['timeline'], 'Linha do tempo'), host = uriOf(session['host'], 'Anfitrião'), startedAt = instantOf(session['startedAt'], 'Início da sessão');
  if (!id.ok) return id;
@@ -173,7 +159,7 @@ function bodyFrom(value: unknown): WorldResult<InviteBody> {
  if (!id.value.startsWith(SESSION_PREFIX) || !timeline.value.startsWith('osim:timeline:')) return failed('MALFORMED', 'Sessão ou linha do tempo fora do vocabulário do protocolo');
  if (host.value !== issuer.value) return failed('MALFORMED', 'Anfitrião diferente do emissor do convite');
  const world = session['world'];
- if (!plain(world)) return failed('MALFORMED', 'Descritor sem mundo');
+ if (!isPlainObject(world)) return failed('MALFORMED', 'Descritor sem mundo');
  const worldId = stringOf(world['worldId'], 'Mundo'), branchId = stringOf(world['branchId'], 'Ramificação'), epoch = world['epoch'];
  if (!worldId.ok) return worldId;
  if (!branchId.ok) return branchId;
@@ -202,7 +188,7 @@ function bodyFrom(value: unknown): WorldResult<InviteBody> {
 // The single validation point for an invitation from anywhere: the id has to be the digest of the signed content, the
 // event has to verify, the `d` tag has to agree with the id, and the body has to be readable.
 export async function inviteFrom(event: unknown): Promise<WorldResult<Invite>> {
- if (!plain(event)) return failed('MALFORMED', 'Convite sem evento assinado');
+ if (!isPlainObject(event)) return failed('MALFORMED', 'Convite sem evento assinado');
  const {kind, pubkey, id, sig, content, tags, created_at} = event as Record<string, unknown>;
  if (typeof kind !== 'number' || typeof pubkey !== 'string' || !HEX.test(pubkey) || typeof id !== 'string' || typeof sig !== 'string' || typeof content !== 'string' || !Array.isArray(tags)) return failed('MALFORMED', 'Evento do convite inválido');
  const signed: NostrEvent = {kind, created_at: Number(created_at), tags: (tags as string[][]).map(tag => [...tag]), content, pubkey, id, sig};
@@ -217,13 +203,13 @@ export async function inviteFrom(event: unknown): Promise<WorldResult<Invite>> {
  return ok({id: inviteId, event: signed, body: body.value});
 }
 export function verifyInvite(value: unknown): Promise<WorldResult<Invite>> {
- if (!plain(value)) return Promise.resolve(failed('MALFORMED', 'Convite inválido'));
+ if (!isPlainObject(value)) return Promise.resolve(failed('MALFORMED', 'Convite inválido'));
  return inviteFrom(value['event']);
 }
 export async function parseInvite(text: string): Promise<WorldResult<Invite>> {
  const parsed = parseStrictJson(text, undefined, DEFAULT_LIMITS.maxNodes);
  if (!parsed.ok) return parsed;
- if (!plain(parsed.value) || parsed.value['kind'] !== 'invite' || parsed.value['version'] !== 1) return failed('MALFORMED', 'Texto não é um convite');
+ if (!isPlainObject(parsed.value) || parsed.value['kind'] !== 'invite' || parsed.value['version'] !== 1) return failed('MALFORMED', 'Texto não é um convite');
  const event = parsed.value['event'];
  const verified = await inviteFrom(event);
  if (!verified.ok) return verified;

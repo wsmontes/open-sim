@@ -1,6 +1,5 @@
 import {expect,test} from 'vitest';
 import {decodeSave,encodeSave} from '../src/core/snapshot';
-import {canonicalJson} from '../src/core/protocol';
 import {applyCommand,createGame} from '../src/core/commands';
 import {blank,command} from './fixtures/world';
 import type {GameState,SavedGame} from '../src/core/model';

@@ -2,10 +2,8 @@
 // checkpoints behind it. The panel builds its own markup so the composition in main.ts only wires the four flows the
 // plan asks for — Criar versão, Exportar, Importar e Histórico — and every string the player reads is Portuguese,
 // with the states the spec names ("Salvo neste dispositivo").
-export type HistoryEntry = {generation:number;hash:string;label:string;current:boolean};
-export type CompareOption = {hash:string;label:string};
-export type CompareInfo = {summary:string;regions:readonly {id:string;label:string}[]};
-export type HistoryInfo = {worldId:string;branchId:string;status:string;entries:readonly HistoryEntry[];message:string;compareOptions:readonly CompareOption[];compare:CompareInfo|null};
+export type {HistoryEntry,CompareOption,CompareInfo,HistoryInfo,HistoryBranches} from '../../presentation/world-history-model';
+import type {HistoryInfo} from '../../presentation/world-history-model';
 export type HistoryActions = {
  onCreateVersion(name:string):void;
  onExport():void;

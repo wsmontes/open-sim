@@ -1,10 +1,26 @@
 export type FrameNeed={moving:boolean;ambient:boolean};
 export type FrameStats={frames:number;drawn:number;frameMs:number;p50:number;p95:number;fps:number;drawing:boolean};
 
+// A timer id is whatever the host's clock hands back; the scheduler only ever passes it straight back to clear it, so
+// it stays opaque. This keeps the module free of DOM and Node types (tsconfig.presentation.json) while a browser host
+// still passes its real setTimeout/requestAnimationFrame below.
+type TimerId=unknown;
 type Raf=(callback:(now:number)=>void)=>number;
 type CancelRaf=(id:number)=>void;
-type Delay=(callback:()=>void,ms:number)=>ReturnType<typeof setTimeout>;
-type ClearDelay=(id:ReturnType<typeof setTimeout>)=>void;
+type Delay=(callback:()=>void,ms:number)=>TimerId;
+type ClearDelay=(id:TimerId)=>void;
+
+// The browser globals, read off globalThis rather than named directly: a host without them must inject its own ports,
+// and the type-check needs no DOM/Node lib to see these.
+type Platform={
+ requestAnimationFrame?:Raf;
+ cancelAnimationFrame?:CancelRaf;
+ setTimeout?:(callback:()=>void,ms:number)=>TimerId;
+ clearTimeout?:(id:TimerId)=>void;
+ performance?:{now():number};
+ document?:{hidden:boolean};
+};
+const platform=globalThis as Platform;
 
 export function createFrameScheduler(options:{
  draw:(now:number,seconds:number)=>FrameNeed;
@@ -16,14 +32,14 @@ export function createFrameScheduler(options:{
  now?:()=>number;
  ambientFps?:number;
 }){
- const request: Raf=options.request??(callback=>requestAnimationFrame(callback));
- const cancel: CancelRaf=options.cancel??(id=>cancelAnimationFrame(id));
- const delay: Delay=options.delay??((callback,ms)=>setTimeout(callback,ms));
- const clearDelay: ClearDelay=options.clearDelay??(id=>clearTimeout(id));
- const visible=options.visible??(()=>typeof document==='undefined'||!document.hidden);
- const now=options.now??(()=>typeof performance==='undefined'?Date.now():performance.now());
+ const request: Raf=options.request??(callback=>platform.requestAnimationFrame!(callback));
+ const cancel: CancelRaf=options.cancel??(id=>platform.cancelAnimationFrame!(id));
+ const delay: Delay=options.delay??((callback,ms)=>platform.setTimeout!(callback,ms));
+ const clearDelay: ClearDelay=options.clearDelay??(id=>platform.clearTimeout!(id));
+ const visible=options.visible??(()=>!platform.document||!platform.document.hidden);
+ const now=options.now??(()=>platform.performance?platform.performance.now():Date.now());
  const ambientMs=1000/(options.ambientFps??30),samples=new Array<number>(120).fill(0),recent:number[]=[];
- let raf:number|null=null,timer:ReturnType<typeof setTimeout>|null=null,last=0,need:FrameNeed={moving:false,ambient:false};
+ let raf:number|null=null,timer:TimerId|null=null,last=0,need:FrameNeed={moving:false,ambient:false};
  let sampleCount=0,sampleAt=0,frames=0,drawn=0,mean=0;
 
  const percentile=(sorted:readonly number[],part:number)=>sorted.length?sorted[Math.min(sorted.length-1,Math.max(0,Math.ceil(part*sorted.length)-1))]!:0;

@@ -7,6 +7,8 @@ import type {Head, JsonValue, ObjectRef, WorldResult} from './model';
 import {WIRE_VERSION, WORLD_PROTOCOL, failed, isRef, ok, sameRef} from './model';
 import type {Limits} from './wire';
 import {narrowerLimits} from './wire';
+import {assertClosed,isPlainObject,RESERVED_KEYS} from '../core/guards';
+import {countOf,hexOf,instantOf,stringOf as textOf} from './readers';
 
 // Identity, grants and capability negotiation for a shared session (docs/superpowers/specs/2026-09-29-federated-world
 // -design.md §7.2, §7.4, §9, §10). Pure: the clock, the codec, the hasher and the verifier are injected, because the
@@ -32,7 +34,7 @@ export type SessionBindingRequest = {principal: Principal; scope: IdentityScope}
 export interface IdentityProvider {
  bindSession(request: SessionBindingRequest): Promise<WorldResult<IdentityProof>>;
 }
-const SCHEME = /^[a-z][a-z0-9-]{0,15}$/, PUBLIC_KEY = /^[0-9a-f]{64}$/, SIGNATURE_HEX = /^[0-9a-f]{128}$/, INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, REGION = /^\d+:\d+$/;
+const SCHEME = /^[a-z][a-z0-9-]{0,15}$/, PUBLIC_KEY = /^[0-9a-f]{64}$/, INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, REGION = /^\d+:\d+$/;
 const samePrincipal = (left: Principal, right: Principal) => left.scheme === right.scheme && left.id === right.id;
 
 // The canonical bodies are what a signature covers. Proofs stay detached (spec §9.2), so the bytes of a proposal do
@@ -320,7 +322,7 @@ export type ControlBody =
  | {kind: 'agreement'; agreement: SessionAgreement};
 
 export function controlFrom(value: JsonValue): WorldResult<ControlBody> {
- if (!plain(value)) return failed('MALFORMED', 'Controle não é um objeto');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Controle não é um objeto');
  try {
   const kind = value['kind'];
   if (kind === 'identity') {
@@ -354,32 +356,8 @@ export function controlFrom(value: JsonValue): WorldResult<ControlBody> {
  }
 }
 
-const RESERVED_KEYS = ['__proto__', 'constructor', 'prototype'];
-function closed(value: Record<string, unknown>, allowed: readonly string[], label: string): void {
- for (const key of Object.keys(value)) {
-  if (RESERVED_KEYS.includes(key)) throw new Error(`${label} com chave reservada: ${key}`);
-  if (!allowed.includes(key)) throw new Error(`${label} com campo desconhecido: ${key}`);
- }
-}
-function plain(value: unknown): value is Record<string, unknown> {
- return !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
-}
-function stringOf(value: unknown, label: string, max = 200): WorldResult<string> {
- if (typeof value !== 'string' || !value.length || value.length > max || RESERVED_KEYS.includes(value)) return failed('MALFORMED', `${label} inválido`);
- return ok(value);
-}
-function countOf(value: unknown, label: string, min = 0): WorldResult<number> {
- if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < min) return failed('MALFORMED', `${label} inválido`);
- return ok(value);
-}
-function hexOf(value: unknown, label: string, digits: number): WorldResult<string> {
- if (typeof value !== 'string' || value.length !== digits || !/^[0-9a-f]+$/.test(value)) return failed('MALFORMED', `${label} inválido`);
- return ok(value);
-}
-function instantOf(value: unknown, label: string): WorldResult<string> {
- if (typeof value !== 'string' || !INSTANT.test(value)) return failed('MALFORMED', `${label} não é um instante UTC`);
- return ok(value);
-}
+const stringOf = (value: unknown, label: string, max = 200): WorldResult<string> =>
+ RESERVED_KEYS.includes(value as string) ? failed('MALFORMED', `${label} inválido`) : textOf(value, label, max);
 // Versions this client speaks: a document of another wire version is refused, an announcement is read.
 function versioned(value: Record<string, unknown>, label: string): WorldResult<null> {
  if (value['worldProtocol'] !== WORLD_PROTOCOL) return failed('WORLD_PROTOCOL_UNSUPPORTED', `${label} do protocolo ${String(value['worldProtocol'])} não é suportado (esperado ${WORLD_PROTOCOL})`);
@@ -387,8 +365,8 @@ function versioned(value: Record<string, unknown>, label: string): WorldResult<n
  return ok(null);
 }
 function principalFrom(value: unknown): WorldResult<Principal> {
- if (!plain(value)) return failed('MALFORMED', 'Principal inválido');
- closed(value, ['scheme', 'id'], 'Principal');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Principal inválido');
+ assertClosed(value, ['scheme', 'id'], 'Principal');
  const scheme = value['scheme'], id = value['id'];
  if (typeof scheme !== 'string' || !SCHEME.test(scheme)) return failed('MALFORMED', `Esquema de identidade inválido: ${String(scheme)}`);
  const identifier = stringOf(id, 'Identificador do principal');
@@ -397,8 +375,8 @@ function principalFrom(value: unknown): WorldResult<Principal> {
  return ok({scheme, id: identifier.value});
 }
 function scopeFrom(value: unknown): WorldResult<IdentityScope> {
- if (!plain(value)) return failed('MALFORMED', 'Vínculo sem escopo');
- closed(value, ['worldId', 'branchId', 'sessionId', 'notBefore', 'notAfter'], 'Escopo');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Vínculo sem escopo');
+ assertClosed(value, ['worldId', 'branchId', 'sessionId', 'notBefore', 'notAfter'], 'Escopo');
  const worldId = stringOf(value['worldId'], 'Mundo', 80);
  if (!worldId.ok) return worldId;
  const branchId = stringOf(value['branchId'], 'Ramificação', 80);
@@ -413,8 +391,8 @@ function scopeFrom(value: unknown): WorldResult<IdentityScope> {
  return ok({worldId: worldId.value, branchId: branchId.value, sessionId: sessionId.value, notBefore: notBefore.value, notAfter: notAfter.value});
 }
 function signatureFrom(value: unknown, label: string): WorldResult<Signature> {
- if (!plain(value)) return failed('MALFORMED', `${label} inválida`);
- closed(value, ['algorithm', 'key', 'value'], label);
+ if (!isPlainObject(value)) return failed('MALFORMED', `${label} inválida`);
+ assertClosed(value, ['algorithm', 'key', 'value'], label);
  if (value['algorithm'] !== 'Ed25519') return failed('MALFORMED', `${label} com algoritmo desconhecido: ${String(value['algorithm'])}`);
  const key = hexOf(value['key'], `Chave de ${label}`, 64);
  if (!key.ok) return key;
@@ -423,8 +401,8 @@ function signatureFrom(value: unknown, label: string): WorldResult<Signature> {
  return ok({algorithm: 'Ed25519', key: key.value, value: signature.value});
 }
 function messageProofFrom(value: unknown, label: string): WorldResult<MessageProof> {
- if (!plain(value)) return failed('MALFORMED', `${label} sem assinatura`);
- closed(value, ['kind', 'algorithm', 'sessionKey', 'signature'], label);
+ if (!isPlainObject(value)) return failed('MALFORMED', `${label} sem assinatura`);
+ assertClosed(value, ['kind', 'algorithm', 'sessionKey', 'signature'], label);
  if (value['kind'] !== 'message') return failed('MALFORMED', `${label} com prova de tipo desconhecido: ${String(value['kind'])}`);
  if (value['algorithm'] !== 'Ed25519') return failed('MALFORMED', `${label} com algoritmo desconhecido: ${String(value['algorithm'])}`);
  const sessionKey = hexOf(value['sessionKey'], 'Chave de sessão', 64);
@@ -434,8 +412,8 @@ function messageProofFrom(value: unknown, label: string): WorldResult<MessagePro
  return ok({kind: 'message', algorithm: 'Ed25519', sessionKey: sessionKey.value, signature: signature.value});
 }
 function identityFrom(value: unknown): WorldResult<IdentityProof> {
- if (!plain(value)) return failed('MALFORMED', 'Prova de identidade inválida');
- closed(value, ['kind', 'principal', 'sessionKey', 'scope', 'delegation'], 'Prova de identidade');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Prova de identidade inválida');
+ assertClosed(value, ['kind', 'principal', 'sessionKey', 'scope', 'delegation'], 'Prova de identidade');
  if (value['kind'] !== 'identity') return failed('MALFORMED', `Prova de tipo desconhecido: ${String(value['kind'])}`);
  const principal = principalFrom(value['principal']);
  if (!principal.ok) return principal;
@@ -463,8 +441,8 @@ function namespacesFrom(value: unknown): WorldResult<NamespaceDecl[]> {
  if (!Array.isArray(value)) return failed('MALFORMED', 'Namespaces inválidos');
  const namespaces: NamespaceDecl[] = [];
  for (const entry of value) {
-  if (!plain(entry)) return failed('MALFORMED', 'Declaração de namespace inválida');
-  closed(entry, ['key', 'critical'], 'Declaração de namespace');
+  if (!isPlainObject(entry)) return failed('MALFORMED', 'Declaração de namespace inválida');
+  assertClosed(entry, ['key', 'critical'], 'Declaração de namespace');
   const key = stringOf(entry['key'], 'Namespace', 80);
   if (!key.ok) return key;
   if (!isComponentKey(key.value)) return failed('MALFORMED', `Namespace inválido: ${key.value}`);
@@ -487,8 +465,8 @@ function namespaceListFrom(value: unknown, label: string): WorldResult<string[]>
  return ok(keys);
 }
 function rulesFrom(value: unknown): WorldResult<Capabilities['rules']> {
- if (!plain(value)) return failed('MALFORMED', 'Regras ausentes');
- closed(value, ['family', 'version'], 'Regras');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Regras ausentes');
+ assertClosed(value, ['family', 'version'], 'Regras');
  const family = stringOf(value['family'], 'Família de regras', 40);
  if (!family.ok) return family;
  const version = countOf(value['version'], 'Versão das regras', 1);
@@ -496,9 +474,9 @@ function rulesFrom(value: unknown): WorldResult<Capabilities['rules']> {
  return ok({family: family.value, version: version.value});
 }
 function limitsFrom(value: unknown): WorldResult<Limits> {
- if (!plain(value)) return failed('MALFORMED', 'Limites ausentes');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Limites ausentes');
  const fields = ['participants', 'maxControlBytes', 'maxDurableBytes', 'maxSegmentBytes', 'maxObjectBytes', 'maxInflightObjectBytes', 'maxProposalQueue', 'proposalsPerSecond', 'presencePerSecond'] as const;
- closed(value, fields, 'Limites');
+ assertClosed(value, fields, 'Limites');
  const read: Record<string, number> = {};
  for (const field of fields) {
   const amount = countOf(value[field], field, 1);
@@ -508,8 +486,8 @@ function limitsFrom(value: unknown): WorldResult<Limits> {
  return ok({participants: read['participants']!, maxControlBytes: read['maxControlBytes']!, maxDurableBytes: read['maxDurableBytes']!, maxSegmentBytes: read['maxSegmentBytes']!, maxObjectBytes: read['maxObjectBytes']!, maxInflightObjectBytes: read['maxInflightObjectBytes']!, maxProposalQueue: read['maxProposalQueue']!, proposalsPerSecond: read['proposalsPerSecond']!, presencePerSecond: read['presencePerSecond']!});
 }
 function capabilitiesFrom(value: unknown): WorldResult<Capabilities> {
- if (!plain(value)) return failed('MALFORMED', 'Capacidades inválidas');
- closed(value, ['kind', 'worldProtocol', 'wireVersion', 'rules', 'actions', 'namespaces', 'limits'], 'Capacidades');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Capacidades inválidas');
+ assertClosed(value, ['kind', 'worldProtocol', 'wireVersion', 'rules', 'actions', 'namespaces', 'limits'], 'Capacidades');
  if (value['kind'] !== 'capabilities') return failed('MALFORMED', `Documento de tipo desconhecido: ${String(value['kind'])}`);
  const worldProtocol = countOf(value['worldProtocol'], 'Protocolo de mundo', 1);
  if (!worldProtocol.ok) return worldProtocol;
@@ -526,8 +504,8 @@ function capabilitiesFrom(value: unknown): WorldResult<Capabilities> {
  return ok({kind: 'capabilities', worldProtocol: worldProtocol.value, wireVersion: wireVersion.value, rules: rules.value, actions: actions.value, namespaces: namespaces.value, limits: limits.value});
 }
 function agreementFrom(value: unknown): WorldResult<SessionAgreement> {
- if (!plain(value)) return failed('MALFORMED', 'Acordo inválido');
- closed(value, ['kind', 'worldProtocol', 'wireVersion', 'rules', 'actions', 'critical', 'unknownCritical', 'unsupportedCritical', 'write', 'limits'], 'Acordo');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Acordo inválido');
+ assertClosed(value, ['kind', 'worldProtocol', 'wireVersion', 'rules', 'actions', 'critical', 'unknownCritical', 'unsupportedCritical', 'write', 'limits'], 'Acordo');
  if (value['kind'] !== 'agreement') return failed('MALFORMED', `Documento de tipo desconhecido: ${String(value['kind'])}`);
  const version = versioned(value, 'Acordo');
  if (!version.ok) return version;
@@ -551,8 +529,8 @@ function cellsFrom(value: unknown): WorldResult<CellCoord[]> {
  if (!Array.isArray(value) || !value.length || value.length > 1024) return failed('MALFORMED', 'Seleção inválida');
  const cells: CellCoord[] = [];
  for (const entry of value) {
-  if (!plain(entry)) return failed('MALFORMED', 'Coordenada inválida');
-  closed(entry, ['x', 'y'], 'Coordenada');
+  if (!isPlainObject(entry)) return failed('MALFORMED', 'Coordenada inválida');
+  assertClosed(entry, ['x', 'y'], 'Coordenada');
   const x = entry['x'], y = entry['y'];
   if (typeof x !== 'number' || typeof y !== 'number' || !Number.isInteger(x) || !Number.isInteger(y)) return failed('MALFORMED', 'Coordenada inválida');
   const cell = {x, y};
@@ -562,14 +540,14 @@ function cellsFrom(value: unknown): WorldResult<CellCoord[]> {
  return ok(cells);
 }
 export function intentFrom(value: unknown): WorldResult<Action> {
- if (!plain(value)) return failed('MALFORMED', 'Intenção inválida');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Intenção inválida');
  const type = value['type'];
  if (type === 'tick') {
-  closed(value, ['type'], 'Intenção');
+  assertClosed(value, ['type'], 'Intenção');
   return ok({type: 'tick'});
  }
  if (type === 'build' || type === 'demolish') {
-  closed(value, type === 'build' ? ['type', 'tool', 'cells'] : ['type', 'cells'], 'Intenção');
+  assertClosed(value, type === 'build' ? ['type', 'tool', 'cells'] : ['type', 'cells'], 'Intenção');
   const cells = cellsFrom(value['cells']);
   if (!cells.ok) return cells;
   if (type === 'demolish') return ok({type: 'demolish', cells: cells.value});
@@ -580,7 +558,7 @@ export function intentFrom(value: unknown): WorldResult<Action> {
   return ok({type: 'build', tool, cells: cells.value});
  }
  if (type === 'policy') {
-  closed(value, ['type', 'tax', 'services', 'borrow'], 'Intenção');
+  assertClosed(value, ['type', 'tax', 'services', 'borrow'], 'Intenção');
   const tax=value['tax'],services=value['services'],borrow=value['borrow'];
   if(tax===undefined&&services===undefined&&borrow===undefined)return failed('MALFORMED','Política sem alteração');
   for(const [name,entry] of [['tax',tax],['services',services],['borrow',borrow]] as const){
@@ -589,7 +567,7 @@ export function intentFrom(value: unknown): WorldResult<Action> {
   return ok({type:'policy',...(tax!==undefined?{tax:tax as number}:{}),...(services!==undefined?{services:services as number}:{}),...(borrow!==undefined?{borrow:borrow as number}:{})});
  }
  if (type === 'component') {
-  closed(value, ['type', 'key', 'entity', 'value'], 'Intenção');
+  assertClosed(value, ['type', 'key', 'entity', 'value'], 'Intenção');
   const key = stringOf(value['key'], 'Namespace do componente', 80);
   if (!key.ok) return key;
   if (!isComponentKey(key.value)) return failed('MALFORMED', `Namespace inválido: ${key.value}`);
@@ -630,8 +608,8 @@ function entityListFrom(value: unknown): WorldResult<string[]> {
  return ok(entities);
 }
 function grantFrom(value: unknown): WorldResult<Grant> {
- if (!plain(value)) return failed('MALFORMED', 'Concessão inválida');
- closed(value, ['kind', 'id', 'principal', 'worldId', 'branchId', 'actions', 'namespaces', 'entities', 'regions', 'spendLimit', 'epoch', 'notBefore', 'notAfter', 'delegatedBy', 'proof'], 'Concessão');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Concessão inválida');
+ assertClosed(value, ['kind', 'id', 'principal', 'worldId', 'branchId', 'actions', 'namespaces', 'entities', 'regions', 'spendLimit', 'epoch', 'notBefore', 'notAfter', 'delegatedBy', 'proof'], 'Concessão');
  if (value['kind'] !== 'grant') return failed('MALFORMED', `Documento de tipo desconhecido: ${String(value['kind'])}`);
  const id = stringOf(value['id'], 'Identificador da concessão', 80);
  if (!id.ok) return id;
@@ -684,14 +662,14 @@ function grantFrom(value: unknown): WorldResult<Grant> {
  return ok(grant);
 }
 function headRefFrom(value: unknown): WorldResult<ObjectRef> {
- if (!plain(value)) return failed('MALFORMED', 'Cabeça observada inválida');
- closed(value, ['hash', 'bytes'], 'Cabeça observada');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Cabeça observada inválida');
+ assertClosed(value, ['hash', 'bytes'], 'Cabeça observada');
  if (!isRef(value)) return failed('MALFORMED', 'Cabeça observada inválida');
  return ok({hash: value['hash'], bytes: value['bytes']});
 }
 function proposalFrom(value: unknown): WorldResult<Proposal> {
- if (!plain(value)) return failed('MALFORMED', 'Proposta inválida');
- closed(value, ['worldProtocol', 'wireVersion', 'kind', 'worldId', 'branchId', 'sessionId', 'epoch', 'id', 'principal', 'sessionKey', 'observedHead', 'intent', 'preconditions', 'costLimit', 'proof'], 'Proposta');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Proposta inválida');
+ assertClosed(value, ['worldProtocol', 'wireVersion', 'kind', 'worldId', 'branchId', 'sessionId', 'epoch', 'id', 'principal', 'sessionKey', 'observedHead', 'intent', 'preconditions', 'costLimit', 'proof'], 'Proposta');
  if (value['kind'] !== 'proposal') return failed('MALFORMED', `Documento de tipo desconhecido: ${String(value['kind'])}`);
  const version = versioned(value, 'Proposta');
  if (!version.ok) return version;
@@ -714,8 +692,8 @@ function proposalFrom(value: unknown): WorldResult<Proposal> {
  const intent = intentFrom(value['intent']);
  if (!intent.ok) return intent;
  const preconditions = value['preconditions'];
- if (!plain(preconditions)) return failed('MALFORMED', 'Pré-condições ausentes');
- closed(preconditions, ['revision'], 'Pré-condições');
+ if (!isPlainObject(preconditions)) return failed('MALFORMED', 'Pré-condições ausentes');
+ assertClosed(preconditions, ['revision'], 'Pré-condições');
  const revision = countOf(preconditions['revision'], 'Revisão esperada');
  if (!revision.ok) return revision;
  const costLimit = countOf(value['costLimit'], 'Limite de custo');

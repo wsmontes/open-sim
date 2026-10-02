@@ -10,6 +10,7 @@ import type {JsonValue,WorldResult} from '../../world/model';
 import type {CaptureTimes,SourceIdentity,SourceTerms} from '../../world/reality';
 import type {ObservedKind,RawObservation} from '../../world/observations';
 import {externalTimes} from '../../world/observations';
+import {isRecord} from '../../core/guards';
 
 export const OBSERVATION_FILE_FORMAT='opensim-observations-v1';
 export type RecordedObservations={source:SourceIdentity;terms?:SourceTerms;observations:readonly RawObservation[]};
@@ -18,9 +19,6 @@ const ENVELOPE=['format','source','terms','observations'],RECORD=['id','kind','u
 const TERM_FIELDS=['attribution','license','url'],SOURCE_FIELDS=['id','dataset','url','providerRevision'];
 const TIME_FIELDS=['retrievedAt','observedAt','publishedAt','interval'];
 
-function plain(value:unknown):value is Record<string,unknown>{
- return !!value&&typeof value==='object'&&!Array.isArray(value);
-}
 function text(value:unknown,label:string):WorldResult<string>{
  return typeof value==='string'&&value.length?ok(value):failed('MALFORMED',`${label} ausente no arquivo de observações`);
 }
@@ -29,7 +27,7 @@ function fields(value:Record<string,unknown>,known:readonly string[],label:strin
  return unknown.length?failed('MALFORMED',`${label} traz um campo que este formato não define: ${unknown[0]}`):ok(null);
 }
 function sourceOf(value:unknown):WorldResult<SourceIdentity>{
- if(!plain(value))return failed('MALFORMED','O arquivo de observações não declara a fonte');
+ if(!isRecord(value))return failed('MALFORMED','O arquivo de observações não declara a fonte');
  const shape=fields(value,SOURCE_FIELDS,'A fonte do arquivo de observações');
  if(!shape.ok)return shape;
  const id=text(value['id'],'Identificador da fonte'),dataset=text(value['dataset'],'Conjunto da fonte'),url=text(value['url'],'Endereço da fonte');
@@ -47,7 +45,7 @@ function sourceOf(value:unknown):WorldResult<SourceIdentity>{
 }
 function termsOf(value:unknown):WorldResult<SourceTerms|undefined>{
  if(value===undefined)return ok(undefined);
- if(!plain(value))return failed('MALFORMED','Os termos do arquivo de observações são inválidos');
+ if(!isRecord(value))return failed('MALFORMED','Os termos do arquivo de observações são inválidos');
  const shape=fields(value,TERM_FIELDS,'Os termos do arquivo de observações');
  if(!shape.ok)return shape;
  const terms:SourceTerms={};
@@ -62,7 +60,7 @@ function termsOf(value:unknown):WorldResult<SourceTerms|undefined>{
  return ok(terms);
 }
 function timesOf(value:unknown,label:string):WorldResult<CaptureTimes>{
- if(!plain(value))return failed('MALFORMED',`${label} não declara os tempos da observação`);
+ if(!isRecord(value))return failed('MALFORMED',`${label} não declara os tempos da observação`);
  const shape=fields(value,TIME_FIELDS,label);
  if(!shape.ok)return shape;
  const retrieved=text(value['retrievedAt'],`${label}: o momento de retirada`);
@@ -79,7 +77,7 @@ function timesOf(value:unknown,label:string):WorldResult<CaptureTimes>{
   times.publishedAt=published.value;
  }
  if(value['interval']!==undefined){
-  if(!plain(value['interval']))return failed('MALFORMED',`${label} traz um período inválido`);
+  if(!isRecord(value['interval']))return failed('MALFORMED',`${label} traz um período inválido`);
   const period=fields(value['interval'],['from','to'],`${label} (período)`);
   if(!period.ok)return period;
   const from=text(value['interval']['from'],`${label}: o início do período`),to=text(value['interval']['to'],`${label}: o fim do período`);
@@ -93,7 +91,7 @@ function timesOf(value:unknown,label:string):WorldResult<CaptureTimes>{
 }
 function recordOf(value:unknown,source:SourceIdentity,index:number):WorldResult<RawObservation>{
  const label=`A observação ${index+1}`;
- if(!plain(value))return failed('MALFORMED',`${label} não é um registro`);
+ if(!isRecord(value))return failed('MALFORMED',`${label} não é um registro`);
  const shape=fields(value,RECORD,label);
  if(!shape.ok)return shape;
  const id=text(value['id'],`${label} sem identificador`);
@@ -123,7 +121,7 @@ export function readObservationFile(bytes:Uint8Array):WorldResult<RecordedObserv
  if(!text.ok)return text;
  const parsed=parseStrictJson(text.value);
  if(!parsed.ok)return parsed;
- if(!plain(parsed.value))return failed('MALFORMED','O arquivo de observações não é um objeto');
+ if(!isRecord(parsed.value))return failed('MALFORMED','O arquivo de observações não é um objeto');
  const shape=fields(parsed.value,ENVELOPE,'O arquivo de observações');
  if(!shape.ok)return shape;
  if(parsed.value['format']!==OBSERVATION_FILE_FORMAT)return failed('MALFORMED',`Formato de arquivo desconhecido: ${String(parsed.value['format'])}`);

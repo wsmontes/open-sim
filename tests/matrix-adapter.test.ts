@@ -19,7 +19,7 @@ import type {FakeHomeserver} from './fixtures/matrix-homeserver';
 import {IDENTITY_EVENT_TYPE,bindingBody,confirmBinding,createMatrixIdentity,loginAccount,matrixPrincipalOf,matrixUriOf,registerAccount,verifyAccount,verifyMatrixBinding} from '../src/adapters/matrix/identity';
 import type {MatrixAccount,MatrixBinding,MatrixFetch,MatrixIdentity} from '../src/adapters/matrix/identity';
 import {CAPABILITY_EVENT_TYPE,ENCRYPTED_EVENT_TYPE,WORLD_EVENT_TYPE,bindingAllowsRoom,createMatrixInviteService,createMatrixRooms,createRoom,inviteFromEvent,joinRoom,roomBinding,roomStanding,verifyMatrixJoinRequest} from '../src/adapters/matrix/rooms';
-import type {MatrixInviteInput,MatrixJoinRequest,MatrixRooms,RoomBinding,RoomStanding} from '../src/adapters/matrix/rooms';
+import type {MatrixInviteInput,MatrixRooms,RoomBinding,RoomStanding} from '../src/adapters/matrix/rooms';
 
 const codec = createJcsCodec(), hasher = bytesHasher();
 const NOW = '2026-09-29T12:00:00Z';

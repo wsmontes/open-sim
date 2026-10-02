@@ -8,6 +8,7 @@ import type {PreparedChange} from '../world/changes';
 import {integrateProject} from '../world/city-profile';
 import {sameHead} from './world-ports';
 import type {ChangeReceipt,StoredObject,WorldStorage} from './world-ports';
+import {isRecord} from '../core/guards';
 // A world keeps its history the way the spec asks: immutable objects addressed by content, trees and commits that
 // only reference them, and a branch reference that moves forward by comparing the head it expected with the one the
 // device still has. The repository owns no bytes of its own — every read and every write goes through the storage
@@ -55,7 +56,6 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
  // without a detour through bytes and a stored object is verified exactly like a received one.
  type Source = {read(ref:ObjectRef):Promise<WorldResult<JsonValue>>};
  type LoadedVersion = {commitRef:ObjectRef;commit:WorldCommit;commitValue:JsonValue;treeRef:ObjectRef;tree:WorldTree;treeValue:JsonValue;stateRef:ObjectRef;state:GameState};
- const record=(value:JsonValue):value is {[key:string]:JsonValue}=>!!value&&typeof value==='object'&&!Array.isArray(value);
  const refOf=(value:JsonValue|undefined):ObjectRef|null=>isRef(value)?{hash:value.hash,bytes:value.bytes}:null;
  const sameAddress=(a:WorldAddress,b:WorldAddress)=>a.worldId===b.worldId&&a.branchId===b.branchId;
  const known=(refs:readonly ObjectRef[]):ObjectRef[]=>{
@@ -76,17 +76,17 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
  // These objects are plain values inside a package, so the reader re-checks the fields it takes decisions on; the
  // codec owns the wire schema of envelopes, definitions and heads, not of what a version points at.
  function definitionOf(value:JsonValue):WorldDefinition|null {
-  if(!record(value))return null;
+  if(!isRecord(value))return null;
   const worldId=value['worldId'],branchId=value['branchId'],origin=value['origin'],profiles=value['profiles'],rules=value['rules'];
   if(typeof worldId!=='string'||!worldId||worldId.length>80||typeof branchId!=='string'||!branchId||branchId.length>80)return null;
-  if(!record(rules)||typeof rules['family']!=='string'||!rules['family']||!Number.isSafeInteger(rules['version'])||(rules['version'] as number)<1)return null;
-  if(!record(origin)||!['legacy-save','new','fork'].includes(String(origin['kind'])))return null;
+  if(!isRecord(rules)||typeof rules['family']!=='string'||!rules['family']||!Number.isSafeInteger(rules['version'])||(rules['version'] as number)<1)return null;
+  if(!isRecord(origin)||!['legacy-save','new','fork'].includes(String(origin['kind'])))return null;
   if(!Array.isArray(profiles)||profiles.some(profile=>typeof profile!=='string'||!profile))return null;
   const parsed:WorldDefinition={worldId,branchId,origin:{kind:origin['kind'] as WorldDefinition['origin']['kind']},profiles:[...profiles] as string[],rules:{family:rules['family'],version:rules['version'] as number}};
   if(typeof origin['note']==='string')parsed.origin.note=origin['note'];
   const parent=origin['parent'];
   if(parent!==undefined){
-   if(!record(parent)||typeof parent['worldId']!=='string'||!parent['worldId']||typeof parent['branchId']!=='string'||!parent['branchId'])return null;
+   if(!isRecord(parent)||typeof parent['worldId']!=='string'||!parent['worldId']||typeof parent['branchId']!=='string'||!parent['branchId'])return null;
    parsed.origin.parent={worldId:parent['worldId'],branchId:parent['branchId']};
   }
   return parsed;
@@ -95,7 +95,7 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
   if(!Array.isArray(value))return null;
   const terms:DatasetTerm[]=[];
   for(const entry of value){
-   if(!record(entry)||typeof entry['source']!=='string'||!entry['source'])return null;
+   if(!isRecord(entry)||typeof entry['source']!=='string'||!entry['source'])return null;
    const term:DatasetTerm={source:entry['source']};
    if(entry['attribution']!==undefined){if(typeof entry['attribution']!=='string')return null;term.attribution=entry['attribution'];}
    if(entry['license']!==undefined){if(typeof entry['license']!=='string')return null;term.license=entry['license'];}
@@ -104,7 +104,7 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
   return terms;
  }
  function treeOf(value:JsonValue):WorldResult<WorldTree> {
-  if(!record(value)||value['kind']!=='world-tree')return failed('MALFORMED','Árvore de mundo desconhecida');
+  if(!isRecord(value)||value['kind']!=='world-tree')return failed('MALFORMED','Árvore de mundo desconhecida');
   const definition=definitionOf(value['definition']);
   if(!definition)return failed('MALFORMED','Árvore sem definição de mundo');
   const state=refOf(value['state']),attached=refsOf(value['attached']),terms=termsOf(value['terms']);
@@ -112,17 +112,17 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
   return ok({kind:'world-tree',definition,terms,state,attached});
  }
  function commitOf(value:JsonValue):WorldResult<WorldCommit> {
-  if(!record(value)||value['kind']!=='world-commit')return failed('MALFORMED','Commit desconhecido');
+  if(!isRecord(value)||value['kind']!=='world-commit')return failed('MALFORMED','Commit desconhecido');
   const parents=refsOf(value['parents']),tree=refOf(value['tree']),datasets=refsOf(value['datasets']),accepted=textsOf(value['accepted']),generation=value['generation'],rules=value['rules'];
   if(!parents||!tree||!datasets||!accepted)return failed('MALFORMED','Commit incompleto');
   if(!Number.isSafeInteger(generation)||(generation as number)<1)return failed('MALFORMED','Geração de commit inválida');
-  if(!record(rules)||typeof rules['family']!=='string'||!Number.isSafeInteger(rules['version']))return failed('MALFORMED','Commit sem regras');
+  if(!isRecord(rules)||typeof rules['family']!=='string'||!Number.isSafeInteger(rules['version']))return failed('MALFORMED','Commit sem regras');
   const commit:WorldCommit={kind:'world-commit',parents,tree,generation:generation as number,rules:{family:rules['family'],version:rules['version'] as number},datasets,accepted};
   if(value['author']!==undefined){if(typeof value['author']!=='string')return failed('MALFORMED','Autor inválido');commit.author=value['author'];}
   return ok(commit);
  }
  function stateOf(value:JsonValue):WorldResult<GameState> {
-  if(!record(value)||value['kind']!=='city-state'||!record(value['state']))return failed('MALFORMED','Objeto de estado inválido');
+  if(!isRecord(value)||value['kind']!=='city-state'||!isRecord(value['state']))return failed('MALFORMED','Objeto de estado inválido');
   return ok(value['state'] as unknown as GameState);
  }
  async function objectOf(value:JsonValue):Promise<StoredObject> {
@@ -210,7 +210,7 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
    objects=carried.value;
   }else{
    // A legacy save has no commit of its own; its snapshot becomes generation 1 and the origin says exactly that.
-   const snapshots=bundle.objects.filter(object=>record(object.value)&&object.value['kind']==='city-state');
+   const snapshots=bundle.objects.filter(object=>isRecord(object.value)&&object.value['kind']==='city-state');
    if(snapshots.length!==1)return failed('MALFORMED','Pacote precisa de exatamente um estado de mundo');
    const snapshot=snapshots[0]!,state=stateOf(snapshot.value);
    if(!state.ok)return state;
@@ -326,7 +326,7 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
   }
   // The captures an update rests on stay reachable from the version it produced, and a version's data references are
   // how a later reader knows which revision its ground came from.
-  const datasets=prepared.bases.filter(object=>record(object.value)&&object.value['kind']==='capture').map(object=>object.ref);
+  const datasets=prepared.bases.filter(object=>isRecord(object.value)&&object.value['kind']==='capture').map(object=>object.ref);
   const operations=[...prepared.operations.map(operation=>operation.id),...(prepared.records??[])];
   const digest=(await hasher.ref(codec.encode({kind:'world-prepared',target:prepared.target as unknown as JsonValue,selection:[...prepared.selection],cost:prepared.cost,operations:[...operations]}))).hash;
   return commit(expected,{id:`prepared-${digest.slice(0,32)}`,state,operations,objects:prepared.bases,author:PROJECT_ACTOR,datasets});
@@ -365,11 +365,11 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
    const read=await storageSource.read(ref);
    if(!read.ok){missing.push(ref);continue;}
    collected.set(ref.hash,{ref,value:read.value});
-   if(record(read.value)&&read.value['kind']==='world-commit'){
+   if(isRecord(read.value)&&read.value['kind']==='world-commit'){
     const commit=commitOf(read.value);
     if(!commit.ok)return commit;
     queue.push(commit.value.tree,...commit.value.parents);
-   }else if(record(read.value)&&read.value['kind']==='world-tree'){
+   }else if(isRecord(read.value)&&read.value['kind']==='world-tree'){
     const tree=treeOf(read.value);
     if(!tree.ok)return tree;
     queue.push(tree.value.state,...tree.value.attached);

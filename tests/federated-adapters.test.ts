@@ -28,7 +28,7 @@ import type {MatrixRooms} from '../src/adapters/matrix/rooms';
 import {createNostrIdentity,localNostrSigner} from '../src/adapters/nostr/identity';
 import type {NostrEvent,NostrIdentity} from '../src/adapters/nostr/identity';
 import {createNostrRelay} from '../src/adapters/nostr/relay';
-import type {RelaySocket,RelaySocketFactory} from '../src/adapters/nostr/relay';
+import type {RelaySocketFactory} from '../src/adapters/nostr/relay';
 
 // The same scenario over two different federations (task 11 of docs/superpowers/plans/2026-09-29-federated-world.md).
 // A transport carries objects and decides nothing about their meaning, so the world two clients end up with is the

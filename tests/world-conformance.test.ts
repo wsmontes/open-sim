@@ -17,7 +17,7 @@ import {checkEnvelope,envelopeOf} from '../src/world/osim';
 import {createKernel} from '../src/world/kernel';
 import {replayFixture,replayWorld} from '../src/world/world-replay';
 import type {AcceptedOperation,ReplayCheckpoint} from '../src/world/world-replay';
-import {checkPublicCapability,checkWorldLink} from '../src/world/world-links';
+import {checkWorldLink} from '../src/world/world-links';
 import type {WorldLink} from '../src/world/world-links';
 import {conformanceChecklist} from '../tools/world-replay';
 import type {ReplayReport} from '../tools/world-replay';

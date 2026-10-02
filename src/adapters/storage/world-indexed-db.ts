@@ -2,6 +2,7 @@ import {failed,ok} from '../../world/model';
 import type {Head,ObjectRef,WorldAddress,WorldResult} from '../../world/model';
 import {sameHead} from '../../session/world-ports';
 import type {ChangeReceipt,WorldStorage} from '../../session/world-ports';
+import {OPEN_TIMEOUT_MS,boundedDb,failure as fail} from './bounded-db';
 
 // The durable device of the browser. Objects, the receipt of the accepted change and the head advance are written in
 // one IndexedDB transaction over three stores, so a crash, a full disk or another tab upgrading the schema leaves the
@@ -10,43 +11,14 @@ import type {ChangeReceipt,WorldStorage} from '../../session/world-ports';
 // branch that inherits an object rewrites nothing.
 const OBJECTS='world-objects',HEADS='world-heads',RECEIPTS='world-receipts';
 const DEFAULT_NAME='open-sim-world';
-// A tab that dies while holding a connection, or another tab mid-upgrade, makes indexedDB.open() sit on `blocked`
-// forever; the open is bounded so the panel can say what happened instead of hanging with no message.
-const OPEN_TIMEOUT_MS=8000;
-const fail=(message:string,cause:unknown)=>(cause??new Error(message)) as Error;
 export function createIndexedDbWorldStorage(options:{name?:string;factory?:IDBFactory;timeoutMs?:number}={}):WorldStorage {
- const name=options.name??DEFAULT_NAME,factory=options.factory??indexedDB,timeoutMs=options.timeoutMs??OPEN_TIMEOUT_MS;
- let handle:Promise<IDBDatabase>|null=null;
- function connect():Promise<IDBDatabase> {
-  if(handle)return handle;
-  const request=factory.open(name,1);
-  const pending=new Promise<IDBDatabase>((resolve,reject)=>{
-   let settled=false;
-   const timer=setTimeout(()=>{
-    if(settled)return;
-    settled=true;
-    handle=null;
-    reject(new Error('O armazenamento das versões não respondeu. Feche outras abas do jogo e recarregue a página.'));
-   },timeoutMs);
-   const close=()=>{settled=true;clearTimeout(timer);handle=null;};
-   request.onupgradeneeded=()=>{
-    const db=request.result;
-    for(const store of [OBJECTS,HEADS,RECEIPTS])if(!db.objectStoreNames.contains(store))db.createObjectStore(store);
-   };
-   request.onsuccess=()=>{
-    const db=request.result;
-    if(settled){db.close();return;}
-    settled=true;clearTimeout(timer);
-    // Another tab upgrading the schema must not be blocked by this connection.
-    db.onversionchange=()=>db.close();
-    resolve(db);
-   };
-   request.onerror=()=>{if(settled)return;close();reject(fail('Falha ao abrir o armazenamento das versões',request.error));};
-   request.onblocked=()=>{if(settled)return;close();reject(new Error('O armazenamento das versões está bloqueado por outra aba do jogo. Feche as outras abas e recarregue a página.'));};
-  });
-  handle=pending;
-  return pending;
- }
+ const connect=boundedDb({
+  name:options.name??DEFAULT_NAME,
+  stores:[OBJECTS,HEADS,RECEIPTS],
+  factory:options.factory??indexedDB,
+  timeoutMs:options.timeoutMs??OPEN_TIMEOUT_MS,
+  subject:'O armazenamento das versões',
+ });
  function read<T>(store:string,key:IDBValidKey):Promise<T|undefined> {
   return connect().then(db=>new Promise<T|undefined>((resolve,reject)=>{
    const request=db.transaction(store,'readonly').objectStore(store).get(key);

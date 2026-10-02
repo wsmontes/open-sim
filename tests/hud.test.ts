@@ -3,12 +3,12 @@ import {readFileSync} from 'node:fs';
 import {beforeEach,expect,test,vi} from 'vitest';
 import {EMPTY_ECONOMY} from '../src/core/model';
 import type {CityEconomy,CityStats} from '../src/core/model';
-import {createHud} from '../src/presentation/hud';
-import {createWorldHistory} from '../src/presentation/world-history';
-import {createWorldComposition} from '../src/presentation/world-composition';
-import {createMultiplayerPanel} from '../src/presentation/multiplayer';
-import {createSourceInspector} from '../src/presentation/source-inspector';
-import type {HudCallbacks,HudInfo} from '../src/presentation/hud';
+import {createHud} from '../src/surfaces/canvas/hud';
+import {createWorldHistory} from '../src/surfaces/canvas/world-history';
+import {createWorldComposition} from '../src/surfaces/canvas/world-composition';
+import {createMultiplayerPanel} from '../src/surfaces/canvas/multiplayer-panel';
+import {createSourceInspector} from '../src/surfaces/canvas/source-inspector';
+import type {HudCallbacks,HudInfo} from '../src/surfaces/canvas/hud';
 import type {LayoutMode} from '../src/presentation/layout';
 // The shell is painted by index.html: the tests mount that very markup instead of a hand-made copy.
 const hudMarkup=new DOMParser().parseFromString(readFileSync('index.html','utf8'),'text/html').querySelector('#hud')?.outerHTML??'';

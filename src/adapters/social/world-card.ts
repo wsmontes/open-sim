@@ -14,6 +14,7 @@ import type {PublicCapability,WorldLink} from '../../world/world-links';
 import {parseViewUri} from '../../world/osim';
 import {failed,ok} from '../../world/model';
 import type {DatasetTerm,JsonValue,WorldAddress,WorldResult} from '../../world/model';
+import {isPlainObject} from '../../core/guards';
 
 export const WORLD_CARD_VERSION = 1;
 // What a card may say, and nothing else. `id`, `view`, `actor` and every term are validated; `summary` is the only free
@@ -57,7 +58,6 @@ const LANGUAGE = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 const SECRETS: readonly RegExp[] = [/nsec1[02-9ac-hj-np-z]{20,}/i, /-----BEGIN [A-Z ]*PRIVATE KEY-----/];
 const MAX_TEXT = 600;
 
-const plain = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 // A function declaration (not an arrow assigned to a const) because TypeScript only treats a call as terminating the
 // flow when the callee is declared as returning `never`, and everything below depends on that narrowing.
 function refused(message: string): never {throw new Error(message);}
@@ -73,7 +73,7 @@ function noSecrets(document: string): void {
 
 export function createWorldCard(input: PublicWorldInfo): PublicWorldCard {
  const source = input as unknown;
- if (!plain(source)) refused('Cartão sem informação pública');
+ if (!isPlainObject(source)) refused('Cartão sem informação pública');
  // A field nobody declared is refused, not dropped: a caller that passed a snapshot or a key made a mistake, and a
  // document that silently omitted it would be worse than an error.
  for (const key of Object.keys(source)) if (!FIELDS.includes(key)) refused(`O cartão publica só o que declara: ${key}`);
@@ -90,7 +90,7 @@ export function createWorldCard(input: PublicWorldInfo): PublicWorldCard {
  if (!Array.isArray(terms)) refused('O cartão precisa dos termos dos dados que ele aponta');
  const declared: DatasetTerm[] = [];
  for (const entry of terms) {
-  if (!plain(entry) || typeof entry['source'] !== 'string' || !entry['source']) refused('Termo de dados inválido no cartão');
+  if (!isPlainObject(entry) || typeof entry['source'] !== 'string' || !entry['source']) refused('Termo de dados inválido no cartão');
   const term: DatasetTerm = {source:entry['source']};
   for (const field of ['attribution','license'] as const) {
    if (entry[field] === undefined) continue;
@@ -155,7 +155,7 @@ export function worldCardDocument(card: PublicWorldCard): JsonValue {
 // from somebody else is validated exactly like one this client built. Only the two fields the reader already consumed
 // (`kind` and `version`) are removed first — everything else still has to be a declared field.
 export function readWorldCard(value: unknown): WorldResult<PublicWorldCard> {
- if (!plain(value)) return failed('MALFORMED', 'Cartão ausente');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Cartão ausente');
  const {kind, version, ...info} = value;
  if (kind !== 'world-card') return failed('MALFORMED', `Documento de tipo desconhecido: ${String(kind)}`);
  if (version !== WORLD_CARD_VERSION) return failed('WIRE_VERSION_UNSUPPORTED', `Versão de cartão ${String(version)} não é suportada (esperada ${WORLD_CARD_VERSION})`);

@@ -8,7 +8,7 @@
 // (`ResolvedObjects`), so one composition is reproducible in any runtime, and `durableJson` of the core is what says
 // whether two compositions mean the same world — a layer that only shows something never moves that identity.
 import {coordAt} from '../core/coordinates';
-import type {Cell,CityStats,GameState,ManagedChunk} from '../core/model';
+import type {Cell,GameState,ManagedChunk} from '../core/model';
 import type {ExtensionDeclaration} from '../core/protocol';
 import {assertJsonSafe,durableJson,isComponentKey,isEntityId} from '../core/protocol';
 import {stepSimulation,summarize} from '../core/simulation';

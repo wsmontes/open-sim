@@ -4,6 +4,7 @@ import type {ContentHasher,WorldCodec} from '../../world/ports';
 import {decodeUtf8,parseStrictJson} from '../../world/codec';
 import {createJcsCodec} from '../codec/jcs';
 import type {ObjectStore} from '../blobs/direct';
+import {isRecord} from '../../core/guards';
 
 // Private copies of world objects (spec §8.5). A group's world is encrypted before it reaches any provider, so the
 // address a provider can see covers ciphertext only: the hash of the readable content stays in the private manifest
@@ -23,7 +24,6 @@ const HEADER_FIELDS:readonly string[]=['kind','format','world','keyId','nonce','
 const NONCE_BYTES=12,KEY_BYTES=32,NONCE_ATTEMPTS=8;
 // Codes that answer about the bytes themselves: they outrank plain absence when no copy works.
 const REFUSALS:readonly WorldErrorCode[]=['SIGNATURE','HASH_MISMATCH','MALFORMED','LIMIT','PERMISSION'];
-const record=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
 // A distribution key of one world. `id` labels which key sealed a copy so a rotation is visible, `world` binds the
 // copy to its world, and the material itself never leaves the private side of the exchange.
 export type ObjectKey = {id:string;world:string;bytes:Uint8Array};
@@ -106,7 +106,7 @@ export function decodeSealed(bytes:Uint8Array):WorldResult<SealedObject> {
  const parsed=parseStrictJson(text.value);
  if(!parsed.ok)return parsed;
  const value=parsed.value;
- if(!record(value))return failed('MALFORMED','Cabeçalho do objeto selado inválido');
+ if(!isRecord(value))return failed('MALFORMED','Cabeçalho do objeto selado inválido');
  if(Object.keys(value).some(field=>!HEADER_FIELDS.includes(field)))return failed('MALFORMED','Cabeçalho do objeto selado com campo desconhecido');
  const nonceBytes=value['nonce'],cipherBytes=value['ciphertext'];
  if(value['kind']!==SEALED_KIND||value['format']!==SEALED_FORMAT)return failed('MALFORMED','Cabeçalho do objeto selado inválido');

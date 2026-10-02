@@ -2,6 +2,7 @@ import type {JsonValue, WorldResult} from './model';
 import {MAX_DEPTH, WIRE_VERSION, WORLD_PROTOCOL, failed, ok} from './model';
 import type {WorldCodec} from './ports';
 import {decodeUtf8, parseStrictJson} from './codec';
+import {assertClosed,isPlainObject,} from '../core/guards';
 
 // The framing of a live session (docs/superpowers/specs/2026-09-29-federated-world-design.md §7.3). Pure: the contract
 // owns the envelope, the traffic classes and the byte ceilings; the runtime supplies the codec and the transport.
@@ -104,25 +105,15 @@ export function replayOf(seen: readonly WireEnvelope[], envelope: WireEnvelope):
 }
 
 // --- shape validation ------------------------------------------------------------------------------------------
-const RESERVED_KEYS = ['__proto__', 'constructor', 'prototype'];
-function closed(value: Record<string, unknown>, allowed: readonly string[], label: string): void {
- for (const key of Object.keys(value)) {
-  if (RESERVED_KEYS.includes(key)) throw new Error(`${label} com chave reservada: ${key}`);
-  if (!allowed.includes(key)) throw new Error(`${label} com campo desconhecido: ${key}`);
- }
-}
-function plain(value: unknown): value is Record<string, unknown> {
- return !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
-}
 function addressPart(value: unknown, label: string): WorldResult<string> {
  if (typeof value !== 'string' || !value.length || value.length > 80) return failed('MALFORMED', `${label} inválido`);
  return ok(value);
 }
 function messageFrom(value: JsonValue, byteLength: number, limits: Limits): WorldResult<WireMessage> {
- if (!plain(value)) return failed('MALFORMED', 'Mensagem não é um objeto');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Mensagem não é um objeto');
  const envelope = value['envelope'];
- if (!plain(envelope)) return failed('MALFORMED', 'Mensagem sem envelope');
- closed(envelope, ['worldProtocol', 'wireVersion', 'kind', 'class', 'worldId', 'branchId', 'sessionId', 'epoch', 'id'], 'Envelope');
+ if (!isPlainObject(envelope)) return failed('MALFORMED', 'Mensagem sem envelope');
+ assertClosed(envelope, ['worldProtocol', 'wireVersion', 'kind', 'class', 'worldId', 'branchId', 'sessionId', 'epoch', 'id'], 'Envelope');
  if (envelope['worldProtocol'] !== WORLD_PROTOCOL) return failed('WORLD_PROTOCOL_UNSUPPORTED', `Protocolo de mundo ${String(envelope['worldProtocol'])} não é suportado (esperado ${WORLD_PROTOCOL})`);
  if (envelope['wireVersion'] !== WIRE_VERSION) return failed('WIRE_VERSION_UNSUPPORTED', `Versão de transporte ${String(envelope['wireVersion'])} não é suportada (esperada ${WIRE_VERSION})`);
  const traffic = envelope['class'];
@@ -133,7 +124,7 @@ function messageFrom(value: JsonValue, byteLength: number, limits: Limits): Worl
  const epoch = envelope['epoch'];
  if (!Number.isSafeInteger(epoch) || typeof epoch !== 'number' || epoch < 0) return failed('MALFORMED', 'Época inválida');
  const body = value['body'];
- if (!plain(body)) return failed('MALFORMED', 'Mensagem sem corpo');
+ if (!isPlainObject(body)) return failed('MALFORMED', 'Mensagem sem corpo');
  const kind = body['kind'];
  if (typeof kind !== 'string' || !kind.length || kind.length > 40) return failed('MALFORMED', 'Corpo sem tipo declarado');
  const worldId = addressPart(envelope['worldId'], 'Mundo');

@@ -1,0 +1,17 @@
+{
+ "version": 1,
+ "title": "futuros parque x industria",
+ "steps": [
+  {"note": "O trecho sob a câmera já é administrado na abertura, então dois futuros podem ser comparados."},
+  {"say": "futuros"},
+  {"note": "parque × indústria partem da mesma base e do mesmo instante; a comparação é possível."},
+  {"expect": {"scenarios.comparison.comparable": true}},
+  {"expect": {"scenarios.comparison.summary": {"contains": "Comparável"}}},
+  {"expect": {"scenarios.a.decisions.0": "parque", "scenarios.b.decisions.0": "industria"}},
+  {"note": "O saldo é o primeiro indicador que muda, e a indústria custa mais do que o parque (vantagem do lado A)."},
+  {"expect": {"scenarios.comparison.rows.0.label": "Saldo", "scenarios.comparison.rows.0.direction": "a"}},
+  {"note": "Negativo: tentar construir sem ferramenta na mão é recusado com a sua mensagem."},
+  {"say": "confirmar"},
+  {"expect": {"result.ok": false, "result.message": {"contains": "Escolha uma ferramenta"}}}
+ ]
+}

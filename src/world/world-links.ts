@@ -12,6 +12,7 @@
 import {parseOsimUri,parseViewUri} from './osim';
 import type {Head,JsonValue,ObjectRef,WorldAddress,WorldError,WorldResult} from './model';
 import {failed,isRef,ok} from './model';
+import {closedProblem,isPlainObject,} from '../core/guards';
 
 export const WORLD_LINK_VERSION = 1;
 // What a public capability may name: the four state operations of §15 and the writing actions this client already
@@ -75,7 +76,6 @@ const URI = /^[a-z][a-z0-9+.-]*:[^\s\u0000-\u001f]{1,220}$/;
 const TOKEN = /^[a-z][a-z0-9.+-]{1,31}$/;
 const COPY = /^[^\s\u0000-\u001f]{1,200}$/;
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
-const RESERVED = ['__proto__','constructor','prototype'];
 const LINK_FIELDS: readonly string[] = ['kind','version','id','world','target','arrival','capabilities','actor','sources','bridge','publishedAt','title'];
 const CAPABILITY_FIELDS: readonly string[] = ['type','issuer','subject','entity','component','actions','policy'];
 const SOURCE_FIELDS: readonly string[] = ['copy','transport'];
@@ -84,18 +84,12 @@ const ARRIVAL_FIELDS: readonly string[] = ['kind','uri'];
 const ADDRESS_FIELDS: readonly string[] = ['worldId','branchId'];
 const TARGET_FIELDS: readonly string[] = ['kind','commit'];
 
-function plain(value: unknown): value is Record<string, unknown> {
- return !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
-}
 // A closed record: every field has to be one this contract declares, and the refusal names the field, because a reader
 // that silently dropped it would be publishing something other than what it was handed.
-function closed(value: Record<string, unknown>, allowed: readonly string[], label: string): WorldError | null {
- for (const key of Object.keys(value)) {
-  if (RESERVED.includes(key)) return {code:'MALFORMED', message:`${label} com campo reservado: ${key}`};
-  if (!allowed.includes(key)) return {code:'MALFORMED', message:`${label} com campo não declarado: ${key}`};
- }
- return null;
-}
+const closed = (value: Record<string, unknown>, allowed: readonly string[], label: string): WorldError | null => {
+ const problem = closedProblem(value, allowed, label);
+ return problem ? {code:'MALFORMED', message:problem} : null;
+};
 function text(value: unknown, label: string, pattern: RegExp = URI): WorldResult<string> {
  if (typeof value !== 'string' || !pattern.test(value)) return failed('MALFORMED', `${label} não é um identificador válido: ${String(value).slice(0,40)}`);
  return ok(value);
@@ -104,7 +98,7 @@ function optionalText(value: unknown, label: string, pattern: RegExp = URI): Wor
  return value === undefined ? ok(undefined) : text(value, label, pattern);
 }
 function addressOf(value: unknown): WorldResult<WorldAddress> {
- if (!plain(value)) return failed('MALFORMED', 'Endereço de mundo ausente');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Endereço de mundo ausente');
  const problem = closed(value, ADDRESS_FIELDS, 'Endereço de mundo');
  if (problem) return {ok:false, error:problem};
  const worldId = text(value['worldId'], 'worldId', COPY), branchId = text(value['branchId'], 'branchId', COPY);
@@ -116,7 +110,7 @@ function addressOf(value: unknown): WorldResult<WorldAddress> {
 // disagree about what an address is.
 export const checkWorldAddress = addressOf;
 export function checkPublicCapability(value: unknown): WorldResult<PublicCapability> {
- if (!plain(value)) return failed('MALFORMED', 'Capacidade pública ausente');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Capacidade pública ausente');
  const problem = closed(value, CAPABILITY_FIELDS, 'Capacidade pública');
  if (problem) return {ok:false, error:problem};
  if (value['type'] !== undefined && value['type'] !== 'capability') return failed('MALFORMED', `Documento de capacidade com tipo desconhecido: ${String(value['type'])}`);
@@ -149,7 +143,7 @@ export function checkPublicCapability(value: unknown): WorldResult<PublicCapabil
  return ok(capability);
 }
 function checkArrival(value: unknown): WorldResult<WorldLinkArrival> {
- if (!plain(value)) return failed('MALFORMED', 'Lugar de chegada ausente');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Lugar de chegada ausente');
  const problem = closed(value, ARRIVAL_FIELDS, 'Lugar de chegada');
  if (problem) return {ok:false, error:problem};
  const kind = value['kind'];
@@ -166,7 +160,7 @@ function checkArrival(value: unknown): WorldResult<WorldLinkArrival> {
  return ok({kind, uri:uri.value});
 }
 function checkSource(value: unknown): WorldResult<LinkSource> {
- if (!plain(value)) return failed('MALFORMED', 'Cópia sem identificador');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Cópia sem identificador');
  const problem = closed(value, SOURCE_FIELDS, 'Cópia');
  if (problem) return {ok:false, error:problem};
  const copy = text(value['copy'], 'Identificador da cópia', COPY), transport = text(value['transport'], 'Transporte da cópia', TOKEN);
@@ -175,7 +169,7 @@ function checkSource(value: unknown): WorldResult<LinkSource> {
  return ok({copy:copy.value, transport:transport.value});
 }
 function checkBridge(value: unknown): WorldResult<LinkBridge> {
- if (!plain(value)) return failed('MALFORMED', 'Ponte inválida');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Ponte inválida');
  const problem = closed(value, BRIDGE_FIELDS, 'Ponte');
  if (problem) return {ok:false, error:problem};
  const bridge = text(value['bridge'], 'Identificador da ponte'), origin = text(value['origin'], 'Identificador original');
@@ -188,7 +182,7 @@ function checkBridge(value: unknown): WorldResult<LinkBridge> {
 // The whole document, checked field by field against a closed registry: this is the function a receiving client runs
 // before it believes anything a link says.
 export function checkWorldLink(value: unknown): WorldResult<WorldLink> {
- if (!plain(value)) return failed('MALFORMED', 'Link de mundo ausente');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Link de mundo ausente');
  const problem = closed(value, LINK_FIELDS, 'Link de mundo');
  if (problem) return {ok:false, error:problem};
  if (value['kind'] !== 'world-link') return failed('MALFORMED', `Documento de tipo desconhecido: ${String(value['kind'])}`);
@@ -200,7 +194,7 @@ export function checkWorldLink(value: unknown): WorldResult<WorldLink> {
  const world = addressOf(value['world']);
  if (!world.ok) return world;
  const target = value['target'];
- if (!plain(target)) return failed('MALFORMED', 'O link não diz o que visita');
+ if (!isPlainObject(target)) return failed('MALFORMED', 'O link não diz o que visita');
  const targetProblem = closed(target, TARGET_FIELDS, 'Alvo do link');
  if (targetProblem) return {ok:false, error:targetProblem};
  let resolvedTarget: WorldLinkTarget;
@@ -248,12 +242,12 @@ export function checkWorldLink(value: unknown): WorldResult<WorldLink> {
 const refOf = (value: unknown): ObjectRef | null => isRef(value) ? {hash:value.hash, bytes:value.bytes} : null;
 // §6/§5: a tree carries a definition (an address) and a state; a commit carries a generation, a tree and its parents.
 function treeAddress(value: JsonValue | null): WorldAddress | null {
- if (!plain(value) || value['kind'] !== 'world-tree') return null;
+ if (!isPlainObject(value) || value['kind'] !== 'world-tree') return null;
  const definition = value['definition'];
- if (!plain(definition) || typeof definition['worldId'] !== 'string' || typeof definition['branchId'] !== 'string') return null;
+ if (!isPlainObject(definition) || typeof definition['worldId'] !== 'string' || typeof definition['branchId'] !== 'string') return null;
  return {worldId:definition['worldId'], branchId:definition['branchId']};
 }
-const stateOf = (value: JsonValue | null): JsonValue | null => plain(value) && value['kind'] === 'city-state' && plain(value['state']) ? value['state'] : null;
+const stateOf = (value: JsonValue | null): JsonValue | null => isPlainObject(value) && value['kind'] === 'city-state' && isPlainObject(value['state']) ? value['state'] : null;
 // The order copies are asked in: what the link itself names, then whatever this client already knows. A mirror answers
 // only when the origin did not, and the target says so instead of pretending the origin answered.
 function orderCopies(named: readonly LinkSource[], known: readonly LinkSource[]): LinkSource[] {
@@ -287,7 +281,7 @@ async function versionAt(copy: LinkSource, link: WorldLink, resolver: ObjectReso
  // Absence and disagreement are different answers: a copy that does not have the object is asked no more, while a copy
  // that has something else where the object should be is refusing to be a copy of this world.
  if (commitRead.value === null) return failed('NOT_FOUND', `A cópia ${copy.copy} não tem o commit ${commit!.hash.slice(0,12)}…`);
- if (!plain(commitRead.value) || commitRead.value['kind'] !== 'world-commit') return failed('CONFLICT', `A cópia ${copy.copy} tem outro objeto onde o commit ${commit!.hash.slice(0,12)}… deveria estar`);
+ if (!isPlainObject(commitRead.value) || commitRead.value['kind'] !== 'world-commit') return failed('CONFLICT', `A cópia ${copy.copy} tem outro objeto onde o commit ${commit!.hash.slice(0,12)}… deveria estar`);
  const commitValue = commitRead.value;
  const commitGeneration = commitValue['generation'];
  if (!Number.isSafeInteger(commitGeneration) || (commitGeneration as number) < 1) return failed('MALFORMED', `Commit inválido em ${copy.copy}`);

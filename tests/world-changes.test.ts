@@ -16,7 +16,7 @@ import {createSession} from '../src/session/local-session';
 import {createMemoryStore} from '../src/adapters/storage/memory';
 import type {MapSource} from '../src/session/ports';
 import {importLegacy} from '../src/session/world-bundle';
-import type {BaseChunk,CellCoord,GameState,SavedGame,ViewState} from '../src/core/model';
+import type {BaseChunk,GameState,SavedGame,ViewState} from '../src/core/model';
 import type {Head,JsonValue} from '../src/world/model';
 import {blank,command} from './fixtures/world';
 import fixtureA from './fixtures/federated-world/base-a.json';

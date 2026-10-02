@@ -6,7 +6,7 @@ Este repositório é um protótipo com cliente de referência no navegador, salv
 
 ## Executar
 
-Node 22.12 ou superior (desenvolvido com Node 26.8.1 e npm 11.19.0).
+Node `^22.22.2`, `^24.15.0` ou `>=26` — a faixa que o jsdom dos testes exige (desenvolvido com Node 26.8.1 e npm 11.19.0).
 
 ```sh
 npm ci
@@ -23,6 +23,9 @@ npm run build        # typecheck + build de produção em dist/
 npm run preview      # serve o build
 npm run replay -- tests/fixtures/portable-scenario.json   # executor independente do núcleo
 npx tsx tools/world-replay.ts    # conformidade OpenSim 0.1: replay do pacote público + checklist do §47
+npm run play                     # o jogo no terminal (mapa sintético; "ajuda" lista os comandos)
+npm run play -- --script tests/playthroughs/construir-e-crescer.json   # joga uma partida escrita e confere
+npm run play -- --osm --place Lisboa   # mapa real do OpenStreetMap (precisa de rede)
 ```
 
 Para conferir a portabilidade no navegador, rode `npm run dev` e abra `http://127.0.0.1:5173/tests/browser/replay.html`: a página executa o mesmo cenário sintético com o mesmo núcleo e imprime exatamente o mesmo texto canônico que o executor Node.
@@ -78,7 +81,9 @@ Indicadores: dinheiro, população, energia (usada/fornecida), felicidade e os n
 | `tests/replay.test.ts` | cenário sintético executável, reenvio tolerado, equivalência depois de salvar e restaurar |
 | `tests/world-conformance.test.ts` | pacote público de conformidade (merge, fontes e múltiplos perfis) reproduzido byte a byte: endereço do estado e da versão idênticos aos do repositório, mesmos bytes canônicos e mesmo hash semântico em Node e no navegador, recusas por bytes/digest/limite, e os schemas publicados conferem com o que o cliente emite |
 | `tests/world-links.test.ts` | link fixo versus ramificação móvel, origem indisponível sobrevivida por uma cópia válida, visita que não herda permissão, cartão que recusa chave/estado por nome e ponte que deduplica pelo id original e para no limite de saltos |
-| `tests/architecture.test.ts` | limites de importação entre camadas, nenhuma dependência de plataforma ou Nostr no `src`, nenhum `Date`/`Math.random` no núcleo, núcleo compilando sem DOM/Node |
+| `tests/architecture.test.ts` | limites de importação entre camadas (apresentação não importa superfície), nenhuma dependência de plataforma ou Nostr no `src`, nenhum `Date`/`Math.random` no núcleo, e núcleo, mundo, cliente portátil **e a apresentação inteira** compilando sem DOM/Node |
+| `tests/playthrough.test.ts` | o jogo no nível do jogador: cada `tests/playthroughs/*.json` é uma partida escrita (comandos, espera, o que se espera ver) jogada pelo mesmo cliente do navegador, pela superfície de texto e com relógio manual; jogar duas vezes dá a mesma cidade |
+| `tests/parity.test.ts` | paridade Node ↔ navegador: o roteiro `construir-e-crescer` jogado pelo host que a página `tests/browser/play.html` usa tem o mesmo hash semântico fixado que `tools/play.ts --script` imprime |
 
 ## Estado das entregas
 

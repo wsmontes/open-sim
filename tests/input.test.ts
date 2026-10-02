@@ -3,9 +3,9 @@ import {expect,test} from 'vitest';
 import type {CellCoord} from '../src/core/model';
 import type {Camera} from '../src/presentation/camera';
 import {cellSpace,project} from '../src/presentation/camera';
-import type {SelectedTool} from '../src/presentation/hud';
-import {attachInput} from '../src/presentation/input';
-import type {InputContext} from '../src/presentation/input';
+import type {SelectedTool} from '../src/surfaces/canvas/hud';
+import {attachInput} from '../src/surfaces/canvas/input';
+import type {InputContext} from '../src/surfaces/canvas/input';
 
 // jsdom reports a zero-sized canvas rect, so a clientX is already a buffer pixel here.
 function harness(tool:SelectedTool,shape:'line'|'box'='line'){

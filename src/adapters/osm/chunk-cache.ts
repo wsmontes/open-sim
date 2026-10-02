@@ -7,6 +7,15 @@ export interface ChunkCache {
 
 export const NO_CHUNK_CACHE:ChunkCache={get:async()=>null,put:async()=>{}};
 
+// A cached region is copied once, when it is stored, and frozen: every later read hands out the same object, so a
+// revisit costs a map lookup instead of a deep copy of 1,024 cells, and a caller that tried to edit it would throw
+// instead of silently changing the cache.
+const frozenCopy=(chunk:BaseChunk):BaseChunk=>{
+ const copy=structuredClone(chunk);
+ for(const cell of copy.cells)Object.freeze(cell);
+ Object.freeze(copy.cells);
+ return Object.freeze(copy);
+};
 export function createMemoryChunkCache(limit=256):ChunkCache {
  const entries=new Map<string,BaseChunk>();
  return {
@@ -14,10 +23,10 @@ export function createMemoryChunkCache(limit=256):ChunkCache {
    const found=entries.get(key);
    if(!found)return null;
    entries.delete(key);entries.set(key,found);
-   return structuredClone(found);
+   return found;
   },
   async put(key,chunk){
-   entries.delete(key);entries.set(key,structuredClone(chunk));
+   entries.delete(key);entries.set(key,frozenCopy(chunk));
    while(entries.size>limit){const first=entries.keys().next().value;if(first===undefined)break;entries.delete(first);}
   },
  };

@@ -11,6 +11,7 @@ import {decodeUtf8,parseStrictJson} from '../../world/codec';
 import type {WorldCodec} from '../../world/ports';
 import {NETWORK_LIMITS} from '../../world/wire';
 import type {MessageProof,SignatureVerifier} from '../../world/permissions';
+import {isPlainObject,RESERVED_KEYS} from '../../core/guards';
 
 export type SessionScope = {worldId: string; branchId: string; sessionId: string; epoch: number};
 export type SignalKind = 'offer' | 'answer' | 'ice';
@@ -51,7 +52,6 @@ const SIGNAL_KINDS: readonly SignalKind[] = ['offer', 'answer', 'ice'];
 // session, bounded so a long session does not grow a set per signal forever.
 const REPLAY_WINDOW = 1024;
 const SIGNAL_FIELDS = ['worldProtocol', 'wireVersion', 'kind', 'signal', 'worldId', 'branchId', 'sessionId', 'epoch', 'id', 'sequence', 'actor', 'payload', 'proof'];
-const RESERVED_KEYS = ['__proto__', 'constructor', 'prototype'];
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i, IDENTIFIER = /^[^\s\u0000-\u001f]{1,200}$/, HEX = /^[0-9a-f]+$/;
 
 // What a signature covers: every field of the signal except the proof itself.
@@ -133,7 +133,7 @@ export function createManualSignaling(options: {codec: WorldCodec; verifier: Sig
 // The text is a closed document: an unknown field means a newer contract, and this client refuses it instead of
 // ignoring a field it cannot judge.
 function readSignal(value: JsonValue): WorldResult<SignedSignal> {
- if (!plain(value)) return failed('MALFORMED', 'Sinal não é um objeto');
+ if (!isPlainObject(value)) return failed('MALFORMED', 'Sinal não é um objeto');
  for (const key of Object.keys(value)) {
   if (RESERVED_KEYS.includes(key)) return failed('MALFORMED', `Sinal com chave reservada: ${key}`);
   if (!SIGNAL_FIELDS.includes(key)) return failed('MALFORMED', `Sinal com campo desconhecido: ${key}`);
@@ -145,7 +145,7 @@ function readSignal(value: JsonValue): WorldResult<SignedSignal> {
  const actor = value['actor'];
  if (typeof actor !== 'string' || !IDENTIFIER.test(actor) || !SCHEME.test(actor)) return failed('MALFORMED', 'O ator do sinal precisa de um esquema declarado');
  const proof = value['proof'];
- if (!plain(proof) || proof['kind'] !== 'message' || proof['algorithm'] !== 'Ed25519') return failed('MALFORMED', 'Sinal sem prova destacada');
+ if (!isPlainObject(proof) || proof['kind'] !== 'message' || proof['algorithm'] !== 'Ed25519') return failed('MALFORMED', 'Sinal sem prova destacada');
  const sessionKey = proof['sessionKey'], signature = proof['signature'];
  if (typeof sessionKey !== 'string' || !HEX.test(sessionKey) || sessionKey.length !== 64) return failed('SIGNATURE', 'Chave de sessão do sinal inválida');
  if (typeof signature !== 'string' || !HEX.test(signature) || signature.length !== 128) return failed('SIGNATURE', 'Assinatura do sinal inválida');
@@ -164,7 +164,4 @@ function readSignal(value: JsonValue): WorldResult<SignedSignal> {
   epoch: epoch as number, id: value['id'] as string, sequence: sequence as number, actor,
   payload, proof: {kind: 'message', algorithm: 'Ed25519', sessionKey, signature},
  });
-}
-function plain(value: unknown): value is Record<string, JsonValue> {
- return !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 }

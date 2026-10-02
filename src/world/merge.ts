@@ -5,8 +5,8 @@
 // decision, never a last layer winning. A version's balance and tick are never imported: the change is quoted by the
 // destination's own price table, and data that arrived now pays no retroactive income. And a cell, region or ancestor
 // the merge cannot compare cell by cell is refused with a reason instead of being composed by guesswork.
-import type {BaseChunk,Cell,CityStats,GameState,ManagedChunk,Tool} from '../core/model';
-import {roadClassOf} from '../core/model';
+import type {BaseChunk,Cell,CityStats,GameState,Tool} from '../core/model';
+import {toolOfCell} from '../core/model';
 import {CHUNK,cellIndex,coordAt} from '../core/coordinates';
 import {cloneJson} from '../core/protocol';
 import {summarize} from '../core/simulation';
@@ -19,6 +19,7 @@ import type {CapturedBase} from './reality';
 import type {CellField,CellPlace,ChangeOperation,ChangeOrigin,Precondition,PreparedChange} from './changes';
 import {describeEdits,sameJson} from './changes';
 import {CITY_PROFILE} from './city-profile';
+import {isRecord} from '../core/guards';
 
 // --- what a merge reads (spec §5.1, §5.3) -----------------------------------------------------------------------
 // A `Checkpoint` satisfies this shape structurally, so this layer never imports the repository and a merge is reviewed
@@ -82,12 +83,11 @@ const DEPENDENCIES=new Map(CITY_PROFILE.dependencies.map(entry=>[entry.field,ent
 const depends=(field:CellField,other:CellField):boolean=>(DEPENDENCIES.get(field)??[]).includes(other);
 const sameCell=(a:Cell|undefined,b:Cell|undefined):boolean=>(a&&b?SIDES.every(field=>a[field]===b[field]):a===b);
 const placeOf=(region:string,index:number):CellPlace=>{const at=coordAt(region,index);return{chunkId:region,index,x:at.x,y:at.y};};
-const toolOf=(cell:Cell|undefined):Tool|null=>cell?.road?(roadClassOf(cell)==='street'?'road':roadClassOf(cell)):(cell?.building??null);
+const toolOf=toolOfCell;
 const sameBase=(a:BaseChunk,b:BaseChunk):boolean=>a.id===b.id&&a.source===b.source&&a.normalizerVersion===b.normalizerVersion&&a.cells.length===b.cells.length&&a.cells.every((cell,index)=>sameCell(cell,b.cells[index]));
 const originOf=(version:MergeVersion):ChangeOrigin=>({worldId:version.head.worldId,branchId:version.head.branchId});
 const statsOf=(before:GameState,after:GameState)=>({before:summarize(before),after:summarize(after)});
 const compareRegions=(a:string,b:string)=>(Number(a.split(':')[0])-Number(b.split(':')[0]))||(Number(a.split(':')[1])-Number(b.split(':')[1]));
-const record=(value:JsonValue|undefined):value is {[key:string]:JsonValue}=>!!value&&typeof value==='object'&&!Array.isArray(value);
 // A cell is written field by field through one record, so a merge can compose exactly the fields the two sides
 // changed instead of replacing the whole cell and losing what only one of them decided.
 const partsOf=(cell:Cell):Record<CellField,CellPart>=>({terrain:cell.terrain,road:cell.road,roadClass:cell.roadClass,building:cell.building,stage:cell.stage,origin:cell.origin});
@@ -181,7 +181,7 @@ function composeMerge(ancestor:MergeVersion,target:MergeVersion,source:MergeVers
    const place=action.places[0];
    if(!place||place.chunkId!==region)continue;
    const index=place.index,chunk=working.chunks[region],brought=action.after[0];
-   if(!chunk||!record(brought))continue;
+   if(!chunk||!isRecord(brought))continue;
    const base=chunk.base,ancestorCell=was.edits[String(index)]??was.base.cells[index];
    if(!ancestorCell)continue;
    const incoming=brought as unknown as Cell;
@@ -316,7 +316,7 @@ export function previewBaseUpdate(target:MergeVersion,captured:readonly Captured
   if(capture.base.cells.length!==CHUNK*CHUNK)fail(`captured:${region}`,'captured',`A captura de ${region} não é uma região completa do perfil cidade`);
   const ground=capture.objects.find(entry=>sameRef(entry.ref,capture.revision.entity));
   if(!ground||!sameJson(ground.value,{kind:'base-chunk',base:capture.base as unknown as JsonValue}))fail(`captured:${region}`,'captured',`Os objetos de ${region} não correspondem à revisão que os cita`);
-  if(!capture.objects.some(object=>record(object.value)&&object.value['kind']==='capture'&&sameJson(object.value['revision']??null,capture.revision as unknown as JsonValue)&&sameJson(object.value['claims']??null,capture.claims as unknown as JsonValue)))fail(`capture-record:${region}`,'captured',`A captura de ${region} viaja sem o registro da revisão que a explica`);
+  if(!capture.objects.some(object=>isRecord(object.value)&&object.value['kind']==='capture'&&sameJson(object.value['revision']??null,capture.revision as unknown as JsonValue)&&sameJson(object.value['claims']??null,capture.claims as unknown as JsonValue)))fail(`capture-record:${region}`,'captured',`A captura de ${region} viaja sem o registro da revisão que a explica`);
   if(!managed)fail(`captured:${region}`,'captured',`A região ${region} não está adotada nesta versão`);
   if(broken)continue;
   // The revision has to supersede the base this version rests on: a capture of another ground is not an update of this one.

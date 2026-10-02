@@ -2,6 +2,7 @@ import {MAX_OBJECT_BYTES,failed,ok,sameRef} from '../../world/model';
 import type {ObjectRef,WorldResult} from '../../world/model';
 import type {ContentHasher} from '../../world/ports';
 import type {ObjectStore} from './direct';
+import {isRecord} from '../../core/guards';
 
 // Blossom: blobs addressed by SHA-256 over a small HTTP surface — `GET`/`HEAD /<sha256>` and an upload endpoint that
 // wants an `Authorization` value the caller signs (BUD-02, which newer servers also expose as `/media`). This port is
@@ -10,7 +11,6 @@ import type {ObjectStore} from './direct';
 // `HEAD` answers existence without downloading a checkpoint, which is how a group learns that a copy exists without
 // pretending a sent message was a stored copy.
 const UPLOAD_PATH='/upload';
-const record=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
 export type BlossomStore = ObjectStore & {has(ref:ObjectRef):Promise<WorldResult<boolean>>};
 export type BlossomConfig = {
  server:string;
@@ -77,7 +77,7 @@ export function createBlossomObjectStore(config:BlossomConfig):BlossomStore {
    // that cannot be found again by this address is worse than a refused upload.
    let answer:unknown=null;
    try { answer=await response.json(); } catch { answer=null; }
-   const named=record(answer)?answer['sha256']:undefined,kept=record(answer)?answer['size']:undefined;
+   const named=isRecord(answer)?answer['sha256']:undefined,kept=isRecord(answer)?answer['size']:undefined;
    if(typeof named==='string'&&named!==ref.hash)return failed('HASH_MISMATCH',`${label} guardou o objeto sob outro endereço`);
    if(typeof kept==='number'&&kept!==ref.bytes)return failed('HASH_MISMATCH',`${label} guardou um objeto de outro tamanho`);
    return ok(ref);

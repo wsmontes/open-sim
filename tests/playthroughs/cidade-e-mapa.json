@@ -1,0 +1,27 @@
+{
+ "version": 1,
+ "title": "Mudar de cidade e construir nas duas, ver os fatos reais e recusar uma coordenada fora do mapa",
+ "steps": [
+  {"note": "O mapa sintético responde por qualquer região, então dá para construir onde a câmera parar."},
+  {"expect": {"ready": true, "place": "Cidade de teste", "stats.money": 20000}},
+  {"say": "casa 3,3 5,4"},
+  {"expect": {"result.ok": true, "stats.money": {"max": 19999}}},
+  {"remember": {"moneyA": "stats.money"}},
+  {"say": "ir São Paulo"},
+  {"expect": {"place": "São Paulo", "facts.label": "São Paulo", "notice": ""}},
+  {"note": "A janela do mapa seguiu a câmera: as coordenadas digitadas agora são relativas à região de São Paulo."},
+  {"say": "cidade"},
+  {"expect": {"facts.label": "São Paulo", "facts.population": {"min": 1}}},
+  {"say": "rua 2,2 6,2"},
+  {"expect": {"result.ok": true, "stats.money": {"plus": ["$moneyA", -50]}}},
+  {"say": "casa 2,4 4,5"},
+  {"expect": {"result.ok": true}},
+  {"note": "Uma coordenada fora do mapa é recusada com a mensagem, e nada muda de lugar."},
+  {"say": "ir 999,999"},
+  {"expect": {"result.ok": false, "result.message": {"contains": "latitude entre -85,0511 e 85,0511"}, "place": "São Paulo"}},
+  {"say": "ir Lisboa"},
+  {"expect": {"place": "Lisboa", "facts.label": "Lisboa"}},
+  {"say": "visao geral"},
+  {"expect": {"camera.zoom": 0.05}}
+ ]
+}

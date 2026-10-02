@@ -1,10 +1,26 @@
-import type {CityStats,Tool} from '../core/model';
-import {BORROW_STEP,COST,SERVICES_MAX,SERVICES_MIN,TAX_MAX,TAX_MIN} from '../core/model';
-import type {LayoutMode} from './layout';
-import type {Speed} from './clock';
-import type {SaveStatus} from '../session/local-session';
+import type {CityStats} from '../../core/model';
+export type {SelectedTool} from '../../presentation/tools';
+import type {SelectedTool} from '../../presentation/tools';
+import {economyPanel,netText,saveText} from '../../presentation/words';
+import {BORROW_STEP,COST,SERVICES_MAX,SERVICES_MIN,TAX_MAX,TAX_MIN} from '../../core/model';
+import type {LayoutMode} from '../../presentation/layout';
+import type {Speed} from '../../presentation/clock';
+import type {SaveStatus} from '../../session/local-session';
 // The toolbar selects one of the domain tools, plain exploration, or demolition.
-export type SelectedTool = Tool|'explore'|'demolish';
+// What each tool does, in the words of the game: the hover hint of its button. Kept here rather than in the markup so
+// the rules and their explanation are read side by side, and so the markup stays one short line per button.
+export const TOOL_HINTS: Record<SelectedTool,string> = {
+ explore:'Explorar a cidade (1)',
+ road:'Rua (2): barata, e a cidade cresce até dois andares em volta dela',
+ avenue:'Avenida (3): carrega mais tráfego, valoriza os lotes e é onde a cidade cresce para cima',
+ highway:'Estrada (4): carrega o tráfego que a rua não carrega, mas o barulho afasta quem mora perto',
+ residential:'Residencial (5): moradias, que crescem onde há rua, energia, serviços e um lugar agradável',
+ commercial:'Comércio (6): empregos e clientes — o valor da terra em volta sobe',
+ industrial:'Indústria (7): muitos empregos, e a vizinhança perde valor',
+ park:'Parque (8): deixa o bairro mais valioso e mais feliz',
+ power:'Usina (9): sem energia nada cresce',
+ demolish:'Demolir (0)',
+};
 export type HudCallbacks = {
  onTool(tool:SelectedTool):void;
  // The city's levers. One call per decision, not per pixel: the panel sends what the player settled on.
@@ -43,12 +59,6 @@ export type Hud = {
 type Panel={id:string;sheet:string;node:HTMLElement;body:HTMLElement;close:HTMLButtonElement|null;label:string};
 type PanelState={x:number;y:number};
 const STORAGE_KEY='open-sim:panels';
-function saveText(status:SaveStatus):string {
- if(status.status==='saving')return 'Salvando…';
- if(status.status==='saved')return 'Salvo';
- if(status.status==='error')return (status.blocked?'Save incompatível':'Falha ao salvar')+(status.message?`: ${status.message}`:'');
- return '';
-}
 function readPanels(storage:Storage|null):Record<string,PanelState> {
  if(!storage)return {};
  try{
@@ -198,6 +208,7 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
  for(const button of toolButtons){
   const tool=button.dataset.tool as SelectedTool,cost=button.querySelector('.tool-cost');
   if(cost)cost.textContent=tool==='explore'?'':String(COST[tool]);
+  button.title=TOOL_HINTS[tool];
   on(button,'click',()=>callbacks.onTool(tool));
  }
  for(const button of speedButtons)on(button,'click',()=>callbacks.onSpeed(Number(button.dataset.speed) as Speed));
@@ -255,14 +266,16 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
    energy.textContent=`${info.stats.energyUsed}/${info.stats.energySupply}`;
    energy.title='energia usada / fornecida';
    happiness.textContent=`${info.stats.happiness}%`;
-   const economy=info.stats.economy,grouped=(value:number)=>value.toLocaleString('pt-BR');
-   economyRevenue.textContent=grouped(economy.monthly.revenue);
-   economyExpense.textContent=grouped(economy.monthly.expense);
-   economyNet.textContent=`${economy.monthly.net>0?'+':''}${grouped(economy.monthly.net)}`;
+   const economy=info.stats.economy;
+   // The same words the terminal's "prefeitura" prints (src/presentation/words.ts): one formatting of each number.
+   const panel=Object.fromEntries(economyPanel(economy));
+   economyRevenue.textContent=panel['Receita/mês']!;
+   economyExpense.textContent=panel['Despesa/mês']!;
+   economyNet.textContent=netText(economy.monthly.net);
    economyNet.classList.toggle('negative',economy.monthly.net<0);
-   economyLand.textContent=grouped(economy.landValueAverage);
-   economyDebt.textContent=grouped(economy.debt);
-   economyInterest.textContent=`${economy.interestRate}% ao ano`;
+   economyLand.textContent=panel['Valor da terra']!;
+   economyDebt.textContent=panel['Dívida']!;
+   economyInterest.textContent=panel['Juros']!;
    economyRating.textContent=economy.rating;
    economyDemand.textContent=`${economy.demand.residential} / ${economy.demand.commercial} / ${economy.demand.industrial}`;
    economyDemand.title='moradia / comércio / indústria: o que a cidade está pedindo';

@@ -13,7 +13,7 @@ import type {KeyPair} from '../src/adapters/crypto/session-keys';
 import {createMemoryNetwork} from '../src/adapters/network/memory';
 import {createWorldMemoryStorage} from '../src/adapters/storage/world-memory';
 import {createHostSession,deferred,readBody} from '../src/session/host-session';
-import type {AcceptedCommit,HostSession,ProposalReceipt,SessionBody} from '../src/session/host-session';
+import type {AcceptedCommit,ProposalReceipt,SessionBody} from '../src/session/host-session';
 import {createReplicaSession} from '../src/session/replica-session';
 import type {ReplicaSession} from '../src/session/replica-session';
 import type {MapSource} from '../src/session/ports';

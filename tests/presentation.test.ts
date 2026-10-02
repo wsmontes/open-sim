@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import {expect,test,vi} from 'vitest';
 import {COARSE_STEP,MAX_ZOOM,MIN_ZOOM,TILE_H,TILE_W,approach,arrived,cellSpace,normalizeAngle,settleZoom,snapZoom,zoomLadder,centerOn,clampZoom,closestChunks,isCoarse,pick,project,visibleChunks,zoomTo} from '../src/presentation/camera';
-import {aggregateCells} from '../src/presentation/canvas-renderer';
+import {aggregateCells} from '../src/surfaces/canvas/canvas-renderer';
 import {createTickClock} from '../src/presentation/clock';
-import {attachInput,beginStroke,extendStroke,strokeCells} from '../src/presentation/input';
+import {attachInput,beginStroke,extendStroke,strokeCells} from '../src/surfaces/canvas/input';
 import {quoteAction} from '../src/core/quote';
 import {applyCommand,createGame} from '../src/core/commands';
 import {chunkId,chunkOrigin,validCell,wrapX} from '../src/core/coordinates';

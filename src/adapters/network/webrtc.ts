@@ -25,7 +25,8 @@ import type {ObjectStore} from '../blobs/direct';
 import {BUFFER_AGREEMENT,createObjectBudget,createPartialShelf,narrowerBackpressure,serveObjects,transferObject} from './object-transfer';
 import type {Backpressure,ObjectLink,PartialShelf,ServedObject} from './object-transfer';
 import {signSignal} from './manual-signaling';
-import type {SessionScope,SessionSigner,SignalKind,Signaling,SignedSignal} from './manual-signaling';
+import type {SessionScope,SessionSigner,SignalKind,Signaling,} from './manual-signaling';
+import {errorText} from '../../core/guards';
 
 // --- the platform surface this adapter needs ---------------------------------------------------------------------
 // Deliberately small: what the adapter calls, nothing more. A real `RTCPeerConnection` satisfies it, and so does a
@@ -130,9 +131,6 @@ function checkFrame(bytes: Uint8Array, limits: Limits): WorldResult<WireMessage>
  if (traffic === 'object') return failed('MALFORMED', 'Objeto não viaja pela porta de sessão: use a transferência de objeto');
  return decoded;
 }
-function textOf(error: unknown): string {
- return error instanceof Error ? error.message : String(error);
-}
 function bytesOf(data: unknown): Uint8Array | null {
  if (data instanceof Uint8Array) return data;
  if (data instanceof ArrayBuffer) return new Uint8Array(data);
@@ -205,7 +203,7 @@ export function createWebRtcPeers(config: WebRtcConfig): WebRtcPeers {
  const held = new Map<string, OsimEnvelope>();
  const asks = new Map<string, Ask>();
  const subscribers = new Set<{filter: KernelFilter; listener: (object: OsimEnvelope) => void}>();
- let sequence = 0, asked = 0;
+ let sequence = 0;
 
  const opening = (peer: string) => {
   let entry = openings.get(peer);
@@ -269,7 +267,7 @@ export function createWebRtcPeers(config: WebRtcConfig): WebRtcPeers {
    await drain(channel, backpressure.lowWaterBytes);
    if (link.closed) return failed('NOT_FOUND', `Conexão com ${link.peer} caiu enquanto o canal drenava`);
   }
-  try { channel.send(bytes); } catch (error) { return failed('NOT_FOUND', `O canal recusou a mensagem: ${textOf(error)}`); }
+  try { channel.send(bytes); } catch (error) { return failed('NOT_FOUND', `O canal recusou a mensagem: ${errorText(error)}`); }
   return ok(undefined);
  };
  const envelopeFor = (traffic: TrafficClass, id: string): WireEnvelope => ({
@@ -485,7 +483,7 @@ export function createWebRtcPeers(config: WebRtcConfig): WebRtcPeers {
  const sendSignal = async (peer: string, signal: SignalKind, payload: JsonValue): Promise<WorldResult<void>> => {
   sequence += 1;
   const signed = await signSignal({codec:config.codec, signer:config.signer, actor:config.actor, session:config.session, signal, id:nextId('signal'), sequence, payload});
-  try { await config.signaling.send(peer, signed); return ok(undefined); } catch (error) { return failed('NOT_FOUND', `A sinalização não entregou o sinal: ${textOf(error)}`); }
+  try { await config.signaling.send(peer, signed); return ok(undefined); } catch (error) { return failed('NOT_FOUND', `A sinalização não entregou o sinal: ${errorText(error)}`); }
  };
  // A candidate that waited for its description is applied now, in the order it arrived.
 const flushCandidates = async (link: Link) => {

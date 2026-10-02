@@ -1,0 +1,23 @@
+{
+ "version": 1,
+ "title": "versoes e comparacao",
+ "steps": [
+  {"note": "A cidade abre com a versão 1 (Início) já materializada neste host de teste."},
+  {"expect": {"history.branchId": "main", "history.entries.0.label": "Início"}},
+  {"say": "rua 2,3 4,3"},
+  {"expect": {"result.ok": true}},
+  {"note": "Construir vira um checkpoint: a geração avança e o histórico ganha uma linha de decisão."},
+  {"expect": {"history.entries.0.generation": 2}},
+  {"say": "versao \"experimento\""},
+  {"note": "Criar versão abre um ramo novo sem trocar a partida; o ramo passa a ser o mostrado."},
+  {"expect": {"history.branchId": "experimento"}},
+  {"say": "casa 5,5"},
+  {"expect": {"history.entries.0.generation": 3}},
+  {"note": "Comparar #3 com o checkpoint anterior (#2): a única diferença é a casa que o jogador construiu."},
+  {"say": "comparar anterior"},
+  {"expect": {"history.compare.summary": {"contains": "Jogador: 1"}}},
+  {"note": "Negativo: comparar com um prefixo que não existe no histórico é recusado com mensagem."},
+  {"say": "comparar zzzzzzz"},
+  {"expect": {"history.message": {"contains": "não encontrada"}}}
+ ]
+}

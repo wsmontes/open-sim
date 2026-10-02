@@ -1,0 +1,19 @@
+{
+ "version": 1,
+ "title": "O tempo da cidade: pausa não anda, 1× é um tick por segundo e 2× o dobro",
+ "steps": [
+  {"say": "espera 10s"},
+  {"expect": {"tick": 0, "speed": 0}},
+  {"say": "vel 1"},
+  {"say": "espera 10s"},
+  {"expect": {"tick": 10, "speed": 1}},
+  {"say": "vel 2"},
+  {"say": "espera 10s"},
+  {"expect": {"tick": 30}},
+  {"say": "pausar"},
+  {"say": "espera 2m"},
+  {"expect": {"tick": 30, "speed": 0}},
+  {"say": "vel 3"},
+  {"expect": {"result.ok": false, "speed": 0}}
+ ]
+}

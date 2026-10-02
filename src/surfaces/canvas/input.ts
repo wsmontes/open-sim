@@ -1,6 +1,6 @@
-import type {CellCoord} from '../core/model';
-import type {Camera,Point} from './camera';
-import {clampZoom,normalizeAngle,pick,rotateTo} from './camera';
+import type {CellCoord} from '../../core/model';
+import type {Camera,Point} from '../../presentation/camera';
+import {clampZoom,normalizeAngle,pick,rotateTo} from '../../presentation/camera';
 import type {SelectedTool} from './hud';
 export type InputCallbacks = {
  onHover(cell:CellCoord|null):void;
@@ -23,11 +23,6 @@ export type InputContext = {
  // genre taught every player to expect. Drawing a box freehand cell by cell is the kind of chore that reads as work.
  strokeShape?:()=>StrokeShape;
 };
-export type StrokeShape='line'|'box';
-export type StrokeState = {anchor:CellCoord;cells:CellCoord[];last:CellCoord};
-// One command carries at most this many cells (src/core/quote.ts refuses more), so a gesture can never build a
-// selection the world will not accept.
-export const MAX_STROKE=1024;
 const ZOOM_RATE=.002;
 // Keyboard panning moves the camera in screen pixels: it is a camera, so "up" is up on screen however the view is
 // turned. Shift walks four times as far, which is what makes a long trip bearable at a close zoom.
@@ -38,49 +33,10 @@ const PAN_KEYS:Record<string,{x:number;y:number}>={ArrowLeft:{x:-1,y:0},ArrowRig
  a:{x:-1,y:0},d:{x:1,y:0},w:{x:0,y:-1},s:{x:0,y:1},A:{x:-1,y:0},D:{x:1,y:0},W:{x:0,y:-1},S:{x:0,y:1}};
 // A drag of one pixel sideways turns the view half a degree; Q/E step a whole 15 degrees per press.
 const ROTATE_RATE=Math.PI/360,ROTATE_STEP=Math.PI/12;
-export function strokeCells(from:CellCoord,to:CellCoord):CellCoord[] {
- let x=from.x,y=from.y;
- const dx=Math.abs(to.x-x),dy=-Math.abs(to.y-y),sx=x<to.x?1:-1,sy=y<to.y?1:-1;
- let err=dx+dy;
- const cells=[{x,y}];
- while((x!==to.x||y!==to.y)&&cells.length<MAX_STROKE){
-  const e2=2*err;
-  if(e2>=dy){err+=dy;x+=sx;}
-  if(e2<=dx){err+=dx;y+=sy;}
-  cells.push({x,y});
- }
- return cells;
-}
-// The rectangle between the anchor and the far corner, clamped to what one command can carry. The clamp pulls the far
-// corner in instead of cutting cells off the edge: what the player sees is still a rectangle, just a smaller one.
-export function boxCells(anchor:CellCoord,corner:CellCoord,limit=MAX_STROKE):CellCoord[] {
- let width=Math.abs(corner.x-anchor.x)+1,height=Math.abs(corner.y-anchor.y)+1;
- if(width*height>limit){
-  const room=Math.max(1,Math.floor(limit/Math.max(1,Math.min(width,height))));
-  if(width>=height)width=Math.min(width,Math.max(1,room));else height=Math.min(height,Math.max(1,room));
-  // A square limit can still round up by one cell; trim the larger side until it fits.
-  while(width*height>limit){if(width>=height)width-=1;else height-=1;}
- }
- const stepX=corner.x>=anchor.x?1:-1,stepY=corner.y>=anchor.y?1:-1,cells:CellCoord[]=[];
- for(let row=0;row<height;row++)for(let column=0;column<width;column++)cells.push({x:anchor.x+column*stepX,y:anchor.y+row*stepY});
- return cells;
-}
-export const beginStroke=(cell:CellCoord,shape:StrokeShape='line'):StrokeState=>({anchor:{x:cell.x,y:cell.y},cells:[{x:cell.x,y:cell.y}],last:{x:cell.x,y:cell.y}});
-// Appends the freshly crossed cells of the segment, never revisiting a cell already in the stroke. A box is redrawn
-// from its anchor every time instead: a drag that comes back leaves one cell, not a trail of everything it touched.
-export function extendStroke(stroke:StrokeState,cell:CellCoord,shape:StrokeShape='line'):StrokeState {
- if(shape==='box'){
-  if(cell.x===stroke.last.x&&cell.y===stroke.last.y)return stroke;
-  return {...stroke,cells:boxCells(stroke.anchor,cell),last:{x:cell.x,y:cell.y}};
- }
- if(cell.x===stroke.last.x&&cell.y===stroke.last.y)return stroke;
- const cells=stroke.cells.slice();
- for(const p of strokeCells(stroke.last,cell)){
-  if(cells.length>=MAX_STROKE)break;
-  if(!cells.some(c=>c.x===p.x&&c.y===p.y))cells.push(p);
- }
- return {cells,last:{x:cell.x,y:cell.y},anchor:stroke.anchor};
-}
+export {MAX_STROKE,beginStroke,boxCells,extendStroke,strokeCells} from '../../presentation/strokes';
+export type {StrokeShape,StrokeState} from '../../presentation/strokes';
+import {beginStroke,extendStroke} from '../../presentation/strokes';
+import type {StrokeShape,StrokeState} from '../../presentation/strokes';
 // The player is typing in a field: no key may reach the map (holding space in the latitude box used to arm panning).
 const isTyping=(target:EventTarget|null):boolean=>target instanceof HTMLElement&&(target.isContentEditable||target.tagName==='INPUT'||target.tagName==='TEXTAREA'||target.tagName==='SELECT');
 export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callbacks:InputCallbacks):()=>void {

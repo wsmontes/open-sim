@@ -1,7 +1,6 @@
-import type {BaseChunk,Command,GameState} from '../core/model';
+import type {Action,BaseChunk,Command,GameState} from '../core/model';
 import {applyCommand} from '../core/commands';
 import {quoteAction} from '../core/quote';
-import type {Quote} from '../core/quote';
 import {chunkId} from '../core/coordinates';
 import type {Head,JsonValue,ObjectRef,WorldBundle,WorldError,WorldErrorCode,WorldObject,WorldResult} from '../world/model';
 import {WORLD_PROTOCOL,WIRE_VERSION,failed,isRef,ok,sameRef} from '../world/model';
@@ -10,6 +9,7 @@ import {envelopeOf} from '../world/osim';
 import type {OsimEnvelope} from '../world/osim';
 import {needsReconciliation,planReceiptCompaction} from './world-retention';
 import type {ReceiptWindow} from './world-retention';
+import {isPlainObject,RESERVED_KEYS} from '../core/guards';
 import type {ChangeReceipt} from './world-ports';
 import {NETWORK_LIMITS,replayOf} from '../world/wire';
 import type {Limits,TrafficClass,WireEnvelope,WireMessage} from '../world/wire';
@@ -55,9 +55,9 @@ export const tickRecord=(epoch:number,generation:number):string=>`t.${epoch}.${g
 // a region is what a change publishes when it adopts one.
 export const baseValueOf=(base:BaseChunk):JsonValue=>({kind:'base-chunk',base:base as unknown as JsonValue});
 export function baseOf(value:JsonValue):BaseChunk|null{
- if(!record(value)||value['kind']!=='base-chunk')return null;
+ if(!isPlainObject(value)||value['kind']!=='base-chunk')return null;
  const base=value['base'];
- if(!record(base)||typeof base['id']!=='string'||!Array.isArray(base['cells']))return null;
+ if(!isPlainObject(base)||typeof base['id']!=='string'||!Array.isArray(base['cells']))return null;
  return base as unknown as BaseChunk;
 }
 
@@ -136,10 +136,6 @@ export type SessionBody=
 // A durable message is attacker-controlled, so every field a decision reads is re-checked here, and the world layer
 // reads the documents it owns. What is left to the core is what the core already refuses by itself: the action of a
 // command is applied by `applyCommand`, which rejects anything it does not understand.
-const RESERVED_KEYS=['__proto__','constructor','prototype'];
-function record(value:JsonValue|undefined):value is {[key:string]:JsonValue}{
- return !!value&&typeof value==='object'&&!Array.isArray(value)&&(Object.getPrototypeOf(value)===Object.prototype||Object.getPrototypeOf(value)===null);
-}
 function textOf(value:JsonValue|undefined,max:number):string|null{
  return typeof value==='string'&&value.length>0&&value.length<=max&&!RESERVED_KEYS.includes(value)?value:null;
 }
@@ -147,7 +143,7 @@ function refOf(value:JsonValue|undefined):ObjectRef|null{
  return isRef(value)?{hash:value.hash,bytes:value.bytes}:null;
 }
 function headOf(value:JsonValue|undefined):Head|null{
- if(!record(value))return null;
+ if(!isPlainObject(value))return null;
  const worldId=textOf(value['worldId'],80),branchId=textOf(value['branchId'],80),commit=refOf(value['commit']),generation=value['generation'];
  if(!worldId||!branchId||!commit||typeof generation!=='number'||!Number.isSafeInteger(generation)||generation<1)return null;
  return {worldId,branchId,commit,generation};
@@ -159,7 +155,7 @@ function refsOf(value:JsonValue|undefined,limit:number):ObjectRef[]|null{
  return refs;
 }
 function commandOf(value:JsonValue|undefined):Command|null{
- if(!record(value))return null;
+ if(!isPlainObject(value))return null;
  const worldId=textOf(value['worldId'],80),actorIdValue=textOf(value['actorId'],80),parsed=intentFrom(value['action']),action=parsed.ok?parsed.value:null;
  const sequence=value['sequence'],expectedRevision=value['expectedRevision'];
  if(value['version']!==1||!worldId||!actorIdValue||!action)return null;
@@ -168,7 +164,7 @@ function commandOf(value:JsonValue|undefined):Command|null{
  return {version:1,worldId,actorId:actorIdValue,sequence,expectedRevision,action};
 }
 function authorizationOf(value:JsonValue|undefined):CommitAuthorization|null{
- if(!record(value))return null;
+ if(!isPlainObject(value))return null;
  const identity=controlFrom(value['identity'] ?? null);
  if(!identity.ok||identity.value.kind!=='identity')return null;
  const authorization:CommitAuthorization={identity:identity.value.identity};
@@ -186,7 +182,7 @@ function authorizationOf(value:JsonValue|undefined):CommitAuthorization|null{
  return authorization;
 }
 export function readCommit(value:JsonValue|undefined):WorldResult<AcceptedCommit>{
- if(!record(value))return failed('MALFORMED','Commit de sessão inválido');
+ if(!isPlainObject(value))return failed('MALFORMED','Commit de sessão inválido');
  const worldId=textOf(value['worldId'],80),branchId=textOf(value['branchId'],80),sessionId=textOf(value['sessionId'],80);
  const id=textOf(value['id'],200),digest=textOf(value['digest'],128),author=textOf(value['author'],200);
  const epoch=value['epoch'],parent=headOf(value['parent']),head=headOf(value['head']),command=commandOf(value['command']);
@@ -206,7 +202,7 @@ export function readBases(value:JsonValue|undefined,limit:number):BaseRef[]|null
  if(!Array.isArray(value)||value.length>limit)return null;
  const bases:BaseRef[]=[];
  for(const entry of value){
-  if(!record(entry))return null;
+  if(!isPlainObject(entry))return null;
   const id=textOf(entry['id'],120),ref=refOf(entry['ref']);
   if(!id||!ref)return null;
   bases.push({id,ref});
@@ -217,7 +213,7 @@ function objectsOf(value:JsonValue|undefined):WorldObject[]|null{
  if(!Array.isArray(value)||value.length>LIMIT.objects)return null;
  const objects:WorldObject[]=[];
  for(const entry of value){
-  if(!record(entry))return null;
+  if(!isPlainObject(entry))return null;
   const ref=refOf(entry['ref']);
   if(!ref||entry['value']===undefined)return null;
   objects.push({ref,value:entry['value']});
@@ -228,7 +224,7 @@ const STATUS=['accepted','duplicate','refused','failed'];
 // A receipt carries no authority: it is read for what it reports, and a receipt that cannot be read is dropped
 // instead of deciding anything.
 function readReceipt(value:JsonValue|undefined):ProposalReceipt|null{
- if(!record(value)||value['kind']!=='proposal-receipt')return null;
+ if(!isPlainObject(value)||value['kind']!=='proposal-receipt')return null;
  const id=textOf(value['id'],200),digest=textOf(value['digest'],128),parent=headOf(value['parent']),head=headOf(value['head']);
  const status=value['status'];
  if(!id||!digest||!parent||!head||typeof status!=='string'||!STATUS.includes(status))return null;
@@ -241,7 +237,7 @@ function readReceipt(value:JsonValue|undefined):ProposalReceipt|null{
  if(typeof cost==='number')receipt.cost=cost;
  const bases=readBases(value['bases'],LIMIT.refs);
  if(bases)receipt.bases=bases;
- if(record(value['preview'])){
+ if(isPlainObject(value['preview'])){
   const preview=value['preview'],revision=preview['revision'],tick=preview['tick'],money=preview['money'],price=preview['cost'];
   if(typeof revision==='number'&&typeof tick==='number'&&typeof money==='number'&&typeof price==='number'){
    const parsed:ReceiptPreview={revision,tick,money,cost:price};
@@ -257,13 +253,13 @@ function readReceipt(value:JsonValue|undefined):ProposalReceipt|null{
  return receipt;
 }
 function readReplicaReceipt(value:JsonValue|undefined):ReplicaReceipt|null{
- if(!record(value)||value['kind']!=='replica-receipt')return null;
+ if(!isPlainObject(value)||value['kind']!=='replica-receipt')return null;
  const peer=textOf(value['peer'],80),id=textOf(value['id'],200),digest=textOf(value['digest'],128),head=headOf(value['head']),hostHead=headOf(value['hostHead']);
  const status=value['status'],STATUSES=['adopted','duplicate','pending','divergent','refused'];
  if(!peer||!id||!digest||!head||!hostHead||typeof status!=='string'||!STATUSES.includes(status))return null;
  const receipt:ReplicaReceipt={kind:'replica-receipt',peer,id,digest,status:status as ReplicaReceipt['status'],head,hostHead};
  const code=value['code'],reason=value['reason'],missing=refsOf(value['missing'],LIMIT.refs);
- const evidence=record(value['evidence'])?readBases(value['evidence']['bases'],LIMIT.refs):null;
+ const evidence=isPlainObject(value['evidence'])?readBases(value['evidence']['bases'],LIMIT.refs):null;
  if(typeof code==='string')receipt.code=code as WorldErrorCode;
  if(typeof reason==='string')receipt.reason=reason;
  if(missing)receipt.missing=missing;
@@ -271,7 +267,7 @@ function readReplicaReceipt(value:JsonValue|undefined):ReplicaReceipt|null{
  return receipt;
 }
 export function readBody(body:JsonValue):WorldResult<SessionBody>{
- if(!record(body))return failed('MALFORMED','Corpo de sessão inválido');
+ if(!isPlainObject(body))return failed('MALFORMED','Corpo de sessão inválido');
  const kind=body['kind'];
  if(kind==='commit'){const commit=readCommit(body['commit']);return commit.ok?ok({kind:'commit',commit:commit.value}):commit;}
  if(kind==='base-request'){
@@ -371,6 +367,38 @@ export type HostSession={
  resume():void;
  paused():WorldError|null;
 };
+type HostJob={kind:'proposal';proposal:Proposal;answer:(receipt:ProposalReceipt)=>void}|{kind:'tick';answer:(result:WorldResult<Head>)=>void};
+// A queue with exactly one worker. `pending` counts what was pushed and not finished, so a bound on it is a bound on
+// the work in flight; `drained` is the run currently emptying the queue, for a caller that wants to wait on it. `run`
+// does the work and hands back how to deliver its answer: the job leaves the count in the same turn its answer goes
+// out, so whoever was awaiting that answer already sees the queue without it.
+function createSerialQueue<J>(run:(job:J)=>Promise<()=>void>){
+ const jobs:J[]=[];
+ let working=false,inFlight=0,drain:Promise<void>=Promise.resolve();
+ const start=()=>{
+  if(working||!jobs.length)return;
+  working=true;
+  drain=(async()=>{
+   try{
+    while(jobs.length){
+     const job=jobs.shift()!;
+     let deliver:(()=>void)|null=null;
+     try{deliver=await run(job);}finally{inFlight-=1;deliver?.();}
+    }
+   }finally{working=false;}
+  })();
+ };
+ return{
+  pending:()=>inFlight,
+  push(job:J){inFlight+=1;jobs.push(job);start();},
+  drained:()=>drain,
+  idle:()=>!working&&!jobs.length&&inFlight===0,
+ };
+}
+// Every cache of this session is bounded the same way: the oldest insertion goes first.
+function trimOldest(map:Map<string,unknown>,limit:number):void{
+ while(map.size>limit){const oldest=map.keys().next().value;if(oldest===undefined)break;map.delete(oldest);}
+}
 export function createHostSession(options:HostOptions):HostSession{
  const limits=options.limits??NETWORK_LIMITS;
  const ledgerWindow=Math.max(1,Math.floor(options.ledgerWindow??LIMIT.ledger));
@@ -386,9 +414,8 @@ export function createHostSession(options:HostOptions):HostSession{
  const frozen=new Map<string,BaseChunk>();
  const published=new Map<string,WorldObject>();
  const confirmations:ReplicaReceipt[]=[];
- let head=options.head,state:GameState|null=null,paused:WorldError|null=null,pendingAttempt:string|null=null,counter=0,working=false,inFlight=0;
+ let head=options.head,state:GameState|null=null,paused:WorldError|null=null,pendingAttempt:string|null=null,counter=0;
  let halted:WorldError|null=null,ledgerMark:ReceiptWindow|null=null;
- const jobs:Array<{kind:'proposal';proposal:Proposal;answer:(receipt:ProposalReceipt)=>void}|{kind:'tick';answer:(result:WorldResult<Head>)=>void}>=[];
 
  // The session opens once, and it opens the version it was given: the rules of the branch have to be the rules this
  // session was configured with, because different rules are another simulation and not a filter (§10).
@@ -415,7 +442,6 @@ export function createHostSession(options:HostOptions):HostSession{
   return ok({head,state:point.value.state});
  }
  const boot=load();
- async function opened():Promise<WorldResult<HostCheckpoint>>{return boot;}
  // The one seam between this session and the repository: objects, the idempotency receipt and the head advance are
  // published together, so a confirmation never covers bytes that were not written. Task 5 adds
  // `commitPrepared(expected, prepared)` to the repository; swapping this call is the whole change, and today's
@@ -434,7 +460,7 @@ export function createHostSession(options:HostOptions):HostSession{
   published.set(object.ref.hash,object);
   // Only the regions this session can still be asked about are kept: the administered area is bounded by the plan's
   // limit, and an evicted object is simply asked for again from the live version.
-  while(published.size>LIMIT.published){const oldest=published.keys().next().value;if(oldest===undefined)break;published.delete(oldest);}
+  trimOldest(published,LIMIT.published);
   return object;
  }
  async function basesOfState(target:GameState):Promise<BaseRef[]>{
@@ -601,7 +627,7 @@ export function createHostSession(options:HostOptions):HostSession{
  // that fails only means the replicas will ask for what they are missing.
  async function emit(commit:AcceptedCommit):Promise<readonly string[]>{
   outbox.set(commit.head.commit.hash,commit);
-  while(outbox.size>LIMIT.outbox){const oldest=outbox.keys().next().value;if(oldest===undefined)break;outbox.delete(oldest);}
+  trimOldest(outbox,LIMIT.outbox);
   const sent:string[]=[];
   for(const peer of members){
    if(peer===options.peer)continue;
@@ -659,35 +685,7 @@ export function createHostSession(options:HostOptions):HostSession{
   // A message from another session or a previous epoch is fenced: only the current epoch of this session writes.
   if(envelope.sessionId!==options.sessionId||envelope.epoch!==options.epoch)return;
   const control=controlFrom(message.body);
-  if(control.ok){
-   if(control.value.kind==='identity'){
-    const identity=control.value.identity;
-    if(identity.scope.worldId!==head.worldId||identity.scope.branchId!==head.branchId||identity.scope.sessionId!==options.sessionId)return;
-    if(!await options.verifier.verify(identity,identityBytes(identity,options.codec)))return;
-    identities.set(principalKey(identity.principal),identity);
-    members.add(peer);
-    return;
-   }
-   if(control.value.kind==='grant'){
-    const grant=control.value.grant;
-    if(grant.worldId!==head.worldId||grant.branchId!==head.branchId)return;
-    if(!await options.verifier.verify(grant.proof,grantBytes(grant,options.codec)))return;
-    // Holding the document is not holding the permission: the principal has to have presented its binding, or the
-    // policy of this session has to have issued that exact grant.
-    if(!identities.has(principalKey(grant.principal))&&!options.grants.some(known=>known.id===grant.id))return;
-    grants.set(principalKey(grant.principal),grant);
-    return;
-   }
-   if(control.value.kind==='proposal'){
-    members.add(peer);
-    const receipt=await submit(control.value.proposal);
-    answers.set(envelope.id,receipt);
-    while(answers.size>LIMIT.receipts){const oldest=answers.keys().next().value;if(oldest===undefined)break;answers.delete(oldest);}
-    await send(peer,{kind:'proposal-receipt',receipt});
-    return;
-   }
-   return;
-  }
+  if(control.ok){await handleControl(peer,envelope.id,control.value);return;}
   const parsed=readBody(message.body);
   if(!parsed.ok)return;
   if(parsed.value.kind==='base-request'){members.add(peer);await answerBases(peer,parsed.value.bases,parsed.value.objects);return;}
@@ -697,50 +695,68 @@ export function createHostSession(options:HostOptions):HostSession{
    while(confirmations.length>LIMIT.receipts)confirmations.shift();
   }
  }
- // One queue, one worker: proposals and ticks are ordered by arrival, and a proposal is never applied on top of a
- // half-finished change. The session counts what it has accepted and not yet answered, so the bound is about the
- // work in the session and not about where a job happens to be in the queue at the moment it is asked.
- const queued=()=>inFlight;
- let drainRun:Promise<void>=Promise.resolve();
- function start():void{
-  if(working||!jobs.length)return;
-  working=true;
-  drainRun=(async()=>{
-   try{
-    const opened=await boot;
-    while(jobs.length){
-     const job=jobs.shift()!;
-     try{
-      if(!opened.ok){
-       if(job.kind==='proposal')job.answer({kind:'proposal-receipt',id:job.proposal.id,digest:'',status:'failed',parent:head,head,rebased:false,code:opened.error.code,reason:opened.error.message});
-       else job.answer(opened);
-       continue;
-      }
-      if(job.kind==='proposal')job.answer(await apply(job.proposal));
-      else job.answer(await tick());
-     }catch(error){
-      const message=error instanceof Error&&error.message?error.message:'Falha desconhecida';
-      if(job.kind==='proposal')job.answer({kind:'proposal-receipt',id:job.proposal.id,digest:'',status:'failed',parent:head,head,rebased:false,code:'QUOTA',reason:message});
-      else job.answer(failed('QUOTA',message));
-     }finally{inFlight-=1;}
-    }
-   }finally{working=false;}
-  })();
+ // The control plane: who a peer is, what it may do, and what it proposes. An identity or a grant that does not belong
+ // to this branch and session, or whose proof does not verify, is dropped without an answer.
+ type Control=Extract<ReturnType<typeof controlFrom>,{ok:true}>['value'];
+ async function handleControl(peer:string,messageId:string,control:Control):Promise<void>{
+  if(control.kind==='identity'){
+   const identity=control.identity;
+   if(identity.scope.worldId!==head.worldId||identity.scope.branchId!==head.branchId||identity.scope.sessionId!==options.sessionId)return;
+   if(!await options.verifier.verify(identity,identityBytes(identity,options.codec)))return;
+   identities.set(principalKey(identity.principal),identity);
+   members.add(peer);
+   return;
+  }
+  if(control.kind==='grant'){
+   const grant=control.grant;
+   if(grant.worldId!==head.worldId||grant.branchId!==head.branchId)return;
+   if(!await options.verifier.verify(grant.proof,grantBytes(grant,options.codec)))return;
+   // Holding the document is not holding the permission: the principal has to have presented its binding, or the
+   // policy of this session has to have issued that exact grant.
+   if(!identities.has(principalKey(grant.principal))&&!options.grants.some(known=>known.id===grant.id))return;
+   grants.set(principalKey(grant.principal),grant);
+   return;
+  }
+  if(control.kind==='proposal'){
+   members.add(peer);
+   const receipt=await submit(control.proposal);
+   answers.set(messageId,receipt);
+   trimOldest(answers,LIMIT.receipts);
+   await send(peer,{kind:'proposal-receipt',receipt});
+  }
  }
+ // One queue, one worker: proposals and ticks are ordered by arrival, and a proposal is never applied on top of a
+ // half-finished change. A job that fails — including a session that never opened — is answered, never left waiting.
+ const failedReceipt=(proposal:Proposal,code:WorldErrorCode,reason:string):ProposalReceipt=>({kind:'proposal-receipt',id:proposal.id,digest:'',status:'failed',parent:head,head,rebased:false,code,reason});
+ const queue=createSerialQueue<HostJob>(async job=>{
+  try{
+   const opened=await boot;
+   if(!opened.ok){
+    if(job.kind==='proposal'){const receipt=failedReceipt(job.proposal,opened.error.code,opened.error.message);return()=>job.answer(receipt);}
+    return()=>job.answer(opened);
+   }
+   if(job.kind==='proposal'){const receipt=await apply(job.proposal);return()=>job.answer(receipt);}
+   const result=await tick();
+   return()=>job.answer(result);
+  }catch(error){
+   const message=error instanceof Error&&error.message?error.message:'Falha desconhecida';
+   if(job.kind==='proposal'){const receipt=failedReceipt(job.proposal,'QUOTA',message);return()=>job.answer(receipt);}
+   return()=>job.answer(failed('QUOTA',message));
+  }
+ });
+ // The bound is about the work in the session — what it accepted and has not answered yet — not about where a job
+ // happens to sit in the queue at the moment it is asked.
+ const queued=queue.pending;
  function submit(proposal:Proposal):Promise<ProposalReceipt>{
   if(queued()>=limits.maxProposalQueue)return Promise.resolve<ProposalReceipt>({kind:'proposal-receipt',id:proposal.id,digest:'',status:'refused',parent:head,head,rebased:false,code:'LIMIT',reason:`Fila de propostas cheia (${limits.maxProposalQueue})`});
   const answer=deferred<ProposalReceipt>();
-  inFlight+=1;
-  jobs.push({kind:'proposal',proposal,answer:answer.resolve});
-  start();
+  queue.push({kind:'proposal',proposal,answer:answer.resolve});
   return answer.promise;
  }
  function step():Promise<WorldResult<Head>>{
   if(queued()>=limits.maxProposalQueue)return Promise.resolve(failed<Head>('LIMIT',`Fila da sessão cheia (${limits.maxProposalQueue})`));
   const answer=deferred<WorldResult<Head>>();
-  inFlight+=1;
-  jobs.push({kind:'tick',answer:answer.resolve});
-  start();
+  queue.push({kind:'tick',answer:answer.resolve});
   return answer.promise;
  }
  const seat=():HostSeat=>({principal:options.identity.principal,sessionId:options.sessionId,epoch:options.epoch,uri:`osim:session:${options.sessionId}`});
@@ -767,10 +783,10 @@ export function createHostSession(options:HostOptions):HostSession{
  });
  async function idle():Promise<void>{
   for(let round=0;round<64;round+=1){
-   const run=drainRun;
+   const run=queue.drained();
    await handling;
    await run;
-   if(!working&&!jobs.length&&inFlight===0)return;
+   if(queue.idle())return;
   }
  }
  // Reading what already arrived is a different question from waiting for what it produced: a caller that presented its

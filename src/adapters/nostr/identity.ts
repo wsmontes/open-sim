@@ -9,6 +9,7 @@ import type {IdentityProof,IdentityProvider,Principal,Proof,SessionBindingReques
 import {failed,ok} from '../../world/model';
 import type {JsonValue,WorldResult} from '../../world/model';
 import type {WorldCodec} from '../../world/ports';
+import {errorText,isPlainObject} from '../../core/guards';
 
 // Nostr as an identity adapter (docs/superpowers/specs/2026-09-29-federated-world-design.md §7.2 and the task 10
 // delta in docs/kernel.md). This is the only place a Nostr SDK is allowed to appear, and it exists to answer one
@@ -44,9 +45,6 @@ export interface NostrSigner {
 export const BINDING_KIND = 1;
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, PUBKEY = /^[0-9a-f]{64}$/, NPUB = /^npub1[02-9ac-hj-np-z]{58}$/;
 
-function plain(value: unknown): value is Record<string, unknown> {
- return !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
-}
 // The event content is the canonical bytes of a body, decoded back to text: whatever codec the world layer uses is
 // the codec here too, so a body carries the same characters a proposal or a grant would.
 export function contentText(codec: WorldCodec, body: JsonValue): string {
@@ -99,11 +97,11 @@ export function localNostrSigner(secret: Uint8Array): NostrSigner {
 // A signer arrives as an untrusted object: it is the extension's, so every answer is validated before it is believed.
 export function nip07Signer(source: unknown): WorldResult<NostrSigner> {
  if (source === undefined || source === null) return failed('NOT_FOUND', 'Sem assinador Nostr disponível');
- if (!plain(source)) return failed('MALFORMED', 'Assinador Nostr inválido');
+ if (!isPlainObject(source)) return failed('MALFORMED', 'Assinador Nostr inválido');
  const getPublicKey = source['getPublicKey'], signEvent = source['signEvent'], nip04 = source['nip04'];
  if (typeof getPublicKey !== 'function' || typeof signEvent !== 'function') return failed('MALFORMED', 'Assinador Nostr sem getPublicKey/signEvent');
- const encrypt = plain(nip04) && typeof nip04['encrypt'] === 'function' ? nip04['encrypt'] : undefined;
- const decrypt = plain(nip04) && typeof nip04['decrypt'] === 'function' ? nip04['decrypt'] : undefined;
+ const encrypt = isPlainObject(nip04) && typeof nip04['encrypt'] === 'function' ? nip04['encrypt'] : undefined;
+ const decrypt = isPlainObject(nip04) && typeof nip04['decrypt'] === 'function' ? nip04['decrypt'] : undefined;
  const signer: NostrSigner = {
   getPublicKey: async () => {
    const answer = await getPublicKey.call(source);
@@ -123,7 +121,7 @@ export function nip07Signer(source: unknown): WorldResult<NostrSigner> {
 // The shape of an event as it arrives from a signer or a relay: validated once here, so nothing downstream has to
 // trust a field that may not be there.
 export function nostrEventOf(value: unknown): NostrEvent | null {
- if (!plain(value)) return null;
+ if (!isPlainObject(value)) return null;
  const {kind, created_at, tags, content, pubkey, id, sig} = value as Record<string, unknown>;
  if (typeof kind !== 'number' || typeof created_at !== 'number' || typeof content !== 'string') return null;
  if (typeof pubkey !== 'string' || typeof id !== 'string' || typeof sig !== 'string') return null;
@@ -157,7 +155,7 @@ export function verifyBinding(binding: NostrBinding): WorldResult<NostrBinding> 
  } catch {
   return failed('MALFORMED', 'Conteúdo do vínculo não é JSON');
  }
- if (!plain(content)) return failed('MALFORMED', 'Conteúdo do vínculo não é um objeto');
+ if (!isPlainObject(content)) return failed('MALFORMED', 'Conteúdo do vínculo não é um objeto');
  const expected = bindingBody(binding) as Record<string, unknown>;
  for (const key of ['kind', 'version', 'npub', 'deviceKey', 'issuedAt']) if (content[key] !== expected[key]) return failed('SIGNATURE', `O evento assinado diz outra coisa em ${key}`);
  return ok(binding);
@@ -175,7 +173,7 @@ export async function bindNostrDevice(input: {signer?: NostrSigner; device: KeyP
  try {
   publicKey = await signer.getPublicKey();
  } catch (error) {
-  return failed('SIGNATURE', `Assinador não devolveu a chave pública: ${messageOf(error)}`);
+  return failed('SIGNATURE', `Assinador não devolveu a chave pública: ${errorText(error)}`);
  }
  if (!PUBKEY.test(publicKey)) return failed('MALFORMED', `Chave pública do assinador inválida: ${publicKey}`);
  const binding: NostrBinding = {kind: 'nostr-binding', version: 1, npub: npubOf(publicKey), deviceKey: device.publicKey, issuedAt, event: {kind: BINDING_KIND, created_at: epochSeconds(issuedAt), tags: [], content: '', pubkey: publicKey, id: '', sig: ''}};
@@ -184,14 +182,11 @@ export async function bindNostrDevice(input: {signer?: NostrSigner; device: KeyP
  try {
   event = await signer.signEvent(template);
  } catch (error) {
-  return failed('SIGNATURE', `Assinador recusou o vínculo: ${messageOf(error)}`);
+  return failed('SIGNATURE', `Assinador recusou o vínculo: ${errorText(error)}`);
  }
  if (event.pubkey !== publicKey) return failed('SIGNATURE', 'O assinador assinou o vínculo com outra chave');
  if (!verifyEvent(event)) return failed('SIGNATURE', 'O assinador devolveu um vínculo com assinatura inválida');
  return ok({...binding, event});
-}
-function messageOf(error: unknown): string {
- return error instanceof Error ? error.message : String(error);
 }
 
 // --- the identity provider: a device root delegating the short session key ------------------------------------

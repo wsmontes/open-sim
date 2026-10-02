@@ -1,5 +1,4 @@
 import {MAX_OBJECT_BYTES,failed,ok,sameRef} from '../../world/model';
-import type {ObjectRef,WorldResult} from '../../world/model';
 import type {ContentHasher} from '../../world/ports';
 import type {ObjectStore} from './direct';
 

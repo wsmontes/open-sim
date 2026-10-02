@@ -7,14 +7,24 @@ Este documento descreve o que existe hoje no repositório: contratos, limites en
 | Camada | Arquivos | Pode importar |
 | --- | --- | --- |
 | Núcleo | `src/core/*` | apenas `src/core` |
-| Sessão | `src/session/*` | núcleo e `src/session` |
-| Adaptadores | `src/adapters/osm/*`, `src/adapters/storage/*` | núcleo, contratos da sessão, `@mapbox/vector-tile`, `pbf` |
-| Apresentação | `src/presentation/*` | núcleo, contratos da sessão, `src/presentation` |
-| Cliente | `src/browser/*`, `index.html`, `src/browser/style.css` | todas as camadas |
+| Mundo | `src/world/*` | núcleo e `src/world` |
+| Sessão | `src/session/*` | núcleo, mundo e `src/session` |
+| Perfis | `src/profiles/*` | núcleo, mundo e `src/profiles` |
+| Adaptadores | `src/adapters/*` | núcleo, mundo, sessão, perfis, contratos do cliente e SDKs |
+| Apresentação | `src/presentation/*` | núcleo, mundo, sessão, perfis e `src/presentation` |
+| Cliente portátil | `src/client/*` | as camadas acima (menos adaptadores) e `src/client` |
+| Superfícies | `src/surfaces/*` | as mesmas do cliente, o cliente e `src/surfaces` |
+| Hosts | `src/browser/*`, `index.html`, `tools/*` | todas as camadas |
 
-`tests/architecture.test.ts` verifica isso de verdade, não por busca textual: extrai cada especificador com um tokenizador, resolve importações relativas pelo caminho real e pacotes pela resolução do Node, e recusa qualquer arquivo de `src` que alcance módulo nativo do Node, `electron`, `tauri` ou `nostr`. Também recusa `Date` e `Math.random` no núcleo e compila `src/core` com o compilador TypeScript sem DOM e sem tipos de Node.
+`tests/architecture.test.ts` verifica isso de verdade, não por busca textual: extrai cada especificador com um tokenizador, resolve importações relativas pelo caminho real e pacotes pela resolução do Node, e recusa qualquer arquivo de `src` que alcance módulo nativo do Node, `electron`, `tauri` ou `nostr`. Também recusa `Date` e `Math.random` no núcleo e compila `src/core`, `src/world`, `src/client` e `src/surfaces/text` com o compilador TypeScript sem DOM e sem tipos de Node.
 
 A direção das dependências é única: o núcleo nunca conhece sessão, adaptador, apresentação ou browser. Um futuro host desktop pode reutilizar o cliente atual ou escrever outro; nenhuma regra econômica mora na interface.
+
+## Cliente portátil e superfícies
+
+O jogo do perfil cidade — ferramenta, traço, prévia de custo, construir e recusar, velocidade e ticks, impostos, o card de uma célula, salvar e reabrir — vive em `src/client/city-client.ts`, não no browser ([especificação](superpowers/specs/2026-10-01-portable-client-design.md)). Uma superfície entrega intenções (`src/client/intents.ts`) e desenha a vista (`ClientView`); o tempo de parede chega pela `TimePort` (`src/client/time.ts`), e um relógio manual faz trinta segundos de cidade em zero segundos.
+
+Há duas superfícies sobre o mesmo cliente: o canvas do navegador (`src/browser/main.ts` traduz gesto em intenção) e o texto (`src/surfaces/text/`: mapa em caracteres, comandos em português, executor de roteiros). `tools/play.ts` é o host de terminal; `tests/playthroughs/*.json` são partidas escritas que `tests/playthrough.test.ts` joga a cada execução da suíte. Depois da etapa B da especificação, lugar e câmera (pan, zoom, rotação, lugares, carga do visível e os fatos reais atrás de um `FactsPort`) também são do cliente; depois das etapas C e D, versões, histórico, comparação, exportação/importação (`src/client/versions.ts`, com `WorldRepository`, codec e hasher como portas) e os dois futuros de um lugar são do cliente também. Depois da etapa E, a sessão cooperativa — abrir, convidar, entrar, transferir, pausar, sair e trocar o papel do relógio — é do cliente (`src/client/session.ts`); chaves, transporte e sinalização chegam por um `SessionPorts` que o host injeta (`src/adapters/session/memory.ts` em memória para Node/testes; `src/adapters/session/webrtc.ts` no navegador), e a metade portátil da experiência mora em `src/presentation/session-view.ts` (sem DOM). O `main.ts` virou host fino de ponta a ponta.
 
 ## Contrato portátil
 
@@ -79,14 +89,16 @@ interface SaveStore {
 
 ### Apresentação
 
-`src/presentation/` é receita, não biblioteca de framework: `camera.ts` (projeção isométrica 32×16, `project`/`pick`/`centerOn`/`visibleChunks`/`zoomTo`/`closestChunks`, zoom de 0,05× a 3×), `canvas-renderer.ts` (`render(ctx, WorldView)`), `input.ts` (`attachInput`, traço de rua deduplicado), `hud.ts` (barra de ferramentas, indicadores, lugares, mensagens; recebe estado e callbacks) e `clock.ts` (relógio de ticks).
+`src/presentation/` é receita portátil e **compila sem DOM nem tipos de Node** (`tsconfig.presentation.json`, provado em `tests/architecture.test.ts`): a matemática e as decisões que qualquer superfície reaproveita — `camera.ts` (projeção isométrica 32×16, `project`/`pick`/`centerOn`/`visibleChunks`/`zoomTo`/`closestChunks`, zoom de 0,05× a 3×), `clock.ts` (relógio de ticks), `layout.ts`, `strokes.ts`, `tools.ts`, `card-text.ts`, `words.ts`, `world-diff.ts`, os modelos de histórico e composição, a **lógica** de vida nas ruas (`street-life.ts`: `lifeAt` e suas tabelas de trânsito, sem desenho), o agendador de quadros (`frame-scheduler.ts`, com os relógios da plataforma lidos de `globalThis` ou injetados) e a metade portátil da sessão (`session-view.ts`). O que é DOM ou canvas vive em `src/surfaces/canvas/`: `canvas-renderer.ts` (`render(ctx, WorldView)`), o desenho da vida nas ruas (`street-life-draw.ts`), `input.ts` (`attachInput`, traço de rua deduplicado), `hud.ts`, `inspector.ts`, `source-inspector.ts` e os painéis de histórico, composição e sessão (`multiplayer-panel.ts`). A apresentação **não importa a superfície** (teste de arquitetura); a superfície importa a apresentação.
 
 Duas escalas de desenho convivem, escolhidas por `isCoarse` (passo de célula abaixo de `COARSE_STEP` = 6 pixels de buffer):
 
 - **zoom de célula** (acima do limiar): um losango por célula, com telhado, fachada, árvores e vias desenhados a partir das coordenadas e da semente. A ordem de pintura é estável (linhas de `x+y` crescente) e o que a câmera não vê é recortado.
 - **mosaico de trecho** (zoom amplo): a cidade inteira não caberia célula a célula — a 0,05× uma célula tem menos de dois pixels e uma tela larga cobre centenas de trechos. `aggregateCells` resume cada trecho em 8×8 blocos de 4×4 células cuja cor segue o que domina o bloco (água, asfalto, vegetação ou o telhado do tipo mais frequente; blocos mistos usam a média ponderada). O resultado é determinístico, reage às edições do jogador, fica em cache por trecho (invalidado por revisão nos trechos administrados) e mantém 60 fps com a cidade toda na tela. Área ainda carregando ou com erro continua com o padrão de hachura, nunca com terreno inventado.
 
-Trocar o desenho é escrever outra função `render` que consuma o mesmo `WorldView` — ela recebe câmera, viewport, estado, status de trechos, seleção e prévia, e nada de HTTP ou armazenamento. Trocar os controles é outro `attachInput` com os mesmos callbacks. Um cliente com WebGL, terminal ou canvas de desktop não precisa tocar no núcleo.
+Trocar o desenho é escrever outra função `render` que consuma o mesmo `WorldView` — ela recebe câmera, viewport, estado, status de trechos, seleção e prévia, e nada de HTTP ou armazenamento. Trocar os controles é outro `attachInput` com os mesmos callbacks. Um cliente com WebGL, terminal ou canvas de desktop não precisa tocar no núcleo. A superfície de texto (`src/surfaces/text/`) é a prova: desenha a mesma vista em caracteres sem tocar em DOM nenhum.
+
+**Paridade e gravação** (etapa F): `tests/browser/play.html` roda um roteiro de `tests/playthroughs/` pelo mesmo cliente portátil, com mapa sintético, relógio manual e armazenamento em memória, e imprime a transcrição e o hash semântico — igual ao que `tools/play.ts --script` imprime em Node (fixado em `tests/parity.test.ts`), espelhando o que `replay.html` já faz para o núcleo. E o host do navegador grava: com `?record=1`, cada intenção que o jogador envia vira um passo `{do:…}` de um roteiro em memória, com `{wait:ms}` entre eles medidos pelo `TimePort`; `window.openSimRecording()` o devolve e um botão discreto o baixa como JSON pronto para `tests/playthroughs/`. Fica fora da interface normal: quem não pediu gravar não vê nada diferente.
 
 ### Memória durante a exploração
 

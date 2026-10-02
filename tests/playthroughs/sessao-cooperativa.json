@@ -1,0 +1,37 @@
+{
+ "version": 1,
+ "title": "sessão cooperativa: anfitriã, réplica e os limites",
+ "steps": [
+  {"note": "Ana abre uma sessão na versão que ela está vendo e vira a anfitriã."},
+  {"as": "ana", "say": "sessao abrir"},
+  {"as": "ana", "expect": {"result.ok": true}},
+  {"note": "Ana constrói uma rua; a sessão ordena a ramificação e confirma a versão."},
+  {"as": "ana", "say": "rua 2,3 6,3"},
+  {"as": "ana", "expect": {"result.ok": true, "state.money": 19950, "state.revision": 1}},
+
+  {"note": "Bia entra pelo convite (a URI da sessão que a anfitriã publicou) e vira réplica verificadora."},
+  {"as": "bia", "say": "sessao entrar osim:session:open-sim-sessao-1"},
+  {"as": "bia", "expect": {"result.ok": true}},
+  {"note": "A réplica vê exatamente o que a anfitriã confirmou: mesma versão, mesmo saldo."},
+  {"as": "bia", "expect": {"state.revision": 1, "state.money": 19950}},
+
+  {"note": "A anfitriã constrói mais uma rua; a réplica acompanha a nova versão confirmada."},
+  {"as": "ana", "say": "rua 2,4 6,4"},
+  {"as": "ana", "expect": {"state.money": 19900, "state.revision": 2}},
+  {"as": "bia", "expect": {"state.revision": 2, "state.money": 19900}},
+
+  {"note": "NEGATIVO 1: a réplica não marca o tempo — o relógio é da anfitriã (§7.5). Acelera e espera, nada avança."},
+  {"as": "bia", "remember": {"tickAntes": "state.tick"}},
+  {"as": "bia", "say": "vel 2"},
+  {"as": "bia", "say": "espera 10s"},
+  {"as": "bia", "expect": {"state.tick": {"is": "$tickAntes"}}},
+
+  {"note": "NEGATIVO 2: uma proposta sem célula é recusada com a mensagem, e nada é cobrado."},
+  {"as": "bia", "say": "confirmar"},
+  {"as": "bia", "expect": {"result.ok": false, "result.message": {"contains": "Escolha uma ferramenta"}, "state.money": 19900}},
+
+  {"note": "Bia sai: volta para a versão pessoal; a ramificação compartilhada guarda o trabalho."},
+  {"as": "bia", "say": "sessao sair"},
+  {"as": "bia", "expect": {"result.ok": true}}
+ ]
+}

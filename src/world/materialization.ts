@@ -16,6 +16,7 @@ import {derivedName} from './entities';
 import type {WorldResult} from './model';
 import {failed,ok} from './model';
 import {checkCoreComponent} from './osim';
+import {isRecord} from '../core/guards';
 
 export const POPULATION_NAMESPACE = 'population.materialized';
 // A cell with more derived slots than this is a runaway derivation, not a city (spec R13).
@@ -59,9 +60,6 @@ export type MaterializedCharacter = {
  slot: number;
 };
 
-function record(value: unknown): value is Record<string, unknown> {
- return !!value && typeof value === 'object' && !Array.isArray(value);
-}
 // The geodesic address a cell approximates. This is the declared approximation, and it is the only place the lattice
 // is translated into the portable contract.
 function placementOf(cell: string): GeoPosition | null {
@@ -83,16 +81,16 @@ function characterId(state: SharedPopulation,cell: string,slot: number): string 
 function reservationsIn(state: GameState): PopulationReservation[] {
  const namespace = state.components[POPULATION_NAMESPACE];
  const found: PopulationReservation[] = [];
- if (!record(namespace)) return found;
+ if (!isRecord(namespace)) return found;
  for (const id of Object.keys(namespace).sort()) {
-  const entry = record(namespace[id]) ? namespace[id] as Record<string, unknown> : null;
+  const entry = isRecord(namespace[id]) ? namespace[id] as Record<string, unknown> : null;
   if (!entry) continue;
   const cell = entry['cell'], owner = entry['owner'], ids = entry['ids'], slots = entry['slots'];
   if (typeof cell !== 'string' || typeof owner !== 'string' || !CELL.test(cell)) continue;
   if (!Array.isArray(ids) || !ids.every(entry => typeof entry === 'string') || !ids.length) continue;
   if (!Array.isArray(slots) || slots.length !== ids.length || !slots.every(slot => Number.isSafeInteger(slot) && (slot as number) >= 0)) continue;
   if (entry['count'] !== ids.length) continue;
-  const stored = record(entry['place']) ? entry['place'] as Record<string, unknown> : null;
+  const stored = isRecord(entry['place']) ? entry['place'] as Record<string, unknown> : null;
   const place = stored && typeof stored['lon'] === 'number' && typeof stored['lat'] === 'number'
    ? {lon:stored['lon'],lat:stored['lat']}
    : placementOf(cell);
