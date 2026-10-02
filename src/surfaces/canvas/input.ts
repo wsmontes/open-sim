@@ -1,6 +1,6 @@
 import type {CellCoord} from '../../core/model';
 import type {Camera,Point} from '../../presentation/camera';
-import {clampZoom,normalizeAngle,pick,rotateTo} from '../../presentation/camera';
+import {clampZoom,nextZoomStep,normalizeAngle,pick,rotateTo} from '../../presentation/camera';
 import type {SelectedTool} from './hud';
 export type InputCallbacks = {
  onHover(cell:CellCoord|null):void;
@@ -22,8 +22,12 @@ export type InputContext = {
  // How a drag turns into cells. A street, a plant and a demolition are lines; a zone is a rectangle, which is what the
  // genre taught every player to expect. Drawing a box freehand cell by cell is the kind of chore that reads as work.
  strokeShape?:()=>StrokeShape;
+ // Device pixels per CSS pixel of the drawing buffer: the zoom ladder is measured in it, so a notch lands on a crisp step.
+ zoomScale?:()=>number;
 };
-const ZOOM_RATE=.002;
+// A touchpad pinch reports small deltas; this turns them into the same zoom the fingers made. A mouse notch is at
+// least this many pixels in one axis, which a two-finger swipe almost never is in a single event.
+const PINCH_RATE=.01,NOTCH_MIN=50,NOTCH_SIZE=100,MAX_NOTCHES=200;
 // Keyboard panning moves the camera in screen pixels: it is a camera, so "up" is up on screen however the view is
 // turned. Shift walks four times as far, which is what makes a long trip bearable at a close zoom.
 const PAN_STEP=48,PAN_FAST=4;
@@ -158,9 +162,30 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  const onContextMenu=(event:Event)=>event.preventDefault();
  const onWheel=(event:WheelEvent)=>{
   event.preventDefault();
-  const camera=context.camera(),point=pointInBuffer(event);
-  const zoom=clampZoom(camera.zoom*Math.exp(-event.deltaY*ZOOM_RATE)),ratio=zoom/camera.zoom;
-  callbacks.onCamera({x:point.x-(point.x-camera.x)*ratio,y:point.y-(point.y-camera.y)*ratio,zoom,rotation:normalizeAngle(camera.rotation)},{snap:true});
+  const camera=context.camera(),point=pointInBuffer(event),rect=canvas.getBoundingClientRect();
+  const scaleX=rect.width?canvas.width/rect.width:1,scaleY=rect.height?canvas.height/rect.height:1;
+  // A wheel event is three different gestures. A touchpad pinch arrives with ctrlKey set (the browser's convention)
+  // and is continuous; a mouse notch is a large, line-sized step; a two-finger touchpad swipe is a stream of small
+  // deltas in both axes and means "move the map", exactly like dragging it.
+  const unit=event.deltaMode===1?16:event.deltaMode===2?canvas.height:1,dx=event.deltaX*unit,dy=event.deltaY*unit;
+  const anchored=(zoom:number)=>{const ratio=zoom/camera.zoom;return {x:point.x-(point.x-camera.x)*ratio,y:point.y-(point.y-camera.y)*ratio,zoom,rotation:normalizeAngle(camera.rotation)};};
+  if(event.ctrlKey){
+   callbacks.onCamera(anchored(clampZoom(camera.zoom*Math.exp(-dy*PINCH_RATE))),{snap:false});
+   return;
+  }
+  const notch=event.deltaMode!==0||(dx===0&&Math.abs(dy)>=NOTCH_MIN&&Number.isInteger(dy));
+  if(notch){
+   if(dy===0)return;
+   // One notch is one crisp step, whatever the step size is at this zoom: far out the ladder's steps are wider than
+   // any fixed factor, and rounding a fixed factor to the nearest step would leave the camera where it was. A fast spin
+   // reports several notches in one event, and each of them is a step.
+   const notches=Math.min(MAX_NOTCHES,Math.max(1,Math.round(Math.abs(dy)/NOTCH_SIZE))),direction=dy<0?1:-1;
+   let zoom=camera.zoom;
+   for(let i=0;i<notches;i++)zoom=nextZoomStep(zoom,context.zoomScale?.()??1,direction);
+   callbacks.onCamera(anchored(zoom),{snap:true});
+   return;
+  }
+  callbacks.onCamera({x:camera.x-dx*scaleX,y:camera.y-dy*scaleY,zoom:camera.zoom,rotation:normalizeAngle(camera.rotation)});
  };
  const onKeyDown=(event:KeyboardEvent)=>{
   if(isTyping(event.target))return;

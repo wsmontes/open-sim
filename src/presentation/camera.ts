@@ -41,6 +41,15 @@ export function snapZoom(zoom:number,scale:number):number {
  for(const step of steps)if(Math.abs(step-wanted)<Math.abs(best-wanted))best=step;
  return best;
 }
+// The next crisp step in one direction, never the current one. Multiplying by a fixed factor and snapping to the
+// nearest step is not enough: far out the steps are more than that factor apart (under one pixel, two, four), so the
+// nearest step is the one the camera is already on and a zoom button or a wheel notch would do nothing at all.
+export function nextZoomStep(zoom:number,scale:number,direction:1|-1):number {
+ const steps=zoomLadder(scale),current=clampZoom(zoom),tolerance=current*1e-6;
+ if(direction>0){for(const step of steps)if(step>current+tolerance)return step;return MAX_ZOOM;}
+ for(let i=steps.length-1;i>=0;i--)if(steps[i]!<current-tolerance)return steps[i]!;
+ return MIN_ZOOM;
+}
 export const cellStep=(camera:Camera)=>TILE_W*camera.zoom;
 export const isCoarse=(camera:Camera)=>cellStep(camera)<COARSE_STEP;
 // Rotate in the ground plane, before the fixed isometric inclination.

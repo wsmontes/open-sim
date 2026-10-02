@@ -15,7 +15,7 @@ import type {CellReading} from '../core/simulation';
 import type {LocalSession,SaveStatus} from '../session/local-session';
 import type {ChunkStatus} from '../session/ports';
 import type {Camera,Viewport} from '../presentation/camera';
-import {approach,arrived,centerOn,closestChunks,isCoarse,normalizeAngle,pick,rotateTo,settleZoom,snapZoom,visibleChunks,zoomTo,GLIDE_PER_SECOND,MIN_ZOOM} from '../presentation/camera';
+import {approach,arrived,nextZoomStep,centerOn,closestChunks,isCoarse,normalizeAngle,pick,rotateTo,settleZoom,visibleChunks,zoomTo,GLIDE_PER_SECOND,MIN_ZOOM} from '../presentation/camera';
 import {createTickClock} from '../presentation/clock';
 import type {ClockRole,Speed} from '../presentation/clock';
 import type {SelectedTool} from '../presentation/tools';
@@ -330,8 +330,8 @@ export function createCityClient(config: CityClientConfig): CityClient {
   changed: () => changed(),
  }) : null;
  const mapFailureText = (): string => 'Falha ao carregar o mapa. Tente novamente.';
- // One zoom step either way, snapped to the crisp ladder: the terminal's "zoom +/-", the browser's wheel and buttons.
- const stepZoom = (direction: 1 | -1): Camera => zoomTo(camera, viewport, snapZoom(camera.zoom * (direction > 0 ? 1.25 : 0.8), zoomScale()));
+ // One zoom step either way, on the crisp ladder: the terminal's "zoom +/-", the browser's wheel notches and buttons.
+ const stepZoom = (direction: 1 | -1): Camera => zoomTo(camera, viewport, nextZoomStep(glide?.zoom ?? camera.zoom, zoomScale(), direction));
  // A camera move either lands at once (a surface that does not animate, or `settle` for direct manipulation) or
  // becomes the glide target `step` chases. `settle` keeps the surface's exact zoom (a pinch is continuous and
  // rounding it mid-gesture would slide the scene); a glide target lands on the crisp ladder.

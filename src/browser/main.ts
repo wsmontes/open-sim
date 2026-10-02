@@ -699,6 +699,7 @@ async function start() {
   canvas,
   {
    camera: () => client.view().camera,
+   zoomScale: deviceScale,
    tool: () => client.view().tool,
    strokeShape: () => strokeShapeOf(client.view().tool),
   },
