@@ -40,3 +40,7 @@ Final fresh review: imported growth must not replace source footprints (fixed); 
 
 Ruling: Use the source footprints with illustrative heights/facades and keep the simulation model unchanged — source tiles do not provide building identity or reliable height — cost: the silhouette cannot reproduce every real tower exactly.
 Ruling: Retain the work on codex/visual-world and publish through the existing Pages script under the user's authorization for the whole update — cost: the live version advances before a main-branch merge.
+
+Publication: code commit c809574 pushed to origin/codex/visual-world, deployed as gh-pages 1c4fb89; GitHub Pages build reported built and the live HTML served the matching CQyL52MF bundle. Live browser confirmed new footprints/UI and no console errors.
+
+Observed limitation: the browser's existing save was written by the earlier published rulesVersion 4 build (58ac0e7, review/speed-simplicity-beauty), whereas the user-authorized origin/default reset restored rulesVersion 3. Its bytes remain protected by the incompatible-save guard; neither overwrite nor unverified downgrade was performed. Legacy snapshots supported by the origin engine still pass their tests.
