@@ -92,6 +92,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  // drag the player is still making when the second lands.
  const fingers=new Map<number,Point>();
  let pinch:{distance:number;mid:Point;camera:Camera}|null=null;
+ let buffer={width:canvas.width,height:canvas.height};
  const shape=()=>context.strokeShape?.()??'line';
  const midpoint=()=>{
   const points=[...fingers.values()];
@@ -123,7 +124,8 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   const camera=context.camera(),point=pointInBuffer(event);
   fingers.set(event.pointerId,point);
   if(fingers.size===1)touch={id:event.pointerId,point,moved:false};
-  if(fingers.size===2){
+  if(fingers.size>=2){
+   if(touch)touch.moved=true;
    // A second finger turns whatever was happening into a pinch; the drag or stroke in course is abandoned, not left
    // half-finished behind the gesture.
    stroke=null;pan=null;rotate=null;callbacks.onPreview([]);
@@ -140,6 +142,15 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   callbacks.onPreview(stroke.cells);
  };
  const onPointerMove=(event:PointerEvent)=>{
+  if(buffer.width!==canvas.width||buffer.height!==canvas.height){
+   const sx=canvas.width/Math.max(1,buffer.width),sy=canvas.height/Math.max(1,buffer.height),camera=context.camera();
+   for(const [id,p] of fingers)fingers.set(id,{x:p.x*sx,y:p.y*sy});
+   if(pinch)pinch={distance:spread(),mid:midpoint(),camera};
+   if(pan)pan={point:fingers.values().next().value??{x:pan.point.x*sx,y:pan.point.y*sy},camera};
+   if(rotate)rotate={point:fingers.values().next().value??{x:rotate.point.x*sx,y:rotate.point.y*sy},camera};
+   if(touch)touch.point={x:touch.point.x*sx,y:touch.point.y*sy};
+   buffer={width:canvas.width,height:canvas.height};
+  }
   const point=pointInBuffer(event);
   if(touch&&touch.id===event.pointerId&&!touch.moved&&Math.hypot(point.x-touch.point.x,point.y-touch.point.y)>TAP_SLOP)touch.moved=true;
   if(fingers.has(event.pointerId))fingers.set(event.pointerId,point);
@@ -166,7 +177,13 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   fingers.delete(event.pointerId);
   if(touch&&touch.id===event.pointerId)touch=null;
   if(fingers.size<2)pinch=null;
-  if(fingers.size>0){release(event);return;}
+  if(fingers.size>=2){pinch={distance:spread(),mid:midpoint(),camera:context.camera()};release(event);return;}
+  if(fingers.size>0){
+   const point=fingers.values().next().value!;
+   pan={point,camera:context.camera()};rotate=null;stroke=null;
+   if(touch)touch.moved=true;
+   release(event);return;
+  }
   pan=null;rotate=null;release(event);
   // The stroke is applied first when there is one: a tap that lays a street is a selection *and* a build, and the card
   // the player gets has to describe the cell as it ended up rather than as it was.
@@ -176,6 +193,10 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
    callbacks.onCommit(cells);
   }
   if(tapped&&at)callbacks.onTap(pick(at,context.camera()));
+ };
+ const onPointerCancel=(event:PointerEvent)=>{
+  fingers.clear();touch=null;pinch=null;pan=null;rotate=null;stroke=null;
+  release(event);callbacks.onPreview([]);callbacks.onCancel();
  };
  const onPointerLeave=()=>callbacks.onHover(null);
  const onContextMenu=(event:Event)=>event.preventDefault();
@@ -216,7 +237,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  canvas.addEventListener('contextmenu',onContextMenu);
  canvas.addEventListener('wheel',onWheel,{passive:false});
  window.addEventListener('pointerup',onPointerUp);
- window.addEventListener('pointercancel',onPointerUp);
+ window.addEventListener('pointercancel',onPointerCancel);
  window.addEventListener('keydown',onKeyDown);
  window.addEventListener('keyup',onKeyUp);
  return ()=>{
@@ -226,7 +247,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   canvas.removeEventListener('contextmenu',onContextMenu);
   canvas.removeEventListener('wheel',onWheel);
   window.removeEventListener('pointerup',onPointerUp);
-  window.removeEventListener('pointercancel',onPointerUp);
+  window.removeEventListener('pointercancel',onPointerCancel);
   window.removeEventListener('keydown',onKeyDown);
   window.removeEventListener('keyup',onKeyUp);
  };

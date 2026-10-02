@@ -1,4 +1,4 @@
-import type {BaseChunk,Command,GameState} from '../core/model';
+import type {Action,BaseChunk,Command,GameState} from '../core/model';
 import {applyCommand} from '../core/commands';
 import {quoteAction} from '../core/quote';
 import type {Quote} from '../core/quote';

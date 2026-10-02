@@ -125,7 +125,8 @@ function viewState(value: unknown): ViewState {
  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) throw new Error('Posição da câmera inválida');
  if (!Number.isFinite(value.zoom) || (value.zoom as number) < VIEW_ZOOM_MIN || (value.zoom as number) > VIEW_ZOOM_MAX) throw new Error('Zoom inválido');
  if (value.speed !== 0 && value.speed !== 1 && value.speed !== 2) throw new Error('Velocidade inválida');
- return {...extras(value,['x','y','zoom','speed','place','rotation']), x:value.x as number, y:value.y as number, zoom:value.zoom as number, speed:value.speed as ViewState['speed'], place:value.place, rotation:viewRotation(value.rotation)};
+ if(value.center!==undefined&&(!plain(value.center)||!Number.isFinite(value.center.x)||!Number.isFinite(value.center.y)))throw new Error('Centro da câmera inválido');
+ return {...extras(value,['x','y','zoom','speed','place','rotation']),...(value.center!==undefined?{center:{x:(value.center as Record<string,number>).x,y:(value.center as Record<string,number>).y}}:{} ), x:value.x as number, y:value.y as number, zoom:value.zoom as number, speed:value.speed as ViewState['speed'], place:value.place, rotation:viewRotation(value.rotation)};
 }
 // Saves written before the view could be turned carry no bearing at all and simply mean north up. A stored one has to
 // be a real bearing inside (-PI, PI]. The camera folds its angles into that same window, but running the fold again

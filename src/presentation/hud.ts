@@ -89,6 +89,7 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
  const panels:Panel[]=[];
  let mode:LayoutMode={dock:'bottom',sheets:'sheet',inspector:'card',floating:false,touch:false};
  let open:string|null=null;
+ let opener:HTMLElement|null=null;
  let drag:{panel:Panel;pointerX:number;pointerY:number;x:number;y:number}|null=null;
 
  // A floating screen stays where the player put it; the others are arranged by the stylesheet. Clearing the inline
@@ -140,6 +141,8 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
  on(view??root.ownerDocument,'pointercancel',endDrag);
 
  const openSheet=(next:string|null)=>{
+  const was=open;
+  if(next&&!was)opener=root.ownerDocument.activeElement as HTMLElement|null;
   open=next;
   if(moreList&&moreList.hidden!==true){moreList.hidden=true;more?.setAttribute('aria-expanded','false');more?.classList.remove('selected');}
   // One attribute drives the whole level: the stylesheet shows the screen it names and hides the rest.
@@ -149,6 +152,8 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
    button.setAttribute('aria-expanded',String(button.dataset.sheet===next));
    button.classList.toggle('selected',button.dataset.sheet===next);
   }
+  if(next)panels.find(panel=>panel.sheet===next)?.close?.focus();
+  else if(was){opener?.focus();opener=null;}
  };
  for(const button of root.querySelectorAll<HTMLButtonElement>('button[data-sheet]')){
   on(button,'click',()=>openSheet(open===button.dataset.sheet?null:(button.dataset.sheet??null)));

@@ -158,3 +158,7 @@ test('components and unknown fields still have to be plain JSON',()=>{
  const text=encodeSave(saved()),tampered=`{"__proto__":1,${text.slice(1)}`;
  expect(()=>decodeSave(tampered)).toThrow('Campo reservado');
 });
+test('portable view centres are validated and retain fractional world positions',()=>{
+ const x=saved();x.view.center={x:12.25,y:55.75};expect(decodeSave(encodeSave(x)).view.center).toEqual(x.view.center);
+ expect(()=>decodeSave({...x,view:{...x.view,center:{x:NaN,y:1}}})).toThrow('Centro');
+});

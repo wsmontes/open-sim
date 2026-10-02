@@ -43,19 +43,12 @@ export function snapZoom(zoom:number,scale:number):number {
 }
 export const cellStep=(camera:Camera)=>TILE_W*camera.zoom;
 export const isCoarse=(camera:Camera)=>cellStep(camera)<COARSE_STEP;
-// The bearing is carried in screen space: the isometric axes turn around the anchor by camera.rotation, 0 keeping
-// north up. Projection and its inverse are the only two places allowed to know the sign convention, so they live
-// side by side; rotation 0 takes the exact same arithmetic as an unturned camera.
-const spin=(camera:Camera,u:number,v:number):Point=>{
- if(camera.rotation===0)return {x:u,y:v};
+// Rotate in the ground plane, before the fixed isometric inclination.
+export function groundVector(camera:Camera,x:number,y:number):Point {
  const c=Math.cos(camera.rotation),s=Math.sin(camera.rotation);
- return {x:c*u-s*v,y:s*u+c*v};
-};
-const unspin=(camera:Camera,dx:number,dy:number):Point=>{
- if(camera.rotation===0)return {x:dx,y:dy};
- const c=Math.cos(camera.rotation),s=Math.sin(camera.rotation);
- return {x:c*dx+s*dy,y:c*dy-s*dx};
-};
+ const u=c*x-s*y,v=s*x+c*y;
+ return {x:(u-v)*TILE_W*camera.zoom,y:(u+v)*TILE_H*camera.zoom};
+}
 // A turned view is the same view, so angles are folded back into (-PI, PI] instead of growing without bound.
 // How fast a camera move closes the distance to where it is going, per second. High enough to feel immediate, low
 // enough that the eye can follow the city sliding into place.
@@ -85,18 +78,19 @@ export function normalizeAngle(radians:number):number {
  return wrapped===-Math.PI?Math.PI:wrapped;
 }
 export const project=(cell:CellCoord,camera:Camera):Point=>{
- const p=spin(camera,(cell.x-cell.y)*TILE_W*camera.zoom,(cell.x+cell.y)*TILE_H*camera.zoom);
+ const p=groundVector(camera,cell.x,cell.y);
  return {x:camera.x+p.x,y:camera.y+p.y};
 };
 // Continuous grid space: the diamond of a cell is the square max(|cx-x|,|cy-y|) <= .5, so its screen half-axes are TILE_W*zoom by TILE_H*zoom. The bearing is undone first, which is what turns a pointer into a world point.
 export function cellSpace(point:Point,camera:Camera):Point {
- const tw=TILE_W*camera.zoom,th=TILE_H*camera.zoom,d=unspin(camera,point.x-camera.x,point.y-camera.y);
- return {x:(d.x/tw+d.y/th)/2,y:(d.y/th-d.x/tw)/2};
+ const dx=(point.x-camera.x)/(TILE_W*camera.zoom),dy=(point.y-camera.y)/(TILE_H*camera.zoom);
+ const u=(dx+dy)/2,v=(dy-dx)/2,c=Math.cos(camera.rotation),s=Math.sin(camera.rotation);
+ return {x:c*u+s*v,y:c*v-s*u};
 }
 export const pick=(point:Point,camera:Camera):CellCoord=>{const c=cellSpace(point,camera);return {x:Math.round(c.x)||0,y:Math.round(c.y)||0};};
 // Anchor that lands the continuous cell (cx,cy) exactly on the viewport centre, since project() is anchor + R*(u,v).
 function anchorAt(camera:Camera,zoom:number,cx:number,cy:number,viewport:Viewport):Point {
- const p=spin(camera,(cx-cy)*TILE_W*zoom,(cx+cy)*TILE_H*zoom);
+ const p=groundVector({...camera,zoom},cx,cy);
  return {x:viewport.width/2-p.x,y:viewport.height/2-p.y};
 }
 export function centerOn(cell:CellCoord,camera:Camera,viewport:Viewport):Camera {

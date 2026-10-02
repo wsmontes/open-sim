@@ -6,7 +6,6 @@
 // destination's own price table, and data that arrived now pays no retroactive income. And a cell, region or ancestor
 // the merge cannot compare cell by cell is refused with a reason instead of being composed by guesswork.
 import type {BaseChunk,Cell,CityStats,GameState,ManagedChunk,Tool} from '../core/model';
-import {roadClassOf} from '../core/model';
 import {CHUNK,cellIndex,coordAt} from '../core/coordinates';
 import {cloneJson} from '../core/protocol';
 import {summarize} from '../core/simulation';
@@ -82,7 +81,7 @@ const DEPENDENCIES=new Map(CITY_PROFILE.dependencies.map(entry=>[entry.field,ent
 const depends=(field:CellField,other:CellField):boolean=>(DEPENDENCIES.get(field)??[]).includes(other);
 const sameCell=(a:Cell|undefined,b:Cell|undefined):boolean=>(a&&b?SIDES.every(field=>a[field]===b[field]):a===b);
 const placeOf=(region:string,index:number):CellPlace=>{const at=coordAt(region,index);return{chunkId:region,index,x:at.x,y:at.y};};
-const toolOf=(cell:Cell|undefined):Tool|null=>cell?.road?(roadClassOf(cell)==='street'?'road':roadClassOf(cell)):(cell?.building??null);
+const toolOf=(cell:Cell|undefined):Tool|null=>cell?.road?(cell.roadClass==='avenue'?'avenue':cell.roadClass==='highway'?'highway':'road'):(cell?.building??null);
 const sameBase=(a:BaseChunk,b:BaseChunk):boolean=>a.id===b.id&&a.source===b.source&&a.normalizerVersion===b.normalizerVersion&&a.cells.length===b.cells.length&&a.cells.every((cell,index)=>sameCell(cell,b.cells[index]));
 const originOf=(version:MergeVersion):ChangeOrigin=>({worldId:version.head.worldId,branchId:version.head.branchId});
 const statsOf=(before:GameState,after:GameState)=>({before:summarize(before),after:summarize(after)});

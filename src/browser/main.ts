@@ -1,8 +1,11 @@
+/// <reference types="vite/client" />
+import {attachOfflineRegion} from './offline-controller';
+import {createMapController} from './map-controller';
+import {cameraFor,viewpointOf} from '../presentation/viewpoint';
 import {createOsmSource} from '../adapters/osm/provider';
 import {createIndexedDbTileCache} from '../adapters/osm/tile-cache';
 import {createIndexedDbChunkCache} from '../adapters/osm/chunk-cache';
-import {createWikidataDirectory} from '../adapters/reality/wikidata';
-import {createIbgeDirectory} from '../adapters/reality/ibge';
+import {createCityController} from './city-controller';
 import type {CityFacts} from '../adapters/reality/wikidata';
 import {createIndexedDbStore} from '../adapters/storage/indexed-db';
 import {createIndexedDbWorldStorage} from '../adapters/storage/world-indexed-db';
@@ -31,7 +34,7 @@ import {createKernel} from '../world/kernel';
 import {grantBytes} from '../world/permissions';
 import type {Grant} from '../world/permissions';
 import {createGameSessionView,createMultiplayerPanel,hostSessionLink,presenceFrame,readPrincipal,sessionText} from '../presentation/multiplayer';
-import type {GameSessionView,PresenceStatement} from '../presentation/multiplayer';
+import type {PresenceStatement} from '../presentation/multiplayer';
 import {createWorldHistory,downloadBundle,readBundleFile} from '../presentation/world-history';
 import {diffWorlds} from '../presentation/world-diff';
 import {createWorldComposition,describeScenarios,emptyComposition} from '../presentation/world-composition';
@@ -47,8 +50,7 @@ import {quoteAction} from '../core/quote';
 import {describeCell,summarize} from '../core/simulation';
 import {EMPTY_ECONOMY} from '../core/model';
 import type {Camera,Viewport} from '../presentation/camera';
-import {GLIDE_PER_SECOND,approach,arrived,centerOn,clampZoom,closestChunks,isCoarse,normalizeAngle,pick,project,rotateTo,settleZoom,snapZoom,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
-import type {WorldView} from '../presentation/canvas-renderer';
+import {GLIDE_PER_SECOND,approach,arrived,centerOn,clampZoom,normalizeAngle,pick,project,rotateTo,settleZoom,snapZoom,visibleChunks,zoomTo,MIN_ZOOM} from '../presentation/camera';
 import {render} from '../presentation/canvas-renderer';
 import {createTickClock} from '../presentation/clock';
 import {createFrameScheduler} from '../presentation/frame-scheduler';
@@ -59,7 +61,7 @@ import {createSourceInspector} from '../presentation/source-inspector';
 import {layoutFor} from '../presentation/layout';
 import type {SelectedTool} from '../presentation/hud';
 import {attachInput} from '../presentation/input';
-const WORLD_ID='open-sim',BRANCH_ID='main',SEED=1,SAVE_DEBOUNCE=500,LOAD_DEBOUNCE=200,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,OVERVIEW_BUDGET=512,DETAIL_BUDGET=120,FUTURE_TICKS=60;
+const WORLD_ID='open-sim',BRANCH_ID='main',SEED=1,SAVE_DEBOUNCE=500,BUFFER_SCALE=.5,START='Vancouver',MAX_LAT=85.05112878,FUTURE_TICKS=60;
 const PERF_DEBUG=new URLSearchParams(location.search).has('debug'),PERF_ZERO=performance.now();
 const PERF_MARKS:Record<string,number>={script:0};
 let perfNode:HTMLPreElement|null=null;
@@ -84,7 +86,6 @@ const PLACES:Record<string,{lat:number;lon:number;facts:CityFacts}>={
 // What the real city is, next to what the player built. The two are different orders of magnitude on purpose: the
 // game is a neighbourhood inside a real place, and saying so is more interesting than pretending the simulation
 // accounts for eleven million people.
-const cityDirectory=createWikidataDirectory();
 let cityFacts:CityFacts|null=null,pendingCityFacts:CityFacts|null=null;
 let sourcePanel:ReturnType<typeof createSourceInspector>|null=null;
 const slugOf=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'cidade';
@@ -155,23 +156,8 @@ const publishCityFacts=(facts:CityFacts)=>{pendingCityFacts=facts;flushCityFacts
 // census figure takes the place of the encyclopedic one and brings the density and the municipal product with it — two
 // sources are never averaged, because an average of two censuses of different boundaries is a number nobody published.
 // The year travels with every figure, and the credit names both sources.
-const municipalDirectory=createIbgeDirectory();
-const lookUpCity=async(lat:number,lon:number,name?:string)=>{
- const live=name?await cityDirectory.named(name,'pt'):null;
- const found=live??await cityDirectory.near(lat,lon,25);
- if(!found)return;
- const municipal=found.municipalCode?await municipalDirectory.byMunicipalCode(found.municipalCode):null;
- const facts=!municipal?found:{
-  ...found,
-  ...(municipal.population!==undefined?{population:municipal.population,populationYear:municipal.populationYear}:{}),
-  ...(municipal.areaKm2!==undefined?{areaKm2:municipal.areaKm2}:{}),
-  ...(municipal.densityPerKm2!==undefined?{densityPerKm2:municipal.densityPerKm2}:{}),
-  ...(municipal.gdpThousandsBrl!==undefined?{gdpThousandsBrl:municipal.gdpThousandsBrl,gdpYear:municipal.gdpYear}:{}),
-  source:{...municipal.source,license:`${municipal.source.license} · também ${found.source.dataset} (${found.source.license})`},
- };
- showCityFacts(facts);
- publishCityFacts(facts);
-};
+const cityController=createCityController(facts=>{showCityFacts(facts);publishCityFacts(facts);});
+const lookUpCity=cityController.lookUp;
 const EMPTY_STATS:CityStats={money:0,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:0,income:0,managed:0,economy:EMPTY_ECONOMY};
 // One pending run per window: a burst coalesces into a single run that reads the newest state when it
 // fires, so a periodic tick arriving every `wait` ms can never starve the save or the map load.
@@ -209,7 +195,7 @@ const placeLat=hudRoot.querySelector<HTMLInputElement>('#place-lat');
 const placeLon=hudRoot.querySelector<HTMLInputElement>('#place-lon');
 // The map service sends vector tiles once and the device keeps them: one tile covers 64 regions, so a revisit — this
 // session or the next one — costs no request at all.
-const tileCache=createIndexedDbTileCache(),chunkCache=createIndexedDbChunkCache();
+const tileCache=createIndexedDbTileCache({maxBytes:256*1024*1024}),chunkCache=createIndexedDbChunkCache();
 const maps=createOsmSource({cache:tileCache,chunks:chunkCache});
 const session=createSession({maps,saves:createIndexedDbStore(),worldId:WORLD_ID,seed:SEED});
 const codec=createJcsCodec(),hasher=bytesHasher();
@@ -271,7 +257,8 @@ const sessions=createGameSessionView({
  monotonic:()=>Date.now(),
 });
 const viewport=():Viewport=>({width:canvas.width,height:canvas.height});
-const currentView=():ViewState=>({x:camera.x,y:camera.y,zoom:camera.zoom,speed,place,rotation:camera.rotation});
+attachOfflineRegion(hudRoot,maps,()=>viewpointOf(camera,viewport()).center);
+const currentView=():ViewState=>({x:camera.x,y:camera.y,zoom:camera.zoom,speed,place,rotation:camera.rotation,center:viewpointOf(camera,viewport()).center});
 const stateOf=():GameState|null=>{
  // While a session owns the branch, the city on screen is the version the session confirmed on this device: the
  // personal session is not the authority for that branch.
@@ -333,42 +320,12 @@ const updateHud=()=>{
  hud.update({stats:statsOf(),tool,speed,place,attribution:maps.attribution,mapMessage:loadMessage,notice,saveStatus:save,canOverwriteSave:save.blocked,rotation:camera.rotation});
  multiplayer.update(sessions.describe());
 };
-const loadVisible=async()=>{
- const visible=visibleChunks(camera,viewport()),statusOf=(id:string)=>session.getChunk(id);
- // The client says what it can see; the session then forgets everything else it is allowed to forget, so a long
- // exploration does not grow memory without bound. Managed regions are protected by the durable state, not by this.
- session.retainVisible(visible);
- requested.clear();
- for(const id of visible)requested.add(id);
- const unknown=visible.filter(id=>{const status=statusOf(id);return !status||status.status==='error';});
- const coarse=closestChunks(unknown,camera,viewport(),OVERVIEW_BUDGET);
- const detailCandidates=visible.filter(id=>{const status=statusOf(id);return !status||status.status==='error'||(status.status==='ready'&&status.level!=='detail');});
- // When the renderer is already effectively a mosaic, z14 buildings/lanes are invisible work. Near the threshold the
- // first detail batch is deliberately small; as the player zooms in the budget rises smoothly to its full value.
- const detailUseful=!isCoarse(camera)&&visible.length<=12;
- const detailLimit=Math.max(16,Math.min(DETAIL_BUDGET,Math.round(DETAIL_BUDGET*camera.zoom)));
- const detailed=detailUseful?closestChunks(detailCandidates,camera,viewport(),detailLimit):[];
- if(!coarse.length&&!detailed.length)return;
- for(const id of new Set([...coarse,...detailed]))requested.add(id);
- loadMessage='Carregando mapa…';
- refreshChunks();updateHud();invalidateFrame();
- try{
-  // A wide view can hold hundreds of regions. The coarse tile of an entire city costs one request and a few
-  // milliseconds, so the screen is painted at once and the detailed tiles then replace it region by region.
-  if(coarse.length)await session.loadVisible(coarse,'overview');
-  if(detailed.length)await session.loadVisible(detailed);
-  loadMessage='';
-  sessions.setSourceError(null);
- }catch{
-  loadMessage=messageOf();
-  sessions.setSourceError(loadMessage);
-  refreshChunks();refreshPreview();updateHud();
-  return; // a failed batch is retried by the player, not by an endless automatic loop
- }
- refreshChunks();refreshPreview();updateHud();
- showCacheStats();
- if(unknown.length>coarse.length||(detailUseful&&detailCandidates.length>detailed.length))scheduleEnrichment();
-};
+const mapController=createMapController({session,camera:()=>camera,viewport,
+ onVisible:ids=>{requested.clear();for(const id of ids)requested.add(id);refreshChunks();invalidateFrame();},
+ onChange:()=>{loadMessage='';sessions.setSourceError(null);refreshChunks();refreshPreview();updateHud();showCacheStats();},
+ onError:()=>{loadMessage=messageOf();sessions.setSourceError(loadMessage);updateHud();},
+});
+const loadVisible=async()=>{mapController.update();await mapController.idle();};
 // Building inside an approximation is refused by the session; answering with the detailed regions makes the next
 // attempt work instead of leaving the player without an explanation.
 const loadDetailFor=(cells:readonly CellCoord[])=>{
@@ -377,17 +334,7 @@ const loadDetailFor=(cells:readonly CellCoord[])=>{
  for(const id of ids)requested.add(id);
  void session.loadVisible(ids).then(()=>{refreshChunks();refreshPreview();updateHud();});
 };
-const scheduleLoad=createDebounce(()=>{void loadVisible();},LOAD_DEBOUNCE);
-// Filling detail beyond the first useful batch is opportunistic. It must yield to input and drawing instead of starting
-// another geometry pass every 200 ms while the player is trying to move around.
-let enrichmentPending=false;
-const scheduleEnrichment=()=>{
- if(enrichmentPending)return;
- enrichmentPending=true;
- const run=()=>{enrichmentPending=false;void loadVisible();};
- const idle=(window as Window & {requestIdleCallback?:(cb:()=>void,options?:{timeout:number})=>number}).requestIdleCallback;
- if(idle)idle(run,{timeout:1200});else setTimeout(run,600);
-};
+const scheduleLoad=()=>mapController.schedule();
 // The personal save never claims the work of a session: while the branch belongs to a session, the session's own
 // durable confirmation is what says the device has the version.
 const saveNow=()=>{if(sessions.mode()!=='local')return;void session.save(currentView());};
@@ -428,7 +375,7 @@ function onPlace(name:string){
  publishCityFacts(target.facts);
  void lookUpCity(target.lat,target.lon,name);
 }
-function onRetryMap(){if(active){void loadVisible();return;}void start();}
+function onRetryMap(){if(active){mapController.retry();return;}void start();}
 function onOverwriteSave(){session.enableSaving();saveNow();}
 function describeWorldError(error:unknown):string{
  const message=(error as {message?:unknown}|null)?.message;
@@ -840,9 +787,9 @@ const resize=()=>{
  const scale=deviceScale();
  const width=Math.max(1,Math.round(canvas.clientWidth*scale)),height=Math.max(1,Math.round(canvas.clientHeight*scale));
  if(width===canvas.width&&height===canvas.height)return;
- const center=pick({x:canvas.width/2,y:canvas.height/2},camera);
+ const view=viewpointOf(camera,viewport());
  canvas.width=width;canvas.height=height;
- camera=centerOn(center,camera,viewport());
+ camera=cameraFor(view,viewport());
  refreshChunks();invalidateFrame();
  if(active)scheduleLoad();
 };
@@ -865,6 +812,8 @@ let motion=0;
 // that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
 let cardCamera:{x:number;y:number;zoom:number}|null=null;
 const draw=(now:number,seconds:number)=>{
+ const state=stateOf();
+ if(!state){ctx.fillStyle='#7c8794';ctx.fillRect(0,0,canvas.width,canvas.height);return {moving:false,ambient:false};}
  perfMark('first-frame');
  const {width,height}=viewport();
  if(cardCamera&&(cardCamera.x!==camera.x||cardCamera.y!==camera.y||cardCamera.zoom!==camera.zoom))inspector.show(null);
@@ -879,7 +828,7 @@ const draw=(now:number,seconds:number)=>{
   // rewritten, and rewriting every number of the city sixty times a second is work nobody can see.
   else refreshChunks();
  }
- render(ctx,{camera,viewport:{width,height},state:session.getState(),chunks,tool,hover,preview,previewAffordable:affordable,seed:SEED,motion});
+ render(ctx,{camera,viewport:{width,height},state,chunks,tool,hover,preview,previewAffordable:affordable,seed:SEED,motion});
  return {moving:glide!==null,ambient:speed!==0};
 };
 const frames=createFrameScheduler({draw});
@@ -917,7 +866,9 @@ async function start(){
  perfMark('session-ready');
  const restored=session.restoredView;
  if(restored){
-  camera={x:restored.x,y:restored.y,zoom:clampZoom(restored.zoom),rotation:normalizeAngle(restored.rotation??0)};
+  const legacy=Object.keys(session.getState().chunks)[0];
+  const origin=legacy?chunkOrigin(legacy):startCell;
+  camera=cameraFor({center:restored.center??{x:origin.x+CHUNK/2,y:origin.y+CHUNK/2},zoom:clampZoom(restored.zoom),rotation:normalizeAngle(restored.rotation??0)},viewport());
   speed=restored.speed;place=restored.place;
  }
  // Bundled facts are a zero-I/O warm-start hint, not a network dependency. Keep them pending until the session
@@ -1009,3 +960,13 @@ attachInput(canvas,{camera:()=>camera,tool:()=>tool,strokeShape:()=>BOX_TOOLS.ha
  });
 }
 void start();
+
+if(import.meta.env.PROD&&'serviceWorker' in navigator){
+ void navigator.serviceWorker.register(new URL('sw.js',document.baseURI).href).then(async registration=>{
+  await navigator.serviceWorker.ready;
+  const urls=[...document.querySelectorAll<HTMLScriptElement>('script[src]')].map(node=>node.src);
+  urls.push(...[...document.querySelectorAll<HTMLLinkElement>('link[href]')].map(node=>node.href));
+  urls.push(...performance.getEntriesByType('resource').map(entry=>entry.name));
+  (registration.active??navigator.serviceWorker.controller)?.postMessage({type:'cache-shell',urls});
+ }).catch(()=>{});
+}
