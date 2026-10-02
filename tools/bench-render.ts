@@ -1,4 +1,6 @@
-// Micro-benchmark for the canvas renderer (spec 2026-10-01). It runs the OLD renderer (a verbatim upstream copy kept
+// Micro-benchmark for the canvas renderer (spec 2026-10-01). The art has since changed on purpose (walls by kind,
+// world-fixed light, varied silhouettes), so the two no longer draw the same picture; the baseline stays as a cost
+// yardstick. It runs the OLD renderer (a verbatim upstream copy kept
 // in tests/fixtures) and the NEW allocation-light one through a no-op recording context for a dense mid-zoom view, and
 // prints ms/frame and a heap-growth allocation proxy for each. No DOM, no canvas: the context only counts calls, so
 // what the numbers measure is the renderer's own work and garbage, not the browser's.
@@ -82,7 +84,7 @@ const refMs=bestMs(reference),optMs=bestMs(optimized);
 const refBytes=allocBytes(reference,200,8),optBytes=allocBytes(optimized,200,8);
 const pct=(a:number,b:number)=>!Number.isFinite(a)||!Number.isFinite(b)||a===0?'n/a':`${(((a-b)/a)*100).toFixed(1)}%`;
 console.log(`frames per pass: ${frames}, passes: ${runs}, gc exposed: ${Boolean(gc)}`);
-console.log(`calls/frame: reference ${refMs.callsPerFrame}, optimized ${optMs.callsPerFrame} (must be equal)`);
+console.log(`calls/frame: reference ${refMs.callsPerFrame}, optimized ${optMs.callsPerFrame} (the current art draws more: shadows, roofs, chimneys)`);
 console.log(`reference (upstream)   ms/frame ${refMs.msPerFrame.toFixed(4)}  heap-bytes/frame ${Number.isFinite(refBytes)?refBytes.toFixed(0):'n/a (run with --expose-gc)'}`);
 console.log(`optimized (new)        ms/frame ${optMs.msPerFrame.toFixed(4)}  heap-bytes/frame ${Number.isFinite(optBytes)?optBytes.toFixed(0):'n/a (run with --expose-gc)'}`);
 console.log(`speedup ms/frame: ${pct(refMs.msPerFrame,optMs.msPerFrame)}; allocation proxy reduced: ${pct(refBytes,optBytes)}`);

@@ -67,6 +67,8 @@ const GRASS=['#8cbe6a','#93c471','#84b662'],GREEN=['#74a95a','#7caf61','#6d9f54'
 const WATER=['#4a86bf','#508fc7','#457fb5'];
 const ROOF:Record<Building,string>={residential:'#c9684b',commercial:'#5b82b8',industrial:'#8b9199',park:'#6fae5e',power:'#797d84'};
 const TREE_TONES=['#438b45','#58a34c','#6cb256'] as const;
+const TREE_SHADE=['#2f6b36','#3f7f3c','#4f8c42'] as const;
+const SHADOW='rgba(35,48,30,.2)';
 // Shared, never-mutated dash patterns: the dotted outline of a stage-0 site, and the solid default. The lane dash is
 // zoom-dependent so it is still built per call, but only on near-zoom road cells, which are few.
 const DASH_SITE:readonly number[]=[3,3],DASH_SOLID:readonly number[]=[];
@@ -121,51 +123,114 @@ function lookup(view:WorldView,cell:CellCoord):Cell|null{
  return (MEMO_EDITS?MEMO_EDITS[i]:undefined)??MEMO_BASE![i]!;
 }
 function tree(ctx:CanvasRenderingContext2D,px:number,py:number,scale:number,tone:number){
+ // Its shadow first, on the ground and away from the same sun the buildings use (screen-right at the default bearing).
+ ctx.fillStyle=SHADOW;ctx.beginPath();ctx.ellipse(px+scale*.07,py-scale*.02,scale*.15,scale*.06,0,0,Math.PI*2);ctx.fill();
  ctx.fillStyle='#765838';ctx.fillRect(px-scale*.045,py-scale*.35,Math.max(1,scale*.09),scale*.35);
+ // Two canopies, the lower one darker: a crown with some depth instead of one flat disc.
+ ctx.fillStyle=TREE_SHADE[tone%3]!;
+ ctx.beginPath();ctx.arc(px+scale*.03,py-scale*.38,scale*.15,0,Math.PI*2);ctx.fill();
  ctx.fillStyle=TREE_TONES[tone%3]!;
- ctx.beginPath();ctx.arc(px,py-scale*.42,scale*.16,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='rgba(255,255,255,.2)';ctx.beginPath();ctx.arc(px-scale*.05,py-scale*.48,scale*.06,0,Math.PI*2);ctx.fill();
+ ctx.beginPath();ctx.arc(px-scale*.02,py-scale*.46,scale*.13,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='rgba(255,255,255,.2)';ctx.beginPath();ctx.arc(px-scale*.06,py-scale*.51,scale*.05,0,Math.PI*2);ctx.fill();
+}
+// --- buildings ------------------------------------------------------------------------------------------------
+// The sun is fixed in the world, not in the building: light arrives from the south-south-west of the map, so the same
+// façade stays lit while the camera turns, and a turned city shows its shaded side instead of carrying its light along.
+// At the default bearing that puts the bright face on the left, the darker one on the right and the shadow falling
+// to the right — the classic isometric light. Edge i of a footprint (corners (-r,-r),(r,-r),(r,r),(-r,r)) faces north,
+// east, south and west in that order.
+const SUN_X=-.39,SUN_Y=.92;
+const EDGE_FACING:readonly (readonly [number,number])[]=[[0,-1],[1,0],[0,1],[-1,0]];
+const LIGHT=EDGE_FACING.map(([nx,ny])=>nx*SUN_X+ny*SUN_Y);
+const shade=(colour:string,amount:number):string=>{
+ const n=Number.parseInt(colour.slice(1),16);
+ return hex([(n>>16&255)*amount,(n>>8&255)*amount,(n&255)*amount]);
+};
+// What each kind is made of: wall, window and how its lots are shaped. A house is narrow with a hip roof, a shop is a
+// square glass box, a factory is wide and low with a chimney, a plant is a block with a stack. All colours are shaded
+// once at load, per face, so a frame does no colour arithmetic.
+type Kind={wall:string;window:string;radius:number;floor:number;roof:'hip'|'flat'|'stack'};
+const KINDS:Record<Exclude<Building,'park'>,Kind>={
+ residential:{wall:'#f0e2c6',window:'#7d6b58',radius:.31,floor:.85,roof:'hip'},
+ commercial:{wall:'#c9dbea',window:'#4f78a6',radius:.36,floor:1,roof:'flat'},
+ industrial:{wall:'#c2b8a8',window:'#6e675d',radius:.41,floor:.7,roof:'stack'},
+ power:{wall:'#b3b6ba',window:'#5d6168',radius:.38,floor:.8,roof:'stack'},
+};
+const WALLS=Object.fromEntries(Object.entries(KINDS).map(([kind,k])=>[kind,LIGHT.map(l=>shade(k.wall,.8+.2*l))])) as Record<keyof typeof KINDS,string[]>;
+const ROOFS=Object.fromEntries(Object.entries(ROOF).map(([kind,colour])=>[kind,LIGHT.map(l=>shade(colour,.86+.14*l))])) as Record<Building,string[]>;
+// Scratch corners of the current footprint (floor) and its roof, reused by every building instead of allocated.
+const FX=[0,0,0,0],FY=[0,0,0,0],RX=[0,0,0,0],RY=[0,0,0,0];
+const SIGN_X=[-1,1,1,-1],SIGN_Y=[-1,-1,1,1];
+// A box standing on (cx,cy): visible walls shaded by the world's sun, then its top. Visible walls are the ones that run
+// right-to-left on screen — the footprint winds clockwise, so those are the edges nearest the viewer.
+function box(ctx:CanvasRenderingContext2D,kind:keyof typeof KINDS,cx:number,cy:number,r:number,bottom:number,height:number,top:string):void{
+ for(let i=0;i<4;i++){FX[i]=projXOf(cx+SIGN_X[i]!*r,cy+SIGN_Y[i]!*r);FY[i]=projYOf(cx+SIGN_X[i]!*r,cy+SIGN_Y[i]!*r)-bottom;RX[i]=FX[i]!;RY[i]=FY[i]!-height;}
+ for(let i=0;i<4;i++){
+  const j=(i+1)%4;
+  if(FX[j]!>=FX[i]!)continue;
+  ctx.fillStyle=WALLS[kind][i]!;quad(ctx,FX[i]!,FY[i]!,FX[j]!,FY[j]!,RX[j]!,RY[j]!,RX[i]!,RY[i]!);
+ }
+ ctx.fillStyle=top;quad(ctx,RX[0]!,RY[0]!,RX[1]!,RY[1]!,RX[2]!,RY[2]!,RX[3]!,RY[3]!);
 }
 function building(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord,cell:Cell,v:number){
  const camera=view.camera,scale=TILE_W*camera.zoom,kind=cell.building!;
  const cx=coord.x,cy=coord.y;
- // Floor corners (radius .34) as eight scalars, same order as footprint(): (-r,-r),(r,-r),(r,r),(-r,r).
- const r=.34;
- const fx0=projXOf(cx-r,cy-r),fy0=projYOf(cx-r,cy-r);
- const fx1=projXOf(cx+r,cy-r),fy1=projYOf(cx+r,cy-r);
- const fx2=projXOf(cx+r,cy+r),fy2=projYOf(cx+r,cy+r);
- const fx3=projXOf(cx-r,cy+r),fy3=projYOf(cx-r,cy+r);
  if(kind==='park'){
-  ctx.fillStyle=ROOF.park;quad(ctx,fx0,fy0,fx1,fy1,fx2,fy2,fx3,fy3);
+  ctx.fillStyle=ROOF.park;footprintQuad(ctx,cx,cy,.34);
   if(scale>=10)tree(ctx,projXOf(cx,cy),projYOf(cx,cy),scale,v);return;
  }
  if(cell.stage===0){
-  ctx.fillStyle='#cbb083';quad(ctx,fx0,fy0,fx1,fy1,fx2,fy2,fx3,fy3);ctx.strokeStyle='#f6f1e4';ctx.setLineDash(DASH_SITE);ctx.stroke();ctx.setLineDash(DASH_SOLID);return;
+  ctx.fillStyle='#cbb083';footprintQuad(ctx,cx,cy,.34);ctx.strokeStyle='#f6f1e4';ctx.setLineDash(DASH_SITE);ctx.stroke();ctx.setLineDash(DASH_SOLID);return;
  }
- const height=Math.max(1,cell.stage??1)*TILE_H*camera.zoom*.85;
- // Roof corners share x and sit `height` above the floor corners.
- const rx0=fx0,ry0=fy0-height,rx1=fx1,ry1=fy1-height,rx2=fx2,ry2=fy2-height,rx3=fx3,ry3=fy3-height;
- const near=scale>=24;
- // Front-facing walls only, in corner order i -> i+1. The old code read floor[i]/floor[j] from arrays; the four
- // corners are inlined here as a small lookup so the geometry is identical.
- const FX=[fx0,fx1,fx2,fx3],FY=[fy0,fy1,fy2,fy3],RX=[rx0,rx1,rx2,rx3],RY=[ry0,ry1,ry2,ry3];
- for(let i=0;i<4;i++){
-  const j=(i+1)%4,ax=FX[i]!,ay=FY[i]!,bx=FX[j]!,by=FY[j]!;
-  if(bx<=ax)continue;
-  ctx.fillStyle=i%2?'#c8b99c':'#ece1c8';quad(ctx,ax,ay,bx,by,RX[j]!,RY[j]!,RX[i]!,RY[i]!);
-  if(near){
-   ctx.strokeStyle='#5b6674';ctx.lineWidth=Math.max(1,scale*.04);
-   for(let f=0;f<Math.min(8,cell.stage??1);f++){
-    const y=height*(f+.5)/Math.max(1,cell.stage??1);
-    ctx.beginPath();ctx.moveTo(ax+(bx-ax)*.25,ay+(by-ay)*.25-y);
-    ctx.lineTo(ax+(bx-ax)*.75,ay+(by-ay)*.75-y);ctx.stroke();
+ const spec=KINDS[kind],stage=Math.max(1,cell.stage??1),near=scale>=24,mid=scale>=12;
+ // Lots of the same kind are not stamped from one mould: the address decides a little of the width.
+ const r=spec.radius+((v>>>4)%3-1)*.025;
+ const floor=TILE_H*camera.zoom*spec.floor,height=stage*floor;
+ // A short shadow on the ground, away from the sun, grows with the building but stays inside its own cell.
+ if(mid){
+  const reach=Math.min(.16,.05+.035*stage),sx=-SUN_X*reach,sy=-SUN_Y*reach;
+  ctx.fillStyle=SHADOW;footprintQuad(ctx,cx+sx,cy+sy,r);
+ }
+ const roofs=ROOFS[kind];
+ box(ctx,kind,cx,cy,r,0,height,spec.roof==='hip'&&mid?WALLS[kind][1]!:roofs[1]!);
+ // Windows: one band per floor on each visible wall, in the kind's own glass.
+ if(near){
+  ctx.strokeStyle=spec.window;ctx.lineWidth=Math.max(1,scale*.04);
+  for(let i=0;i<4;i++){
+   const j=(i+1)%4,ax=FX[i]!,ay=FY[i]!,bx=FX[j]!,by=FY[j]!;
+   if(bx>=ax)continue;
+   for(let f=0;f<Math.min(8,stage);f++){
+    const y=height*(f+.5)/stage;
+    ctx.beginPath();ctx.moveTo(ax+(bx-ax)*.2,ay+(by-ay)*.2-y);ctx.lineTo(ax+(bx-ax)*.8,ay+(by-ay)*.8-y);ctx.stroke();
    }
   }
  }
- ctx.fillStyle=ROOF[kind];ctx.strokeStyle='rgba(58,50,40,.35)';ctx.lineWidth=Math.max(1,scale*.025);quad(ctx,rx0,ry0,rx1,ry1,rx2,ry2,rx3,ry3,near);
- if(near){
-  const px=projXOf(cx,cy),py=projYOf(cx,cy);ctx.fillStyle='rgba(255,255,255,.25)';
-  ctx.fillRect(px-scale*.07,py-height-scale*.06,scale*.14,scale*.1);
+ if(!mid)return;
+ if(spec.roof==='hip'){
+  // A hip roof: four faces meeting at a ridge point above the middle, each shaded by the side of the world it faces.
+  // The faces turned away from the viewer are drawn first, so the near slopes always cover them.
+  const apexX=projXOf(cx,cy),apexY=projYOf(cx,cy)-height-floor*.55;
+  for(const front of [false,true])for(let i=0;i<4;i++){
+   const j=(i+1)%4;
+   if((RX[j]!<RX[i]!)!==front)continue;
+   ctx.fillStyle=roofs[i]!;ctx.beginPath();ctx.moveTo(RX[i]!,RY[i]!);ctx.lineTo(RX[j]!,RY[j]!);ctx.lineTo(apexX,apexY);ctx.closePath();ctx.fill();
+  }
+ }else if(spec.roof==='flat'){
+  // A shop's roof carries its plant room: a small box set back from the parapet.
+  box(ctx,kind,cx-.08,cy-.08,r*.32,height,floor*.35,roofs[0]!);
+ }else{
+  // A factory or a plant has a stack in the corner furthest from the street, taller than the building it serves,
+  // and it is working: smoke drifts up from it with the city's clock, and stops when the city is paused.
+  const stack=floor*(kind==='power'?2.2:1.4);
+  box(ctx,kind,cx-r*.55,cy-r*.55,.07,height,stack,'#6d6a66');
+  if(near){
+   const topX=projXOf(cx-r*.55,cy-r*.55),topY=projYOf(cx-r*.55,cy-r*.55)-height-stack;
+   ctx.fillStyle='rgba(236,236,232,.6)';
+   for(let k=0;k<2;k++){
+    const phase=((view.motion*.35+k*.5+(v&255)/255)%1+1)%1;
+    ctx.beginPath();ctx.arc(topX+scale*.12*phase,topY-scale*(.06+.32*phase),scale*(.05+.06*phase),0,Math.PI*2);ctx.fill();
+   }
+  }
  }
 }
 function drawCell(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord){
