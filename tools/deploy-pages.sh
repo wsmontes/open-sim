@@ -9,6 +9,9 @@ set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
 cd "$repo"
 
+# Sem CI, o gate é aqui: nada vai para o ar com typecheck ou teste vermelho.
+echo "→ verificando"
+npm run check
 echo "→ construindo"
 npm run build
 

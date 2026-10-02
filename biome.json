@@ -1,0 +1,30 @@
+{
+ "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+ "vcs": {"enabled": true, "clientKind": "git", "useIgnoreFile": true},
+ "files": {"includes": ["src/**", "tests/**", "tools/**", "*.ts", "!tests/fixtures/**", "!schemas/**"]},
+ "formatter": {
+  "enabled": true,
+  "indentStyle": "space",
+  "indentWidth": 1,
+  "lineWidth": 120,
+  "lineEnding": "auto"
+ },
+ "javascript": {
+  "formatter": {"quoteStyle": "single", "semicolons": "always", "bracketSpacing": false, "arrowParentheses": "asNeeded"}
+ },
+ "assist": {"actions": {"source": {"organizeImports": "off"}}},
+ "linter": {
+  "enabled": true,
+  "rules": {
+   "preset": "none",
+   "correctness": {"noUnusedVariables": "error", "noUnusedImports": "error"},
+   "suspicious": {"noDoubleEquals": "error", "noFallthroughSwitchClause": "error", "noRedeclare": "error"}
+  }
+ },
+ "overrides": [
+  {
+   "includes": ["tests/**"],
+   "linter": {"rules": {"correctness": {"noUnusedVariables": "warn"}}}
+  }
+ ]
+}
