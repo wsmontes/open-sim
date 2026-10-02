@@ -75,6 +75,10 @@ export type Intent =
  // Leave the session: the link drops, the clock returns to this device, and the shared work stays on its branch.
  | {do: 'leaveSession'}
  | {do: 'save'}
- | {do: 'overwriteSave'};
+ | {do: 'overwriteSave'}
+ // Advance logical time by whole ticks, as the clock would at speed 1 (1000 ms each). A surface with no wall clock of
+ // its own — the terminal, the JSON agent — asks for ticks directly; the client runs them through the same router as
+ // the clock, so no host loops `session.dispatch`. Bounded by the caller; 0 is a no-op.
+ | {do: 'tick'; count: number};
 
 export type IntentResult = {ok: boolean; message: string};

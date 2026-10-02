@@ -26,7 +26,7 @@ import type {Opened,PlaythroughHost} from '../src/surfaces/text/playthrough';
 
 export const WORLD_ID = 'open-sim', BRANCH_ID = 'main';
 
-export type PlayHostOptions = {maps?: MapSource; saves?: SaveStore; seed?: number; start?: string; place?: string; facts?: FactsPort; worlds?: WorldMemoryStorage};
+export type PlayHostOptions = {maps?: MapSource; saves?: SaveStore; seed?: number; start?: string; place?: string; facts?: FactsPort; worlds?: WorldMemoryStorage; worldId?: string};
 
 // The identity of a city, not of its bytes: the durable projection the conformance package compares (world-v2 §3.1).
 export async function semanticHash(state: GameState): Promise<string> {
@@ -38,6 +38,7 @@ export function createPlayHost(options: PlayHostOptions = {}): PlaythroughHost &
  const maps = options.maps ?? createFixtureMap(), saves = options.saves ?? createMemoryStore();
  const facts = options.facts ?? createFixtureFacts();
  const start = options.start ?? '0:0';
+ const worldId = options.worldId ?? WORLD_ID;
  const codec = createJcsCodec(), hasher = bytesHasher();
  // The versions live in memory and survive a reopen on this host, as a device's own history does across reloads.
  const worlds = options.worlds ?? createWorldMemoryStorage();
@@ -51,11 +52,11 @@ export function createPlayHost(options: PlayHostOptions = {}): PlaythroughHost &
   semanticHash,
   async open(): Promise<Opened> {
    const time = createManualTime();
-   const local = createSession({maps, saves, worldId: WORLD_ID, seed: options.seed ?? 1});
+   const local = createSession({maps, saves, worldId, seed: options.seed ?? 1});
    // A player action becomes a checkpoint through the client's version machine; ticks never do. The router applies
    // locally first and then hands the accepted state to this callback, which the client's controller records.
    const router = createGameSessionView({
-    worldId: WORLD_ID,
+    worldId,
     branchId: BRANCH_ID,
     local,
     quote: (action, state) => quoteAction(state, action, []),
@@ -65,7 +66,7 @@ export function createPlayHost(options: PlayHostOptions = {}): PlaythroughHost &
    });
    current = createCityClient({
     local, router, time, initialChunk: start, place: options.place ?? 'Cidade de teste', facts, attribution: maps.attribution,
-    versions: {repository, codec, hasher, worldId: WORLD_ID, branchId: BRANCH_ID}, openVersionsOnStart: true,
+    versions: {repository, codec, hasher, worldId, branchId: BRANCH_ID}, openVersionsOnStart: true,
    });
    return {client: current, time, origin: chunkOrigin(start)};
   },

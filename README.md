@@ -26,6 +26,8 @@ npx tsx tools/world-replay.ts    # conformidade OpenSim 0.1: replay do pacote p�
 npm run play                     # o jogo no terminal (mapa sintético; "ajuda" lista os comandos)
 npm run play -- --script tests/playthroughs/construir-e-crescer.json   # joga uma partida escrita e confere
 npm run play -- --osm --place Lisboa   # mapa real do OpenStreetMap (precisa de rede)
+npm run city -- --fixture        # o mesmo cliente como agente: JSON por linha no stdin, resposta por linha (offline)
+npm run city -- saved-city.json out.json   # carrega um save (offline) e grava o snapshot do "save" em out.json
 ```
 
 Para conferir a portabilidade no navegador, rode `npm run dev` e abra `http://127.0.0.1:5173/tests/browser/replay.html`: a página executa o mesmo cenário sintético com o mesmo núcleo e imprime exatamente o mesmo texto canônico que o executor Node.

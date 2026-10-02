@@ -3,12 +3,13 @@
 // intentions, routes the ones that change the world to the session, and publishes one view every surface draws from.
 //
 // It reads no clock and touches no screen: time arrives through `TimePort`, and the only way out is `view()`.
-import type {Action,BaseChunk,Cell,CellCoord,CityStats,GameState,ViewState} from '../core/model';
+import type {Action,BaseChunk,Cell,CellCoord,CityStats,GameState,SavedGame,ViewState} from '../core/model';
 import {EMPTY_ECONOMY} from '../core/model';
 import {CHUNK,WORLD,chunkId,cellIndex,chunkOrigin} from '../core/coordinates';
 import {createMapStreaming} from '../session/map-streaming';
 import {cameraFor,viewpointOf} from '../presentation/viewpoint';
 import {quoteAction} from '../core/quote';
+import type {Quote} from '../core/quote';
 import {describeCell,summarize} from '../core/simulation';
 import type {CellReading} from '../core/simulation';
 import type {LocalSession,SaveStatus} from '../session/local-session';
@@ -134,6 +135,13 @@ export type CityClient = {
  idle(): Promise<void>;
  // One frame of the camera moving, for a surface that animates it. Returns true while a move is still in flight.
  step(seconds: number): boolean;
+ // Price an action without changing anything, with the same rules the preview and the economy use (the version's
+ // managed regions plus the detailed regions the client has asked for). A machine surface quotes before it acts.
+ quote(action: Action): Quote;
+ // The device's save as bytes-ready data, and the inverse: restore a validated save over this client's session. A
+ // host writes the snapshot to a file; a surface round-trips it. Both keep unknown interoperable metadata (snapshot.ts).
+ snapshot(): SavedGame;
+ restore(save: unknown): void;
  setHidden(hidden: boolean): void;
  setRole(role: ClockRole): void;
  viewState(): ViewState;
@@ -224,6 +232,20 @@ export function createCityClient(config: CityClientConfig): CityClient {
  };
  // The centre (a world point) is what survives a change of projection or screen; x/y stay for older readers.
  const viewState = (): ViewState => ({x: camera.x, y: camera.y, zoom: camera.zoom, speed, place, rotation: camera.rotation, center: viewpointOf(camera, viewport).center});
+ // Land the camera, speed and place on whatever the session just restored (a reopen or a `load`): a save from before
+ // the centre was recorded is put back over its first managed region, its old x/y belonging to an older projection.
+ const adoptRestored = () => {
+  const restored = local.restoredView;
+  if (restored) {
+   const legacy = Object.keys(local.getState().chunks)[0] ?? config.initialChunk, origin = chunkOrigin(legacy);
+   camera = cameraFor({center: restored.center ?? {x: origin.x + CHUNK / 2, y: origin.y + CHUNK / 2}, zoom: restored.zoom, rotation: normalizeAngle(restored.rotation ?? 0)}, viewport);
+   speed = restored.speed;
+   place = restored.place;
+  } else {
+   // A fresh game opens centred on the region it starts in, not at the origin of a planet-wide grid.
+   camera = centerOn(chunkOrigin(config.initialChunk), {...camera, x: 0, y: 0}, viewport);
+  }
+ };
  // The personal save never claims the work of a session: while a session owns the branch, its own durable
  // confirmation is what says the device has the version.
  const saveNow = () => { if (ready && router.mode() === 'local') void track(local.save(viewState())); };
@@ -510,6 +532,15 @@ export function createCityClient(config: CityClientConfig): CityClient {
     return {ok: true, message: ''};
    case 'save': saveNow(); break;
    case 'overwriteSave': local.enableSaving(); saveNow(); break;
+   case 'tick': {
+    // Whole logical ticks, through the same door the clock uses. Bounded by the caller; the client loops the router,
+    // never the host, so the "no session.dispatch loop in the host" rule holds for every surface.
+    const count = Number.isSafeInteger(intent.count) && intent.count > 0 ? intent.count : 0;
+    for (let i = 0; i < count; i += 1) await router.tick();
+    refreshPreview();
+    changed();
+    return {ok: true, message: ''};
+   }
    case 'commit': {
     const cells = intent.cells ?? stroke ?? [];
     stroke = null;
@@ -535,18 +566,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
  return {
   async start() {
    await track(local.initialize(config.initialChunk));
-   const restored = local.restoredView;
-   if (restored) {
-    // A save from before the centre was recorded is put back over its first managed region: its x/y belong to an older
-    // projection and would land somewhere else.
-    const legacy = Object.keys(local.getState().chunks)[0] ?? config.initialChunk, origin = chunkOrigin(legacy);
-    camera = cameraFor({center: restored.center ?? {x: origin.x + CHUNK / 2, y: origin.y + CHUNK / 2}, zoom: restored.zoom, rotation: normalizeAngle(restored.rotation ?? 0)}, viewport);
-    speed = restored.speed;
-    place = restored.place;
-   } else {
-    // A fresh game opens centred on the region it starts in, not at the origin of a planet-wide grid.
-    camera = centerOn(chunkOrigin(config.initialChunk), {...camera, x: 0, y: 0}, viewport);
-   }
+   adoptRestored();
    revision = local.getState().revision;
    ready = true;
    unsubscribe = local.subscribe(() => {
@@ -579,6 +599,16 @@ export function createCityClient(config: CityClientConfig): CityClient {
    scheduleLoad();
    changed();
    return glide !== null;
+  },
+  // The same bases the preview and the version machine price against: the economy never quotes a coarse approximation.
+  quote(action) { const state = stateOf(); return state ? quoteAction(state, action, availableBases()) : {status: 'blocked', cost: 0, reason: 'Sessão não iniciada'}; },
+  snapshot() { return local.snapshot(viewState()); },
+  restore(save) {
+   local.restore(save);
+   adoptRestored();
+   revision = local.getState().revision;
+   refreshPreview();
+   changed();
   },
   view() {
    if (cached) return cached;

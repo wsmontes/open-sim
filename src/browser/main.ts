@@ -2,6 +2,7 @@
 import {attachOfflineRegion} from './offline-controller';
 import {viewpointOf} from '../presentation/viewpoint';
 import {createOsmSource} from '../adapters/osm/provider';
+import type {OsmSource} from '../adapters/osm/provider';
 import {createIndexedDbTileCache} from '../adapters/osm/tile-cache';
 import {createIndexedDbChunkCache} from '../adapters/osm/chunk-cache';
 import {createWikidataDirectory} from '../adapters/reality/wikidata';
@@ -41,6 +42,30 @@ import {actionLabel} from '../client/versions';
 import type {CityFacts, FactsPort} from '../client/facts';
 import {PLACES} from '../client/facts';
 import {systemTime} from '../adapters/time/system';
+import type {MapSource} from '../session/ports';
+import type {SaveStore} from '../session/ports';
+import type {WorldStorage} from '../session/world-ports';
+import type {TimePort} from '../client/time';
+import type {SessionPorts} from '../client/session';
+// --- test seam (spec 2026-10-01 §5.1; stage "browser-shell") -----------------------------------------------------
+// A jsdom harness proves this host the way a real user drives it, but jsdom has no OSM, no IndexedDB and no wall
+// clock. So, and ONLY under Vitest (`import.meta.env.MODE==='test'`, which Vite sets for the test build and never for
+// `dev`/`build`), the host reads its outward ports from `window.__openSimTestPorts` instead of composing the live
+// adapters: a fixture map, an in-memory save store and world storage, a fixed facts table, a manual clock and an
+// in-memory session fabric. Everything downstream — the client, the surfaces, the HUD, the panels — is the exact same
+// code the browser ships. In production the property is never read and the branch below is dead.
+export type OpenSimTestPorts = {
+ maps?: MapSource;
+ saves?: SaveStore;
+ worlds?: WorldStorage;
+ facts?: FactsPort;
+ time?: TimePort;
+ session?: SessionPorts;
+};
+const testPorts: OpenSimTestPorts | null =
+ import.meta.env.MODE === 'test'
+  ? ((window as unknown as {__openSimTestPorts?: OpenSimTestPorts}).__openSimTestPorts ?? null)
+  : null;
 const WORLD_ID = 'open-sim',
  BRANCH_ID = 'main',
  SEED = 1,
@@ -104,7 +129,7 @@ const mergeMunicipal = async (found: CityFacts | null): Promise<CityFacts | null
   },
  };
 };
-const facts: FactsPort = {
+const facts: FactsPort = testPorts?.facts ?? {
  async named(name) {
   return mergeMunicipal(await cityDirectory.named(name, 'pt'));
  },
@@ -196,20 +221,31 @@ const placeForm = hudRoot.querySelector<HTMLFormElement>('#place-form');
 const placeLat = hudRoot.querySelector<HTMLInputElement>('#place-lat');
 const placeLon = hudRoot.querySelector<HTMLInputElement>('#place-lon');
 // The map service sends vector tiles once and the device keeps them: one tile covers 64 regions, so a revisit — this
-// session or the next one — costs no request at all.
-const tileCache = createIndexedDbTileCache({maxBytes: 256 * 1024 * 1024}),
- chunkCache = createIndexedDbChunkCache();
-const maps = createOsmSource({cache: tileCache, chunks: chunkCache});
+// session or the next one — costs no request at all. Under the test seam the whole provider is replaced by a fixture
+// map, so no tile cache is built: the fixture has no bytes to keep.
+const tileCache = testPorts ? null : createIndexedDbTileCache({maxBytes: 256 * 1024 * 1024}),
+ chunkCache = testPorts ? null : createIndexedDbChunkCache();
+const maps = testPorts?.maps ?? createOsmSource({cache: tileCache!, chunks: chunkCache!});
 // Saving a region for offline play is a browser act (a download with progress and a stop button); where it is centred
-// is the client's camera.
-attachOfflineRegion(hudRoot, maps, () => {
- const view = client.view();
- return viewpointOf(view.camera, view.viewport).center;
+// is the client's camera. The fixture map has no `prepareRegion`, so the offline control simply is not wired in tests.
+if ('prepareRegion' in maps)
+ attachOfflineRegion(hudRoot, maps as OsmSource, () => {
+  const view = client.view();
+  return viewpointOf(view.camera, view.viewport).center;
+ });
+const session = createSession({
+ maps,
+ saves: testPorts?.saves ?? createIndexedDbStore(),
+ worldId: WORLD_ID,
+ seed: SEED,
 });
-const session = createSession({maps, saves: createIndexedDbStore(), worldId: WORLD_ID, seed: SEED});
 const codec = createJcsCodec(),
  hasher = bytesHasher();
-const worlds = createWorldRepository({storage: createIndexedDbWorldStorage(), codec, hasher});
+const worlds = createWorldRepository({
+ storage: testPorts?.worlds ?? createIndexedDbWorldStorage(),
+ codec,
+ hasher,
+});
 // The panels exist before the hud so it picks them up as cards the player can drag and collapse. Their actions are
 // just intentions the client decides: the browser no longer owns the version graph, the comparison or the futures.
 const history = createWorldHistory(hudRoot, {
@@ -320,8 +356,9 @@ const stateOf = (): GameState | null => {
 // view and draws the panels from the models the view carries.
 const START_CELL = toCell(PLACES[START]!.lat, PLACES[START]!.lon);
 // The host's wall clock, shared so the optional intent recorder (?record=1) can measure the gaps between intents from
-// the same TimePort the client reads, never a bare Date.
-const time = systemTime();
+// the same TimePort the client reads, never a bare Date. The test seam hands in a manual clock so a harness advances
+// thirty seconds of city in no real time.
+const time = testPorts?.time ?? systemTime();
 const client = createCityClient({
  local: session,
  router: sessions,
@@ -339,7 +376,8 @@ const client = createCityClient({
  versions: {repository: worlds, codec, hasher, terms: WORLD_TERMS, worldId: WORLD_ID, branchId: BRANCH_ID},
  // The cooperative session's adapters (stage E): WebRTC peers, manual signaling and crypto keys, behind the
  // SessionPorts contract. The client's session controller forks the branch and orders the role; this only dials.
- session: createWebRtcSessionPorts({repository: worlds, codec, hasher, maps, verifier, capabilities: registry, self: 'local-device'}),
+ // The test seam swaps in an in-memory fabric (jsdom has no WebRTC), so the harness opens a real session with no net.
+ session: testPorts?.session ?? createWebRtcSessionPorts({repository: worlds, codec, hasher, maps, verifier, capabilities: registry, self: 'local-device'}),
  afterAction: () => updateHud(),
 });
 // Recording (spec 2026-10-01 §6): with ?record=1 every intent the player sends is appended to an in-memory
@@ -404,6 +442,7 @@ const availableBases = (): BaseChunk[] => {
 // honest counterpart of the map loading — the player can see that a revisit is costing nothing.
 const showCacheStats = () => {
  if (!tileCacheInfo) return;
+ if (!tileCache) return; // no device cache under the test seam: the fixture keeps no tiles.
  void tileCache
   .stats()
   .then(({tiles, bytes}) => {
@@ -618,7 +657,7 @@ if (PERF_DEBUG) {
   return {
    marks: {...PERF_MARKS},
    frames: frames.stats(),
-   map: maps.decodeStats(),
+   map: 'decodeStats' in maps ? (maps as OsmSource).decodeStats() : null,
    visible: {requested: chunks.size, ready: [...chunks.values()].filter(status => status.status === 'ready').length},
    state: current
     ? {revision: current.revision, tick: current.tick, managed: Object.keys(current.chunks).length}
@@ -751,7 +790,20 @@ async function start() {
   }, 0);
  });
 }
-void start();
+const started = start();
+// Under the test seam only, publish a handle so the jsdom harness can await session-ready and read the live client,
+// the hud and the host's time. It is the same client the player drives through the DOM; the handle only lets the
+// harness assert what the DOM alone cannot (the client's tool, the manual clock). Never set in production.
+if (testPorts)
+ (window as unknown as {__openSimTestClient?: unknown}).__openSimTestClient = {
+  client,
+  hud,
+  time,
+  sessions,
+  ready: started,
+  availableBases,
+ };
+void started;
 
 // The installed game opens without a network: the service worker keeps the shell and the assets this page loaded.
 if(import.meta.env.PROD&&'serviceWorker' in navigator){
