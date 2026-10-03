@@ -1,4 +1,4 @@
-import type {MobilityFrameAgent} from '../../presentation/mobility-model';
+import type {MobilityFrameAgent,TrafficSignalFrame} from '../../presentation/mobility-model';
 import {MOBILITY_LENGTH} from '../../presentation/mobility-engine';
 import {TILE_W,cellSpace,type Point} from '../../presentation/camera';
 import {nearestWorldX} from '../../presentation/geographic-map';
@@ -28,7 +28,7 @@ export function drawMobilityAgent(ctx:CanvasRenderingContext2D,agent:MobilityFra
  }else{
   ctx.fillStyle=agent.kind==='police'?'#eef0e7':['#bb6e50','#ded6b4','#477784','#8c6e8b','#c6a858'][agent.seed%5];ctx.fillRect(-length/2,-width/2,length,width);
   ctx.fillStyle='#b8d0d1';ctx.fillRect(-length*.13,-width*.38,length*.31,width*.76);
-  if(agent.kind==='police'){ctx.fillStyle='#35547a';ctx.fillRect(-length*.42,-width*.45,length*.22,width*.9);ctx.fillStyle=Math.floor(motion*4)%2?'#cf4e42':'#4d8cda';ctx.fillRect(-length*.08,-width*.48,Math.max(1,length*.12),width*.96);}
+  if(agent.kind==='police'){ctx.fillStyle='#35547a';ctx.fillRect(-length*.42,-width*.45,length*.22,width*.9);ctx.fillStyle='#cf4e42';ctx.fillRect(-length*.08,-width*.48,Math.max(1,length*.12),width*.48);ctx.fillStyle='#4d8cda';ctx.fillRect(-length*.08,0,Math.max(1,length*.12),width*.48);}
  }
  ctx.strokeStyle='#435456';ctx.lineWidth=.7;ctx.strokeRect(-length/2,-width/2,length,width);
  ctx.fillStyle='#f4e5ac';ctx.fillRect(length*.43,-width*.42,Math.max(.6,scale*.24),width*.25);ctx.fillRect(length*.43,width*.2,Math.max(.6,scale*.24),width*.25);ctx.restore();
@@ -51,7 +51,15 @@ function commands(ctx:CanvasRenderingContext2D,view:WorldView,agents:readonly Mo
  }
  return result;
 }
-export function mobilityDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){return commands(ctx,view,view.mobility??[]);}
+export function drawTrafficSignal(ctx:CanvasRenderingContext2D,signal:TrafficSignalFrame,point:Point,zoom:number):void{
+ const size=Math.max(2,Math.min(4,zoom*5));ctx.save();ctx.translate(point.x,point.y);ctx.strokeStyle='#647573';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-size*7);ctx.stroke();ctx.fillStyle='#27393b';ctx.fillRect(-size*.8,-size*8,size*1.6,size*4.6);for(const [i,color] of ['red','amber','green'].entries()){ctx.fillStyle=signal.aspect===color?['#ef5c52','#f4bd51','#5cce84'][i]:'#455955';ctx.beginPath();ctx.arc(0,-size*7.2+i*size*1.4,size*.55,0,Math.PI*2);ctx.fill();}ctx.restore();
+}
+export function signalDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){
+ if(view.camera.zoom<.15)return [];const centre=cellSpace({x:view.viewport.width/2,y:view.viewport.height/2},view.camera),result:{depth:number;draw:()=>void}[]=[];
+ for(const signal of view.signals??[]){const scale=metresPerCellAt(toGeo(signal.point).lat),point={x:nearestWorldX(signal.point.x,centre.x)-(signal.direction.x*6+signal.direction.y*3)/scale,y:signal.point.y-(signal.direction.y*6-signal.direction.x*3)/scale};if(view.geography){point.x-=.5;point.y-=.5;}const p=projectSurface(view,point);if(p.x<0||p.y<0||p.x>view.viewport.width||p.y>view.viewport.height||!visibleSurfacePoint(view,point))continue;result.push({depth:surfaceDepth(view,point),draw:()=>drawTrafficSignal(ctx,signal,p,view.camera.zoom)});if(result.length>=128)break;}
+ return result;
+}
+export function mobilityDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){return [...commands(ctx,view,view.mobility??[]),...signalDrawCommands(ctx,view)];}
 export function drawVisibleMobility(ctx:CanvasRenderingContext2D,view:WorldView):void{for(const command of mobilityDrawCommands(ctx,view).sort((a,b)=>a.depth-b.depth))command.draw();}
 export function drawCellMobility(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord):void{
  const frame=view.mobility;if(!frame)return;let index=byCell.get(frame);

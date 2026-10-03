@@ -17,3 +17,4 @@ it('bus remains readable with visible windows at distant scale',()=>{
  expect(r.rects.find(p=>p.color==='#ecede6')!.height).toBeGreaterThanOrEqual(4);
  expect(r.rects.filter(p=>p.color==='#577782').every(p=>p.height>=1&&p.width>=1)).toBe(true);
 });
+it('distinguishes school yellow and non-emergency police bar from urban buses',()=>{const p=recorder(),s=recorder(),b=recorder();drawMobilityAgent(p.ctx,agent('police'),identity,2,0);drawMobilityAgent(s.ctx,agent('school-bus'),identity,2,0);drawMobilityAgent(b.ctx,agent('bus'),identity,2,0);expect(p.rects.some(r=>r.color==='#4d8cda')).toBe(true);expect(p.rects.some(r=>r.color==='#cf4e42')).toBe(true);expect(s.rects.some(r=>r.color==='#e9b947')).toBe(true);expect(b.rects.some(r=>r.color==='#e9b947')).toBe(false);});

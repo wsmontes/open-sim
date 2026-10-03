@@ -43,6 +43,8 @@ import {emptyComposition} from '../presentation/world-composition-model';
 import {chunkId,toCell,toGeo,coordAt} from '../core/coordinates';
 import {effectiveCells} from '../core/world';
 import {createMobilityController} from '../client/mobility-controller';
+import vancouverSignalSites from '../adapters/reality/data/vancouver-signals.json';
+import type {TrafficSignalSite} from '../core/traffic-data';
 import {quoteAction} from '../core/quote';
 import type {Camera} from '../presentation/camera';
 import {normalizeAngle,project,settleZoom,zoomTo,MIN_ZOOM,centerOn,ROTATE_STEP} from '../presentation/camera';
@@ -369,6 +371,7 @@ const terrainSource=createTerrainSource(async(url,signal)=>{const response=await
 const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame());
 const mobilityStream=geography?createMobilityStream((z,x,y)=>(maps as OsmSource).loadVisualTile(z,x,y),SEED,()=>invalidateFrame()):null;
 const mobility=mobilityStream?.controller??createMobilityController(SEED);
+mobility.setSignalSites(vancouverSignalSites as readonly TrafficSignalSite[]);
 mobility.setSurface((point,edge)=>{
  const surface=terrain.scene();if(edge.bridge)return createSurfaceSupport(surface.sample).foundation(edge.path)??surface.sample(toGeo(point))?.elevationM??null;
  return surface.sample(toGeo(point))?.elevationM??null;
@@ -715,6 +718,7 @@ const draw = (now: number, seconds: number) => {
   geography: geography?.scene(),
   terrain:terrain.scene(),
   mobility:mobility.frame(),
+  signals:mobility.signals(),
   pixelRatio:deviceScale(),
   camera,
   viewport: {width, height},

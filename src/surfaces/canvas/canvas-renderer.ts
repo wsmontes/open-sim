@@ -1,6 +1,6 @@
 import {lightContext} from './city-light';
 import {drawCellMobility,drawVisibleMobility} from './mobility-draw';
-import type {MobilityFrameAgent} from '../../presentation/mobility-model';
+import type {MobilityFrameAgent,TrafficSignalFrame} from '../../presentation/mobility-model';
 import type {TerrainTile} from '../../presentation/terrain-model';
 import type {TerrainReading} from '../../presentation/terrain-surface';
 import {renderGeographicWorld} from './geographic-renderer';
@@ -20,6 +20,7 @@ export type WorldView = {
  geography?:GeographicScene;
  terrain?:{tiles:readonly TerrainTile[];sample:(geo:{lat:number;lon:number})=>TerrainReading|null;revision:number};
  mobility?:readonly MobilityFrameAgent[];
+ signals?:readonly TrafficSignalFrame[];
  pixelRatio?:number;
  camera:Camera;
  viewport:Viewport;

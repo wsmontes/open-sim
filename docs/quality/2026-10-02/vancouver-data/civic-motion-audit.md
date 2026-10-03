@@ -1,0 +1,11 @@
+# Civic mobility verification
+
+108 school positions were read from the published VSB directory map, not the municipal school dataset last extracted in 2009. Published coordinate precision is retained; some school locations are rounded to three decimal degrees. A school route ends at a connected vehicle node within 100 m of the published site, not a claim about a verified campus entrance. Public simulated stops never use student addresses.
+
+966 municipal signal positions were captured. The location source does not publish live phase or timing. The frame aspect is always derived from the same simulated controller used for vehicle admission. A matched municipal ID records the separate position provenance. Maximum matching distance is 25 m at compatible ground intersections. Signals elsewhere are inferred. A curve and a road meeting only a footpath do not infer a vehicle signal; service-road branches do not create one either. A 60-second assumed cycle includes an exclusive ten-second pedestrian phase. Amber blocks new entry; already reserved crossings clear.
+
+School buses are 9 m long, dwell 20 simulated seconds, keep followers behind them and run only inside the explicitly assumed weekday scenario windows. They are capped at six and deduplicated by school. Patrol routes walk connected allowed vehicle edges, capped at two, respect the same lights and queues and display a steady red/blue bar without permanent emergency flashing. Finished patrols leave before re-entering.
+
+The dedicated native verification page uses captured OSM streets and generated routes to Elsie Roy and King George. It labels school/source and distinguishes the three vehicle paints; its geometry is a verification artifact. Main-city school/patrol and inspection-panel integration remain Task 22. Main-city signals are already wired to the shared frame. Native night/paused appearance is recorded in civic-motion-night-paused.png, including published position matches (30 direction frames in the audited subnetwork). Full performance comparison and mobile acceptance and whole-city coverage remain Task 22.
+
+Verification: full check 860 passed, 5 skipped; build passed. Existing generated-capture lint warnings and bundle-size warning retained.

@@ -42,3 +42,6 @@ it('keeps a finished bus withdrawn until its entry lane has space',()=>{
  const template={...bus,route:['ab'],stopsM:[],distanceM:19,speedMps:30},car:MobilityAgent={id:'entry-car',kind:'car',route:['ab'],edgeIndex:0,distanceM:0,speedMps:0,seed:2};
  const engine=createMobilityEngine(network,1);engine.setAgents([template]);engine.advance(.1);engine.setAgents([template,car]);engine.advance(1/30);engine.setAgents([template,car]);expect(engine.frame().map(a=>a.id)).toEqual(['entry-car']);
 });
+it('a school bus dwells for 20 seconds while its follower remains queued',()=>{
+ const schoolNetwork={...network,edges:new Map([...network.edges].map(([id,e])=>[id,{...e,allowed:[...e.allowed,'school-bus' as const]}]))};const engine=createMobilityEngine(schoolNetwork,1);engine.setAgents([{...bus,id:'school',kind:'school-bus',distanceM:15,stopsM:[20],speedMps:5},{id:'following',kind:'car',route:['ab','bc'],edgeIndex:0,distanceM:0,speedMps:10,seed:2}]);advance(engine,1);const position=engine.frame().find(a=>a.id==='school')!.point;advance(engine,19);expect(engine.frame().find(a=>a.id==='school')!.point).toEqual(position);expect(engine.agents().find(a=>a.id==='following')!.distanceM).toBeLessThan(20-6.75);advance(engine,1.2);expect(engine.frame().find(a=>a.id==='school')!.point.y).toBeGreaterThan(0);
+});

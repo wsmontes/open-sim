@@ -1,7 +1,9 @@
 import type {Point} from './camera';
-import type {MobilityAgent,MobilityDemand,MobilityEdge,MobilityFrameAgent,MobilityNetwork,MobilitySignal} from './mobility-model';
+import type {MobilityAgent,MobilityDemand,MobilityEdge,MobilityFrameAgent,MobilityNetwork,MobilitySignal,MobilitySignalPhase} from './mobility-model';
+import type {TrafficSignalSite} from '../core/traffic-data';
+import {matchTrafficSignals} from './traffic-signals';
 import {findMobilityRoute} from './mobility-network';
-export const MOBILITY_LENGTH={car:4.5,bus:12,truck:10,pedestrian:.5,police:4.5,'school-bus':10} as const;
+export const MOBILITY_LENGTH={car:4.5,bus:12,truck:10,pedestrian:.5,police:4.5,'school-bus':9} as const;
 const STEP=1/30,CAP=480;
 const axis=(edge:MobilityEdge)=>{const a=edge.path.at(-2)!,b=edge.path.at(-1)!;return Math.abs(b.x-a.x)>=Math.abs(b.y-a.y)?'east-west':'north-south';};
 const lane=(agent:MobilityAgent)=>agent.kind==='pedestrian'?'sidewalk':'vehicle';
@@ -17,14 +19,16 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
  const geometry=new WeakMap<MobilityEdge,{length:number;parts:readonly number[]}>();
  let surface:(point:Point,edge:MobilityEdge)=>number|null=()=>null;
  const reservations=new Map<string,{id:string;until:number}>();
- let intersections=new Set<string>();
+ let intersections=new Set<string>(),signalTemplates: {nodeId:string;point:Point;direction:Point;axis:'east-west'|'north-south'}[]=[];let reportedSites:readonly TrafficSignalSite[]=[],reportedSignals:ReadonlyMap<string,TrafficSignalSite>=new Map();
  const readIntersections=()=>{
-  const neighbours=new Map<string,Set<string>>();for(const edge of network.edges.values()){const a=neighbours.get(edge.from)??new Set();a.add(edge.to);neighbours.set(edge.from,a);const b=neighbours.get(edge.to)??new Set();b.add(edge.from);neighbours.set(edge.to,b);}
+  const neighbours=new Map<string,Set<string>>();for(const edge of network.edges.values()){if(!edge.allowed.includes('car')||edge.roadClass==='service')continue;const a=neighbours.get(edge.from)??new Set();a.add(edge.to);neighbours.set(edge.from,a);const b=neighbours.get(edge.to)??new Set();b.add(edge.from);neighbours.set(edge.to,b);}
   intersections=new Set([...neighbours].filter(([,set])=>set.size>=3).map(([id])=>id));
+  signalTemplates=[];const seen=new Set<string>();for(const edge of network.edges.values()){if(!intersections.has(edge.to)||!edge.allowed.includes('car'))continue;const a=edge.path.at(-2)!,b=edge.path.at(-1)!,length=Math.hypot(b.x-a.x,b.y-a.y);if(!length)continue;const direction={x:(b.x-a.x)/length,y:(b.y-a.y)/length},key=`${edge.to}:${Math.round(direction.x*10)},${Math.round(direction.y*10)}`;if(seen.has(key))continue;seen.add(key);signalTemplates.push({nodeId:edge.to,point:network.nodes.get(edge.to)!.point,direction,axis:axis(edge)});}
+  reportedSignals=matchTrafficSignals(network,reportedSites);
  };readIntersections();
  const random=()=>{randomState^=randomState<<13;randomState^=randomState>>>17;randomState^=randomState<<5;return (randomState>>>0)/4294967296;};
  const valid=(agent:MobilityAgent)=>agent.route.length>0&&agent.route.every((id,i)=>{const edge=network.edges.get(id);return edge?.allowed.includes(agent.kind)&&(i===0||network.edges.get(agent.route[i-1])?.to===edge.from);});
- const phase=():MobilitySignal['phase']=>{const time=clock%50;return time<20?'east-west-green':time<23?'east-west-yellow':time<25?'clearance':time<45?'north-south-green':time<48?'north-south-yellow':'clearance';};
+ const phase=():MobilitySignalPhase=>{const time=clock%60;return time<20?'east-west-green':time<23?'east-west-yellow':time<25?'clearance':time<45?'north-south-green':time<48?'north-south-yellow':time<50?'clearance':'pedestrian';};
  const occupies=(id:string,node:string)=>{
   const owner=agents.get(id);if(!owner)return false;
   const current=network.edges.get(owner.route[owner.edgeIndex]);if(!current)return false;
@@ -38,7 +42,7 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
   if(!intersections.has(edge.to))return true;
   const occupied=reservations.get(edge.to);
   if(occupied&&(occupied.until>clock||occupies(occupied.id,edge.to))){if(occupied.id===agent.id)return true;return false;}
-  return phase()===`${axis(edge)}-green`;
+  return agent.kind==='pedestrian'?phase()==='pedestrian':phase()===`${axis(edge)}-green`;
  };
  const gapToLeader=(agent:MobilityAgent,index:Map<string,MobilityAgent[]>):number=>{
   let nearest=Infinity;
@@ -50,7 +54,7 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
    }
   return Math.max(0,nearest);
  };
- const finish=(id:string)=>{const agent=agents.get(id);agents.delete(id);stops.delete(id);if(external.has(id)){retired.add(id);if(agent?.kind==='bus'&&agent.patternId)restarts.set(id,{...agent,route:[...agent.route],edgeIndex:0,distanceM:0});}};
+ const finish=(id:string)=>{const agent=agents.get(id);agents.delete(id);stops.delete(id);if(external.has(id)){retired.add(id);if((agent?.kind==='bus'||agent?.kind==='police')&&agent.patternId)restarts.set(id,{...agent,route:[...agent.route],edgeIndex:0,distanceM:0});}};
  const step=()=>{
   clock+=STEP;
   const ordered=[...agents.values()].sort((a,b)=>b.distanceM-a.distanceM||a.id.localeCompare(b.id));
@@ -75,7 +79,7 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
     if(agent.edgeIndex>=agent.route.length){finish(agent.id);break;}
     edge=network.edges.get(agent.route[agent.edgeIndex])!;
    }
-   if(agents.has(agent.id)){agent.distanceM=Math.min(edge.lengthM,next);if(atStop&&stop){do{stop.cursor++;}while(agent.stopsM?.[stop.cursor]!==undefined&&agent.stopsM[stop.cursor]<=nextStop!+1e-7);stop.remaining=15;}}
+   if(agents.has(agent.id)){agent.distanceM=Math.min(edge.lengthM,next);if(atStop&&stop){do{stop.cursor++;}while(agent.stopsM?.[stop.cursor]!==undefined&&agent.stopsM[stop.cursor]<=nextStop!+1e-7);stop.remaining=agent.kind==='school-bus'?20:15;}}
    const nextKey=agents.has(agent.id)?`${agent.route[agent.edgeIndex]}:${lane(agent)}`:null;
    if(nextKey!==previousKey){const list=index.get(previousKey)!;list.splice(list.indexOf(agent),1);if(nextKey){const next=index.get(nextKey)??[];next.push(agent);index.set(nextKey,next);}}
   }
@@ -140,7 +144,8 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
    accumulator+=Math.min(.25,seconds);generate();while(accumulator+1e-10>=STEP){step();accumulator-=STEP;}
   },
   agents():readonly MobilityAgent[]{return [...agents.values()].map(a=>({...a,route:[...a.route]}));},
-  signals():readonly MobilitySignal[]{return [...intersections].map(nodeId=>({nodeId,point:network.nodes.get(nodeId)!.point,phase:phase(),method:'simulated'}));},
+  setSignalSites(sites:readonly TrafficSignalSite[]){reportedSites=sites;reportedSignals=matchTrafficSignals(network,sites);},
+  signals():readonly MobilitySignal[]{const current=phase();return signalTemplates.map(s=>({nodeId:s.nodeId,point:s.point,direction:s.direction,aspect:current===`${s.axis}-green`?'green':current===`${s.axis}-yellow`?'amber':'red',method:'derived',reportedSignalId:reportedSignals.get(s.nodeId)?.id}));},
   frame():readonly MobilityFrameAgent[]{
    return [...agents.values()].flatMap(agent=>{
     const edge=network.edges.get(agent.route[agent.edgeIndex]);if(!edge)return [];
@@ -148,7 +153,7 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
     let distance=Math.min(1,agent.distanceM/edge.lengthM)*shape.length,index=0;
     while(index<shape.parts.length-1&&distance>shape.parts[index]){distance-=shape.parts[index];index++;}
     const a=edge.path[index],b=edge.path[index+1],length=shape.parts[index]||1,t=Math.min(1,distance/length),dx=b.x-a.x,dy=b.y-a.y,point={x:a.x+dx*t,y:a.y+dy*t};
-    return [{id:agent.id,kind:agent.kind,point,heading:{x:dx/length,y:dy/length},elevationM:surface(point,edge),seed:agent.seed,method:'simulated' as const,tripId:agent.tripId}];
+    return [{id:agent.id,kind:agent.kind,point,heading:{x:dx/length,y:dy/length},elevationM:surface(point,edge),seed:agent.seed,method:'simulated' as const,tripId:agent.tripId,schoolId:agent.schoolId,schoolName:agent.schoolName}];
    });
   },
  };

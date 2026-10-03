@@ -25,6 +25,7 @@ export function createMobilityController(seed:number){
   advance(seconds:number){if(!disposed)engine.advance(seconds);},
   frame:engine.frame,
   signals:engine.signals,
+  setSignalSites:engine.setSignalSites,
   network:()=>network,
   dispose(){disposed=true;tiles.clear();network=buildGeographicNetwork([],'disposed');engine.setNetwork(network);},
  };
