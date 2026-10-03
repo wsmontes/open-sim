@@ -16,7 +16,7 @@ export function decodeTerrainTile(bytes:Uint8Array,manifest:TerrainManifest):Ter
  const n=h.size*h.size;if(bytes.length!==8+length+n*5)throw new Error('Corrupt terrain length');
  const heightsM=new Float32Array(n),valid=bytes.slice(8+length+n*4);
  for(let i=0;i<n;i++){heightsM[i]=view.getFloat32(8+length+i*4,true);if(valid[i]>1||valid[i]===1&&!Number.isFinite(heightsM[i]))throw new Error('Corrupt terrain samples');if(!valid[i])heightsM[i]=NaN;}
- return {...h,heightsM,valid};
+ return {...h,sourceResolutionM:source.resolutionM,heightsM,valid};
 }
 export function createTerrainSource(fetchBytes:(url:string,signal:AbortSignal)=>Promise<Uint8Array>,manifest:TerrainManifest){
  const cache=new Map<string,TerrainTile>();let cacheBytes=0,active=0;const waiting:(()=>void)[]=[];

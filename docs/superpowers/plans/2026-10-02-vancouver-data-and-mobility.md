@@ -177,16 +177,16 @@ expect(decodeTerrainTile(tileWithMissingSample,manifest).valid[missingIndex]).to
 
 **Interfaces:** `TerrainReading={elevationM:number;kind:'dtm'|'dsm';sourceId:string;verticalDatum:string}`; `createTerrainSurface(tiles:readonly TerrainTile[]):{sample(geo:{lat:number;lon:number}):TerrainReading|null}` usa interpolação somente de amostras válidas. `projectElevated(point:Point,elevationM:number,camera:Camera,metresPerCell:number):Point`; `pickTerrain(screen:Point,triangles:readonly TerrainTriangle[],camera:Camera,metresPerCell:number):{point:Point;elevationM:number}|null`; `TerrainTriangle={points:readonly [Point,Point,Point];heightsM:readonly [number,number,number]}`. Projeção vertical usa a mesma escala física de volume/solo, latitude local, fator 1. Pontos são contínuos, não índice de cell; seleção escolhe triângulo visível mais próximo na mesma ordenação do desenho.
 
-- [ ] Escrever testes `known_slope_interpolated`, `hole_not_interpolated`, `zero_height_matches_project`, `elevated_pick_roundtrip`, `occluded_triangle_not_picked`, `rotated_camera_same_ground`, `dateline_tile_selection`, `latitude_metric_scale`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
+- [x] Escrever testes `known_slope_interpolated`, `hole_not_interpolated`, `zero_height_matches_project`, `elevated_pick_roundtrip`, `occluded_triangle_not_picked`, `rotated_camera_same_ground`, `dateline_tile_selection`, `latitude_metric_scale`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
 
 ```ts
 expect(projectElevated(p,0,camera,metresPerCell)).toEqual(project(p,camera));
 ```
 
-- [ ] Executar `npx vitest run tests/terrain-surface.test.ts tests/terrain-projection.test.ts`; confirmar RED por comportamento/contrato ausente.
-- [ ] Construir sampler e malha com triangulação consistente por tile, sem interpolar holes; resolver emendas por amostras compartilhadas. Invalidar seleção quando terreno muda, preservar fallback plano apenas com status indisponível. Não usar elevação do DSM como DTM. Helpers não consultam rede, DOM ou relógio.
-- [ ] Executar `npx vitest run tests/terrain-surface.test.ts tests/terrain-projection.test.ts` e `npm run typecheck`; confirmar PASS. Confirmar round-trip dentro de 0.01 cell em fixture de encosta, solo plano idêntico à projeção existente e seleção coerente na rotação.
-- [ ] Commit: `feat: project and pick elevated terrain`.
+- [x] Executar `npx vitest run tests/terrain-surface.test.ts tests/terrain-projection.test.ts`; confirmar RED por comportamento/contrato ausente.
+- [x] Construir sampler e malha com triangulação consistente por tile, sem interpolar holes; resolver emendas por amostras compartilhadas. Invalidar seleção quando terreno muda, preservar fallback plano apenas com status indisponível. Não usar elevação do DSM como DTM. Helpers não consultam rede, DOM ou relógio.
+- [x] Executar `npx vitest run tests/terrain-surface.test.ts tests/terrain-projection.test.ts` e `npm run typecheck`; confirmar PASS. Confirmar round-trip dentro de 0.01 cell em fixture de encosta, solo plano idêntico à projeção existente e seleção coerente na rotação.
+- [x] Commit: `feat: project and pick elevated terrain`.
 
 
 ## Task 9: Relevo visível e apoio de ruas/edifícios

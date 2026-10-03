@@ -1,0 +1,12 @@
+import {it,expect} from 'vitest';
+import {createTerrainSurface,metresPerCellAt} from '../src/presentation/terrain-surface';
+import type {TerrainTile} from '../src/presentation/terrain-model';
+const tile=():TerrainTile=>({id:'slope',bounds:{west:0,east:1,south:0,north:1},size:2,spacingM:10,heightsM:new Float32Array([0,100,100,200]),valid:new Uint8Array([1,1,1,1]),kind:'dtm',verticalDatum:'CGVD2013',sourceId:'test'});
+it('interpolates known slope',()=>expect(createTerrainSurface([tile()]).sample({lon:.25,lat:.75})?.elevationM).toBe(50));
+it('does not interpolate holes',()=>{const t=tile();t.valid[3]=0;expect(createTerrainSurface([t]).sample({lon:.25,lat:.75})).toBeNull();});
+it('falls back when high resolution is missing',()=>{const t=tile();t.valid.fill(0);expect(createTerrainSurface([t,{...tile(),id:'regional',spacingM:30,sourceId:'regional'}]).sample({lon:.5,lat:.5})?.sourceId).toBe('regional');});
+it('preserves DSM reading as DSM',()=>expect(createTerrainSurface([{...tile(),kind:'dsm'}]).sample({lon:.5,lat:.5})?.kind).toBe('dsm'));
+it('handles dateline bounds',()=>expect(createTerrainSurface([{...tile(),bounds:{west:179,east:-179,south:0,north:1}}]).sample({lon:-179.5,lat:.5})?.elevationM).toBe(125));
+it('latitude determines physical cell size',()=>expect(metresPerCellAt(60)/metresPerCellAt(0)).toBeCloseTo(.5));
+it('prefers verified source resolution regardless of download order',()=>{const fine={...tile(),sourceId:'fine',sourceResolutionM:16};const coarse={...tile(),sourceId:'coarse',sourceResolutionM:30,heightsM:new Float32Array(4).fill(500)};expect(createTerrainSurface([coarse,fine]).sample({lon:.5,lat:.5})?.sourceId).toBe('fine');});
+it('rejects mixed datums',()=>expect(()=>createTerrainSurface([tile(),{...tile(),verticalDatum:'EGM2008'}])).toThrow());
