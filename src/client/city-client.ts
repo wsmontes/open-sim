@@ -25,6 +25,7 @@ import {debounce} from './time';
 import type {TimePort} from './time';
 import type {CityFacts,FactsPort} from './facts';
 import {PLACES,goToCoord,placeByName} from './facts';
+import {createFactsController} from './facts-controller';
 import {createVersions} from './versions';
 import type {VersionsController} from './versions';
 import {createSessionController} from './session';
@@ -361,11 +362,14 @@ export function createCityClient(config: CityClientConfig): CityClient {
  const showFacts = (next: CityFacts | null, publish: boolean, at?: {lat: number; lon: number}) => { cityFacts = next; factsAt = next ? at ?? null : null; if(!next)pendingCensus=null; if (publish && next) { pendingCensus = next; flushCensus(); } };
  // Only the newest lookup may change the facts or publish a census: a slow answer about the previous city must not
  // overwrite the one the player just went to.
- let lookups = 0;
+ let lookupPosition: {lat:number;lon:number}|null=null;
+ const factsController=facts?createFactsController(facts,found=>{
+  if(found&&lookupPosition){showFacts(found,true,lookupPosition);changed();}
+ }):null;
  const lookUp = (lat: number, lon: number, name?: string) => {
-  if (!facts) return;
-  const ticket = (lookups += 1);
-  void track((name ? facts.named(name) : Promise.resolve(null)).then(live => live ?? facts.near(lat, lon)).then(found => { if (found && ticket === lookups) { showFacts(found, true, {lat, lon}); changed(); } }, () => undefined));
+  if (!factsController) return;
+  lookupPosition={lat,lon};
+  void track(factsController.lookup(lat,lon,name));
  };
  // The reminder that the game is a neighbourhood inside the real place: shown only once the census is in the world, so
  // the sentence never claims the simulation accounts for the real millions before the figure has been published.
@@ -637,6 +641,6 @@ export function createCityClient(config: CityClientConfig): CityClient {
   versions,
   session,
   async syncSession() { if (router.mode() !== 'local' && router.refresh) { await track(router.refresh()); refreshPreview(); changed(); } },
-  stop() { clock.stop(); unsubscribe(); listeners.clear(); },
+  stop() { factsController?.dispose(); clock.stop(); unsubscribe(); listeners.clear(); },
  };
 }

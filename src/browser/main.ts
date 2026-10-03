@@ -115,11 +115,17 @@ const municipalDirectory = createIbgeDirectory();
 const mergeMunicipal = async (found: CityFacts | null): Promise<CityFacts | null> => {
  if (!found) return null;
  const identity = CITY_IDENTITIES[found.id];
+ if(identity)found={...found,identity,countryCode:identity.countryCode};
  if (identity && !selectSources(identity,SOURCE_CATALOG).some(source=>source.id==='ibge')) return found;
  const municipal = found.municipalCode ? await municipalDirectory.byMunicipalCode(found.municipalCode) : null;
  if (!municipal) return found;
+ const measureSource={...municipal.source,territoryId:found.id,retrievedAt:new Date().toISOString(),method:'reported' as const};
  return {
   ...found,
+  measures:{...found.measures,
+   ...(municipal.population===undefined?{}:{population:{value:municipal.population,unit:'people' as const,source:{...measureSource,observedYear:municipal.populationYear}}}),
+   ...(municipal.areaKm2===undefined?{}:{areaKm2:{value:municipal.areaKm2,unit:'km2' as const,source:measureSource}}),
+  },
   ...(municipal.population !== undefined
    ? {population: municipal.population, populationYear: municipal.populationYear}
    : {}),

@@ -4,20 +4,8 @@ import {toCell} from '../core/coordinates';
 // Real demography the client carries, independent of where it comes from (spec 2026-10-01 §5.1 FactsPort). The browser
 // backs it with Wikidata + IBGE; a test backs it with the fixed table below. The shape mirrors the reality adapter's
 // `CityFacts` field for field, so the browser adapter hands its result straight across without translation.
-export type CityFactsSource = {dataset: string; url: string; license: string};
-export type CityFacts = {
- id: string;
- label: string;
- country?: string;
- population?: number;
- populationYear?: number;
- areaKm2?: number;
- municipalCode?: string;
- densityPerKm2?: number;
- gdpThousandsBrl?: number;
- gdpYear?: number;
- source: CityFactsSource;
-};
+import type {CityFacts} from '../core/municipal-facts';
+export type {CityFacts,CityFactsSource,MeasureSource,NumericMeasure,MunicipalFinance,CityIdentity,DemographicObservation} from '../core/municipal-facts';
 
 // The door to the real world's demography, in the style of `MapSource` (spec §5.1). `named` answers the place the
 // player typed or picked; `near` answers the place the camera is standing in. A source that fails, lies or answers
