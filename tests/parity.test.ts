@@ -13,7 +13,7 @@ import {createPlayHost} from '../tools/play-host';
 const PARITY = 'construir-e-crescer';
 // The hash the Node host prints for the parity playthrough (`npx tsx tools/play.ts --script
 // tests/playthroughs/construir-e-crescer.json`). The browser page must print the same string.
-const EXPECTED_HASH = 'f3eb4917da2bc1addde013ec3176bad5e9f578585aa89d711a359eafa9cd5c75';
+const EXPECTED_HASH = '6f3d299e76570cb02590c597b2c9e60186b1bacc7f9e44bbc8951991af7ab3d2';
 
 test(`parity playthrough ${PARITY} has the pinned semantic hash the browser page must match`, async () => {
  const script = JSON.parse(readFileSync(join(import.meta.dirname, 'playthroughs', `${PARITY}.json`), 'utf8')) as Playthrough;

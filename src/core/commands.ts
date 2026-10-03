@@ -5,7 +5,7 @@ import {adopt,getCell,placement} from './world';
 import {assertJsonSafe,cloneJson,isComponentKey,isEntityId} from './protocol';
 import {cellIndex,chunkId,validCell} from './coordinates';
 export function createGame(worldId:string,seed:number,initial:BaseChunk):GameState {
- return {formatVersion:FORMAT_VERSION as 1,rulesVersion:RULES_VERSION as 3,worldId,seed,revision:0,tick:0,money:20000,chunks:{[initial.id]:adopt(initial)},actors:{},components:{}};
+ return {formatVersion:FORMAT_VERSION as 1,rulesVersion:RULES_VERSION as 4,worldId,seed,revision:0,tick:0,money:20000,chunks:{[initial.id]:adopt(initial)},actors:{},components:{}};
 }
 export function applyCommand(state:GameState,c:Command,available:readonly BaseChunk[]):CommandResult {
  const reject=(reason:string):CommandResult=>({state,status:'rejected',reason});
