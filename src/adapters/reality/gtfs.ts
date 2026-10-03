@@ -22,7 +22,7 @@ import type {CaptureContext,SourceClaim} from '../../world/reality';
 // are enormous is not refused for bytes this client never touches (spec §9.3, R13).
 export const TRANSIT_LIMITS={archive:32*1024*1024,entry:16*1024*1024,expanded:64*1024*1024,entries:64,rows:200000};
 export const GTFS_REQUIRED:readonly string[]=['agency.txt','stops.txt','routes.txt','trips.txt','stop_times.txt'];
-export const GTFS_OPTIONAL:readonly string[]=['calendar.txt','calendar_dates.txt','feed_info.txt'];
+export const GTFS_OPTIONAL:readonly string[]=['calendar.txt','calendar_dates.txt','feed_info.txt','shapes.txt'];
 const ZONE=/^[A-Za-z][A-Za-z0-9_+-]*\/[A-Za-z0-9_+-]+(?:\/[A-Za-z0-9_+-]+)*$/;
 const CLOCK=/^([0-9]{1,2}):([0-9]{2}):([0-9]{2})$/;
 const DATE=/^[0-9]{8}$/;
@@ -30,27 +30,8 @@ const WEEKDAYS:readonly string[]=['monday','tuesday','wednesday','thursday','fri
 const STOP_COLUMNS:readonly string[]=['stop_id','stop_name','stop_lat','stop_lon'];
 const ROUTE_COLUMNS:readonly string[]=['route_id','route_short_name','route_long_name','route_type'];
 
-export type TransitAgency={id?:string;name:string;url?:string;timezone:string};
-// `label` is present only when the readable name is not one: a stop without a declared name keeps its provider id as a
-// label and says so, so nothing about the source's own identifier is presented as a place name.
-export type TransitStop={providerId:string;name:string;label?:'provider-id';lat:number;lon:number;rest?:Record<string,string>};
-export type TransitStopTime={stopId:string;arrival:string;departure:string};
-export type TransitTrip={id:string;serviceId:string;stops:readonly TransitStopTime[]};
-export type TransitRoute={providerId:string;name:string;label?:'provider-id';shortName?:string;longName?:string;type:number;trips:readonly TransitTrip[];rest?:Record<string,string>};
-export type TransitCalendar={serviceId:string;weekdays:readonly string[];startDate:string;endDate:string};
-export type TransitException={serviceId:string;date:string;type:'added'|'removed'};
-export type TransitEntity={uri:string;kind:'stop'|'route';providerId:string;components:Record<string,unknown>};
-export type TransitCapabilities={routing:'not-computed';realtime:'not-included'};
-export type TransitContent={
- timezone:string;
- agencies:readonly TransitAgency[];
- stops:readonly TransitStop[];
- routes:readonly TransitRoute[];
- calendars:readonly TransitCalendar[];
- exceptions:readonly TransitException[];
- entities:readonly TransitEntity[];
- capabilities:TransitCapabilities;
-};
+import type {TransitAgency,TransitStop,TransitStopTime,TransitTrip,TransitRoute,TransitCalendar,TransitException,TransitEntity,TransitContent,TransitShape} from '../../core/transit-data';
+export type {TransitAgency,TransitStop,TransitStopTime,TransitTrip,TransitRoute,TransitCalendar,TransitException,TransitEntity,TransitCapabilities,TransitContent,TransitShape} from '../../core/transit-data';
 export type TransitDataset=TransitContent&{
  revision:DatasetProvenance;
  claims:readonly SourceClaim[];
@@ -244,11 +225,13 @@ export async function importTransit(bytes:Uint8Array,context:CaptureContext,hash
  if(!routes.ok)return routes;
  const services=servicesOf(tables['calendar.txt'],tables['calendar_dates.txt']);
  if(!services.ok)return services;
- const trips=tripsOf(tables['trips.txt']!,tables['stop_times.txt']!,routes.value,stops.value,services.value);
+ const shapes=shapesOf(tables['shapes.txt']);if(!shapes.ok)return shapes;
+ const trips=tripsOf(tables['trips.txt']!,tables['stop_times.txt']!,routes.value,stops.value,services.value,shapes.value);
  if(!trips.ok)return trips;
  const published=entitiesOf(context.source.id,stops.value,trips.value);
  if(!published.ok)return published;
  const content:TransitContent={
+  shapes:shapes.value,
   timezone:agencies.value[0]!.timezone,
   agencies:agencies.value,
   stops:stops.value,
@@ -376,11 +359,24 @@ function servicesOf(calendar:Table|undefined,exceptions:Table|undefined):WorldRe
  }
  return ok({calendars,exceptions:moves,ids});
 }
+function shapesOf(table:Table|undefined):WorldResult<TransitShape[]>{
+ const grouped=new Map<string,TransitShape['points'][number][]>();
+ for(const row of table?.rows??[]){
+  const id=field(row,'shape_id','Uma geometria'),lat=coordinate(row['shape_pt_lat']??'','Geometria',90),lon=coordinate(row['shape_pt_lon']??'','Geometria',180),sequence=integer(row['shape_pt_sequence']??'','Geometria','shape_pt_sequence');
+  if(!id.ok)return id;if(!lat.ok)return lat;if(!lon.ok)return lon;if(!sequence.ok)return sequence;
+  const points=grouped.get(id.value)??[];
+  if(points.some(p=>p.sequence===sequence.value))return failed('MALFORMED',`Geometria ${id.value} repete sequência`);
+  const distance=row['shape_dist_traveled']?Number(row['shape_dist_traveled']):undefined;
+  if(distance!==undefined&&(!Number.isFinite(distance)||distance<0))return failed('MALFORMED','Distância de geometria inválida');
+  points.push({lat:lat.value,lon:lon.value,sequence:sequence.value,...(distance!==undefined?{distance}:{})});grouped.set(id.value,points);
+ }
+ return ok([...grouped].map(([id,points])=>({id,points:points.sort((a,b)=>a.sequence-b.sequence)})));
+}
 type Leg=TransitStopTime&{sequence:number};
-function tripsOf(trips:Table,stopTimes:Table,routes:readonly TransitRoute[],stops:readonly TransitStop[],services:Services):WorldResult<TransitRoute[]>{
+function tripsOf(trips:Table,stopTimes:Table,routes:readonly TransitRoute[],stops:readonly TransitStop[],services:Services,shapes:readonly TransitShape[]):WorldResult<TransitRoute[]>{
  const lines=new Map(routes.map(route=>[route.providerId,route]));
  const named=new Set(stops.map(stop=>stop.providerId));
- const declared=new Map<string,{route:TransitRoute;serviceId:string;legs:Leg[]}>();
+ const declared=new Map<string,{route:TransitRoute;serviceId:string;shapeId?:string;directionId?:string;legs:Leg[]}>();
  for(const row of trips.rows){
   const id=field(row,'trip_id','Uma viagem do arquivo');
   if(!id.ok)return id;
@@ -391,7 +387,10 @@ function tripsOf(trips:Table,stopTimes:Table,routes:readonly TransitRoute[],stop
   if(!route)return failed('MALFORMED',`A viagem ${id.value} referencia a linha ${routeId.value}, que o arquivo não declara`);
   if(!services.ids.has(serviceId.value))return failed('MALFORMED',`A viagem ${id.value} referencia o serviço ${serviceId.value}, que o arquivo não declara`);
   if(declared.has(id.value))return failed('MALFORMED',`A viagem ${id.value} aparece duas vezes no arquivo`);
-  declared.set(id.value,{route,serviceId:serviceId.value,legs:[]});
+  const shapeId=row['shape_id']||undefined,directionId=row['direction_id']||undefined;
+  if(shapeId&&!shapes.some(shape=>shape.id===shapeId))return failed('MALFORMED',`A viagem ${id.value} referencia a geometria ausente ${shapeId}`);
+  if(directionId!==undefined&&directionId!=='0'&&directionId!=='1')return failed('MALFORMED',`A viagem ${id.value} declara sentido inválido`);
+  declared.set(id.value,{route,serviceId:serviceId.value,...(shapeId?{shapeId}:{}),...(directionId?{directionId}:{}),legs:[]});
  }
  for(const row of stopTimes.rows){
   const tripId=field(row,'trip_id','Uma passagem do arquivo'),stopId=field(row,'stop_id','Uma passagem do arquivo');
@@ -414,7 +413,7 @@ function tripsOf(trips:Table,stopTimes:Table,routes:readonly TransitRoute[],stop
   // line order is not a statement about the trip.
   const legs=[...trip.legs].sort((left,right)=>left.sequence-right.sequence);
   const list=byRoute.get(trip.route.providerId)??[];
-  list.push({id,serviceId:trip.serviceId,stops:legs.map(leg=>({stopId:leg.stopId,arrival:leg.arrival,departure:leg.departure}))});
+  list.push({id,serviceId:trip.serviceId,...(trip.shapeId?{shapeId:trip.shapeId}:{}),...(trip.directionId?{directionId:trip.directionId}:{}),stops:legs.map(leg=>({stopId:leg.stopId,arrival:leg.arrival,departure:leg.departure}))});
   byRoute.set(trip.route.providerId,list);
  }
  return ok(routes.map(route=>({...route,trips:byRoute.get(route.providerId)??[]})));
@@ -429,7 +428,8 @@ function checkComponents(components:Record<string,unknown>,label:string):WorldRe
  return ok(null);
 }
 // The protocol view of what was imported: a stop is an entity with the position the source declared, a route is an
-// entity that names the stops it was declared to serve. GTFS declares no route geometry, so a route gets none, and the
+// entity that names the stops it was declared to serve. Optional shapes are preserved separately; the importer does not
+// compute street routing, so a protocol route gets no invented geometry, and the
 // claim for each one carries the provider's own identifier and the revision that explains it.
 function entitiesOf(sourceId:string,stops:readonly TransitStop[],routes:readonly TransitRoute[]):WorldResult<{entities:TransitEntity[];claims:SourceClaim[]}>{
  const entities:TransitEntity[]=[],claims:SourceClaim[]=[];

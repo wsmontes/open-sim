@@ -246,11 +246,11 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 
 **Interfaces:** Estender `TransitTrip` com `shapeId?:string` e `directionId?:string`; `TransitContent` com `shapes:readonly {id:string;points:readonly {lat:number;lon:number;sequence:number;distance?:number}[]}[]`. `TransitRoutePattern={id:string;routeId:string;shapeId?:string;directionId?:string;edges:readonly string[];stopDistancesM:readonly number[];method:'reported'|'derived'}`; `buildTransitPatterns(dataset:TransitContent,network:MobilityNetwork):readonly TransitRoutePattern[]` agrupa variantes e preserva sequência de paradas. Shapes restringem matching à rede; sem match completo, emitir relatório e não desenhar conexão inventada.
 
-- [ ] Resolver download oficial na página GTFS; conferir arquivo, limites atuais, cobertura/validade e termos. Produzir captura Vancouver com proveniência; não elevar limites ZIP sem medir bytes expandidos e justificar. Manter importação local se navegador não puder buscar por CORS.
-- [ ] Escrever `shape_sequence_sorted`, `trip_shape_reference`, `opposite_directions_preserved`, `variants_do_not_mix_stops`, `duplicate_stop_same_position_safe`, `missing_shape_connected_fallback`, `no_connection_no_bus`, `same_pattern_imported_once`.
-- [ ] Executar `npx vitest run tests/gtfs-source.test.ts tests/transit-routes.test.ts`; confirmar RED.
-- [ ] Ampliar importador existente e mapear cada percurso conectado e suas paradas. Preservar calendários/horários sem usá-los para sincronizar a animação. Manter capabilities do importador; cálculo de percursos é consumidor separado.
-- [ ] Executar testes e inspecionar geometria de uma linha em ambas as direções; conferir sequência de paradas contra o feed. Commit: `feat: load real Vancouver bus routes`.
+- [x] Resolver download oficial na página GTFS; conferir arquivo, limites atuais, cobertura/validade e termos. Produzir captura Vancouver com proveniência; não elevar limites ZIP sem medir bytes expandidos e justificar. Manter importação local se navegador não puder buscar por CORS.
+- [x] Escrever `shape_sequence_sorted`, `trip_shape_reference`, `opposite_directions_preserved`, `variants_do_not_mix_stops`, `duplicate_stop_same_position_safe`, `missing_shape_connected_fallback`, `no_connection_no_bus`, `same_pattern_imported_once`.
+- [x] Executar `npx vitest run tests/gtfs-source.test.ts tests/transit-routes.test.ts`; confirmar RED.
+- [x] Ampliar importador existente e mapear cada percurso conectado e suas paradas. Preservar calendários/horários sem usá-los para sincronizar a animação. Manter capabilities do importador; cálculo de percursos é consumidor separado.
+- [x] Executar testes e inspecionar geometria de uma linha em ambas as direções; conferir sequência de paradas contra o feed. Commit: `feat: load real Vancouver bus routes`.
 
 ## Task 14: Movimento simulado dos ônibus nas rotas reais
 

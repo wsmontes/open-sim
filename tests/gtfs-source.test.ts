@@ -353,3 +353,29 @@ test('the player reads where the data came from, under which terms and what it d
  expect(info.notes.join(' | ')).toContain('não calcula rotas');
  expect(info.notes.join(' | ')).toContain('24 h');
 });
+
+test('shape points sort by declared sequence and trips preserve shape and direction references',async()=>{
+ const feed={...FEED,'trips.txt':'route_id,service_id,trip_id,shape_id,direction_id\nL1,WD,T1,S1,0\nL2,WD,T2,,1\nL2,WD,T3,,0','shapes.txt':'shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence,shape_dist_traveled\nS1,-23.554,-46.640,2,100\nS1,-23.5501,-46.633,1,0'};
+ const result=await imported(feed);
+ expect(result.shapes[0].points.map(p=>p.sequence)).toEqual([1,2]);
+ expect(result.routes[0].trips[0]).toMatchObject({shapeId:'S1',directionId:'0'});
+});
+
+test('a declared shape reference cannot silently point to missing geometry',async()=>{
+ await refusal({...FEED,'trips.txt':FEED['trips.txt'].replace('T1,','T1,missing')});
+});
+
+test('bundled Vancouver capture retains official validity, shapes and bus/ferry mode separation',()=>{
+ const capture=JSON.parse(readFileSync(join(ROOT,'src/adapters/reality/data/vancouver-transit.json'),'utf8'));
+ expect(capture.capture.feedInfo[0]).toMatchObject({feed_start_date:'20260907',feed_end_date:'20270103',feed_version:'26SEP_20261002'});
+ expect(capture.timezone).toBe('America/Vancouver');expect(capture.shapes).toHaveLength(408);expect(capture.routes).toHaveLength(73);expect(capture.routes.some((r:{type:number})=>r.type===4)).toBe(true);
+ const line=capture.routes.find((r:{shortName:string})=>r.shortName==='019');
+ expect(line.trips.find((t:{id:string})=>t.id==='15453276')).toMatchObject({shapeId:'321364',directionId:'0'});
+ expect(line.trips.find((t:{id:string})=>t.id==='15453451')).toMatchObject({shapeId:'321373',directionId:'1'});
+});
+
+test('bundled normalized transit content agrees with its provenance content address',async()=>{
+ const capture=JSON.parse(readFileSync(join(ROOT,'src/adapters/reality/data/vancouver-transit.json'),'utf8'));
+ const {revision,capture:_capture,attribution:_attribution,...content}=capture;
+ expect(await hasher.ref(codec.encode({kind:'transit-dataset',dataset:content}))).toEqual(revision.entity);
+});
