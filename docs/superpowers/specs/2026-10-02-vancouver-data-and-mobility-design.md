@@ -148,3 +148,8 @@ Construir rede aquática própria com costa, ilhas, pontes, docas e canais. Vali
 AIS ao vivo é uma extensão opcional: não foi validado um feed público com CORS, cobertura, licença e acesso sem segredo para este site. Base estática capturada e navegação simulada atendem à primeira entrega sem backend. Fonte e data de captura aparecem na inspeção; não usar “ao vivo” para trajetos ou chegadas simuladas.
 
 Aceitação: SeaBus reconhecível entre os terminais reais; Aquabus servindo docas confirmadas de False Creek; cruzeiro atracando e saindo do Canada Place; cargueiro junto a terminal apropriado; veleiros distinguíveis; nenhum trajeto cruzando terra ou berço ocupado; pausa/velocidade coerentes, detalhe por zoom e limite combinado de agentes terrestres, aéreos e marítimos.
+
+
+## Cobertura reutilizável das fontes
+
+O catálogo normativo de seleção está em `docs/quality/2026-10-02/vancouver-data/source-coverage.md`: base mundial, camada Canadá, camada BC e fornecedores locais. A disponibilidade é por variável e território, não por simples país da fonte. Fonte regional não autoriza extrapolação a toda província. Adaptadores preservam códigos geográficos, referência temporal, unidade, método e proveniência; não confundem censo, estimativa, projeção, orçamento aprovado e realizado. Dados ausentes permanecem ausentes. Nenhuma integração local de Vancouver deve ficar habilitada automaticamente em outra cidade.
