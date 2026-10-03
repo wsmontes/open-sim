@@ -1,3 +1,4 @@
+import type {AircraftFrame} from '../../presentation/aviation';
 import type {VesselFrame} from '../../presentation/maritime-engine';
 import {lightContext} from './city-light';
 import {drawCellMobility,drawVisibleMobility} from './mobility-draw';
@@ -23,6 +24,7 @@ export type WorldView = {
  mobility?:readonly MobilityFrameAgent[];
  signals?:readonly TrafficSignalFrame[];
  vessels?:readonly VesselFrame[];
+ aircraft?:readonly AircraftFrame[];
  pixelRatio?:number;
  camera:Camera;
  viewport:Viewport;

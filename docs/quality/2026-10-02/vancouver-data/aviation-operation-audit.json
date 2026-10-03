@@ -1,0 +1,103 @@
+{
+  "simulatedSeconds": 1000,
+  "maxFleet": 2,
+  "pausedStable": true,
+  "operations": [
+    {
+      "id": "air:1:CYVR:234512:0",
+      "phases": [
+        "approach",
+        "landing-roll",
+        "waiting"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234511:0",
+      "phases": [
+        "approach",
+        "landing-roll",
+        "waiting"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234511:1",
+      "phases": [
+        "waiting",
+        "takeoff-roll",
+        "climb"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234512:1",
+      "phases": [
+        "waiting",
+        "takeoff-roll",
+        "climb"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234513:0",
+      "phases": [
+        "approach",
+        "landing-roll",
+        "waiting"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234512:2",
+      "phases": [
+        "approach",
+        "landing-roll",
+        "waiting"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234512:3",
+      "phases": [
+        "waiting",
+        "takeoff-roll",
+        "climb"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234511:2",
+      "phases": [
+        "approach",
+        "landing-roll",
+        "waiting"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234512:4",
+      "phases": [
+        "approach",
+        "landing-roll",
+        "waiting"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234511:3",
+      "phases": [
+        "waiting",
+        "takeoff-roll",
+        "climb"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234513:1",
+      "phases": [
+        "waiting",
+        "takeoff-roll",
+        "climb"
+      ]
+    },
+    {
+      "id": "air:1:CYVR:234512:5",
+      "phases": [
+        "waiting",
+        "takeoff-roll",
+        "climb"
+      ]
+    }
+  ]
+}

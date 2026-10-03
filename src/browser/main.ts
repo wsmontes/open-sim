@@ -1,4 +1,7 @@
 /// <reference types="vite/client" />
+import {createAviationEngine} from '../presentation/aviation';
+import {readAirportCapture} from '../adapters/reality/airports';
+import cyvrCapture from '../adapters/reality/data/cyvr.json';
 import {createFerryClock} from '../client/ferry-clock';
 import {scheduledFerryFrames} from '../presentation/ferry-schedule';
 import {readFerrySchedule} from '../adapters/reality/bc-ferries';
@@ -380,6 +383,7 @@ const mobilityStream=geography?createMobilityStream((z,x,y)=>(maps as OsmSource)
 const mobility=mobilityStream?.controller??createMobilityController(SEED);
 const maritime=geography?createMaritimeEngine(readMaritimeCapture(vancouverMaritimeCapture),SEED):null;
 maritime?.setScenario(new Date().toISOString());
+const aviation=geography?createAviationEngine(readAirportCapture(cyvrCapture),SEED):null;
 const marineCapture=readMaritimeCapture(vancouverMaritimeCapture),ferrySchedule=readFerrySchedule(bcFerryCapture,marineCapture.routes),ferryClock=createFerryClock(()=>new Date().toISOString());
 mobility.setSignalSites(vancouverSignalSites as readonly TrafficSignalSite[]);
 mobility.setSurface((point,edge)=>{
@@ -718,6 +722,7 @@ const draw = (now: number, seconds: number) => {
  const ferryFrames=geography?scheduledFerryFrames(ferrySchedule,marineCapture.routes,ferryClock.instant()):[];
  maritime?.setReservedCapacity(ferryFrames.length);
  maritime?.advance(motionSeconds(seconds,hand.speed));
+ aviation?.advance(motionSeconds(seconds,hand.speed));
  const motionStart=performance.now();mobility.advance(motionSeconds(seconds,hand.speed));motionMs=performance.now()-motionStart;
  if(geography){
   const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
@@ -734,6 +739,7 @@ const draw = (now: number, seconds: number) => {
   mobility:mobility.frame(),
   signals:mobility.signals(),
   vessels:maritime?[...ferryFrames,...maritime.frame()]:undefined,
+  aircraft:aviation?.frame(),
   pixelRatio:deviceScale(),
   camera,
   viewport: {width, height},
@@ -763,6 +769,7 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  a.terrain?.revision === b.terrain?.revision &&
  a.mobility?.length===b.mobility?.length &&
  a.vessels?.length===b.vessels?.length &&
+ a.aircraft?.length===b.aircraft?.length &&
  a.camera.x === b.camera.x &&
  a.camera.y === b.camera.y &&
  a.camera.zoom === b.camera.zoom &&
@@ -776,7 +783,7 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  a.previewAffordable === b.previewAffordable &&
  a.hover?.x === b.hover?.x &&
  a.hover?.y === b.hover?.y &&
- (a.motion === b.motion || (!b.vessels?.length&&(b.mobility?b.mobility.length===0:b.geography?b.camera.zoom<.2:!drawsStreetLife(b.camera))));
+ (a.motion === b.motion || (!b.vessels?.length&&!b.aircraft?.length&&(b.mobility?b.mobility.length===0:b.geography?b.camera.zoom<.2:!drawsStreetLife(b.camera))));
 const frames = createFrameScheduler({draw});
 invalidateFrame = frames.invalidate;
 if (PERF_DEBUG) {

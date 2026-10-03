@@ -1,3 +1,4 @@
+import {aircraftDrawCommands} from './aircraft-draw';
 import {vesselDrawCommands} from './vessel-draw';
 import {lightContext} from './city-light';
 import {mobilityDrawCommands} from './mobility-draw';
@@ -223,8 +224,10 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
    ctx.restore();
   }
  }
- const volumes=[...vesselDrawCommands(ctx,view),...mobilityDrawCommands(ctx,view),...buildings.map(b=>({depth:b.depth,draw:()=>{drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage,0,b.powered??true);if(b.powered===false&&scale>=7){const p=projectSurface(view,{x:(b.footprint.minX+b.footprint.maxX)/2,y:(b.footprint.minY+b.footprint.maxY)/2});ctx.fillStyle='rgba(242,178,86,.95)';ctx.font=`bold ${Math.max(10,scale*.3)}px system-ui`;ctx.fillText('!',p.x,p.y-scale*.6);}}}))];
+ const aviationCommands=aircraftDrawCommands(ctx,view);
+ const volumes=[...aviationCommands.aircraft.filter(a=>a.grounded),...aviationCommands.shadows,...vesselDrawCommands(ctx,view),...mobilityDrawCommands(ctx,view),...buildings.map(b=>({depth:b.depth,draw:()=>{drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage,0,b.powered??true);if(b.powered===false&&scale>=7){const p=projectSurface(view,{x:(b.footprint.minX+b.footprint.maxX)/2,y:(b.footprint.minY+b.footprint.maxY)/2});ctx.fillStyle='rgba(242,178,86,.95)';ctx.font=`bold ${Math.max(10,scale*.3)}px system-ui`;ctx.fillText('!',p.x,p.y-scale*.6);}}}))];
  volumes.sort((a,b)=>a.depth-b.depth);for(const volume of volumes)volume.draw();
+ for(const plane of aviationCommands.aircraft.filter(a=>!a.grounded).sort((a,b)=>a.depth-b.depth))plane.draw();
  if(camera.zoom<.06){
   ctx.font=`${(camera.zoom<.003?12:11)*(view.pixelRatio??1)}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
   const occupied:Array<{x:number;y:number;width:number}>=[];
