@@ -171,6 +171,34 @@ Definir em arquivos da tarefa responsável e exportar para consumidores; não re
 - [ ] Fazer revisão fresca do conjunto conforme método aprovado, corrigir achados com regressões pertinentes e repetir checks afetados. Commit final: `feat: complete Vancouver data and mobility experience`.
 - [ ] Entregar branch, evidências e limitações verificadas. Publicar somente se houver autorização aplicável a esta entrega; a aprovação deste plano autoriza implementação, não presume contratação ou credenciais externas.
 
+## Extensão solicitada: aviação (tarefas 11–12)
+
+Executar depois da mobilidade terrestre e antes das verificações finais da Tarefa 10. A Tarefa 10 também cobre YVR, uma decolagem e um pouso completos, dia/noite e teto combinado de agentes. Não usar `MobilityKind` de ruas para aeronaves: precisam de altitude e ocupação de pistas, sem roteamento pelas ruas.
+
+### Tarefa 11: Captura verificável de aeroporto, pistas e companhias
+
+**Files:** Create `src/adapters/reality/airports.ts`, `src/adapters/reality/data/cyvr.json`, `tools/vancouver-airport.ts`, `tests/airports.test.ts`; adicionar fontes ao audit da Tarefa 2.
+
+**Interfaces:** `AirportPoint={lat:number;lon:number}`; `AirportRunway={id:string;airportId:string;ends:readonly [AirportPoint,AirportPoint];endNames:readonly [string,string];lengthM:number;closed:boolean}`; `AirportAirline={code:string;name:string;colours:readonly string[];sourceUrl:string;representation:'stylized'}`; `AirportCapture={id:string;iata:string;name:string;position:AirportPoint;runways:readonly AirportRunway[];airlines:readonly AirportAirline[];sources:readonly {dataset:string;url:string;retrievedAt:string;license?:string}[]}`; `readAirportCapture(value:unknown):AirportCapture`.
+
+- [ ] Baixar arquivos oficiais do projeto OurAirports a partir de `https://ourairports.com/data/`, selecionar CYVR e suas pistas, preservar unidades originais e converter pés para metros quando necessário. Conferir extremos/orientação/identificação contra material publicado pelo YVR. Registrar divergências em vez de escolher silenciosamente.
+- [ ] Conferir companhias em `https://www.yvr.ca/en/passengers/flights/airlines-and-destinations`; criar catálogo inicial de jatos Air Canada/WestJet e operadores adicionais somente após validação. Não inferir modelo ou frequência real da companhia listada.
+- [ ] Escrever `CYVR_runways_not_other_airport`, `feet_to_metres`, `invalid_endpoints_rejected`, `closed_runway_not_active`, `physical_runway_keeps_both_end_names`, `airline_source_preserved`; executar `npx vitest run tests/airports.test.ts` e observar RED.
+- [ ] Implementar parser/captura com coordenadas, identificadores e proveniência; registrar fonte comunitária OurAirports e lista oficial YVR separadamente. Pinturas estilizadas são Canvas/code-native, sem baixar logos.
+- [ ] Executar testes, typecheck e comparar captura com fontes/audit. Commit: `feat: add verified YVR airport and runway data`.
+
+### Tarefa 12: Decolagens, pousos e desenho de aeronaves
+
+**Files:** Create `src/presentation/aviation.ts`, `src/surfaces/canvas/aircraft-draw.ts`, `tests/aviation.test.ts`, `tests/aircraft-draw.test.ts`; Modify `src/client/city-client.ts`, `src/surfaces/canvas/canvas-renderer.ts`, `geographic-renderer.ts`, `src/browser/main.ts`.
+
+**Interfaces:** `AircraftPhase='approach'|'landing-roll'|'waiting'|'takeoff-roll'|'climb'`; `AircraftFrame={id:string;airportId:string;airlineCode:string;phase:AircraftPhase;position:AirportPoint;headingDegrees:number;altitudeM:number;progress:number;colours:readonly string[]}`; `createAviationEngine(capture:AirportCapture,seed:number):{advance(seconds:number):void;frame():readonly AircraftFrame[];dispose():void}`; `drawAircraft(ctx:CanvasRenderingContext2D,aircraft:AircraftFrame,projectGround:(point:AirportPoint)=>Point,pixelsPerMetre:number):void`.
+
+- [ ] Escrever `approach_aligned_with_runway`, `touchdown_continuous`, `takeoff_climbs_after_roll`, `runway_opposite_ends_share_reservation`, `crossing_runways_no_conflicting_occupancy`, `pause_freezes_aircraft`, `zoom_does_not_restart_flight`, `no_taxiways_no_terminal_crossing`, `airline_identity_stays_stable`; executar `npx vitest run tests/aviation.test.ts tests/aircraft-draw.test.ts` e observar RED.
+- [ ] Implementar motor separado: limite de 8 aeronaves por aeroporto, passos de 1/30 s e catch-up máximo 0.25 s. Para referência visual simulada, aproximação final de 8 km e descida de 3°, corrida de decolagem em 60% da pista e subida de 5°; não rotular esses valores como procedimentos YVR. Reservar pista física e pistas geométricas conflitantes antes da aproximação final/corrida; no conflito, aguardar geração ou manter espera fora da pista. Não inventar taxiways: iniciar/finalizar operação na área da pista com transição suave fora da câmera quando não houver rede de solo.
+- [ ] Desenhar silhueta de jato, cores por companhia, altitude com deslocamento vertical e sombra no solo; ordenar sombra junto ao chão e aeronave na passagem aérea. Usar projeção local em metros e adaptar detalhe ao zoom, mantendo custo limitado e pausa/velocidade coerentes com ônibus.
+- [ ] Integrar ao `WorldView` com `aircraft?:readonly AircraftFrame[]`, fontes/inspeção e rótulo “Aeroporto e pistas reais · operações simuladas”. Em cenas sem cobertura do aeroporto, não preencher céu com aviões aleatórios.
+- [ ] Executar testes/typecheck e inspeção YVR com pouso e decolagem completos, sombras, orientação de câmera, noite e zoom; repetir desempenho combinado e checks finais da Tarefa 10. Commit: `feat: animate airline takeoffs and landings at YVR`.
+
 ## Autorrevisão do plano
 
 Cobertura: fontes/proveniência 1–2; economia/saves 3; redes e continuidade 4–5; distinção visual/desempenho 6/10; GTFS/variantes/direções 7; contagens e cobertura 8; ônibus simulados/paradas/duplicação 9; painel e validação final 10. Cada tipo consumido tem produtor definido acima; Graph e posições usam espaço de mundo, unidades métricas aparecem separadas. As cinco falhas de Review Focus têm testes nas tarefas indicadas. Disponibilidade de download de contagens e extração de finanças são verificações explícitas que precedem capturas, não pressupostos de dados já disponíveis.

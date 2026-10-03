@@ -62,6 +62,22 @@ Desenhar ônibus em percursos distintos, nas duas direções quando fornecidas, 
 
 GTFS Realtime e chaves de API não são necessários. Integração de posições ao vivo fica fora do escopo atual.
 
+## Aviação: aeroportos reais e operações simuladas
+
+O usuário acrescentou aviões de companhias aéreas decolando e pousando. A referência inicial é Vancouver International Airport (YVR/CYVR), com cobertura regional declarada, sem misturar o aeroporto com os fatos financeiros do município de Vancouver.
+
+OurAirports fornece localização, identificadores e extremos de pistas em arquivos públicos; é fonte comunitária, não autoridade aeronáutica. Conferir as pistas do CYVR contra informações publicadas pelo YVR. A lista oficial de companhias do YVR fornece identidade dos operadores; uma companhia listada não determina aeronave, frequência ou voo atual. Capturas preservam fonte, data e termos por conjunto.
+
+Aeronaves distinguíveis têm asas, fuselagem, cauda, porte e esquema de cores associado à companhia confirmada. Começar com Air Canada, WestJet e outras companhias validadas no diretório oficial. Pinturas são representações estilizadas, sem alegar reprodução exata da frota. Nome/código aparecem na inspeção. Jatos comerciais usam pistas terrestres; operadores exclusivamente de hidroaviões/helicópteros não geram jatos por aparecerem na mesma lista.
+
+O movimento simulado percorre aproximação, alinhamento, descida, toque e desaceleração; decolagem percorre espera, alinhamento, aceleração e subida. Trajetos terminam ou começam nos extremos reais das pistas, com altitude e sombra coerentes. Taxiar só quando houver geometria conectada de taxiways utilizável; ausência de taxiways não autoriza atravessar terminal ou quarteirões. Não exigir gates ou pushback nesta entrega.
+
+Cada pista física, incluindo seus dois sentidos e pistas que a cruzam, tem reserva de ocupação no simulador para impedir operações conflitantes. Escolha de sentido e curvas de aproximação são estimadas, não procedimentos oficiais de navegação. Não afirmar pista ativa, frequência real, modelo operado ou posição ao vivo sem dados específicos. Não integrar rastreamento de voos nesta entrega.
+
+Aviação compartilha o relógio e orçamento de desempenho da mobilidade, mas mantém motor próprio em coordenadas geográficas e altitude. Respeita pausa e aceleração; mudança de zoom não reinicia o voo. Renderizar somente aeroporto/voos no envelope visível com margem, com teto de agentes; decolagem, pouso, redução de detalhe e inspeção devem continuar legíveis. Mostrar “Aeroporto e pistas reais · operações simuladas”.
+
+Aceitação adicional: captura CYVR conferida, companhias associadas a fontes, trajetórias alinhadas às pistas, continuidade no toque/subida, reserva de pistas cruzadas, ausência de taxiway tratada sem percurso fictício, pausa/zoom/câmera e cenas diurna/noturna. Inspecionar produção em YVR com pelo menos uma decolagem e um pouso completos.
+
 ## Relação com trânsito real
 
 As contagens municipais calibram volumes por local, direção, categoria e período onde esses campos existirem. Contagem horária não é velocidade nem congestionamento instantâneo. Associação espacial tem distância máxima documentada e compatibilidade de sentido/classe; ponto sem correspondência fica sem uso e aparece no resumo da importação.
