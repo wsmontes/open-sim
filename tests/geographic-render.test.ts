@@ -5,7 +5,7 @@ import {blank} from './fixtures/world';
 import type {WorldView} from '../src/surfaces/canvas/canvas-renderer';
 import {centerOn} from '../src/presentation/camera';
 import {toCell} from '../src/core/coordinates';
-function recorder(){const fills:string[]=[],paths:Array<Array<[number,number]>>=[];let path:Array<[number,number]>=[];let fill='';const context=new Proxy({},{get:(_t,key)=>key==='createRadialGradient'||key==='createLinearGradient'?()=>({addColorStop(){}}):key==='measureText'?()=>({width:20}):key==='beginPath'?()=>{path=[];paths.push(path);}:key==='moveTo'||key==='lineTo'?(x:number,y:number)=>path.push([x,y]):key==='fill'?()=>fills.push(fill):()=>{},set:(_t,key,value)=>{if(key==='fillStyle')fill=String(value);return true;}}) as CanvasRenderingContext2D;return{context,fills,paths};}
+function recorder(){const fills:string[]=[],paths:Array<Array<[number,number]>>=[];let path:Array<[number,number]>=[];let fill='',stroke='';const strokes:Array<{color:string;path:Array<[number,number]>}>=[];const context=new Proxy({},{get:(_t,key)=>key==='createRadialGradient'||key==='createLinearGradient'?()=>({addColorStop(){}}):key==='measureText'?()=>({width:20}):key==='beginPath'?()=>{path=[];paths.push(path);}:key==='moveTo'||key==='lineTo'?(x:number,y:number)=>path.push([x,y]):key==='fill'?()=>fills.push(fill):key==='stroke'?()=>strokes.push({color:stroke,path:[...path]}):()=>{},set:(_t,key,value)=>{if(key==='fillStyle')fill=String(value);if(key==='strokeStyle')stroke=String(value);return true;}}) as CanvasRenderingContext2D;return{context,fills,paths,strokes};}
 const base=blank('0:0'),state=createGame('test',1,base);
 const view:WorldView={camera:{x:250,y:150,zoom:.25,rotation:0},viewport:{width:500,height:300},state,chunks:new Map(),tool:'explore',hover:null,preview:[],previewAffordable:true,seed:1,motion:0,
  geography:{revision:1,loading:false,error:false,tiles:[{z:14,x:0,y:0,features:[{layer:'buildings',kind:'residential',bridge:false,type:3,geometry:[[{x:2,y:2},{x:6,y:2},{x:6,y:5},{x:2,y:5},{x:2,y:2}]]}]}]}};
@@ -38,4 +38,9 @@ test('a marked player lot remains groundwork before growth rather than a finishe
 
 test('night actually changes the rendered city palette without moving source geometry',()=>{
  const day=recorder(),night=recorder();render(day.context,view);render(night.context,{...view,light:'night'});expect(night.paths).toEqual(day.paths);expect(night.fills).not.toEqual(day.fills);
+});
+
+test('water reflections never replace the shoreline path after clipping',()=>{
+ const rec=recorder();render(rec.context,{...view,geography:{...view.geography!,tiles:[{z:14,x:0,y:0,features:[{layer:'water_polygons',kind:'water',bridge:false,type:3,geometry:[[{x:2,y:2},{x:8,y:2},{x:8,y:8},{x:2,y:8},{x:2,y:2}]]}]}]}});
+ const shoreline=rec.strokes.find(s=>s.color==='#aac3c3');expect(shoreline?.path).toHaveLength(5);expect(shoreline?.path[0]).toEqual(shoreline?.path[4]);
 });

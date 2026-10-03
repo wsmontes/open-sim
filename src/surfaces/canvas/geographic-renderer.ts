@@ -118,7 +118,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   const fill=layer==='ocean'||layer==='water_polygons'?feature.kind==='glacier'?'#d5ded8':PALETTE.water:layer==='street_polygons'?PALETTE.sidewalk:PARKS.has(feature.kind)?feature.kind==='forest'||feature.kind==='wood'?PALETTE.forest:PALETTE.park:URBAN.has(feature.kind)?'#c3bdaa':PALETTE.ground;
   polygon(ctx,view,feature,shift,fill);
   if((layer==='water_polygons'||layer==='ocean')&&scale>=7){ctx.save();path(ctx,feature.geometry.map(r=>projectRing(view,r,shift)));ctx.clip('evenodd');ctx.strokeStyle=view.light==='night'?'rgba(190,217,224,.14)':'rgba(225,239,225,.22)';ctx.lineWidth=1;for(let i=0;i<28;i++){const x=(i*137+Math.sin(view.motion*.2+i)*10)%viewport.width,y=(i*83+29)%viewport.height;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+10+i%4*4,y);ctx.stroke();}ctx.restore();}
-  if(layer==='water_polygons'||layer==='ocean'){ctx.strokeStyle=PALETTE.shore;ctx.lineWidth=Math.min(1.3,scale*.12);ctx.stroke();}
+  if(layer==='water_polygons'||layer==='ocean'){path(ctx,feature.geometry.map(r=>projectRing(view,r,shift)));ctx.strokeStyle=PALETTE.shore;ctx.lineWidth=Math.min(1.3,scale*.12);ctx.stroke();}
   if(PARKS.has(feature.kind)&&scale>=5){
    const b=bounds(feature),sx=Math.max(b.minX,Math.floor(minX-shift)),ex=Math.min(b.maxX,Math.ceil(maxX-shift));
    const sy=Math.max(b.minY,Math.floor(minY)),ey=Math.min(b.maxY,Math.ceil(maxY));
