@@ -234,3 +234,24 @@ expect(findMobilityRoute(lNetwork, 'A', 'C', 'car')).toEqual(['AB', 'BC']);
 ## Revisão e execução
 
 O usuário revisa este plano antes da implementação e escolhe execução nativa ou com subagentes. Recomendação: **nativa**, pois o trabalho depende fortemente dos mesmos contratos de rede, fatos e relógio; implementar em sequência facilita manter esses contratos coerentes. Revisão independente ao final conforme a habilidade de execução aplicável. Este arquivo acompanha o código e marca passos somente quando houver evidência.
+
+
+## Extensão solicitada: navegação marítima
+
+Executar depois do contrato compartilhado de movimento, antes da verificação final. Esta extensão está registrada; nenhuma tarefa abaixo foi concluída.
+
+### Captura de fontes e rede aquática
+
+- [ ] Capturar terminais SeaBus e docas/conexões Aquabus com fonte, data e operador. Inspecionar GTFS para ferries e shapes; complementar apenas com percurso verificado quando ausente.
+- [ ] Capturar Canada Place, berços, calendário vigente de cruzeiros, terminais de carga e marinas. Não reutilizar calendário 2025 como atual. Preservar fronteiras municipais nos fatos.
+- [ ] Definir contrato de embarcações e rede aquática independente de ruas, distinguindo cargueiro, cruzeiro, veleiro, SeaBus e Aquabus; incluir porte, corredor, doca e estado operacional.
+- [ ] Validar trajetos contra terra, canais e restrições de pontes; corredores de navios grandes precisam de verificação específica. Falta de percurso seguro impede gerar o trajeto.
+
+### Motor e desenho marítimo
+
+- [ ] Cobrir continuidade, ausência de cruzamento terrestre, reserva de berço, parada nos terminais, resposta à pausa e estabilidade em mudança de zoom com testes de comportamento.
+- [ ] Implementar aproximação, atracação, espera e partida; reservar berços e escalonar entrada de navios grandes. Veleiros usam passeios explicitamente simulados, passageiros usam conexões reais.
+- [ ] Desenhar silhuetas distintas, velas, conveses, contêineres e cores dos operadores confirmados; adicionar esteira discreta enquanto se movem, orientação e detalhe por zoom.
+- [ ] Aplicar teto de agentes e tempo compartilhado; preservar replays sem gravação de posições por frame.
+- [ ] Exibir fontes/temporada e “Rotas e terminais reais · movimentos simulados”. Calendário previsto não equivale a posição AIS ao vivo.
+- [ ] Verificar no navegador cenas de Canada Place, Burrard Inlet e False Creek; registrar captura e desempenho com trânsito terrestre e aviões ativos.

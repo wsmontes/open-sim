@@ -131,3 +131,20 @@ Painel compacto de Vancouver mostra população/ano, finanças/moeda/exercício,
 ## Próxima etapa
 
 Após revisão deste documento, elaborar o plano de implementação com tarefas, arquivos, contratos de teste e checkpoints visuais. O plano deve resolver a disponibilidade concreta dos arquivos de contagem e GTFS antes de prometer sua ingestão automática e apresentar o método de execução para escolha do usuário.
+
+
+## Navegação marítima solicitada: porto, cruzeiros e transporte de passageiros
+
+Incluir cargueiros, navios de cruzeiro que atracam no Canada Place, veleiros, SeaBus e Aquabus. Todos precisam de silhuetas, dimensões e velocidades distinguíveis; não representar uma balsa como ônibus sobre a água. Movimento respeita pausa e relógio compartilhado, com estado transitório separado do histórico de comandos.
+
+SeaBus liga Waterfront a Lonsdale Quay; referência oficial: https://www.translink.ca/schedules-and-maps/seabus . Capturar terminais e percurso confirmado, verificando a presença no GTFS TransLink em vez de presumir que o parser atual já cobre ferries. Aquabus opera em False Creek; capturar docas e conexões publicadas pelo operador https://theaquabus.com/ . Não misturar sua identidade com False Creek Ferries. Paradas, espera, embarque e saída compõem o ciclo visual; horários locais podem ser simulados, com rótulo explícito.
+
+Cruzeiros usam Canada Place e calendário publicado pelo Port of Vancouver, preservando temporada/ano, navio, companhia e berço quando disponível. Calendário é programação prevista, não posição atual. Conferir a temporada vigente antes de capturar: o resultado oficial encontrado em https://www.portvancouver.com/media/documents/cruise-schedule refere-se a 2025 e não deve ser promovido a 2026. Navios chegam pelo corredor aquático, reduzem velocidade, atracam, permanecem e partem; o modelo evita sobrepor navios no mesmo berço.
+
+Cargueiros usam terminais e áreas de fundeio verificados no porto, com categorias como contêineres e graneleiros; não atracam no terminal de cruzeiro. Fonte de contexto e restrições: https://www.portvancouver.com/media/documents/port-information-guide-0 . Trajetos gerados sem rota oficial são estimativas visuais, não carta náutica ou procedimento de navegação. Veleiros partem de marinas confirmadas e têm passeios simulados em água navegável.
+
+Construir rede aquática própria com costa, ilhas, pontes, docas e canais. Validar continuidade do trajeto, obstáculos e acesso ao berço; água no mapa sozinha não demonstra profundidade adequada para um cargueiro. Onde faltam dados de calado/altura sob ponte, restringir navios grandes a corredores previamente verificados. Evitar atalhos através de Stanley Park e da península de Downtown. Priorizar rotas de passageiros verificadas e áreas portuárias conhecidas.
+
+AIS ao vivo é uma extensão opcional: não foi validado um feed público com CORS, cobertura, licença e acesso sem segredo para este site. Base estática capturada e navegação simulada atendem à primeira entrega sem backend. Fonte e data de captura aparecem na inspeção; não usar “ao vivo” para trajetos ou chegadas simuladas.
+
+Aceitação: SeaBus reconhecível entre os terminais reais; Aquabus servindo docas confirmadas de False Creek; cruzeiro atracando e saindo do Canada Place; cargueiro junto a terminal apropriado; veleiros distinguíveis; nenhum trajeto cruzando terra ou berço ocupado; pausa/velocidade coerentes, detalhe por zoom e limite combinado de agentes terrestres, aéreos e marítimos.
