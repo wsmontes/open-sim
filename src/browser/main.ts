@@ -43,6 +43,7 @@ import {createCityClient} from '../client/city-client';
 import {actionLabel} from '../client/versions';
 import type {CityFacts, FactsPort} from '../client/facts';
 import {PLACES} from '../client/facts';
+import {CITY_IDENTITIES,SOURCE_CATALOG,selectSources} from '../client/source-selection';
 import {systemTime} from '../adapters/time/system';
 import type {MapSource} from '../session/ports';
 import type {SaveStore} from '../session/ports';
@@ -113,6 +114,8 @@ const cityDirectory = createWikidataDirectory();
 const municipalDirectory = createIbgeDirectory();
 const mergeMunicipal = async (found: CityFacts | null): Promise<CityFacts | null> => {
  if (!found) return null;
+ const identity = CITY_IDENTITIES[found.id];
+ if (identity && !selectSources(identity,SOURCE_CATALOG).some(source=>source.id==='ibge')) return found;
  const municipal = found.municipalCode ? await municipalDirectory.byMunicipalCode(found.municipalCode) : null;
  if (!municipal) return found;
  return {

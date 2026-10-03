@@ -69,7 +69,7 @@ Fontes em modo direto só são ativadas após teste de CORS/termos na origem do 
 
 Tipos puros de terreno ficam em presentation/terrain-model.ts; contratos geográficos capturados de navegação em core/maritime-data.ts. Códigos oficiais e coordenadas não podem ser confundidos com Point do mapa; conversão fica em presentation. Alturas de solo, deck, nível de água e aeronave são metros no mesmo datum validado para cada cena.
 
-## Tarefa 1: Baseline e checkpoint reproduzível
+## Task 1: Baseline e checkpoint reproduzível
 
 **Files:** Create `docs/quality/2026-10-02/vancouver-data/baseline.md`; usar `tools/browser-perf.mjs` existente sem automação alternativa de browser.
 
@@ -82,7 +82,7 @@ Tipos puros de terreno ficam em presentation/terrain-model.ts; contratos geográ
 - [ ] Commit: `docs: record data terrain mobility baseline`.
 
 
-## Tarefa 2: Seleção de fontes por cobertura e identidade
+## Task 2: Seleção de fontes por cobertura e identidade
 
 **Files:** Create `src/core/municipal-facts.ts` (CityIdentity), `src/core/source-capabilities.ts`, `src/client/source-selection.ts`, `tests/source-selection.test.ts`; Modify `src/browser/main.ts`.
 
@@ -100,7 +100,7 @@ expect(selectSources(victoria, catalog).map(s=>s.id)).not.toContain('translink')
 - [ ] Commit: `feat: select data providers by city coverage`.
 
 
-## Tarefa 3: Fatos com proveniência por medida
+## Task 3: Fatos com proveniência por medida
 
 **Files:** Modify `src/core/municipal-facts.ts`, `src/adapters/reality/city.ts`, `wikidata.ts`, `src/client/facts.ts`, `src/browser/main.ts`, `src/client/city-client.ts`; Create `src/client/facts-controller.ts`; Test `tests/wikidata.test.ts`, `tests/facts-controller.test.ts`.
 
@@ -112,7 +112,7 @@ expect(selectSources(victoria, catalog).map(s=>s.id)).not.toContain('translink')
 - [ ] Executar testes alvo e `npm run typecheck`; confirmar PASS e ausência de erros de tipos.
 - [ ] Commit: `feat: preserve municipal facts provenance`.
 
-## Tarefa 4: Demografia oficial canadense e estimativas BC
+## Task 4: Demografia oficial canadense e estimativas BC
 
 **Files:** Create `src/adapters/reality/statcan.ts`, `bc-stats.ts`, `tools/canada-demography.ts`, `src/adapters/reality/data/vancouver-demography.json`, `tests/canada-demography.test.ts`, `docs/quality/2026-10-02/vancouver-data/source-audit.md`; Modify `src/client/facts-controller.ts`, `src/browser/main.ts`, `index.html`, `src/surfaces/text/render.ts`.
 
@@ -130,7 +130,7 @@ expect(readStatCanCapture(officialVancouverCapture,vancouver).find(o=>o.key==='p
 - [ ] Commit: `feat: add official Canadian municipal demographics`.
 
 
-## Tarefa 5: Captura oficial do orçamento Vancouver
+## Task 5: Captura oficial do orçamento Vancouver
 
 **Files:** Create `tools/vancouver-data.ts`, `src/adapters/reality/vancouver.ts`, `src/adapters/reality/data/vancouver-finance-2026.json`, `tests/vancouver-data.test.ts`; Modify `docs/quality/2026-10-02/vancouver-data/source-audit.md`, `src/browser/main.ts`; Create `src/adapters/reality/bc-finance.ts`, `tests/bc-finance.test.ts` para relatório histórico LGDE.
 
@@ -142,7 +142,7 @@ expect(readStatCanCapture(officialVancouverCapture,vancouver).find(o=>o.key==='p
 - [ ] Implementar validação de valores finitos/não negativos, CAD, ano 2026, status e proveniência. Anexar orçamento apenas a Q24639; não misturar planilha de Metro Vancouver.
 - [ ] Executar testes e typecheck; revisar JSON contra audit. Commit: `feat: add verified Vancouver municipal budget`.
 
-## Tarefa 6: Calibração econômica explícita e replay
+## Task 6: Calibração econômica explícita e replay
 
 **Files:** Create `src/core/municipal-calibration.ts`, `tests/municipal-calibration.test.ts`; Modify `src/core/model.ts`, `commands.ts`, `simulation.ts`, `snapshot.ts`, `src/world/city-profile.ts`, `src/profiles/explorer/model.ts`, `tests/snapshot.test.ts`, `tests/economy.test.ts` e consumidores de versão encontrados por `rg 'RULES_VERSION|rulesVersion' src tests`.
 
@@ -153,7 +153,7 @@ expect(readStatCanCapture(officialVancouverCapture,vancouver).find(o=>o.key==='p
 - [ ] Conferir RULES_VERSION do commit-base: se permanece 4, introduzir regras 5 e aceitar 1/3/4/5; se mudou, escolher próxima versão sem colisão e registrar migração equivalente. Migrar preservando comportamento sem calibração. Preservar fixture e ledger conhecidos de regras 4. Rejeitar versões desconhecidas; registrar ação pelos mesmos comandos de política. Ajustar quote/replay e perfil para não descartar ação nova.
 - [ ] Executar testes alvo, testes de comandos/perfis afetados e typecheck. Commit: `feat: add explicit municipal economy calibration`.
 
-## Tarefa 7: Captura e normalização de elevação real
+## Task 7: Captura e normalização de elevação real
 
 **Files:** Create `tools/terrain-capture.ts`, `src/presentation/terrain-model.ts`, `src/adapters/map/terrain-source.ts`, `src/adapters/map/data/vancouver-terrain/manifest.json`, `tests/terrain-source.test.ts`, `docs/quality/2026-10-02/vancouver-data/terrain-audit.md`.
 
@@ -171,7 +171,7 @@ expect(decodeTerrainTile(tileWithMissingSample,manifest).valid[missingIndex]).to
 - [ ] Commit: `feat: capture verified Vancouver terrain elevation`.
 
 
-## Tarefa 8: Superfície, projeção elevada e seleção por relevo
+## Task 8: Superfície, projeção elevada e seleção por relevo
 
 **Files:** Create `src/presentation/terrain-surface.ts`, `terrain-projection.ts`, `tests/terrain-surface.test.ts`, `tests/terrain-projection.test.ts`; Modify `src/presentation/camera.ts` por helpers compatíveis, sem mudar project plano global silenciosamente.
 
@@ -189,7 +189,7 @@ expect(projectElevated(p,0,camera,metresPerCell)).toEqual(project(p,camera));
 - [ ] Commit: `feat: project and pick elevated terrain`.
 
 
-## Tarefa 9: Relevo visível e apoio de ruas/edifícios
+## Task 9: Relevo visível e apoio de ruas/edifícios
 
 **Files:** Create `src/surfaces/canvas/terrain-renderer.ts`, `src/client/terrain-controller.ts`, `tests/terrain-controller.test.ts`, `tests/terrain-render.test.ts`; Modify `src/surfaces/canvas/geographic-renderer.ts`, `canvas-renderer.ts`, `architecture-renderer.ts`, `src/client/city-client.ts`, `src/browser/main.ts`.
 
@@ -207,7 +207,7 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 - [ ] Commit: `feat: render real terrain under streets and buildings`.
 
 
-## Tarefa 10: Rede de mobilidade sobre geometria real
+## Task 10: Rede de mobilidade sobre geometria real
 
 **Files:** Create `src/presentation/mobility-model.ts`, `mobility-network.ts`, `tests/mobility-network.test.ts`; Modify `src/presentation/geographic-map.ts` e decoder `src/adapters/osm/decode.ts`, provider `src/adapters/osm/provider.ts` e stream `src/browser/geographic-stream.ts` para reter atributos existentes de sentido, nível e identidade.
 
@@ -218,7 +218,7 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 - [ ] Construir nós/arestas em espaço de mundo, deduplicar tiles por identidade/geometria e nível e usar índice espacial para conexões. Para nivel/sentido ausente, marcar derivação; não conectar pontes a ruas superficiais por mera proximidade. Não baixar dados por frame. Retenção de dados de sentido/nível/ID modifica src/adapters/osm/decode.ts; stream apenas coordena tiles, sem acrescentar decoder em browser.
 - [ ] Executar testes e geografia existente; typecheck. Commit: `feat: build connected mobility networks`.
 
-## Tarefa 11: Movimento contínuo, filas e cruzamentos
+## Task 11: Movimento contínuo, filas e cruzamentos
 
 **Files:** Create `src/presentation/mobility-engine.ts`, `tests/mobility-engine.test.ts`; Modify `src/presentation/clock.ts`, `src/client/city-client.ts` somente para ligar relógio/revisão.
 
@@ -229,7 +229,7 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 - [ ] Implementar movimento métrico e controle por faixa/interseção, manter geração limitada e semente estável. Altura é resolvida pela superfície/deck da Tarefa 9, não reinicia percurso. Movimento derivado do relógio atual da partida; câmera/zoom não altera identidade. Destinos sem rota não geram agente. Ativar caminhões em classe rápida/industrial e demanda estimada por hora de cenário.
 - [ ] Executar testes alvo e regressões de pausa/relógio. Commit: `feat: simulate continuous street movement`.
 
-## Tarefa 12: Desenho reconhecível nos dois mapas
+## Task 12: Desenho reconhecível nos dois mapas
 
 **Files:** Create `src/surfaces/canvas/mobility-draw.ts`, `tests/mobility-draw.test.ts`; Modify `src/surfaces/canvas/street-renderer.ts`, `geographic-renderer.ts`, `canvas-renderer.ts`, `src/presentation/street-detail.ts`, `src/client/city-client.ts`.
 
@@ -240,7 +240,7 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 - [ ] Substituir agentes antigos na passagem ativa; conservar helpers de árvores/cruzamentos. Desenhar ônibus com janelas, caminhão com cabine/carga e pessoas com passos; projetar offsets de faixas/calçadas usando projectElevated e altura do frame; mesmo helper para sombras/apoio. Remover carros decorativos antigos nas passagens substituídas para não duplicar tráfego. Reusar buffers; limite inicial 480 agentes terrestres visíveis, reduzido para 120 no zoom distante, margem de rede de uma tela.
 - [ ] Inspecionar Downtown com curva, travessia, pausa, câmera girada e zoom; salvar checkpoint. Executar regressões geográficas e typecheck. Commit: `feat: render visible urban mobility`.
 
-## Tarefa 13: Ônibus circulando nas rotas reais TransLink
+## Task 13: Ônibus circulando nas rotas reais TransLink
 
 **Files:** Create `src/core/transit-data.ts` e mover tipos puros com reexport compatível; Modify `src/adapters/reality/gtfs.ts`; Create `tools/vancouver-transit.ts`, `src/presentation/transit-routes.ts`, `src/adapters/reality/data/vancouver-transit.json`, `tests/transit-routes.test.ts`; Modify `tests/gtfs-source.test.ts`.
 
@@ -252,7 +252,7 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 - [ ] Ampliar importador existente e mapear cada percurso conectado e suas paradas. Preservar calendários/horários sem usá-los para sincronizar a animação. Manter capabilities do importador; cálculo de percursos é consumidor separado.
 - [ ] Executar testes e inspecionar geometria de uma linha em ambas as direções; conferir sequência de paradas contra o feed. Commit: `feat: load real Vancouver bus routes`.
 
-## Tarefa 14: Movimento simulado dos ônibus nas rotas reais
+## Task 14: Movimento simulado dos ônibus nas rotas reais
 
 **Files:** Create `src/presentation/transit-motion.ts`, `tests/transit-motion.test.ts`; Modify `src/presentation/mobility-engine.ts`, `mobility-model.ts`.
 
@@ -263,7 +263,7 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 - [ ] Integrar percursos e paradas ao motor da Tarefa 11, compartilhando filas e cruzamentos com carros. Frequência/posição são simuladas, sem consultar API de posições ou relógio real de serviço. Reconciliar IDs em vez de reiniciar frota a cada frame.
 - [ ] Executar testes e visualizar ônibus percorrendo uma curva e fazendo parada; registrar evidência de pausa e aceleração. Commit: `feat: simulate buses along real TransLink routes`.
 
-## Tarefa 15: Calibração por contagens municipais
+## Task 15: Calibração por contagens municipais
 
 **Files:** Create `src/core/traffic-data.ts` (TrafficCount), `tools/vancouver-counts.ts`, `src/adapters/reality/vancouver-counts.ts`, `src/presentation/mobility-demand.ts`, `tests/vancouver-counts.test.ts`, `tests/mobility-demand.test.ts`; usar `src/adapters/reality/observation-file.ts` e `src/world/observations.ts` para capturas registradas.
 
@@ -274,7 +274,7 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 - [ ] Executar testes alvo e observar RED. Implementar conversão de intervalo, matching máximo 25 m com sentido até 30° quando declarado; incompatibilidade não afeta via. Fonte agregada ajusta volume total sem inventar classe. Fora de cobertura, demanda continua estimada.
 - [ ] Executar testes; guardar relatório de correspondências/rejeições e distinguir escala amostral de contagem oficial. Commit: `feat: calibrate mobility with traffic observations`.
 
-## Tarefa 16: Viaturas, sinais visíveis e transporte escolar
+## Task 16: Viaturas, sinais visíveis e transporte escolar
 
 Executar após Tarefas 10–12 e antes dos checks finais da Tarefa 22. Tarefa 22 inclui cenas com vermelho/fila, travessia e ônibus escolar chegando a escola, além de viatura em patrulha.
 
@@ -290,7 +290,7 @@ Executar após Tarefas 10–12 e antes dos checks finais da Tarefa 22. Tarefa 22
 - [ ] Ligar rótulos/inspeção de escola e fonte; preservar freio/fila em vez de sobrepor ônibus a veículos. Comparar visualmente viatura, ônibus urbano e escolar em zoom próximo, pausa e noite.
 - [ ] Executar testes/typecheck, atualizar checkpoints e desempenho combinado da Tarefa 22. Commit: `feat: add police patrols traffic signals and school buses`.
 
-## Tarefa 17: Capturas marítimas e rede aquática verificada
+## Task 17: Capturas marítimas e rede aquática verificada
 
 **Files:** Create `src/core/maritime-data.ts`, `src/adapters/reality/maritime.ts`, `tools/vancouver-maritime.ts`, `src/presentation/maritime-network.ts`, `tests/maritime-data.test.ts`, `tests/maritime-network.test.ts`; capturas verificadas em `src/adapters/reality/data/vancouver-maritime.json`.
 
@@ -308,7 +308,7 @@ expect(buildMaritimeNetwork(captureWithLandCrossing,land).routes.has('invalid-ro
 - [ ] Commit: `feat: capture verified maritime routes and terminals`.
 
 
-## Tarefa 18: Embarcações reconhecíveis, atracação e movimento
+## Task 18: Embarcações reconhecíveis, atracação e movimento
 
 **Files:** Create `src/presentation/maritime-engine.ts`, `src/surfaces/canvas/vessel-draw.ts`, `tests/maritime-engine.test.ts`, `tests/vessel-draw.test.ts`; Modify `src/client/city-client.ts`, `src/surfaces/canvas/canvas-renderer.ts`, `geographic-renderer.ts`.
 
@@ -326,7 +326,7 @@ expect(frames.filter(v=>v.phase==='berthed'&&v.berthId==='berth-1')).toHaveLengt
 - [ ] Commit: `feat: animate port vessels and passenger ferries`.
 
 
-## Tarefa 19: BC Ferries em rotas e horários oficiais
+## Task 19: BC Ferries em rotas e horários oficiais
 
 **Files:** Create `src/adapters/reality/bc-ferries.ts`, `tools/bc-ferries-capture.ts`, `src/presentation/ferry-schedule.ts`, `src/client/ferry-clock.ts`, `tests/bc-ferries.test.ts`, `tests/ferry-schedule.test.ts`, `tests/ferry-clock.test.ts`; Modify `src/core/maritime-data.ts`, `src/browser/main.ts`; captura válida em `src/adapters/reality/data/bc-ferries.json`.
 
@@ -344,7 +344,7 @@ expect(scheduledFerryFrames(expiredSchedule,routes,'2027-01-01T12:00:00Z')).toEq
 - [ ] Commit: `feat: schedule BC Ferries on verified routes`.
 
 
-## Tarefa 20: Captura verificável de aeroporto, pistas e companhias
+## Task 20: Captura verificável de aeroporto, pistas e companhias
 
 **Files:** Create `src/core/airport-data.ts` (AirportPoint, AirportRunway, AirportAirline, AirportCapture), `src/adapters/reality/airports.ts`, `src/adapters/reality/data/cyvr.json`, `tools/vancouver-airport.ts`, `tests/airports.test.ts`; adicionar fontes ao audit da Tarefa 5.
 
@@ -356,7 +356,7 @@ expect(scheduledFerryFrames(expiredSchedule,routes,'2027-01-01T12:00:00Z')).toEq
 - [ ] Implementar parser/captura com coordenadas, identificadores e proveniência; registrar fonte comunitária OurAirports e lista oficial YVR separadamente. Pinturas estilizadas são Canvas/code-native, sem baixar logos.
 - [ ] Executar testes, typecheck e comparar captura com fontes/audit. Commit: `feat: add verified YVR airport and runway data`.
 
-## Tarefa 21: Decolagens, pousos e desenho de aeronaves
+## Task 21: Decolagens, pousos e desenho de aeronaves
 
 **Files:** Create `src/presentation/aviation.ts`, `src/surfaces/canvas/aircraft-draw.ts`, `tests/aviation.test.ts`, `tests/aircraft-draw.test.ts`; Modify `src/client/city-client.ts`, `src/surfaces/canvas/canvas-renderer.ts`, `geographic-renderer.ts`, `src/browser/main.ts`.
 
@@ -368,7 +368,7 @@ expect(scheduledFerryFrames(expiredSchedule,routes,'2027-01-01T12:00:00Z')).toEq
 - [ ] Integrar ao `WorldView` com `aircraft?:readonly AircraftFrame[]`, fontes/inspeção e rótulo “Aeroporto e pistas reais · operações simuladas”. Em cenas sem cobertura do aeroporto, não preencher céu com aviões aleatórios.
 - [ ] Executar testes/typecheck e inspeção YVR com pouso e decolagem completos, sombras, orientação de câmera, noite e zoom; repetir desempenho combinado e checks finais da Tarefa 22. Commit: `feat: animate airline takeoffs and landings at YVR`.
 
-## Tarefa 22: Painel, integração, desempenho e revisão final
+## Task 22: Painel, integração, desempenho e revisão final
 
 **Files:** Modify `src/browser/main.ts`, `index.html`, `src/browser/style.css`, `src/client/city-client.ts`, `src/surfaces/text/render.ts`; Create `src/client/mobility-controller.ts`, `tests/mobility-controller.test.ts`, `docs/quality/2026-10-02/vancouver-data/README.md`; Extend `tools/browser-perf.mjs` somente para registrar métricas necessárias.
 
