@@ -88,16 +88,16 @@ Tipos puros de terreno ficam em presentation/terrain-model.ts; contratos geográ
 
 **Interfaces:** `CityIdentity={qid:string;name:string;countryCode:string;provinceCode?:string;officialCode?:string;dguid?:string;geography:'municipality'|'metro'|'province';boundaryVersion?:string}` em core/municipal-facts.ts. `SourceCapability={id:string;scope:'global'|'country'|'province'|'operator';countries?:readonly string[];provinces?:readonly string[];territoryIds?:readonly string[];datasets:readonly string[];access:'bundled'|'direct'|'unverified'|'requires-backend'}`; `selectSources(city:CityIdentity,catalog:readonly SourceCapability[]):readonly SourceCapability[]`. Provider de operador requer whitelist de território/serviço verificada, não aproximação por país.
 
-- [ ] Escrever testes `vancouver_layers`, `victoria_excludes_translink_aquabus`, `toronto_excludes_bc`, `lisbon_excludes_statcan`, `same_name_wrong_country_rejected`, `unverified_not_enabled_direct`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
+- [x] Escrever testes `vancouver_layers`, `victoria_excludes_translink_aquabus`, `toronto_excludes_bc`, `lisbon_excludes_statcan`, `same_name_wrong_country_rejected`, `unverified_not_enabled_direct`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
 
 ```ts
 expect(selectSources(victoria, catalog).map(s=>s.id)).not.toContain('translink');
 ```
 
-- [ ] Executar `npx vitest run tests/source-selection.test.ts`; confirmar RED por comportamento/contrato ausente.
-- [ ] Implementar catálogo declarativo a partir de source-coverage.md; incluir OSM/Wikidata/elevação global, StatCan para CA, BC Stats/LGDE/DriveBC para CA-BC, providers locais apenas por cobertura publicada. Browser injeta URLs/adaptadores, client seleciona capacidades. Limites CSD servem a seleção geográfica quando capturados; até lá posição solicitada preserva âncora e qualidade aproximada, sem alegar polígono oficial.
-- [ ] Executar `npx vitest run tests/source-selection.test.ts` e `npm run typecheck`; confirmar PASS. Conferir seleção para Vancouver, Victoria, Toronto e Lisboa sem chamadas de rede nos testes.
-- [ ] Commit: `feat: select data providers by city coverage`.
+- [x] Executar `npx vitest run tests/source-selection.test.ts`; confirmar RED por comportamento/contrato ausente.
+- [x] Implementar catálogo declarativo a partir de source-coverage.md; incluir OSM/Wikidata/elevação global, StatCan para CA, BC Stats/LGDE/DriveBC para CA-BC, providers locais apenas por cobertura publicada. Browser injeta URLs/adaptadores, client seleciona capacidades. Limites CSD servem a seleção geográfica quando capturados; até lá posição solicitada preserva âncora e qualidade aproximada, sem alegar polígono oficial.
+- [x] Executar `npx vitest run tests/source-selection.test.ts` e `npm run typecheck`; confirmar PASS. Conferir seleção para Vancouver, Victoria, Toronto e Lisboa sem chamadas de rede nos testes.
+- [x] Commit: `feat: select data providers by city coverage`.
 
 
 ## Task 3: Fatos com proveniência por medida
@@ -106,11 +106,11 @@ expect(selectSources(victoria, catalog).map(s=>s.id)).not.toContain('translink')
 
 **Interfaces:** Produz os tipos municipais acima e `createFactsController(port:FactsPort,onFacts:(facts:CityFacts|null)=>void):{named(name:string):Promise<void>;near(lat:number,lon:number):Promise<void>}`. Consulta guarda um identificador monotônico para descartar respostas antigas; cache é separado por consulta/território.
 
-- [ ] Escrever testes `newest_non_deprecated_population`, `vancouver_country_identity`, `finance_does_not_replace_census_credit`, `late_vancouver_does_not_replace_lisbon`; neste último, resolver Lisboa antes da consulta pendente de Vancouver e afirmar que o callback final continua Lisboa.
-- [ ] Executar `npx vitest run tests/wikidata.test.ts tests/facts-controller.test.ts`; confirmar falhas relacionadas ao contrato/comportamento novo.
-- [ ] Centralizar tipos puros em core/municipal-facts.ts, reexportar para manter compatibilidade, filtrar ranking Wikidata depreciado e produzir medidas com ano/método. Preservar consumidores antigos enquanto a UI migra; cadastro Q24639 não deve virar uma população atual fixa.
-- [ ] Executar testes alvo e `npm run typecheck`; confirmar PASS e ausência de erros de tipos.
-- [ ] Commit: `feat: preserve municipal facts provenance`.
+- [x] Escrever testes `newest_non_deprecated_population`, `vancouver_country_identity`, `finance_does_not_replace_census_credit`, `late_vancouver_does_not_replace_lisbon`; neste último, resolver Lisboa antes da consulta pendente de Vancouver e afirmar que o callback final continua Lisboa.
+- [x] Executar `npx vitest run tests/wikidata.test.ts tests/facts-controller.test.ts`; confirmar falhas relacionadas ao contrato/comportamento novo.
+- [x] Centralizar tipos puros em core/municipal-facts.ts, reexportar para manter compatibilidade, filtrar ranking Wikidata depreciado e produzir medidas com ano/método. Preservar consumidores antigos enquanto a UI migra; cadastro Q24639 não deve virar uma população atual fixa.
+- [x] Executar testes alvo e `npm run typecheck`; confirmar PASS e ausência de erros de tipos.
+- [x] Commit: `feat: preserve municipal facts provenance`.
 
 ## Task 4: Demografia oficial canadense e estimativas BC
 
@@ -118,16 +118,16 @@ expect(selectSources(victoria, catalog).map(s=>s.id)).not.toContain('translink')
 
 **Interfaces:** `DemographicObservation={key:'population'|'age-share'|'households'|'household-size'|'median-income'|'employment-rate'|'commute-share';category?:string;value:number;unit:'people'|'households'|'persons-per-household'|'CAD'|'percent';period:string;geographyId:string;kind:'census'|'estimate'|'projection';quality:readonly string[];source:MeasureSource}`. `readStatCanCapture(value:unknown,city:CityIdentity):readonly DemographicObservation[]`; `readBcStatsCapture(value:unknown,city:CityIdentity):readonly DemographicObservation[]`; `mergeDemographics(facts:CityFacts,observations:readonly DemographicObservation[]):CityFacts` conserva censo e estimativa separados; medida principal é censo oficial confirmado, estimativa em linha própria, nunca projeção automática.
 
-- [ ] Escrever testes `vancouver_csd_5915022`, `census_662248_2021`, `metro_total_not_city`, `income_reference_year_preserved`, `suppressed_is_missing`, `estimate_does_not_relabel_census`, `age_categories_not_double_counted`, `percent_denominator_preserved`, `missing_bc_keeps_statcan`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
+- [x] Escrever testes `vancouver_csd_5915022`, `census_662248_2021`, `metro_total_not_city`, `income_reference_year_preserved`, `suppressed_is_missing`, `estimate_does_not_relabel_census`, `age_categories_not_double_counted`, `percent_denominator_preserved`, `missing_bc_keeps_statcan`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
 
 ```ts
 expect(readStatCanCapture(officialVancouverCapture,vancouver).find(o=>o.key==='population')).toMatchObject({value:662248,period:'2021',geographyId:'2021A00055915022',kind:'census'});
 ```
 
-- [ ] Executar `npx vitest run tests/canada-demography.test.ts tests/demography.test.ts tests/facts-controller.test.ts`; confirmar RED por comportamento/contrato ausente.
-- [ ] Capturar Census Profile para DGUID 2021A00055915022 e CSV municipal BC Stats usando links oficiais do catálogo. Auditar população, idade, domicílios, renda, emprego e deslocamentos com seus próprios períodos/denominadores/notas. Captura ausente por variável permanece ausente. Juntar por CSD/DGUID/QID verificados. Preservar população principal, fonte por medida e leitura offline; expor dados adicionais no painel Lugares com ano/tipo, sem encher o HUD. Moradores do bairro permanece apenas indicador de gestão. Commute calibra perfil agregado opcional, nunca posição/trânsito atual.
-- [ ] Executar `npx vitest run tests/canada-demography.test.ts tests/demography.test.ts tests/facts-controller.test.ts` e `npm run typecheck`; confirmar PASS. Conferir captura municipal e metadados originais em source-audit.md; sem captura oficial validada não publicar valores sintéticos.
-- [ ] Commit: `feat: add official Canadian municipal demographics`.
+- [x] Executar `npx vitest run tests/canada-demography.test.ts tests/demography.test.ts tests/facts-controller.test.ts`; confirmar RED por comportamento/contrato ausente.
+- [x] Capturar Census Profile para DGUID 2021A00055915022 e CSV municipal BC Stats usando links oficiais do catálogo. Auditar população, idade, domicílios, renda, emprego e deslocamentos com seus próprios períodos/denominadores/notas. Captura ausente por variável permanece ausente. Juntar por CSD/DGUID/QID verificados. Preservar população principal, fonte por medida e leitura offline; expor dados adicionais no painel Lugares com ano/tipo, sem encher o HUD. Moradores do bairro permanece apenas indicador de gestão. Commute calibra perfil agregado opcional, nunca posição/trânsito atual.
+- [x] Executar `npx vitest run tests/canada-demography.test.ts tests/demography.test.ts tests/facts-controller.test.ts` e `npm run typecheck`; confirmar PASS. Conferir captura municipal e metadados originais em source-audit.md; sem captura oficial validada não publicar valores sintéticos.
+- [x] Commit: `feat: add official Canadian municipal demographics`.
 
 
 ## Task 5: Captura oficial do orçamento Vancouver

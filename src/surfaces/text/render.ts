@@ -1,3 +1,4 @@
+import {demographicLines} from '../../presentation/demographics';
 import type {Cell,CellCoord} from '../../core/model';
 import {roadClassOf} from '../../core/model';
 import {chunkId} from '../../core/coordinates';
@@ -90,6 +91,7 @@ export function factsLines(view: ClientView): string[] {
  if (facts.population !== undefined) lines.push(`  População: ${facts.population.toLocaleString('pt-BR')}${facts.populationYear ? ` · ${facts.populationYear}` : ''}`);
  if (facts.areaKm2 !== undefined) lines.push(`  Área: ${facts.areaKm2.toLocaleString('pt-BR')} km²`);
  if (facts.densityPerKm2 !== undefined) lines.push(`  Densidade: ${Math.round(facts.densityPerKm2).toLocaleString('pt-BR')} hab/km²`);
+ lines.push(...demographicLines(facts).map(line=>`  ${line}`));
  lines.push(`  Fonte: ${facts.source.dataset} · ${facts.source.license} · ${facts.source.url}`);
  if (view.scale) lines.push(`  ${view.scale}`);
  return lines;

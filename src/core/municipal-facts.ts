@@ -13,7 +13,7 @@ export type CityIdentity={
 export type MeasureSource={dataset:string;url:string;license?:string;territoryId:string;retrievedAt:string;observedYear?:number;method:'reported'|'derived'|'simulated';reference?:string};
 export type NumericMeasure={value:number;unit:'people'|'km2'|'CAD';source:MeasureSource};
 export type MunicipalFinance={territoryId:string;fiscalYear:number;operating:NumericMeasure;capital?:NumericMeasure;status:'approved-budget'};
-export type DemographicObservation={key:'population'|'age-share'|'households'|'household-size'|'median-income'|'employment-rate'|'commute-share';category?:string;value:number;unit:'people'|'households'|'persons-per-household'|'CAD'|'percent';period:string;geographyId:string;kind:'census'|'estimate'|'projection';quality:readonly string[];source:MeasureSource};
+export type DemographicObservation={key:'population'|'age-share'|'households'|'household-size'|'median-income'|'employment-rate'|'commute-share';category?:string;value:number;unit:'people'|'households'|'persons-per-household'|'CAD'|'percent';period:string;geographyId:string;kind:'census'|'estimate'|'projection';quality:readonly string[];denominator?:{value:number;description:string;period:string;geographyId:string};source:MeasureSource};
 export type CityFactsSource = {dataset: string; url: string; license: string};
 export type CityFacts = {
  id: string;

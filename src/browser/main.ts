@@ -8,6 +8,10 @@ import type {OsmSource} from '../adapters/osm/provider';
 import {createIndexedDbTileCache} from '../adapters/osm/tile-cache';
 import {createIndexedDbChunkCache} from '../adapters/osm/chunk-cache';
 import {createWikidataDirectory} from '../adapters/reality/wikidata';
+import demographicCapture from '../adapters/reality/data/vancouver-demography.json';
+import {readStatCanCapture,mergeDemographics} from '../adapters/reality/statcan';
+import {readBcStatsCapture} from '../adapters/reality/bc-stats';
+import {demographicLines} from '../presentation/demographics';
 import {createIbgeDirectory} from '../adapters/reality/ibge';
 import {createIndexedDbStore} from '../adapters/storage/indexed-db';
 import {createIndexedDbWorldStorage} from '../adapters/storage/world-indexed-db';
@@ -116,6 +120,7 @@ const mergeMunicipal = async (found: CityFacts | null): Promise<CityFacts | null
  if (!found) return null;
  const identity = CITY_IDENTITIES[found.id];
  if(identity)found={...found,identity,countryCode:identity.countryCode};
+ if(identity?.qid==='Q24639')found=mergeDemographics(found,[...readStatCanCapture(demographicCapture.statcan,identity),...readBcStatsCapture(demographicCapture.bcStats,identity)]);
  if (identity && !selectSources(identity,SOURCE_CATALOG).some(source=>source.id==='ibge')) return found;
  const municipal = found.municipalCode ? await municipalDirectory.byMunicipalCode(found.municipalCode) : null;
  if (!municipal) return found;
@@ -159,6 +164,8 @@ const rowOf = (element: HTMLElement | null, value: string | null) => {
 // real city is and whether the scale sentence may be shown, the DOM only writes it where the player reads it.
 const renderFacts = (cityFacts: CityFacts | null, scale: string) => {
  if (cityFactsEl) cityFactsEl.hidden = !cityFacts;
+ const demographicsEl=document.getElementById('city-demographics');
+ if(demographicsEl){demographicsEl.replaceChildren();for(const line of cityFacts?demographicLines(cityFacts):[]){const p=document.createElement('p');p.textContent=line;demographicsEl.append(p);}}
  rowOf(
   cityPopulationEl,
   cityFacts?.population !== undefined
