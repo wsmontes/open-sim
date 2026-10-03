@@ -84,3 +84,6 @@ APIs WDS fornecem séries e metadados publicados em dias úteis: https://www.sta
 Limites municipais oficiais também são candidatos para substituir a identificação aproximada por proximidade da câmera: https://geo.statcan.gc.ca/geo_wa/rest/services/2025/lcsd000a25s_e/MapServer . Conferir compatibilidade temporal das fronteiras com o censo antes de cruzar dados.
 
 Esta seção registra fontes e critérios; não declara integração StatCan já implementada.
+
+
+CYVR follow-up: current OurAirports airports/runways CSV captures are normalized into cyvr.json; official YVR confirms airline names and runway identifiers. Scene heights derive from existing CGVD2013 DTM rather than assuming OurAirports MSL datum equivalence; see airport-source-audit.md. BC Ferries official native seasonal PDF now available as reviewed static capture; current-conditions HTML still has no localhost-Origin CORS permission.

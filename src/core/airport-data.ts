@@ -1,0 +1,4 @@
+export type AirportPoint={lat:number;lon:number};
+export type AirportRunway={id:string;airportId:string;ends:readonly [AirportPoint,AirportPoint];endNames:readonly [string,string];lengthM:number;closed:boolean;elevationM?:number;verticalDatum?:string;elevationMethod?:'reported'|'derived';reported?:{lengthFt:number;endElevationsFt:readonly [number|null,number|null];headingsTrue:readonly [number|null,number|null];displacedThresholdsFt:readonly [number|null,number|null]};terrainSourceIds?:readonly string[]};
+export type AirportAirline={code:string;name:string;colours:readonly string[];sourceUrl:string;representation:'stylized'};
+export type AirportCapture={id:string;iata:string;name:string;position:AirportPoint;runways:readonly AirportRunway[];airlines:readonly AirportAirline[];sources:readonly {dataset:string;url:string;retrievedAt:string;license?:string}[]};

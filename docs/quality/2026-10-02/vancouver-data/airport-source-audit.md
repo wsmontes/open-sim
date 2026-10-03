@@ -1,0 +1,13 @@
+# CYVR capture — 2026-10-03
+
+OurAirports current public-domain airports.csv and runways.csv, linked by https://ourairports.com/data/, were downloaded and selected by airport_identCYVR / airport_ref1941. Four physical records:08L/26R,08R/26L,13/31 and closedXX/26A. Endpoints and both end names remain paired, never represented as independently reservable directions. Original lengths, endpoint elevations, true headings and displaced thresholds in feet remain in reported metadata. Conversion is0.3048m/ft. No other airport or proposed future runway is enabled.
+
+YVR's official Airside Traffic Directives (February2025, page37) https://www.yvr.ca/-/media/yvr/documents/airside-vehicles/2025-airside-traffic-directives_new-v2.pdf confirms the three current runway pairs and east-west versus crosswind layout. Source drawing was inspected, not redistributed. Airline names/codesAC Air Canada andWS WestJet were checked at https://www.yvr.ca/en/passengers/flights/airlines-and-destinations. Paint is stylized code-native geometry; no logos, model allocation, airline frequencies or actual flights are asserted.
+
+OurAirports' unspecified MSL elevations are **not** re-labelled CGVD2013. Scene support samples33 locations along each runway in the already captured NRCan MRDEM30m CGVD2013 terrain. A constant maximum support prevents an aircraft intersecting the ground during a roll: north3.545679m, south2.921002m, crosswind2.302436m, closed2.682236m. These derived values are rendering supports, not surveyed runway elevations. No missing sample silently becomes sea level.
+
+Independent official CGVD2013 comparator: Canada Gazette2024 published zoning proposal, scheduleParts1/4 https://gazette.gc.ca/rp-pr/p1/2024/2024-04-27/html/reg5-eng.html explicitly states CGVD2013 and strip-end elevations: north2.7/2.6m, south2.6/2.1m, crosswind2.4/2.1m; airport reference point2.1m. These are zoning-surface descriptions, not a new live runway survey. Differences with the derived supports are retained; no fixed MSL offset is invented. Geometric OurAirports true headings~100/280 and142/322 are consistent with the official orientation; magnetic runway designations08/26 are not true bearings.
+
+Airport is on Sea Island in Richmond: metropolitan Vancouver context, not the municipality's population/finance territory. No aviation operation is simulated outside this captured airport, no taxiway network or real flight feed is claimed. Source provenance in cyvr.json and selected original/hash in airport-source-hashes.json. OurAirports anonymous browser access was already verified in browser-source-feasibility.md.
+
+Validation:5 airport tests, typecheck and full check/build before commit.
