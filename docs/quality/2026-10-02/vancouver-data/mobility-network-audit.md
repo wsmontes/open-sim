@@ -9,3 +9,11 @@ Intersections are split only within the same level. A bridge/tunnel endpoint can
 Motorways/trunks and simulated highways exclude walkers; footways and paths exclude motor traffic. Runways, taxiways and rail lines are outside the ground road network. Pedestrian use of ordinary streets is inferred, pending sidewalk details. Lower zoom geometry is generalized and must not be described as full street-level observed traffic. Actual flow and signal phases are separate inputs in subsequent tasks.
 
 Provider and browser stream already forward complete GeographicTile objects without projection or attribute reconstruction; retaining attributes in the adapter decoder therefore requires no duplicate transformation in those layers. Tunnels stay available to routing but retain the previous exclusion from frozen surface-road cell normalization and from visible surface-street drawing.
+
+## Movement model
+
+Ground movement is simulated in fixed 1/30 s steps. A call advances at most 0.25 s, and a paused presentation clock supplies zero time. Vehicles retain their positions when the same network revision or the same external trip is supplied again. Removed routes exit the presentation simulation; they do not alter durable economic state.
+
+Nominal lengths are 4.5 m (car/police), 12 m (bus), 10 m (truck/school bus) and 0.5 m (pedestrian). Following separation is half each participant's length plus 2 m. Vehicle and sidewalk queues are separate; newly supplied overlapping vehicles defer entry. Direction is taken from the local path tangent, including intermediate vertices. The terrain/deck height resolver is injected and changing it does not restart a trip.
+
+Inferred junction control uses an explicitly **simulated** 50 s cycle: east-west green 20 s, yellow 3 s, clearance 2 s, then north-south with the same intervals. New entries stop during yellow; an entry admitted on green reserves its clearance. This is not a feed of real signal phases. Nominal speeds and hour-based rush slowdown are simulation assumptions, not real traffic observations. Population and traffic counts will calibrate demand separately. Generation is seeded, permission-checked and capped at 480 ground agents; a failed route does not spawn an agent. Lane-indexed queue lookups and cached eligible-edge pools bound repeated work.

@@ -213,10 +213,10 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 
 **Interfaces:** Definir `MobilityNode={id:string;point:Point;level:number}`; `MobilityEdge={id:string;from:string;to:string;path:readonly Point[];lengthM:number;roadClass:string;allowed:readonly MobilityKind[];method:'reported'|'derived'}`; `MobilityNetwork={revision:string;nodes:ReadonlyMap<string,MobilityNode>;edges:ReadonlyMap<string,MobilityEdge>;outgoing:ReadonlyMap<string,readonly string[]>}`. `buildGeographicNetwork(features:readonly GeographicFeature[],revision:string):MobilityNetwork`; `buildCellNetwork(cells:readonly {coord:CellCoord;cell:Cell}[],revision:string):MobilityNetwork`; `findMobilityRoute(network:MobilityNetwork,from:string,to:string,kind:MobilityKind):readonly string[]|null`.
 
-- [ ] Escrever `connected_L_route`, `oneway_reverse_refused`, `bridge_not_surface_intersection`, `duplicate_tile_edge_once`, `cell_highway_excludes_walkers`, `disconnected_destination_returns_null`. Caminho A→B→C deve conter duas arestas conectadas; segmentos geométricos cruzados em níveis distintos não criam nó comum.
-- [ ] Executar `npx vitest run tests/mobility-network.test.ts`; confirmar RED.
-- [ ] Construir nós/arestas em espaço de mundo, deduplicar tiles por identidade/geometria e nível e usar índice espacial para conexões. Para nivel/sentido ausente, marcar derivação; não conectar pontes a ruas superficiais por mera proximidade. Não baixar dados por frame. Retenção de dados de sentido/nível/ID modifica src/adapters/osm/decode.ts; stream apenas coordena tiles, sem acrescentar decoder em browser.
-- [ ] Executar testes e geografia existente; typecheck. Commit: `feat: build connected mobility networks`.
+- [x] Escrever `connected_L_route`, `oneway_reverse_refused`, `bridge_not_surface_intersection`, `duplicate_tile_edge_once`, `cell_highway_excludes_walkers`, `disconnected_destination_returns_null`. Caminho A→B→C deve conter duas arestas conectadas; segmentos geométricos cruzados em níveis distintos não criam nó comum.
+- [x] Executar `npx vitest run tests/mobility-network.test.ts`; confirmar RED.
+- [x] Construir nós/arestas em espaço de mundo, deduplicar tiles por identidade/geometria e nível e usar índice espacial para conexões. Para nivel/sentido ausente, marcar derivação; não conectar pontes a ruas superficiais por mera proximidade. Não baixar dados por frame. Retenção de dados de sentido/nível/ID modifica src/adapters/osm/decode.ts; stream apenas coordena tiles, sem acrescentar decoder em browser.
+- [x] Executar testes e geografia existente; typecheck. Commit: `feat: build connected mobility networks`.
 
 ## Task 11: Movimento contínuo, filas e cruzamentos
 
