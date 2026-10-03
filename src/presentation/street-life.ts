@@ -69,8 +69,12 @@ export function lifeAt(cell: CellLife, motion: number): StreetLife | null {
   const offset = ((hash >>> 19) % 100) / 100;
   return {kind: 'cyclist', heavy: false, along: (offset + phase * 1.6) % 1, lane, cross, colour: CYCLIST_COLOURS[(hash >>> 22) % CYCLIST_COLOURS.length]!};
  }
- if (cell.social && roll < cars + traffic.walkers) {
-  // People walk, so the same clock carries them less than half as far, and the lane offset puts them at the kerb.
+ if (cell.social && traffic.walkers > 0 && (roll < cars + traffic.walkers || (hash >>> 26) % 3 === 0)) {
+  // People walk where there is somewhere to be, and a shop or a park on the corner is somewhere to be even when the
+  // road itself is a quiet lane. A third of those cells — picked by the cell's own address, so it is the same third on
+  // every client — carries a walker whatever the roll says: a shopping street that empties on an unlucky frame reads
+  // as an abandoned one. People walk, so the same clock carries them less than half as far, and the lane offset puts
+  // them at the kerb.
   const offset = ((hash >>> 12) % 100) / 100;
   return {kind: 'walker', heavy: false, along: (offset + phase * 0.45) % 1, lane, cross, colour: SHIRT_COLOURS[(hash >>> 20) % SHIRT_COLOURS.length]!};
  }

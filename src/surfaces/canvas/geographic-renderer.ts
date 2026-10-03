@@ -1,7 +1,7 @@
 import {lightContext} from './city-light';
 import {isPowered} from '../../core/simulation';
-import {drawStreetDetails} from './street-renderer';
-import {drawBuilding} from './architecture-renderer';
+import {drawStreetDetails,drawPaving} from './street-renderer';
+import {drawBuilding,drawGhost} from './architecture-renderer';
 import {geoOrthographic,geoPath,geoGraticule10} from 'd3-geo';
 import type {GeoPermissibleObjects} from 'd3-geo';
 import worldLand from './world-land.json';
@@ -17,6 +17,9 @@ const land=worldLand as unknown as GeoPermissibleObjects;
 const graticule=geoGraticule10();
 const PARKS=new Set(['park','garden','grass','forest','wood','meadow','scrub','heath','farmland','orchard','vineyard','allotments','village_green','recreation_ground','nature_reserve','golf_course','cemetery']);
 const URBAN=new Set(['residential','commercial','industrial','retail','construction']);
+// The tools that place a volume on the lot: a road is a surface, a zone is a building, and only the second one can be
+// previewed as a building.
+const ZONE_TOOLS=new Set<string>(['residential','commercial','industrial','power','park']);
 const PALETTE={ground:'#b6bd96',park:'#91ad79',forest:'#759267',water:'#648d9e',shore:'#aac3c3',pavement:'#656d6b',sidewalk:'#cec6b3'};
 function path(ctx:CanvasRenderingContext2D,rings:readonly Point[][],offsetX=0,offsetY=0){
  ctx.beginPath();for(const ring of rings){if(!ring.length)continue;ctx.moveTo(ring[0].x+offsetX,ring[0].y+offsetY);for(let i=1;i<ring.length;i++)ctx.lineTo(ring[i].x+offsetX,ring[i].y+offsetY);ctx.closePath();}
@@ -117,7 +120,17 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   if(feature.layer!==layer||feature.type!==3)continue;
   const fill=layer==='ocean'||layer==='water_polygons'?feature.kind==='glacier'?'#d5ded8':PALETTE.water:layer==='street_polygons'?PALETTE.sidewalk:PARKS.has(feature.kind)?feature.kind==='forest'||feature.kind==='wood'?PALETTE.forest:PALETTE.park:URBAN.has(feature.kind)?'#c3bdaa':PALETTE.ground;
   polygon(ctx,view,feature,shift,fill);
+  if(layer==='street_polygons')drawPaving(ctx,view,feature,shift);
   if((layer==='water_polygons'||layer==='ocean')&&scale>=7){ctx.save();path(ctx,feature.geometry.map(r=>projectRing(view,r,shift)));ctx.clip('evenodd');ctx.strokeStyle=view.light==='night'?'rgba(190,217,224,.14)':'rgba(225,239,225,.22)';ctx.lineWidth=1;for(let i=0;i<28;i++){const x=(i*137+Math.sin(view.motion*.2+i)*10)%viewport.width,y=(i*83+29)%viewport.height;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+10+i%4*4,y);ctx.stroke();}ctx.restore();}
+  else if((layer==='water_polygons'||layer==='ocean')&&scale>=4){
+   // Too far for the reflection streaks to read, but not so far that the bay should stand still: three glints drift
+   // with the same clock, clipped to the polygon the map gave, so the water moves at every zoom at which it is seen.
+   ctx.save();path(ctx,feature.geometry.map(r=>projectRing(view,r,shift)));ctx.clip('evenodd');
+   ctx.strokeStyle=view.light==='night'?'rgba(150,186,199,.14)':'rgba(224,240,232,.3)';ctx.lineWidth=Math.max(1,scale*.3);
+   const drift=Math.sin(view.motion*.25)*scale*3;
+   for(let i=0;i<3;i++){const y=(0.22+i*0.27)*viewport.height+drift*(1+i*.2);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(viewport.width*.45,y);ctx.stroke();}
+   ctx.restore();
+  }
   if(layer==='water_polygons'||layer==='ocean'){path(ctx,feature.geometry.map(r=>projectRing(view,r,shift)));ctx.strokeStyle=PALETTE.shore;ctx.lineWidth=Math.min(1.3,scale*.12);ctx.stroke();}
   if(PARKS.has(feature.kind)&&scale>=5){
    const b=bounds(feature),sx=Math.max(b.minX,Math.floor(minX-shift)),ex=Math.min(b.maxX,Math.ceil(maxX-shift));
@@ -161,6 +174,16 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   }
   ctx.textAlign='start';
  }
- if(view.tool!=='explore')for(const cell of view.preview){rectCell(ctx,view,cell,view.previewAffordable?'rgba(100,178,107,.4)':'rgba(199,86,70,.4)');ctx.strokeStyle=view.previewAffordable?'#f5e4a2':'#f3b1a0';ctx.lineWidth=1.5;ctx.stroke();}
+ if(view.tool!=='explore'){
+  // A box preview of a whole district is a tint, not a forest of volumes: the ghost is worth its cost on the strokes a
+  // player actually places, and the tint already says what is selected.
+  const ghosts=ZONE_TOOLS.has(view.tool)&&view.preview.length<=96;
+  for(const cell of view.preview){
+   rectCell(ctx,view,cell,view.previewAffordable?'rgba(100,178,107,.4)':'rgba(199,86,70,.4)');ctx.strokeStyle=view.previewAffordable?'#f5e4a2':'#f3b1a0';ctx.lineWidth=1.5;ctx.stroke();
+   if(!ghosts)continue;
+   const r=view.tool==='industrial'?.42:.34;
+   drawGhost(ctx,view,{rings:[[{x:cell.x-r+.5,y:cell.y-r+.5},{x:cell.x+r+.5,y:cell.y-r+.5},{x:cell.x+r+.5,y:cell.y+r+.5},{x:cell.x-r+.5,y:cell.y+r+.5},{x:cell.x-r+.5,y:cell.y-r+.5}]],minX:cell.x-r,maxX:cell.x+r,minY:cell.y-r,maxY:cell.y+r,area:r*r*4,kind:view.tool,seed:(cell.x^Math.imul(cell.y,19349663))>>>0},view.previewAffordable);
+  }
+ }
  if(view.hover&&camera.zoom>=.035){rectCell(ctx,view,view.hover,'rgba(255,244,191,.15)');ctx.strokeStyle='#f5e4a2';ctx.lineWidth=1;ctx.stroke();}
 }

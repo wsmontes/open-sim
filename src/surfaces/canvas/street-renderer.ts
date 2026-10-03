@@ -5,6 +5,37 @@ import type {GeographicFeature,GeographicTile} from '../../presentation/geograph
 import {nearestWorldX} from '../../presentation/geographic-map';
 import {assembledFootprints,pointInside} from '../../presentation/city-art';
 const cache=new WeakMap<readonly GeographicTile[],StreetJunction[]>();
+const pavingBounds=new WeakMap<GeographicFeature,{minX:number;minY:number;maxX:number;maxY:number}>();
+// A square is a place to walk, not a wide road with a different tint. The joints are drawn inside the polygon the map
+// gave and capped in both directions, so a plaza the size of a district costs the same as a plaza the size of a lot.
+export function drawPaving(ctx:CanvasRenderingContext2D,view:WorldView,feature:GeographicFeature,shift:number):number{
+ const scale=TILE_W*view.camera.zoom;
+ if(scale<8)return 0;
+ let b=pavingBounds.get(feature);
+ if(!b){
+  b={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity};
+  for(const ring of feature.geometry)for(const p of ring){if(p.x<b.minX)b.minX=p.x;if(p.x>b.maxX)b.maxX=p.x;if(p.y<b.minY)b.minY=p.y;if(p.y>b.maxY)b.maxY=p.y;}
+  pavingBounds.set(feature,b);
+ }
+ if(b.maxX-b.minX<2||b.maxY-b.minY<2)return 0;
+ const step=.6,first=(v:number)=>Math.ceil(v/step)*step;
+ ctx.save();
+ ctx.beginPath();
+ for(const ring of feature.geometry){if(!ring.length)continue;const a=project({x:ring[0].x+shift-.5,y:ring[0].y-.5},view.camera);ctx.moveTo(a.x,a.y);for(let i=1;i<ring.length;i++){const p=project({x:ring[i].x+shift-.5,y:ring[i].y-.5},view.camera);ctx.lineTo(p.x,p.y);}ctx.closePath();}
+ ctx.clip('evenodd');
+ ctx.strokeStyle='rgba(122,116,101,.42)';ctx.lineWidth=Math.max(.6,scale*.018);
+ let drawn=0;
+ for(let x=first(b.minX);x<=b.maxX&&drawn<24;x+=step){
+  const a=project({x:x+shift-.5,y:b.minY-.5},view.camera),c=project({x:x+shift-.5,y:b.maxY-.5},view.camera);
+  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(c.x,c.y);ctx.stroke();drawn++;
+ }
+ for(let y=first(b.minY);y<=b.maxY&&drawn<40;y+=step){
+  const a=project({x:b.minX+shift-.5,y:y-.5},view.camera),c=project({x:b.maxX+shift-.5,y:y-.5},view.camera);
+  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(c.x,c.y);ctx.stroke();drawn++;
+ }
+ ctx.restore();
+ return drawn;
+}
 const worldPoint=(p:Point,shift=0)=>({x:p.x+shift-.5,y:p.y-.5});
 export function drawStreetDetails(ctx:CanvasRenderingContext2D,view:WorldView,roads:readonly {feature:GeographicFeature;shift:number}[],centreX:number){
  const scale=TILE_W*view.camera.zoom;if(scale<7)return;
@@ -35,9 +66,30 @@ export function drawStreetDetails(ctx:CanvasRenderingContext2D,view:WorldView,ro
    const p={x:(a.x+b.x)/2-(b.y-a.y)/length*.72,y:(a.y+b.y)/2+(b.x-a.x)/length*.72};
    const screen=project(worldPoint(p,shift),view.camera);if(!inView(screen)||footprints.some(f=>p.x>=f.minX&&p.x<=f.maxX&&p.y>=f.minY&&p.y<=f.maxY&&pointInside(p,f.rings)))continue;
    if(trees++>=70)break planting;
+   // A tree in a street stands in a pit, not on the road: the dark square is what makes it planted rather than parked.
+   ctx.fillStyle='#5c5b4b';ctx.fillRect(screen.x-scale*.09,screen.y-scale*.045,scale*.18,scale*.09);
    ctx.fillStyle='rgba(32,54,40,.2)';ctx.beginPath();ctx.ellipse(screen.x+scale*.12,screen.y,scale*.18,scale*.08,0,0,Math.PI*2);ctx.fill();
    ctx.fillStyle='#665b43';ctx.fillRect(screen.x-.5,screen.y-scale*.25,1,scale*.3);
    ctx.fillStyle=seed%2?'#67825c':'#829761';ctx.beginPath();ctx.ellipse(screen.x,screen.y-scale*.3,scale*.19,scale*.25,0,0,Math.PI*2);ctx.fill();
+  }
+ }
+ // At night the street is lit by lamps rather than by the buildings beside it. They follow the roadside rhythm the
+ // trees do, keep clear of building footprints, and stop at a fixed count so a long avenue cannot light the whole
+ // frame — the same bargain every other detail on this street makes.
+ if(view.light==='night'){
+  let lamps=0;
+  lighting:for(const {feature,shift} of roads){
+   if(feature.bridge||/^(motorway|trunk|path|footway|steps)/.test(feature.kind))continue;
+   for(const ring of feature.geometry)for(let i=1;i<ring.length;i++){
+    const a=ring[i-1],b=ring[i],length=Math.hypot(b.x-a.x,b.y-a.y);if(length<8)continue;
+    const seed=(Math.imul(Math.round(a.x*4),40503)^Math.round(a.y*4))>>>0;if(seed%5)continue;
+    const p={x:(a.x+b.x)/2-(b.y-a.y)/length*.78,y:(a.y+b.y)/2+(b.x-a.x)/length*.78};
+    const screen=project(worldPoint(p,shift),view.camera);if(!inView(screen)||footprints.some(f=>p.x>=f.minX&&p.x<=f.maxX&&p.y>=f.minY&&p.y<=f.maxY&&pointInside(p,f.rings)))continue;
+    if(lamps++>=56)break lighting;
+    ctx.fillStyle='rgba(255,214,140,.1)';ctx.beginPath();ctx.ellipse(screen.x,screen.y,scale*.85,scale*.42,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(74,74,69,.9)';ctx.fillRect(screen.x-.6,screen.y-scale*.44,Math.max(1,scale*.035),scale*.44);
+    ctx.fillStyle='rgba(255,216,140,.95)';ctx.beginPath();ctx.arc(screen.x,screen.y-scale*.47,Math.max(1,scale*.05),0,Math.PI*2);ctx.fill();
+   }
   }
  }
  const features=roads.map(({feature,shift})=>shift?{...feature,geometry:feature.geometry.map(r=>r.map(p=>({x:p.x+shift,y:p.y})))}:feature);

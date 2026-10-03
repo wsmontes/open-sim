@@ -57,6 +57,15 @@ test('an empty lane stays empty, and a busy street is the one that carries traff
  expect(traffic(2,false,0).walkers).toBe(0);
 });
 
+test('a street with a destination keeps people on it even where nothing is built yet',()=>{
+ // A quiet lane beside a shop: the corners the roll would have left empty still carry someone, on every client.
+ const beside=traffic(0,true,0),nothing=traffic(0,false,0);
+ expect(nothing.walkers).toBe(0);
+ expect(beside.walkers).toBeGreaterThan(0);
+ const here=traffic(0,true,0,400),there=traffic(0,true,0,400);
+ expect(here).toEqual(there);
+});
+
 test('the street keeps its bearings whatever the clock says',()=>{
  // The clock is a free running real number: a paused game, a clock that jumped, a long session. Wherever along the
  // road a car lands, it has to land *on* the road.

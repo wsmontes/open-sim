@@ -21,3 +21,17 @@ test('unbuilt player zones remain construction sites rather than finished buildi
  expect(architectureOf(f(1,1),'residential',0,'neutral').archetype).toBe('construction');
  expect(architectureOf(f(1,1),'residential',2,'neutral').archetype).not.toBe('construction');
 });
+test('a row is several front doors sharing walls while a detached house stays one unit',()=>{
+ const row=architectureOf(f(6,3),undefined,undefined,'neutral'),detached=architectureOf(f(3,3),undefined,undefined,'neutral');
+ expect(row.archetype).toBe('rowhouse');expect(row.units).toBeGreaterThan(1);
+ expect(detached.units).toBe(1);
+ expect(architectureOf(f(6,3),undefined,undefined,'neutral')).toEqual(row);
+});
+test('shops open a frontage, older blocks carry a cornice, factories a saw-toothed roof, apartments a tank',()=>{
+ expect(architectureOf(f(25,4),'commercial',2,'neutral').storefront).toBe(true);
+ expect(architectureOf(f(30,4),'commercial',5,'neutral').cornice).toBe(true);
+ expect(architectureOf(f(140,7),'industrial',2,'neutral').sawtooth).toBe(true);
+ expect(architectureOf(f(20,7),undefined,undefined,'neutral').rooftop).toBe(true);
+ // A glass tower is a curtain wall, not a shop frontage: its ground floor is drawn by the tower itself.
+ expect(architectureOf(f(45,6),'commercial',10,'vancouver').storefront).toBe(false);
+});
