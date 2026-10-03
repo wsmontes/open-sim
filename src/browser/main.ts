@@ -208,6 +208,12 @@ const element = <T extends HTMLElement>(selector: string): T => {
 };
 const canvas = element<HTMLCanvasElement>('#game');
 const hudRoot = element<HTMLElement>('#hud');
+let cityLight:'day'|'night'='day';
+try{if(localStorage.getItem('open-sim.visual-light')==='night')cityLight='night';}catch{}
+const lightButton=hudRoot.querySelector<HTMLButtonElement>('#hud-light');
+const updateLight=()=>{if(lightButton){lightButton.textContent=cityLight==='day'?'Noite':'Dia';lightButton.setAttribute('aria-label',cityLight==='day'?'Ativar modo noturno':'Ativar modo diurno');lightButton.setAttribute('aria-pressed',String(cityLight==='night'));}hudRoot.classList.toggle('night-city',cityLight==='night');};
+updateLight();
+lightButton?.addEventListener('click',()=>{cityLight=cityLight==='day'?'night':'day';updateLight();try{localStorage.setItem('open-sim.visual-light',cityLight);}catch{}invalidateFrame();});
 const ctx = canvas.getContext('2d');
 if (!ctx) throw new Error('Canvas 2D indisponível neste navegador.');
 const costEl = hudRoot.querySelector<HTMLElement>('#cost-preview');
@@ -486,6 +492,7 @@ const updateHud = () => {
  const visual=geography?.scene();
  const mapMessage=geography?(visual?.error?'Parte do mapa não carregou. Tente novamente.':visual?.loading?'Carregando mapa…':''):view.map.message;
  if (costEl) costEl.textContent = view.preview.message;
+ const help=hudRoot.querySelector<HTMLElement>('#map-help');if(help)help.textContent=view.tool==='explore'?'Arraste para explorar · Roda para zoom · Q / E para girar':view.tool==='demolish'?'Demolir: arraste sobre os lotes · Confira o custo antes de soltar':`${({road:'Rua',avenue:'Avenida',highway:'Estrada',residential:'Moradia',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'} as Record<string,string>)[view.tool]}: arraste para marcar · Solte para construir`;
  hud.update({
   stats: view.stats,
   tool: view.tool,
@@ -637,6 +644,7 @@ const draw = (now: number, seconds: number) => {
  cardCamera = {x: camera.x, y: camera.y, zoom: camera.zoom};
  if (hand.speed !== 0) motion += seconds * hand.speed;
  const view: WorldView = {
+  light:cityLight,
   geography: geography?.scene(),
   pixelRatio:deviceScale(),
   camera,
@@ -662,6 +670,7 @@ const draw = (now: number, seconds: number) => {
 let lastView: WorldView | null = null;
 const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  !!a &&
+ a.light === b.light &&
  a.geography?.revision === b.geography?.revision &&
  a.camera.x === b.camera.x &&
  a.camera.y === b.camera.y &&

@@ -28,3 +28,14 @@ test('simulation growth of imported cells preserves the real footprint',()=>{
  expect(after.paths).toEqual(before.paths);
  expect(after.fills).toEqual(before.fills);
 });
+
+test('a marked player lot remains groundwork before growth rather than a finished house',async()=>{
+ const {drawBuilding}=await import('../src/surfaces/canvas/architecture-renderer');
+ const footprint={rings:[[{x:2,y:2},{x:3,y:2},{x:3,y:3},{x:2,y:3},{x:2,y:2}]],minX:2,maxX:3,minY:2,maxY:3,area:1,kind:'residential',seed:7};
+ const site=recorder(),occupied=recorder();drawBuilding(site.context,view,footprint,0,'residential',0);drawBuilding(occupied.context,view,footprint,0,'residential',2);
+ expect(site.fills).toEqual(['#b8a48a']);expect(occupied.fills.length).toBeGreaterThan(site.fills.length);
+});
+
+test('night actually changes the rendered city palette without moving source geometry',()=>{
+ const day=recorder(),night=recorder();render(day.context,view);render(night.context,{...view,light:'night'});expect(night.paths).toEqual(day.paths);expect(night.fills).not.toEqual(day.fills);
+});

@@ -91,3 +91,24 @@ export function remainingFootprints(footprint:Footprint,edits:readonly CellCoord
  const feature:GeographicFeature={layer:'buildings',kind:footprint.kind,height:footprint.height,bridge:false,type:3,geometry:result.flatMap(p=>p.map(r=>r.map(([x,y])=>({x,y}))))};
  return buildingFootprints(feature).map(f=>({...f,area:footprint.area,seed:footprint.seed}));
 }
+
+export type CityRegion='neutral'|'vancouver'|'sao-paulo'|'lisbon';
+export function regionOf(focus:{lat:number;lon:number}):CityRegion{
+ for(const [region,lat,lon] of [['vancouver',49.2827,-123.1207],['sao-paulo',-23.5505,-46.6333],['lisbon',38.7223,-9.1393]] as const)
+  if(Math.hypot(focus.lat-lat,(focus.lon-lon)*Math.cos(lat*Math.PI/180))<.5)return region;
+ return 'neutral';
+}
+export function architectureOf(f:Footprint,kind:Building|undefined,stage:number|undefined,region:CityRegion){
+ const ratio=(f.maxX-f.minX)/Math.max(.1,f.maxY-f.minY),seed=f.seed;
+ const usage=kind??(f.kind==='industrial'||(f.area>100&&(ratio>3||ratio<.33))?'industrial':f.kind==='commercial'||f.area>20?'commercial':'residential');
+ const floors=stage??(f.height?Math.max(1,Math.round(f.height/3)):usage==='industrial'?2:region==='lisbon'?f.area<4?1:3+seed%4:f.area<4?1:f.area<12?2+seed%3:f.area<30?4+seed%5:7+seed%13);
+ const archetype=stage===0?'construction':usage==='power'?'plant':usage==='industrial'?'warehouse':usage==='commercial'?(floors>=7?'glass':floors<4?'shop':'masonry'):floors<=2?(f.area<4?'house':'rowhouse'):'apartment';
+ const style=buildingAppearance(usage,floors,seed);
+ const tiled=region==='lisbon'&&floors<8&&usage!=='industrial'||archetype==='house'||archetype==='rowhouse';
+ return{...style,usage,archetype,roofType:tiled?'tile':'flat',
+  roof:tiled?['#a96b4f','#b77b57','#9e644c','#bc805b'][seed%4]:style.roof,
+  light:archetype==='glass'?['#a6c1c2','#a0b9c7','#a6bfb7'][seed%3]:archetype==='masonry'&&region!=='lisbon'?['#d4bca5','#d5ccb8','#c8b6aa'][seed%3]:region==='lisbon'&&usage!=='industrial'?['#e4d2b3','#d7c394','#d6bca8','#d6dcc7'][seed%4]:style.light,
+  dark:archetype==='glass'?['#668c96','#6b859c','#6e9386'][seed%3]:archetype==='masonry'&&region!=='lisbon'?['#9e846e','#9e9580','#9b8178'][seed%3]:region==='lisbon'&&usage!=='industrial'?['#b79e81','#aa966e','#af8e7a','#98a48e'][seed%4]:style.dark,
+  balconies:archetype==='apartment'||region==='sao-paulo'&&archetype==='masonry',
+  canopy:archetype==='shop',glass:archetype==='glass',floors};
+}

@@ -725,3 +725,14 @@ test('?record=1: the recorder captures the player session and it replays to the 
  expect(report.failure).toBeNull();
  expect(report.semanticHash).toBe(liveHash);
 });
+
+test('night preference repaints a paused city and persists independently from its save',async()=>{
+ localStorage.removeItem('open-sim.visual-light');const h=await boot();flushFrames(2);
+ const canvas=el<HTMLCanvasElement>(h.doc,'#game'),ctx=recorded(canvas),before=ctx.calls.length;
+ el<HTMLButtonElement>(h.doc,'#hud-light').click();flushFrames(2);
+ expect(h.client.view().speed).toBe(0);expect(ctx.calls.length).toBeGreaterThan(before);
+ expect(localStorage.getItem('open-sim.visual-light')).toBe('night');
+ expect(el(h.doc,'#hud-light').getAttribute('aria-pressed')).toBe('true');
+ expect(el(h.doc,'#hud').classList.contains('night-city')).toBe(true);
+ localStorage.removeItem('open-sim.visual-light');
+});

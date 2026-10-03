@@ -25,6 +25,7 @@ export function cardText(cell: CellCoord, reading: CellReading): CardText {
  const rows: (readonly [string, string])[] = [];
  if (reading.residents) rows.push(['Moradores', reading.residents.toLocaleString('pt-BR')]);
  if (reading.jobs) rows.push(['Empregos', reading.jobs.toLocaleString('pt-BR')]);
+ if(reading.origin==='player'&&reading.building&&reading.building!=='park'&&reading.building!=='power'&&reading.powered!==undefined)rows.push(['Energia',reading.powered?'Conectado à usina':'Sem energia — conecte à usina por ruas']);
  rows.push(['Valor da terra', reading.landValue.toLocaleString('pt-BR')]);
  rows.push(['Quadra', `${cell.x}, ${cell.y}`]);
  const source = reading.origin === 'imported'

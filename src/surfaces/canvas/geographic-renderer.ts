@@ -1,3 +1,7 @@
+import {lightContext} from './city-light';
+import {isPowered} from '../../core/simulation';
+import {drawStreetDetails} from './street-renderer';
+import {drawBuilding} from './architecture-renderer';
 import {geoOrthographic,geoPath,geoGraticule10} from 'd3-geo';
 import type {GeoPermissibleObjects} from 'd3-geo';
 import worldLand from './world-land.json';
@@ -5,8 +9,8 @@ import type {WorldView} from './canvas-renderer';
 import {WORLD,coordAt,chunkId,cellIndex} from '../../core/coordinates';
 import type {Building,Cell,CellCoord} from '../../core/model';
 import {roadClassOf} from '../../core/model';
-import {project,cellSpace,TILE_W,TILE_H,type Point} from '../../presentation/camera';
-import {assembledFootprints,buildingAppearance,remainingFootprints,roadConnections,type Footprint} from '../../presentation/city-art';
+import {project,cellSpace,TILE_W,type Point} from '../../presentation/camera';
+import {assembledFootprints,remainingFootprints,roadConnections,type Footprint} from '../../presentation/city-art';
 import {geographicFocus,nearestWorldX,GLOBE_ZOOM,globePoint,planetRadius,type GeographicFeature} from '../../presentation/geographic-map';
 
 const land=worldLand as unknown as GeoPermissibleObjects;
@@ -56,56 +60,6 @@ function drawTree(ctx:CanvasRenderingContext2D,p:Point,size:number,seed:number){
  ctx.fillStyle=['#54784f','#648555','#779363'][seed%3];ctx.beginPath();ctx.ellipse(p.x,p.y-size*.4,size*.18,size*.28,0,0,Math.PI*2);ctx.fill();
  ctx.fillStyle='rgba(213,224,174,.3)';ctx.beginPath();ctx.ellipse(p.x-size*.06,p.y-size*.49,size*.09,size*.15,0,0,Math.PI*2);ctx.fill();
 }
-function drawBuilding(ctx:CanvasRenderingContext2D,view:WorldView,footprint:Footprint,shift:number,kind?:Building,stage?:number,lift=0){
- const scale=TILE_W*view.camera.zoom,area=footprint.area,seed=footprint.seed;
- const elongated=(footprint.maxX-footprint.minX)/Math.max(.1,footprint.maxY-footprint.minY);
- const usage=kind??(footprint.kind==='industrial'||(area>80&&(elongated>3||elongated<.33))?'industrial':footprint.kind==='commercial'||area>20?'commercial':'residential');
- // Height is illustrative when Shortbread supplies no height. Geometry and location always remain the source's.
- const floors=stage??(footprint.height?Math.max(1,Math.round(footprint.height/3)):usage==='industrial'?2:area<4?1:area<12?2+(seed%3):area<30?4+(seed%5):7+(seed%13));
- const style=buildingAppearance(usage,floors,seed);
- const height=Math.max(.7,TILE_H*view.camera.zoom*(.55+style.floors*.72));
- if(kind===undefined&&stage===undefined&&floors>6&&area>20){
-  drawBuilding(ctx,view,footprint,shift,usage,3);
-  const centre={x:(footprint.minX+footprint.maxX)/2,y:(footprint.minY+footprint.maxY)/2},factor=.50+(seed%3)*.08;
-  const tower={...footprint,rings:footprint.rings.map(r=>r.map(p=>({x:centre.x+(p.x-centre.x)*factor,y:centre.y+(p.y-centre.y)*factor}))),area:area*factor*factor};
-  drawBuilding(ctx,view,tower,shift,usage,floors-3,TILE_H*view.camera.zoom*(.55+3*.72));return;
- }
- const rings=footprint.rings.map(r=>projectRing(view,r,shift).map(p=>({x:p.x,y:p.y-lift}))),outer=rings[0];
- path(ctx,rings,height*.36,height*.18);ctx.fillStyle='rgba(42,51,44,.19)';ctx.fill('evenodd');
- const roof=rings.map(r=>r.map(p=>({x:p.x,y:p.y-height})));
- const detail=scale>=5;
- for(let i=1;i<outer.length;i++){
-  const a=outer[i-1],b=outer[i];if(b.x>=a.x)continue;
-  path(ctx,[[a,b,{x:b.x,y:b.y-height},{x:a.x,y:a.y-height}]]);
-  ctx.fillStyle=b.y>a.y?style.dark:style.light;ctx.fill();
-  if(detail){
-   const span=Math.hypot(b.x-a.x,b.y-a.y),columns=Math.min(28,Math.max(1,Math.floor(span/Math.max(3,scale*.19))));
-   ctx.strokeStyle=usage==='commercial'?'#496a78':'#655f53';ctx.lineWidth=Math.max(.65,Math.min(2.5,scale*.085));
-   const rows=Math.min(floors,12);
-   for(let f=0;f<rows;f++){
-    const level=(f+.5)*height/rows;
-    for(let w=0;w<columns;w++){
-     const t=(w+.5)/columns,half=.22/columns;
-     ctx.beginPath();ctx.moveTo(a.x+(b.x-a.x)*(t-half),a.y+(b.y-a.y)*(t-half)-level);
-     ctx.lineTo(a.x+(b.x-a.x)*(t+half),a.y+(b.y-a.y)*(t+half)-level);ctx.stroke();
-    }
-   }
-   if(usage==='commercial'&&floors>2){ctx.strokeStyle='rgba(223,230,214,.45)';ctx.lineWidth=.6;for(let f=1;f<floors;f++){const h=f*height/floors;ctx.beginPath();ctx.moveTo(a.x,a.y-h);ctx.lineTo(b.x,b.y-h);ctx.stroke();}}
-  }
- }
- path(ctx,roof);ctx.fillStyle=style.roof;ctx.fill('evenodd');ctx.strokeStyle='#706e61';ctx.lineWidth=Math.max(.5,Math.min(1.2,scale*.025));ctx.stroke();
- if(detail&&usage==='residential'&&area<8&&floors<3){
-  const ridge={x:roof[0].reduce((s,p)=>s+p.x,0)/roof[0].length,y:roof[0].reduce((s,p)=>s+p.y,0)/roof[0].length-scale*.12};
-  for(let i=1;i<roof[0].length;i++){path(ctx,[[roof[0][i-1],roof[0][i],ridge]]);ctx.fillStyle=i%2?style.roof:style.dark;ctx.fill();}
- }
- if(detail&&area>4){
-  const centre={x:outer.reduce((s,p)=>s+p.x,0)/outer.length,y:outer.reduce((s,p)=>s+p.y,0)/outer.length-height};
-  ctx.fillStyle=usage==='commercial'?'#aebfbb':'#d1c9b3';ctx.fillRect(centre.x-scale*.09,centre.y-scale*.08,Math.max(1,scale*.18),Math.max(1,scale*.1));
- }
- if(detail&&usage==='industrial'){
-  const centre=outer[Math.floor(outer.length/2)];ctx.fillStyle='#b6ada0';ctx.fillRect(centre.x-scale*.08,centre.y-height-scale*.5,Math.max(2,scale*.14),scale*.5);
- }
-}
 const featureBounds=new WeakMap<GeographicFeature,{minX:number;minY:number;maxX:number;maxY:number}>();
 function bounds(feature:GeographicFeature){
  let b=featureBounds.get(feature);if(b)return b;
@@ -122,16 +76,10 @@ function drawRoads(ctx:CanvasRenderingContext2D,view:WorldView,roads:Array<{feat
  for(const {feature,shift} of roads){
   const highway=/^(motorway|trunk)/.test(feature.kind),arterial=/^(primary|secondary)/.test(feature.kind),pathway=/^(footway|path|steps|cycleway|pedestrian)/.test(feature.kind);
   const width=Math.max(pathway?.55:1,(highway?1.65:arterial?1.2:pathway?.10:feature.kind==='service'?.4:.8)*scale);
-  roadPath(ctx,view,feature,shift);ctx.strokeStyle=pathway?'#cac7ad':PALETTE.sidewalk;ctx.lineWidth=width+Math.max(.65,scale*.12);ctx.stroke();
+  roadPath(ctx,view,feature,shift);ctx.strokeStyle=pathway?'#cac7ad':PALETTE.sidewalk;ctx.lineWidth=width+Math.max(.8,scale*.23);ctx.stroke();
   if(!pathway){ctx.strokeStyle=highway?'#8d8870':PALETTE.pavement;ctx.lineWidth=width;ctx.stroke();}
   if(width>6&&!pathway){ctx.strokeStyle=highway?'#ebd696':'#e0d8bf';ctx.lineWidth=Math.max(.6,scale*.016);ctx.setLineDash([Math.max(2,scale*.16),Math.max(2,scale*.14)]);ctx.stroke();ctx.setLineDash([]);}
-  if(scale>=7&&!pathway&&feature.kind!=='service')for(const ring of feature.geometry){
-   if(ring.length<2)continue;
-   const seed=(Math.floor(ring[0].x)^Math.floor(ring[0].y))>>>0;if(seed%3)continue;
-   const segment=seed%(ring.length-1),a=ring[segment],b=ring[segment+1],fraction=((seed%100)/100+view.motion*.08)%1;
-   const p=project({x:a.x+(b.x-a.x)*fraction+shift-.5,y:a.y+(b.y-a.y)*fraction-.5},view.camera);
-   ctx.fillStyle=['#d7d9c7','#c38e61','#bac8ae','#4c6d70'][seed%4];ctx.fillRect(p.x-scale*.06,p.y-scale*.045,Math.max(1.5,scale*.15),Math.max(1,scale*.09));
-  }
+
  }
 }
 function drawPlayerRoad(ctx:CanvasRenderingContext2D,view:WorldView,c:CellCoord,cell:Cell,lookup:(p:CellCoord)=>Cell|null){
@@ -145,6 +93,7 @@ function drawPlayerRoad(ctx:CanvasRenderingContext2D,view:WorldView,c:CellCoord,
 }
 export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldView){
  if(view.camera.zoom<GLOBE_ZOOM){drawGlobe(ctx,view);return;}
+ ctx=lightContext(ctx,view.light??'day');
  const {camera,viewport}=view,scale=TILE_W*camera.zoom;
  ctx.imageSmoothingEnabled=true;ctx.lineJoin='round';ctx.lineCap='round';ctx.fillStyle=PALETTE.ground;ctx.fillRect(0,0,viewport.width,viewport.height);
  const centre=cellSpace({x:viewport.width/2,y:viewport.height/2},camera);
@@ -157,7 +106,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   const original=coordAt(id,Number(i)),coord={x:nearestWorldX(original.x,centre.x),y:original.y};
   if(coord.x>=minX-1&&coord.x<=maxX+1&&coord.y>=minY-1&&coord.y<=maxY+1)edits.push({coord,cell});
  }
- const roads:Array<{feature:GeographicFeature;shift:number}>=[],buildings:Array<{footprint:Footprint;shift:number;kind?:Building;stage?:number;depth:number}>=[],labels:Array<{point:Point;name:string;kind:string}>=[];
+ const roads:Array<{feature:GeographicFeature;shift:number}>=[],buildings:Array<{footprint:Footprint;shift:number;kind?:Building;stage?:number;powered?:boolean;depth:number}>=[],labels:Array<{point:Point;name:string;kind:string}>=[];
  // Ground first, then road geometry, then depth-sorted building geometry. Tile iteration order never buries roofs.
  const features:Array<{feature:GeographicFeature;shift:number}>=[];
  for(const tile of view.geography?.tiles??[]){
@@ -168,6 +117,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   if(feature.layer!==layer||feature.type!==3)continue;
   const fill=layer==='ocean'||layer==='water_polygons'?feature.kind==='glacier'?'#d5ded8':PALETTE.water:layer==='street_polygons'?PALETTE.sidewalk:PARKS.has(feature.kind)?feature.kind==='forest'||feature.kind==='wood'?PALETTE.forest:PALETTE.park:URBAN.has(feature.kind)?'#c3bdaa':PALETTE.ground;
   polygon(ctx,view,feature,shift,fill);
+  if((layer==='water_polygons'||layer==='ocean')&&scale>=7){ctx.save();path(ctx,feature.geometry.map(r=>projectRing(view,r,shift)));ctx.clip('evenodd');ctx.strokeStyle=view.light==='night'?'rgba(190,217,224,.14)':'rgba(225,239,225,.22)';ctx.lineWidth=1;for(let i=0;i<28;i++){const x=(i*137+Math.sin(view.motion*.2+i)*10)%viewport.width,y=(i*83+29)%viewport.height;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+10+i%4*4,y);ctx.stroke();}ctx.restore();}
   if(layer==='water_polygons'||layer==='ocean'){ctx.strokeStyle=PALETTE.shore;ctx.lineWidth=Math.min(1.3,scale*.12);ctx.stroke();}
   if(PARKS.has(feature.kind)&&scale>=5){
    const b=bounds(feature),sx=Math.max(b.minX,Math.floor(minX-shift)),ex=Math.min(b.maxX,Math.ceil(maxX-shift));
@@ -189,6 +139,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   for(const remaining of remainingFootprints(footprint,edits.map(e=>({x:e.coord.x-shift,y:e.coord.y}))))buildings.push({footprint:remaining,shift,depth});
  }
  drawRoads(ctx,view,roads);
+ drawStreetDetails(ctx,view,roads,centre.x);
  const lookup=(p:CellCoord):Cell|null=>{const id=chunkId(p),managed=view.state.chunks[id],i=cellIndex(p),status=view.chunks.get(id);return managed?(managed.edits[i]??managed.base.cells[i]):status?.status==='ready'?status.base.cells[i]:null;};
  for(const {coord,cell} of edits){
   rectCell(ctx,view,coord,cell.terrain==='water'?PALETTE.water:cell.building==='park'?PALETTE.park:PALETTE.ground);
@@ -196,12 +147,12 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   if(cell.building&&cell.building!=='park'){
    const r=cell.building==='industrial'?.42:.34;
    const ring=[{x:coord.x-r+.5,y:coord.y-r+.5},{x:coord.x+r+.5,y:coord.y-r+.5},{x:coord.x+r+.5,y:coord.y+r+.5},{x:coord.x-r+.5,y:coord.y+r+.5},{x:coord.x-r+.5,y:coord.y-r+.5}];
-   buildings.push({footprint:{rings:[ring],minX:coord.x-r,maxX:coord.x+r,minY:coord.y-r,maxY:coord.y+r,area:r*r*4,kind:cell.building,seed:(coord.x^Math.imul(coord.y,19349663))>>>0},shift:0,kind:cell.building,stage:cell.stage,depth:project(coord,camera).y});
+   buildings.push({footprint:{rings:[ring],minX:coord.x-r,maxX:coord.x+r,minY:coord.y-r,maxY:coord.y+r,area:r*r*4,kind:cell.building,seed:(coord.x^Math.imul(coord.y,19349663))>>>0},shift:0,kind:cell.building,stage:cell.stage,powered:isPowered(view.state,{x:((coord.x%WORLD)+WORLD)%WORLD,y:coord.y}),depth:project(coord,camera).y});
   }
   if(cell.building==='park'&&scale>=4)drawTree(ctx,project(coord,camera),scale,(coord.x^coord.y)>>>0);
  }
  buildings.sort((a,b)=>a.depth-b.depth);
- for(const b of buildings)drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage);
+ for(const b of buildings){drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage,0,b.powered??true);if(b.powered===false&&scale>=7){const p=project({x:(b.footprint.minX+b.footprint.maxX)/2,y:(b.footprint.minY+b.footprint.maxY)/2},camera);ctx.fillStyle='rgba(242,178,86,.95)';ctx.font=`bold ${Math.max(10,scale*.3)}px system-ui`;ctx.fillText('!',p.x,p.y-scale*.6);}}
  if(camera.zoom<.06){
   ctx.font=`${(camera.zoom<.003?12:11)*(view.pixelRatio??1)}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
   const occupied:Array<{x:number;y:number;width:number}>=[];
