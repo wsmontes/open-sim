@@ -1,6 +1,6 @@
 import {lightContext} from './city-light';
 import {isPowered} from '../../core/simulation';
-import {drawStreetDetails,drawPaving} from './street-renderer';
+import {drawStreetDetails,drawPaving,drawPlanting,drawParkPlanting,drawTree} from './street-renderer';
 import {drawBuilding,drawGhost} from './architecture-renderer';
 import {geoOrthographic,geoPath,geoGraticule10} from 'd3-geo';
 import type {GeoPermissibleObjects} from 'd3-geo';
@@ -57,12 +57,6 @@ function drawGlobe(ctx:CanvasRenderingContext2D,view:WorldView){
 }
 export const globeRadius=(view:Pick<WorldView,'camera'|'viewport'>)=>planetRadius(view.camera.zoom,view.viewport);
 
-function drawTree(ctx:CanvasRenderingContext2D,p:Point,size:number,seed:number){
- ctx.fillStyle='rgba(40,61,42,.18)';ctx.beginPath();ctx.ellipse(p.x+size*.16,p.y+size*.05,size*.25,size*.1,0,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='#756750';ctx.fillRect(p.x-size*.035,p.y-size*.38,Math.max(.7,size*.07),size*.4);
- ctx.fillStyle=['#54784f','#648555','#779363'][seed%3];ctx.beginPath();ctx.ellipse(p.x,p.y-size*.4,size*.18,size*.28,0,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='rgba(213,224,174,.3)';ctx.beginPath();ctx.ellipse(p.x-size*.06,p.y-size*.49,size*.09,size*.15,0,0,Math.PI*2);ctx.fill();
-}
 const featureBounds=new WeakMap<GeographicFeature,{minX:number;minY:number;maxX:number;maxY:number}>();
 function bounds(feature:GeographicFeature){
  let b=featureBounds.get(feature);if(b)return b;
@@ -130,6 +124,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   const original=coordAt(id,Number(i)),coord={x:nearestWorldX(original.x,centre.x),y:original.y};
   if(coord.x>=minX-1&&coord.x<=maxX+1&&coord.y>=minY-1&&coord.y<=maxY+1)edits.push({coord,cell});
  }
+ const box={minX,minY,maxX,maxY};
  const roads:Array<{feature:GeographicFeature;shift:number}>=[],buildings:Array<{footprint:Footprint;shift:number;kind?:Building;stage?:number;powered?:boolean;depth:number}>=[],labels:Array<{point:Point;name:string;kind:string}>=[];
  // Ground first, then road geometry, then depth-sorted building geometry. Tile iteration order never buries roofs.
  const features:Array<{feature:GeographicFeature;shift:number}>=[];
@@ -153,12 +148,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
    ctx.restore();
   }
   if(layer==='water_polygons'||layer==='ocean'){path(ctx,feature.geometry.map(r=>projectRing(view,r,shift)));ctx.strokeStyle=PALETTE.shore;ctx.lineWidth=Math.min(1.3,scale*.12);ctx.stroke();}
-  if(PARKS.has(feature.kind)&&scale>=5){
-   const b=bounds(feature),sx=Math.max(b.minX,Math.floor(minX-shift)),ex=Math.min(b.maxX,Math.ceil(maxX-shift));
-   const sy=Math.max(b.minY,Math.floor(minY)),ey=Math.min(b.maxY,Math.ceil(maxY));
-   ctx.save();path(ctx,feature.geometry.map(r=>projectRing(view,r,shift)));ctx.clip('evenodd');
-   let count=0;trees:for(let y=sy;y<ey;y+=3)for(let x=sx;x<ex;x+=3){if(count++>=700)break trees;drawTree(ctx,project({x:x+shift,y},camera),scale,(Math.floor(x)^Math.floor(y))>>>0);}ctx.restore();
-  }
+  if(PARKS.has(feature.kind))drawParkPlanting(ctx,view,feature,shift,box);
  }
  for(const {feature,shift} of features){
   if(feature.layer==='streets')roads.push({feature,shift});
@@ -182,6 +172,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  for(const {coord,cell} of edits)if(cell.road)drawPlayerRoad(ctx,view,coord,cell,lookup,'surface');
  drawRoads(ctx,view,roads,'marking');
  drawStreetDetails(ctx,view,roads,centre.x);
+ drawPlanting(ctx,view,roads,box);
  for(const {coord,cell} of edits){
   if(cell.building&&cell.building!=='park'){
    const r=cell.building==='industrial'?.42:.34;

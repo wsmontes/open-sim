@@ -6,7 +6,7 @@ import type {WorldView} from '../src/surfaces/canvas/canvas-renderer';
 import {centerOn} from '../src/presentation/camera';
 import {toCell} from '../src/core/coordinates';
 import {drawBuilding} from '../src/surfaces/canvas/architecture-renderer';
-function recorder(){const fills:string[]=[],paths:Array<Array<[number,number]>>=[];let path:Array<[number,number]>=[];let fill='',stroke='';const strokes:Array<{color:string;path:Array<[number,number]>}>=[];const context=new Proxy({},{get:(_t,key)=>key==='createRadialGradient'||key==='createLinearGradient'?()=>({addColorStop(){}}):key==='measureText'?()=>({width:20}):key==='beginPath'?()=>{path=[];paths.push(path);}:key==='moveTo'||key==='lineTo'?(x:number,y:number)=>path.push([x,y]):key==='fill'?()=>fills.push(fill):key==='stroke'?()=>strokes.push({color:stroke,path:[...path]}):()=>{},set:(_t,key,value)=>{if(key==='fillStyle')fill=String(value);if(key==='strokeStyle')stroke=String(value);return true;}}) as CanvasRenderingContext2D;return{context,fills,paths,strokes};}
+function recorder(){const fills:string[]=[],paths:Array<Array<[number,number]>>=[];let ellipses=0,arcs=0;let path:Array<[number,number]>=[];let fill='',stroke='';const strokes:Array<{color:string;path:Array<[number,number]>}>=[];const context=new Proxy({},{get:(_t,key)=>key==='createRadialGradient'||key==='createLinearGradient'?()=>({addColorStop(){}}):key==='measureText'?()=>({width:20}):key==='beginPath'?()=>{path=[];paths.push(path);}:key==='moveTo'||key==='lineTo'?(x:number,y:number)=>path.push([x,y]):key==='ellipse'?()=>{ellipses+=1;}:key==='arc'?()=>{arcs+=1;}:key==='fill'?()=>fills.push(fill):key==='stroke'?()=>strokes.push({color:stroke,path:[...path]}):()=>{},set:(_t,key,value)=>{if(key==='fillStyle')fill=String(value);if(key==='strokeStyle')stroke=String(value);return true;}}) as CanvasRenderingContext2D;return{context,fills,paths,strokes,get ellipses(){return ellipses;},get arcs(){return arcs;}};}
 const base=blank('0:0'),state=createGame('test',1,base);
 const view:WorldView={camera:{x:250,y:150,zoom:.25,rotation:0},viewport:{width:500,height:300},state,chunks:new Map(),tool:'explore',hover:null,preview:[],previewAffordable:true,seed:1,motion:0,
  geography:{revision:1,loading:false,error:false,tiles:[{z:14,x:0,y:0,features:[{layer:'buildings',kind:'residential',bridge:false,type:3,geometry:[[{x:2,y:2},{x:6,y:2},{x:6,y:5},{x:2,y:5},{x:2,y:2}]]}]}]}};
@@ -85,14 +85,17 @@ test('every kerb in the city is laid before the first pavement, so no street cro
 });
 
 test('at night the avenues carry lamps, and by day they do not',()=>{
- const streets=[3,4,5,6,7,8].map(y=>({layer:'streets',kind:'secondary',bridge:false,type:2,geometry:[[{x:0,y},{x:20,y}]]}));
+ // Long enough for the planting lattice to have stations on it: the spacing a view is read at is a spacing, not a
+ // budget, so a street has to be longer than one step to carry anything at all.
+ const streets=[4,10].map(y=>({layer:'streets',kind:'secondary',bridge:false,type:2,geometry:[[{x:-20,y},{x:40,y}]]}));
  const tiles=[{z:14,x:0,y:0,features:streets}];
  const day=recorder();render(day.context,{...view,geography:{...view.geography!,tiles}});
  const night=recorder();render(night.context,{...view,light:'night',geography:{...view.geography!,tiles}});
  const lamps=night.fills.filter(c=>c==='rgba(255,216,140,.95)');
  expect(lamps.length).toBeGreaterThan(0);
- expect(lamps.length).toBeLessThanOrEqual(56);
  expect(day.fills).not.toContain('rgba(255,216,140,.95)');
+ // How many lamps a view carries is decided by the planting lattice, not by a budget: tests/street-detail.test.ts owns
+ // the spacing, the verge and the thinning.
 });
 
 test('a pedestrian square is paved with a bounded number of joints, and not from far away',()=>{
@@ -119,4 +122,14 @@ test('a row of houses draws party walls between its units and a shop draws a gla
  const shops=recorder();drawBuilding(shops.context,view,box(2,8,2,4),0,'commercial',2);
  expect(shops.fills).toContain('#3f5560');
  expect(couple.fills).not.toContain('#3f5560');
+});
+
+test('a mapped park is planted from the same lattice as the streets',()=>{
+ const park={layer:'sites',kind:'park',bridge:false,type:3,geometry:[[{x:2,y:2},{x:34,y:2},{x:34,y:22},{x:2,y:22},{x:2,y:2}]]};
+ const tiles=[{z:14,x:0,y:0,features:[park]}];
+ const rec=recorder();render(rec.context,{...view,geography:{...view.geography!,tiles}});
+ // Two ellipse calls per tree (the shadow and the canopy), and nothing else in this scene draws one.
+ expect(rec.ellipses).toBeGreaterThan(20);
+ const streets=recorder();render(streets.context,view);
+ expect(rec.ellipses).toBeGreaterThan(streets.ellipses);
 });

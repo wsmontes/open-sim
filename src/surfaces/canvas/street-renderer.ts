@@ -1,22 +1,28 @@
 import type {WorldView} from './canvas-renderer';
 import {project,TILE_W,type Point} from '../../presentation/camera';
-import {streetJunctions,streetAgents,type StreetJunction} from '../../presentation/street-detail';
+import {streetJunctions,streetAgents,plantingStep,plantingStations,roadsideTrees,type Segment,type PlantingBox,type StreetJunction} from '../../presentation/street-detail';
 import type {GeographicFeature,GeographicTile} from '../../presentation/geographic-map';
 import {nearestWorldX} from '../../presentation/geographic-map';
 import {assembledFootprints,pointInside} from '../../presentation/city-art';
 const cache=new WeakMap<readonly GeographicTile[],StreetJunction[]>();
-const pavingBounds=new WeakMap<GeographicFeature,{minX:number;minY:number;maxX:number;maxY:number}>();
+// Bounds of a mapped polygon, read once: the plaza and the square both need to know where the ground is before they
+// decide what to draw on it.
+const featureBounds=new WeakMap<GeographicFeature,{minX:number;minY:number;maxX:number;maxY:number}>();
+function polygonBounds(feature:GeographicFeature){
+ let b=featureBounds.get(feature);
+ if(!b){
+  b={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity};
+  for(const ring of feature.geometry)for(const p of ring){if(p.x<b.minX)b.minX=p.x;if(p.x>b.maxX)b.maxX=p.x;if(p.y<b.minY)b.minY=p.y;if(p.y>b.maxY)b.maxY=p.y;}
+  featureBounds.set(feature,b);
+ }
+ return b;
+}
 // A square is a place to walk, not a wide road with a different tint. The joints are drawn inside the polygon the map
 // gave and capped in both directions, so a plaza the size of a district costs the same as a plaza the size of a lot.
 export function drawPaving(ctx:CanvasRenderingContext2D,view:WorldView,feature:GeographicFeature,shift:number):number{
  const scale=TILE_W*view.camera.zoom;
  if(scale<8)return 0;
- let b=pavingBounds.get(feature);
- if(!b){
-  b={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity};
-  for(const ring of feature.geometry)for(const p of ring){if(p.x<b.minX)b.minX=p.x;if(p.x>b.maxX)b.maxX=p.x;if(p.y<b.minY)b.minY=p.y;if(p.y>b.maxY)b.maxY=p.y;}
-  pavingBounds.set(feature,b);
- }
+ const b=polygonBounds(feature);
  if(b.maxX-b.minX<2||b.maxY-b.minY<2)return 0;
  const step=.6,first=(v:number)=>Math.ceil(v/step)*step;
  ctx.save();
@@ -37,6 +43,57 @@ export function drawPaving(ctx:CanvasRenderingContext2D,view:WorldView,feature:G
  return drawn;
 }
 const worldPoint=(p:Point,shift=0)=>({x:p.x+shift-.5,y:p.y-.5});
+// One tree, drawn the same wherever it stands: the trees of a square and the trees of a kerb are the same city.
+export function drawTree(ctx:CanvasRenderingContext2D,p:Point,size:number,seed:number){
+ ctx.fillStyle='rgba(40,61,42,.18)';ctx.beginPath();ctx.ellipse(p.x+size*.16,p.y+size*.05,size*.25,size*.1,0,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#756750';ctx.fillRect(p.x-size*.035,p.y-size*.38,Math.max(.7,size*.07),size*.4);
+ ctx.fillStyle=['#54784f','#648555','#779363'][seed%3];ctx.beginPath();ctx.ellipse(p.x,p.y-size*.4,size*.18,size*.28,0,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='rgba(213,224,174,.3)';ctx.beginPath();ctx.ellipse(p.x-size*.06,p.y-size*.49,size*.09,size*.15,0,0,Math.PI*2);ctx.fill();
+}
+function drawLamp(ctx:CanvasRenderingContext2D,p:Point,scale:number){
+ ctx.fillStyle='rgba(255,214,140,.1)';ctx.beginPath();ctx.ellipse(p.x,p.y,scale*.85,scale*.42,0,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='rgba(74,74,69,.9)';ctx.fillRect(p.x-.6,p.y-scale*.44,Math.max(1,scale*.035),scale*.44);
+ ctx.fillStyle='rgba(255,216,140,.95)';ctx.beginPath();ctx.arc(p.x,p.y-scale*.47,Math.max(1,scale*.05),0,Math.PI*2);ctx.fill();
+}
+// A bridge is above the ground and a footpath is not a street: neither is planted along.
+const plantable=(feature:GeographicFeature)=>!feature.bridge&&!/^(motorway|trunk|path|footway|steps)/.test(feature.kind);
+const inFrame=(view:WorldView,p:Point)=>p.x>0&&p.x<view.viewport.width&&p.y>65&&p.y<view.viewport.height-60;
+// The streets are planted from the ground up: the lattice is read in world coordinates and a tree keeps its address at
+// every zoom, so pulling the camera back thins the trees instead of walking them around the block. At night every third
+// tree of the row gives way to a lamp, which is where the light of a street comes from.
+export function drawPlanting(ctx:CanvasRenderingContext2D,view:WorldView,roads:readonly {feature:GeographicFeature;shift:number}[],box:PlantingBox){
+ const scale=TILE_W*view.camera.zoom;
+ const segments:Segment[]=[];
+ for(const {feature,shift} of roads){
+  if(!plantable(feature))continue;
+  for(const ring of feature.geometry)for(let i=1;i<ring.length;i++)segments.push({a:{x:ring[i-1].x+shift,y:ring[i-1].y},b:{x:ring[i].x+shift,y:ring[i].y}});
+ }
+ if(!segments.length)return;
+ // Building footprints veto occupied lots: a tree stands on the verge, never inside a wall.
+ const footprints=assembledFootprints(view.geography?.tiles??[]);
+ for(const tree of roadsideTrees(segments,box,plantingStep(scale),0x51ed,72)){
+  const screen=project(worldPoint(tree),view.camera);
+  if(!inFrame(view,screen))continue;
+  if(footprints.some(f=>tree.x>=f.minX&&tree.x<=f.maxX&&tree.y>=f.minY&&tree.y<=f.maxY&&pointInside(tree,f.rings)))continue;
+  if(view.light==='night'&&tree.seed%3===0)drawLamp(ctx,screen,scale);
+  else drawTree(ctx,screen,scale*(.88+(tree.seed>>>24&7)/7*.35),tree.seed);
+ }
+}
+// A park is planted the same way, inside the polygon the map gave: the clip does the containing, so a square the shape of
+// a district costs one path and its own stations.
+export function drawParkPlanting(ctx:CanvasRenderingContext2D,view:WorldView,feature:GeographicFeature,shift:number,box:PlantingBox){
+ const scale=TILE_W*view.camera.zoom;
+ const b=polygonBounds(feature);
+ const minX=Math.max(box.minX,b.minX+shift),maxX=Math.min(box.maxX,b.maxX+shift),minY=Math.max(box.minY,b.minY),maxY=Math.min(box.maxY,b.maxY);
+ if(minX>maxX||minY>maxY)return;
+ ctx.save();
+ ctx.beginPath();
+ for(const ring of feature.geometry){if(!ring.length)continue;const a=project(worldPoint(ring[0],shift),view.camera);ctx.moveTo(a.x,a.y);for(let i=1;i<ring.length;i++){const p=project(worldPoint(ring[i],shift),view.camera);ctx.lineTo(p.x,p.y);}ctx.closePath();}
+ ctx.clip('evenodd');
+ for(const tree of plantingStations({minX,minY,maxX,maxY},plantingStep(scale),0x51ed,78))drawTree(ctx,project(worldPoint(tree,shift),view.camera),scale*(.88+(tree.seed>>>24&7)/7*.35),tree.seed);
+ ctx.restore();
+}
+
 export function drawStreetDetails(ctx:CanvasRenderingContext2D,view:WorldView,roads:readonly {feature:GeographicFeature;shift:number}[],centreX:number){
  const scale=TILE_W*view.camera.zoom;if(scale<7)return;
  const tiles=view.geography?.tiles??[];
@@ -56,42 +113,8 @@ export function drawStreetDetails(ctx:CanvasRenderingContext2D,view:WorldView,ro
    ctx.beginPath();ctx.moveTo(p[0].x,p[0].y);for(const a of p.slice(1))ctx.lineTo(a.x,a.y);ctx.closePath();ctx.fill();
   }
  }
- // A sparse, fixed roadside planting rhythm. Building footprints veto occupied lots.
- const footprints=assembledFootprints(tiles);let trees=0;
- planting:for(const {feature,shift} of roads){
-  if(feature.bridge||/^(motorway|trunk|path|footway|steps)/.test(feature.kind))continue;
-  for(const ring of feature.geometry)for(let i=1;i<ring.length;i++){
-   const a=ring[i-1],b=ring[i],length=Math.hypot(b.x-a.x,b.y-a.y);if(length<6)continue;
-   const seed=(Math.floor(a.x)^Math.floor(a.y))>>>0;if(seed%4)continue;
-   const p={x:(a.x+b.x)/2-(b.y-a.y)/length*.72,y:(a.y+b.y)/2+(b.x-a.x)/length*.72};
-   const screen=project(worldPoint(p,shift),view.camera);if(!inView(screen)||footprints.some(f=>p.x>=f.minX&&p.x<=f.maxX&&p.y>=f.minY&&p.y<=f.maxY&&pointInside(p,f.rings)))continue;
-   if(trees++>=70)break planting;
-   // A tree in a street stands in a pit, not on the road: the dark square is what makes it planted rather than parked.
-   ctx.fillStyle='#5c5b4b';ctx.fillRect(screen.x-scale*.09,screen.y-scale*.045,scale*.18,scale*.09);
-   ctx.fillStyle='rgba(32,54,40,.2)';ctx.beginPath();ctx.ellipse(screen.x+scale*.12,screen.y,scale*.18,scale*.08,0,0,Math.PI*2);ctx.fill();
-   ctx.fillStyle='#665b43';ctx.fillRect(screen.x-.5,screen.y-scale*.25,1,scale*.3);
-   ctx.fillStyle=seed%2?'#67825c':'#829761';ctx.beginPath();ctx.ellipse(screen.x,screen.y-scale*.3,scale*.19,scale*.25,0,0,Math.PI*2);ctx.fill();
-  }
- }
- // At night the street is lit by lamps rather than by the buildings beside it. They follow the roadside rhythm the
- // trees do, keep clear of building footprints, and stop at a fixed count so a long avenue cannot light the whole
- // frame — the same bargain every other detail on this street makes.
- if(view.light==='night'){
-  let lamps=0;
-  lighting:for(const {feature,shift} of roads){
-   if(feature.bridge||/^(motorway|trunk|path|footway|steps)/.test(feature.kind))continue;
-   for(const ring of feature.geometry)for(let i=1;i<ring.length;i++){
-    const a=ring[i-1],b=ring[i],length=Math.hypot(b.x-a.x,b.y-a.y);if(length<8)continue;
-    const seed=(Math.imul(Math.round(a.x*4),40503)^Math.round(a.y*4))>>>0;if(seed%5)continue;
-    const p={x:(a.x+b.x)/2-(b.y-a.y)/length*.78,y:(a.y+b.y)/2+(b.x-a.x)/length*.78};
-    const screen=project(worldPoint(p,shift),view.camera);if(!inView(screen)||footprints.some(f=>p.x>=f.minX&&p.x<=f.maxX&&p.y>=f.minY&&p.y<=f.maxY&&pointInside(p,f.rings)))continue;
-    if(lamps++>=56)break lighting;
-    ctx.fillStyle='rgba(255,214,140,.1)';ctx.beginPath();ctx.ellipse(screen.x,screen.y,scale*.85,scale*.42,0,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='rgba(74,74,69,.9)';ctx.fillRect(screen.x-.6,screen.y-scale*.44,Math.max(1,scale*.035),scale*.44);
-    ctx.fillStyle='rgba(255,216,140,.95)';ctx.beginPath();ctx.arc(screen.x,screen.y-scale*.47,Math.max(1,scale*.05),0,Math.PI*2);ctx.fill();
-   }
-  }
- }
+ // The planting is its own pass: a tree stands where the ground says, not where the tile cut the street, so it is drawn
+ // from the same lattice at every zoom (drawPlanting below), and the streets keep only what belongs to them.
  const features=roads.map(({feature,shift})=>shift?{...feature,geometry:feature.geometry.map(r=>r.map(p=>({x:p.x+shift,y:p.y})))}:feature);
  for(const agent of streetAgents(features,view.motion,240,p=>inView(project(worldPoint(p),view.camera)))){
   const p=project(worldPoint(agent.point),view.camera);if(!inView(p))continue;
