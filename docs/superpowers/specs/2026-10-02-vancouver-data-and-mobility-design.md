@@ -52,6 +52,20 @@ Filas limitam a distância entre veículos na mesma faixa. Controle de interseç
 
 O relógio de movimento respeita pausa e velocidades do jogo. Integração usa passos limitados; retomar uma aba não produz saltos gigantes. Alterações do jogador invalidam trajetos afetados; agentes replanejam ou saem de forma controlada. Posições transitórias não são gravadas por frame no histórico nem transmitidas como comandos.
 
+### Polícia, semáforos e ônibus escolares
+
+O usuário explicitou três requisitos adicionais: carros de polícia circulando, semáforos visíveis e ônibus escolares. São parte da entrega de mobilidade, com a mesma continuidade, pausa, aceleração e limites de desempenho dos demais agentes.
+
+Viaturas têm pintura estilizada, identificação legível e barra de luzes, percorrem trajetos de patrulha simulados e respeitam filas e sinais. A barra não pisca permanentemente durante patrulha. Ocorrências, perseguições, sirene sonora e atendimento emergencial não são exigidos; não insinuar posições ou rotas reais de patrulha.
+
+Semáforos são objetos visíveis nos cruzamentos, com vermelho, amarelo e verde ligados ao mesmo controlador que autoriza passagem dos veículos. O desenho não usa um relógio diferente do motor. Onde for possível associar o cadastro municipal de sinais à rede, preservar localização e fonte. Sinais gerados em cruzamentos sem cadastro são identificados como derivados. Não colocar semáforos em toda curva ou passagem em níveis separados. Pedestres atravessam somente na fase compatível do modelo, sem conflito com movimentos veiculares liberados.
+
+Ônibus escolares são amarelos, com silhueta e identificação diferentes do ônibus urbano. Destinos são escolas reais verificadas no diretório do Vancouver School Board ou outra fonte oficial local, mantendo o território correto (não Vancouver, Washington). Percursos até a escola são calculados na rede e explicitamente simulados; não alegar que existe transporte escolar em toda escola nem que o trajeto é uma rota oficial publicada. Não usar endereços residenciais de alunos nem dados pessoais. Circulação ganha destaque nas janelas simuladas de entrada/saída escolar, com paradas de embarque/desembarque e veículos aguardando atrás da parada no modelo. Fora dessas janelas, reduzir circulação, sem transformar frota escolar em ônibus urbano permanente.
+
+Aceitação adicional: reconhecer viatura, ônibus urbano e escolar visualmente; sinal verde/amarelo/vermelho coerente com autorização de passagem, filas diante do vermelho, travessias sem conflito; ônibus escolar conectado a escola verificada e rótulo de percurso simulado; todos congelam na pausa. Esta entrega não promete reprodução integral de regras legais de trânsito.
+
+Fontes de referência: https://vancouver.opendatasoft.com/explore/dataset/traffic-signals/table/ e https://vsb.bc.ca/school-directory-and-map . Verificar exportação/coordenadas na implementação; a existência do catálogo não prova matching concluído.
+
 ### Ônibus TransLink
 
 O requisito é que os ônibus façam as rotas reais da TransLink. Sua posição, frequência, velocidade e duração das paradas são simuladas pelo relógio do jogo; sincronização com horários ou posições reais não faz parte desta entrega. Pausa e aceleração funcionam para ônibus como para os demais agentes.
