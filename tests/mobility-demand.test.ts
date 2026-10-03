@@ -1,0 +1,17 @@
+import {it,expect} from 'vitest';
+import {calibrateDemand} from '../src/presentation/mobility-demand';
+import type {TrafficCount} from '../src/core/traffic-data';
+import type {MobilityNetwork,MobilityEdge} from '../src/presentation/mobility-model';
+import {toGeo,WORLD} from '../src/core/coordinates';
+const point={x:(-123.12+180)/360*WORLD,y:(1-Math.asinh(Math.tan(49.28*Math.PI/180))/Math.PI)/2*WORLD};
+const a={id:'a',point:{x:point.x-10,y:point.y},level:0},b={id:'b',point:{x:point.x+10,y:point.y},level:0};
+const edge:MobilityEdge={id:'east',from:'a',to:'b',path:[a.point,b.point],lengthM:125,roadClass:'primary',allowed:['car','truck','pedestrian'],method:'derived',level:0,bridge:false};
+const west={...edge,id:'west',from:'b',to:'a',path:[b.point,a.point]};
+const network:MobilityNetwork={revision:'fixture',nodes:new Map([['a',a],['b',b]]),edges:new Map([['east',edge],['west',west]]),outgoing:new Map()};
+const count:TrafficCount={id:'fixture',...toGeo(point),from:'2019-09-05T14:30:00Z',to:'2019-09-05T14:45:00Z',direction:90,vehicleClass:'all-vehicles',count:120,source:{dataset:'fixture',url:'https://example.test',territoryId:'5915022',retrievedAt:'2026-10-03T00:00:00Z',method:'reported'}};
+const instant='2019-09-05T14:35:00Z';
+it('converts counts to hourly volume, never speed or inferred truck share',()=>{const demand=calibrateDemand(network,[count],instant).get('east')!;expect(demand.vehicles).toBe(480);expect(demand.truckShare).toBe(0);expect(demand).not.toHaveProperty('speedMps');});
+it('matches only the published direction within 30 degrees',()=>{expect([...calibrateDemand(network,[count],instant).keys()]).toEqual(['east']);expect(calibrateDemand(network,[{...count,direction:0}],instant).size).toBe(0);});
+it('rejects points outside 25 metres',()=>{expect(calibrateDemand(network,[{...count,...toGeo({x:point.x,y:point.y+5})}],instant).size).toBe(0);});
+it('does not apply historic or expired intervals to another period',()=>{expect(calibrateDemand(network,[count],'2026-10-03T14:35:00Z').size).toBe(0);expect(calibrateDemand(network,[count],count.to).size).toBe(0);});
+it('keeps pedestrian counts separate and skips incompatible road permissions',()=>{expect(calibrateDemand(network,[{...count,vehicleClass:'pedestrian'}],instant).get('east')!.pedestrians).toBe(480);const n={...network,edges:new Map([['east',{...edge,allowed:['pedestrian'] as const}]])};expect(calibrateDemand(n,[count],instant).size).toBe(0);});

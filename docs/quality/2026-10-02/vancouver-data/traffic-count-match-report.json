@@ -1,0 +1,13 @@
+{
+  "sourceLayer": 27,
+  "sampleRecords": 1,
+  "matched": 0,
+  "rejected": [
+    {
+      "id": 1,
+      "reason": "official geometry absent; no verified road location"
+    }
+  ],
+  "status": "unavailable-for-routing",
+  "liveCongestion": false
+}

@@ -269,10 +269,10 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 
 **Interfaces:** `TrafficCount` definido em core/traffic-data.ts e reexportado pelo adaptador; estrutura `TrafficCount={id:string;lat:number;lon:number;from:string;to:string;direction?:number;vehicleClass:'car'|'truck'|'pedestrian'|'all-vehicles';count:number;source:MeasureSource}`; `parseVancouverCounts(value:unknown):readonly TrafficCount[]`; `calibrateDemand(network:MobilityNetwork,counts:readonly TrafficCount[],instant:string):ReadonlyMap<string,MobilityDemand>`.
 
-- [ ] Verificar exportação real no catálogo/VanMap; registrar schema, unidades, período e acesso no source audit. Baixar amostra oficial antes de definir mapping do parser. Captura ausente não vira arquivo fictício; usar importação local e status indisponível se necessário.
-- [ ] Escrever `hourly_count_not_speed`, `direction_match`, `outside_25m_unmatched`, `wrong_period_unused`, `all_vehicles_not_trucks`, `counts_to_hourly_rate`; exemplo sintético de 120 veículos em 15 min => 480/h, sem inferir velocidade ou divisão de caminhões.
-- [ ] Executar testes alvo e observar RED. Implementar conversão de intervalo, matching máximo 25 m com sentido até 30° quando declarado; incompatibilidade não afeta via. Fonte agregada ajusta volume total sem inventar classe. Fora de cobertura, demanda continua estimada.
-- [ ] Executar testes; guardar relatório de correspondências/rejeições e distinguir escala amostral de contagem oficial. Commit: `feat: calibrate mobility with traffic observations`.
+- [x] Verificar exportação real no catálogo/VanMap; registrar schema, unidades, período e acesso no source audit. Baixar amostra oficial antes de definir mapping do parser. Captura ausente não vira arquivo fictício; usar importação local e status indisponível se necessário.
+- [x] Escrever `hourly_count_not_speed`, `direction_match`, `outside_25m_unmatched`, `wrong_period_unused`, `all_vehicles_not_trucks`, `counts_to_hourly_rate`; exemplo sintético de 120 veículos em 15 min => 480/h, sem inferir velocidade ou divisão de caminhões.
+- [x] Executar testes alvo e observar RED. Implementar conversão de intervalo, matching máximo 25 m com sentido até 30° quando declarado; incompatibilidade não afeta via. Fonte agregada ajusta volume total sem inventar classe. Fora de cobertura, demanda continua estimada.
+- [x] Executar testes; guardar relatório de correspondências/rejeições e distinguir escala amostral de contagem oficial. Commit: `feat: calibrate mobility with traffic observations`.
 
 ## Task 16: Viaturas, sinais visíveis e transporte escolar
 
