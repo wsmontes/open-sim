@@ -10,3 +10,4 @@ it('handles dateline bounds',()=>expect(createTerrainSurface([{...tile(),bounds:
 it('latitude determines physical cell size',()=>expect(metresPerCellAt(60)/metresPerCellAt(0)).toBeCloseTo(.5));
 it('prefers verified source resolution regardless of download order',()=>{const fine={...tile(),sourceId:'fine',sourceResolutionM:16};const coarse={...tile(),sourceId:'coarse',sourceResolutionM:30,heightsM:new Float32Array(4).fill(500)};expect(createTerrainSurface([coarse,fine]).sample({lon:.5,lat:.5})?.sourceId).toBe('fine');});
 it('rejects mixed datums',()=>expect(()=>createTerrainSurface([tile(),{...tile(),verticalDatum:'EGM2008'}])).toThrow());
+it('samples both sides and exact edges of spatial buckets',()=>{const t={...tile(),bounds:{west:-123.025,east:-123,south:49.18,north:49.2}};const surface=createTerrainSurface([t]);for(const lon of [-123.025,-123.02,-123.015625,-123.01,-123])expect(surface.sample({lon,lat:49.19})).not.toBeNull();});

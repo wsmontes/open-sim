@@ -20,6 +20,7 @@ export type InputCallbacks = {
 };
 export type InputContext = {
  geographic?:boolean;
+ pick?:(point:Point,camera:Camera)=>CellCoord|null;
  camera:()=>Camera;
  tool:()=>SelectedTool;
  // How a drag turns into cells. A street, a plant and a demolition are lines; a zone is a rectangle, which is what the
@@ -58,7 +59,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  const viewport=()=>({width:canvas.width,height:canvas.height});
  const planetary=(camera:Camera)=>context.geographic&&camera.zoom<GLOBE_ZOOM;
  const pickPoint=(point:Point,camera:Camera)=>{
-  if(!planetary(camera))return pick(point,camera);
+  if(!planetary(camera))return context.pick?.(point,camera)??pick(point,camera);
   const v=viewport(),geo=globeCoord({x:point.x-v.width/2,y:point.y-v.height/2},geographicFocus(camera,v),planetRadius(camera.zoom,v));
   return geo?toCell(geo.lat,geo.lon):null;
  };
@@ -124,7 +125,8 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   if(event.ctrlKey||event.metaKey){capture(event);rotate={point,camera};return;}
   if(space||context.tool()==='explore'){capture(event);pan={point,camera};return;}
   capture(event);
-  stroke=beginStroke(pick(point,camera),shape());
+  const cell=pickPoint(point,camera);if(!cell)return;
+  stroke=beginStroke(cell,shape());
   callbacks.onPreview(stroke.cells);
  };
  const onPointerMove=(event:PointerEvent)=>{
@@ -154,9 +156,9 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   }
   if(rotate)return callbacks.onCamera(rotateTo(rotate.camera,{width:canvas.width,height:canvas.height},rotate.camera.rotation+(point.x-rotate.point.x)*ROTATE_RATE));
   if(pan)return callbacks.onCamera(planetary(pan.camera)?dragGlobe(pan.camera,viewport(),pan.point,point):{x:pan.camera.x+point.x-pan.point.x,y:pan.camera.y+point.y-pan.point.y,zoom:clampZoom(pan.camera.zoom),rotation:normalizeAngle(pan.camera.rotation)});
-  const cell=pick(point,context.camera());
+  const cell=pickPoint(point,context.camera());
   callbacks.onHover(cell);
-  if(!stroke)return;
+  if(!stroke||!cell)return;
   stroke=extendStroke(stroke,cell,shape());
   callbacks.onPreview(stroke.cells);
  };

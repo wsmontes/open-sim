@@ -1,0 +1,9 @@
+import {it,expect} from 'vitest';
+import {createTerrainController} from '../src/client/terrain-controller';
+import type {TerrainTile} from '../src/presentation/terrain-model';
+const tile=(height=10):TerrainTile=>({id:'test',bounds:{west:0,east:1,south:0,north:1},size:2,spacingM:10,heightsM:new Float32Array(4).fill(height),valid:new Uint8Array(4).fill(1),kind:'dtm',verticalDatum:'CGVD2013',sourceId:'fixture'});
+it('old_city_tile_ignored',()=>{const c=createTerrainController();const old=c.setRegion('Vancouver');c.setRegion('Victoria');expect(c.setTiles([tile()],old)).toBe(false);expect(c.sample({lat:.5,lon:.5})).toBeNull();});
+it('publishes current surface and clears it on region change',()=>{const c=createTerrainController();const ticket=c.setRegion('Vancouver');expect(c.setTiles([tile()],ticket)).toBe(true);expect(c.sample({lat:.5,lon:.5})?.elevationM).toBe(10);expect(c.status()).toEqual({available:true,loading:false,limitedSurface:false});c.setRegion(null);expect(c.sample({lat:.5,lon:.5})).toBeNull();});
+it('preserves data when the same region is requested again',()=>{const c=createTerrainController();const ticket=c.setRegion('Vancouver');c.setTiles([tile()],ticket);expect(c.setRegion('Vancouver')).toBe(ticket);expect(c.tiles()).toHaveLength(1);});
+it('marks DSM limitation and rejects late publication after disposal',()=>{const c=createTerrainController();const ticket=c.setRegion('Vancouver');c.setTiles([{...tile(),kind:'dsm'}],ticket);expect(c.status().limitedSurface).toBe(true);c.dispose();expect(c.setTiles([tile()],ticket)).toBe(false);});
+it('incompatible datum cannot replace the current surface',()=>{const c=createTerrainController();const ticket=c.setRegion('Vancouver');c.setTiles([tile()],ticket);expect(()=>c.setTiles([tile(),{...tile(),id:'other',verticalDatum:'EGM2008'}],ticket)).toThrow();expect(c.sample({lat:.5,lon:.5})?.elevationM).toBe(10);});

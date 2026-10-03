@@ -1,4 +1,6 @@
 import {lightContext} from './city-light';
+import type {TerrainTile} from '../../presentation/terrain-model';
+import type {TerrainReading} from '../../presentation/terrain-surface';
 import {renderGeographicWorld} from './geographic-renderer';
 import type {GeographicScene} from '../../presentation/geographic-map';
 import {GLOBE_ZOOM} from '../../presentation/geographic-map';
@@ -14,6 +16,7 @@ import {TILE_H,TILE_W,cellSpace,isCoarse} from '../../presentation/camera';
 export type WorldView = {
  light?:'day'|'night';
  geography?:GeographicScene;
+ terrain?:{tiles:readonly TerrainTile[];sample:(geo:{lat:number;lon:number})=>TerrainReading|null;revision:number};
  pixelRatio?:number;
  camera:Camera;
  viewport:Viewport;

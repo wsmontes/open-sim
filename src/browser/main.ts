@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 import {createGeographicStream} from './geographic-stream';
+import {createTerrainStream} from './terrain-stream';
+import {createTerrainSource} from '../adapters/map/terrain-source';
+import terrainManifest from '../adapters/map/data/vancouver-terrain/manifest.json';
+import type {TerrainManifest} from '../presentation/terrain-model';
+import {pickSurface,visibleTerrain} from '../surfaces/canvas/terrain-renderer';
 import {geographicFocus,mapScale,GLOBE_ZOOM} from '../presentation/geographic-map';
 import {attachOfflineRegion} from './offline-controller';
 import {viewpointOf} from '../presentation/viewpoint';
@@ -353,6 +358,8 @@ const hud = createHud(hudRoot, {
 let active = false;
 let invalidateFrame = () => {};
 const geography = 'loadVisualTile' in maps ? createGeographicStream((z,x,y)=>(maps as OsmSource).loadVisualTile(z,x,y),()=>invalidateFrame()) : null;
+const terrainSource=createTerrainSource(async(url,signal)=>{const response=await fetch(url,{signal});if(!response.ok)throw new Error('Terrain unavailable');return new Uint8Array(await response.arrayBuffer());},terrainManifest as TerrainManifest);
+const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame());
 // The view reads the live branch through `head`, so it is created once the game's own state exists: a session view
 // that ran before those declarations would read a name that is not initialized yet.
 const sessions = createGameSessionView({
@@ -673,6 +680,7 @@ const draw = (now: number, seconds: number) => {
 
  const {width, height} = hand.viewport;
  geography?.update(camera,hand.viewport);
+ terrain.update(camera,hand.viewport);
  if(geography){
   const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
   if(stamp!==hudCameraStamp){hudCameraStamp=stamp;updateHud();}
@@ -684,6 +692,7 @@ const draw = (now: number, seconds: number) => {
  const view: WorldView = {
   light:cityLight,
   geography: geography?.scene(),
+  terrain:terrain.scene(),
   pixelRatio:deviceScale(),
   camera,
   viewport: {width, height},
@@ -710,6 +719,7 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  !!a &&
  a.light === b.light &&
  a.geography?.revision === b.geography?.revision &&
+ a.terrain?.revision === b.terrain?.revision &&
  a.camera.x === b.camera.x &&
  a.camera.y === b.camera.y &&
  a.camera.zoom === b.camera.zoom &&
@@ -727,6 +737,8 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
 const frames = createFrameScheduler({draw});
 invalidateFrame = frames.invalidate;
 if (PERF_DEBUG) {
+ const diagnostics=document.createElement('pre');diagnostics.id='open-sim-frame-stats';diagnostics.hidden=true;document.body.append(diagnostics);
+ window.setInterval(()=>{diagnostics.textContent=JSON.stringify({frames:frames.stats(),terrain:terrain.status(),triangles:lastView?visibleTerrain(lastView).length:0});},1000);
  const debugWindow = window as unknown as {
   openSimFrames?: () => ReturnType<typeof frames.stats>;
   openSimDebug?: () => unknown;
@@ -781,6 +793,7 @@ async function start() {
   canvas,
   {
    geographic: !!geography,
+   pick:(point,camera)=>{const hit=lastView?pickSurface({...lastView,camera,terrain:terrain.scene()},point):null;return hit?{x:Math.round(hit.x),y:Math.round(hit.y)}:null;},
    camera: () => client.view().camera,
    zoomScale: deviceScale,
    tool: () => client.view().camera.zoom<.035?'explore':client.view().tool,

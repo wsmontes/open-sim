@@ -1,5 +1,6 @@
+import {projectSurface,visibleSurfacePoint} from './terrain-renderer';
 import type {WorldView} from './canvas-renderer';
-import {project,TILE_W,type Point} from '../../presentation/camera';
+import {TILE_W,type Point} from '../../presentation/camera';
 import {streetJunctions,streetAgents,plantingStep,plantingStations,roadsideTrees,type Segment,type PlantingBox,type StreetJunction} from '../../presentation/street-detail';
 import type {GeographicFeature,GeographicTile} from '../../presentation/geographic-map';
 import {nearestWorldX} from '../../presentation/geographic-map';
@@ -27,16 +28,16 @@ export function drawPaving(ctx:CanvasRenderingContext2D,view:WorldView,feature:G
  const step=.6,first=(v:number)=>Math.ceil(v/step)*step;
  ctx.save();
  ctx.beginPath();
- for(const ring of feature.geometry){if(!ring.length)continue;const a=project({x:ring[0].x+shift-.5,y:ring[0].y-.5},view.camera);ctx.moveTo(a.x,a.y);for(let i=1;i<ring.length;i++){const p=project({x:ring[i].x+shift-.5,y:ring[i].y-.5},view.camera);ctx.lineTo(p.x,p.y);}ctx.closePath();}
+ for(const ring of feature.geometry){if(!ring.length)continue;const a=projectSurface(view,{x:ring[0].x+shift-.5,y:ring[0].y-.5});ctx.moveTo(a.x,a.y);for(let i=1;i<ring.length;i++){const p=projectSurface(view,{x:ring[i].x+shift-.5,y:ring[i].y-.5});ctx.lineTo(p.x,p.y);}ctx.closePath();}
  ctx.clip('evenodd');
  ctx.strokeStyle='rgba(122,116,101,.42)';ctx.lineWidth=Math.max(.6,scale*.018);
  let drawn=0;
  for(let x=first(b.minX);x<=b.maxX&&drawn<24;x+=step){
-  const a=project({x:x+shift-.5,y:b.minY-.5},view.camera),c=project({x:x+shift-.5,y:b.maxY-.5},view.camera);
+  const a=projectSurface(view,{x:x+shift-.5,y:b.minY-.5}),c=projectSurface(view,{x:x+shift-.5,y:b.maxY-.5});
   ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(c.x,c.y);ctx.stroke();drawn++;
  }
  for(let y=first(b.minY);y<=b.maxY&&drawn<40;y+=step){
-  const a=project({x:b.minX+shift-.5,y:y-.5},view.camera),c=project({x:b.maxX+shift-.5,y:y-.5},view.camera);
+  const a=projectSurface(view,{x:b.minX+shift-.5,y:y-.5}),c=projectSurface(view,{x:b.maxX+shift-.5,y:y-.5});
   ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(c.x,c.y);ctx.stroke();drawn++;
  }
  ctx.restore();
@@ -72,8 +73,8 @@ export function drawPlanting(ctx:CanvasRenderingContext2D,view:WorldView,roads:r
  // Building footprints veto occupied lots: a tree stands on the verge, never inside a wall.
  const footprints=assembledFootprints(view.geography?.tiles??[]);
  for(const tree of roadsideTrees(segments,box,plantingStep(scale),0x51ed,72)){
-  const screen=project(worldPoint(tree),view.camera);
-  if(!inFrame(view,screen))continue;
+  const screen=projectSurface(view,worldPoint(tree));
+  if(!inFrame(view,screen)||!visibleSurfacePoint(view,worldPoint(tree)))continue;
   if(footprints.some(f=>tree.x>=f.minX&&tree.x<=f.maxX&&tree.y>=f.minY&&tree.y<=f.maxY&&pointInside(tree,f.rings)))continue;
   if(view.light==='night'&&tree.seed%3===0)drawLamp(ctx,screen,scale);
   else drawTree(ctx,screen,scale*(.88+(tree.seed>>>24&7)/7*.35),tree.seed);
@@ -88,9 +89,9 @@ export function drawParkPlanting(ctx:CanvasRenderingContext2D,view:WorldView,fea
  if(minX>maxX||minY>maxY)return;
  ctx.save();
  ctx.beginPath();
- for(const ring of feature.geometry){if(!ring.length)continue;const a=project(worldPoint(ring[0],shift),view.camera);ctx.moveTo(a.x,a.y);for(let i=1;i<ring.length;i++){const p=project(worldPoint(ring[i],shift),view.camera);ctx.lineTo(p.x,p.y);}ctx.closePath();}
+ for(const ring of feature.geometry){if(!ring.length)continue;const a=projectSurface(view,worldPoint(ring[0],shift));ctx.moveTo(a.x,a.y);for(let i=1;i<ring.length;i++){const p=projectSurface(view,worldPoint(ring[i],shift));ctx.lineTo(p.x,p.y);}ctx.closePath();}
  ctx.clip('evenodd');
- for(const tree of plantingStations({minX,minY,maxX,maxY},plantingStep(scale),0x51ed,78))drawTree(ctx,project(worldPoint(tree,shift),view.camera),scale*(.88+(tree.seed>>>24&7)/7*.35),tree.seed);
+ for(const tree of plantingStations({minX,minY,maxX,maxY},plantingStep(scale),0x51ed,78))drawTree(ctx,projectSurface(view,worldPoint(tree,shift)),scale*(.88+(tree.seed>>>24&7)/7*.35),tree.seed);
  ctx.restore();
 }
 
@@ -102,23 +103,23 @@ export function drawStreetDetails(ctx:CanvasRenderingContext2D,view:WorldView,ro
  let count=0;
  for(const junction of junctions){
   const shift=nearestWorldX(junction.point.x,centreX)-junction.point.x;
-  if(!inView(project(worldPoint(junction.point,shift),view.camera)))continue;
+  if(!inView(projectSurface(view,worldPoint(junction.point,shift))))continue;
   if(count++>=140)break;
-  if(view.light==='night'){const p=project(worldPoint(junction.point,shift),view.camera);ctx.fillStyle='rgba(255,220,145,.07)';ctx.beginPath();ctx.ellipse(p.x,p.y,scale*.8,scale*.4,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,221,146,.9)';ctx.fillRect(p.x+scale*.35,p.y-scale*.2,Math.max(1,scale*.035),Math.max(1,scale*.035));}
+  if(view.light==='night'){const p=projectSurface(view,worldPoint(junction.point,shift));ctx.fillStyle='rgba(255,220,145,.07)';ctx.beginPath();ctx.ellipse(p.x,p.y,scale*.8,scale*.4,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,221,146,.9)';ctx.fillRect(p.x+scale*.35,p.y-scale*.2,Math.max(1,scale*.035),Math.max(1,scale*.035));}
   const width=junction.major?.55:.37;
   ctx.fillStyle='#e9e3cf';
   for(const d of junction.directions)for(let i=0;i<5;i++){
    const centre={x:junction.point.x+d.x*(.95+i*.15),y:junction.point.y+d.y*(.95+i*.15)},perp={x:-d.y*width,y:d.x*width};
-   const p=[{x:centre.x+perp.x,y:centre.y+perp.y},{x:centre.x-perp.x,y:centre.y-perp.y},{x:centre.x-perp.x+d.x*.075,y:centre.y-perp.y+d.y*.075},{x:centre.x+perp.x+d.x*.075,y:centre.y+perp.y+d.y*.075}].map(p=>project(worldPoint(p,shift),view.camera));
+   const p=[{x:centre.x+perp.x,y:centre.y+perp.y},{x:centre.x-perp.x,y:centre.y-perp.y},{x:centre.x-perp.x+d.x*.075,y:centre.y-perp.y+d.y*.075},{x:centre.x+perp.x+d.x*.075,y:centre.y+perp.y+d.y*.075}].map(p=>projectSurface(view,worldPoint(p,shift)));
    ctx.beginPath();ctx.moveTo(p[0].x,p[0].y);for(const a of p.slice(1))ctx.lineTo(a.x,a.y);ctx.closePath();ctx.fill();
   }
  }
  // The planting is its own pass: a tree stands where the ground says, not where the tile cut the street, so it is drawn
  // from the same lattice at every zoom (drawPlanting below), and the streets keep only what belongs to them.
  const features=roads.map(({feature,shift})=>shift?{...feature,geometry:feature.geometry.map(r=>r.map(p=>({x:p.x+shift,y:p.y})))}:feature);
- for(const agent of streetAgents(features,view.motion,240,p=>inView(project(worldPoint(p),view.camera)))){
-  const p=project(worldPoint(agent.point),view.camera);if(!inView(p))continue;
-  const q=project(worldPoint({x:agent.point.x+agent.direction.x,y:agent.point.y+agent.direction.y}),view.camera),angle=Math.atan2(q.y-p.y,q.x-p.x);
+ for(const agent of streetAgents(features,view.motion,240,p=>inView(projectSurface(view,worldPoint(p)))&&visibleSurfacePoint(view,worldPoint(p)))){
+  const p=projectSurface(view,worldPoint(agent.point));if(!inView(p))continue;
+  const q=projectSurface(view,worldPoint({x:agent.point.x+agent.direction.x,y:agent.point.y+agent.direction.y})),angle=Math.atan2(q.y-p.y,q.x-p.x);
   ctx.save();ctx.translate(p.x,p.y);ctx.rotate(angle);
   if(agent.kind==='car'){
    ctx.fillStyle='rgba(32,45,40,.25)';ctx.fillRect(-scale*.12,scale*.02,scale*.27,Math.max(1,scale*.11));
