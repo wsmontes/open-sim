@@ -24,7 +24,7 @@ test('the economy panel is the shared words, including the sign on the monthly b
  expect(panel['Classificação']).toBe('B');
  expect(panel['Demanda (R/C/I)']).toBe('200 / -100 / 0');
  // A view's economy, run through the real client, reaches the lines with the crisis flagged.
- const lines = prefeituraLines({place: 'Lisboa', stats: {money: 0, economy}} as never);
+ const lines = prefeituraLines({place: 'Lisboa', stats: {money: 0, population: 380, economy}} as never);
  expect(lines[0]).toBe('[Prefeitura de Lisboa]');
  expect(lines.some(line => line.startsWith('  Caixa: 0'))).toBe(true);
  expect(lines.some(line => line.includes('⚠') && line.includes('caixa acabou'))).toBe(true);

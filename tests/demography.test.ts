@@ -1,6 +1,6 @@
 import {expect,test} from 'vitest';
 import {createPlayHost} from '../tools/play-host';
-import {headerLines} from '../src/surfaces/text/render';
+import {headerLines,prefeituraLines} from '../src/surfaces/text/render';
 
 test('the text header distinguishes the real municipality from simulated residents',async()=>{
  const {client}=await createPlayHost().open();
@@ -9,7 +9,8 @@ test('the text header distinguishes the real municipality from simulated residen
  await client.idle();
  const lines=headerLines(client.view()).join('\n');
  expect(lines).toContain('População real 662.248 · 2021');
- expect(lines).toContain('Moradores simulados');
+ expect(lines).not.toContain('Moradores');
+ expect(prefeituraLines(client.view()).join('\n')).toContain('Moradores do bairro simulado:');
  expect(lines).not.toMatch(/Pessoas \d/);
  client.stop();
 });

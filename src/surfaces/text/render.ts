@@ -98,10 +98,11 @@ export function factsLines(view: ClientView): string[] {
 // The economy panel, shown by "prefeitura": the same numbers the canvas HUD shows, in the same words
 // (src/presentation/words.ts), so a terminal player can see tax, services, the monthly books, debt, rating, demand and
 // — the reason a city stalls with the balance stuck at zero — the crisis line. Without this the terminal had no way to
-// read why growth stopped; the header shows only money/people/happiness/energy.
+// read why growth stopped; the header shows money, real population, happiness and energy.
 export function prefeituraLines(view: ClientView): string[] {
  const economy = view.stats.economy;
  const lines = [`[Prefeitura de ${view.place || 'sua cidade'}]`, `  Caixa: ${view.stats.money.toLocaleString('pt-BR')}`];
+ lines.push(`  Moradores do bairro simulado: ${view.stats.population.toLocaleString('pt-BR')}`);
  for (const [label, value] of economyPanel(economy)) lines.push(`  ${label}: ${value}`);
  if (economy.crisis) lines.push(`  ⚠ ${economy.crisis}`);
  return lines;

@@ -23,7 +23,6 @@ export function statsLine(stats: CityStats,facts?:PopulationReading|null): reado
  return [
   ['Saldo', grouped(stats.money)],
   ['População real', realPopulationText(facts)],
-  ['Moradores simulados', grouped(stats.population)],
   ['Felicidade', `${stats.happiness}%`],
   ['Energia', `${stats.energyUsed}/${stats.energySupply}`],
  ];

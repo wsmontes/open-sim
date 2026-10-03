@@ -17,3 +17,8 @@ Validation:
 Screenshots: `vancouver-header.png`, `vancouver-populations.png`.
 
 This change was verified locally; it was not deployed.
+
+
+## Secondary management indicator
+
+Renamed to “Moradores do bairro simulado”, with a tooltip distinguishing it from municipal census. Removed it from the text header and placed it in Prefeitura, matching the graphical interface's secondary placement. The simulation aggregate participates in commercial demand, tax revenue and service expense (`simulation.ts`); this UI change does not change economic calculations. Production preview confirms the 380 count remains in management and real population remains in the top bar. Screenshot: `neighbourhood-residents.png`.
