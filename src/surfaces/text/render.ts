@@ -35,7 +35,7 @@ export function glyphOf(cell: Cell | null, failed = false): string {
 export const LEGEND = '. terra  ~ água  " verde  - rua  = avenida  # estrada  R/r moradia  C/c comércio  I/i indústria  P parque  E/e usina  (minúscula = lote vazio)  + prévia  x bloqueado  ? sem mapa';
 
 export function headerLines(view: ClientView): string[] {
- const stats = statsLine(view.stats).map(([label, value]) => `${label} ${value}`).join(' · ');
+ const stats = statsLine(view.stats,view.facts).map(([label, value]) => `${label} ${value}`).join(' · ');
  const tool = view.tool === 'explore' ? 'explorar' : view.tool === 'demolish' ? 'demolir' : TOOL_LABELS[view.tool].toLowerCase();
  const lines = [
   `${view.place || 'Sem lugar'} · ${stats} · Tick ${view.state?.tick ?? 0} · ${view.speed === 0 ? 'pausado' : `${view.speed}×`}`,

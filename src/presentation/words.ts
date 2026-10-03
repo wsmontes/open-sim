@@ -12,10 +12,18 @@ export function saveText(status: SaveStatus): string {
  return '';
 }
 
-export function statsLine(stats: CityStats): readonly (readonly [string, string])[] {
+type PopulationReading={population?:number;populationYear?:number};
+export function realPopulationText(facts:PopulationReading|null|undefined):string {
+ const population=facts?.population;
+ if(population===undefined||!Number.isSafeInteger(population)||population<0)return '—';
+ return `${grouped(population)}${facts?.populationYear?` · ${facts.populationYear}`:''}`;
+}
+
+export function statsLine(stats: CityStats,facts?:PopulationReading|null): readonly (readonly [string, string])[] {
  return [
   ['Saldo', grouped(stats.money)],
-  ['Pessoas', grouped(stats.population)],
+  ['População real', realPopulationText(facts)],
+  ['Moradores simulados', grouped(stats.population)],
   ['Felicidade', `${stats.happiness}%`],
   ['Energia', `${stats.energyUsed}/${stats.energySupply}`],
  ];

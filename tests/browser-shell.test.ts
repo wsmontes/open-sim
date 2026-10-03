@@ -298,6 +298,19 @@ test('session-ready: the real index.html boots the host and the city exists', as
  // The HUD wrote the restored vitals: a money readout the player can read.
  expect(el(h.doc, '#hud-money').textContent).toBe(h.client.view().stats.money.toLocaleString('pt-BR'));
  expect(el(h.doc, '#hud-place').textContent).toBe('Vancouver');
+ expect(el(h.doc, '#hud-population').textContent).toBe('662.248 · 2021');
+ expect(el(h.doc, '#city-population').textContent).toBe('662.248 · 2021');
+ expect(el(h.doc, '#economy-population').textContent).toBe(h.client.view().stats.population.toLocaleString('pt-BR'));
+});
+
+test('travel updates real demography in the top bar and places panel together',async()=>{
+ const h=await boot();
+ el<HTMLButtonElement>(h.doc,'[data-place="Lisboa"]').click();
+ await h.client.idle();
+ flushFrames(2);
+ expect(el(h.doc,'#hud-place').textContent).toBe('Lisboa');
+ expect(el(h.doc,'#hud-population').textContent).toBe('545.796 · 2021');
+ expect(el(h.doc,'#city-population').textContent).toBe('545.796 · 2021');
 });
 
 test('tool dock: clicking every data-tool selects it in the HUD and changes the client tool', async () => {

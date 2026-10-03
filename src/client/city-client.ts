@@ -108,6 +108,7 @@ export type ClientView = {
  card: {cell: CellCoord; reading: CellReading} | null;
  // The real city under the camera, and the one-line reminder that the game is a neighbourhood inside it.
  facts: CityFacts | null;
+ factsAt?: {lat: number; lon: number} | null;
  scale: string;
  // The map: a loading or failure line, and the source's attribution.
  map: {message: string; attribution: {text: string; url: string}};
@@ -187,6 +188,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
  // Place and camera (stage B): the viewport the surface reports, the glide target, the regions asked for, the map's
  // own message, and the real-city facts with the census the client has published to the world.
  let viewport: Viewport = config.viewport ?? DEFAULT_VIEWPORT;
+ let factsAt: {lat: number; lon: number} | null = null;
  let glide: Camera | null = null, loadMessage = '', cityFacts: CityFacts | null = NO_FACTS, pendingCensus: CityFacts | null = null;
  // The bytes of the last export, held for the host to write; cleared is simply null until an export runs.
  let exportBytes: {name: string; bytes: Uint8Array} | null = null;
@@ -356,14 +358,14 @@ export function createCityClient(config: CityClientConfig): CityClient {
   void track(router.submitAction({type: 'component', key: 'city.census', entity: slugOf(next.label), value: {population: next.population ?? null, year: next.populationYear ?? null, country: next.country ?? null, dataset: next.source.dataset, url: next.source.url}})
    .then(receipt => { if ((receipt as {code?: string}).code === 'NOT_FOUND') pendingCensus ??= next; }, () => { pendingCensus ??= next; }));
  };
- const showFacts = (next: CityFacts | null, publish: boolean) => { cityFacts = next; if (publish && next) { pendingCensus = next; flushCensus(); } };
+ const showFacts = (next: CityFacts | null, publish: boolean, at?: {lat: number; lon: number}) => { cityFacts = next; factsAt = next ? at ?? null : null; if(!next)pendingCensus=null; if (publish && next) { pendingCensus = next; flushCensus(); } };
  // Only the newest lookup may change the facts or publish a census: a slow answer about the previous city must not
  // overwrite the one the player just went to.
  let lookups = 0;
  const lookUp = (lat: number, lon: number, name?: string) => {
   if (!facts) return;
   const ticket = (lookups += 1);
-  void track((name ? facts.named(name) : Promise.resolve(null)).then(live => live ?? facts.near(lat, lon)).then(found => { if (found && ticket === lookups) { showFacts(found, true); changed(); } }, () => undefined));
+  void track((name ? facts.named(name) : Promise.resolve(null)).then(live => live ?? facts.near(lat, lon)).then(found => { if (found && ticket === lookups) { showFacts(found, true, {lat, lon}); changed(); } }, () => undefined));
  };
  // The reminder that the game is a neighbourhood inside the real place: shown only once the census is in the world, so
  // the sentence never claims the simulation accounts for the real millions before the figure has been published.
@@ -475,7 +477,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
     const target = placeByName(intent.name);
     if (!target) return {ok: false, message: `Lugar desconhecido: ${intent.name}. Conhecidos: ${Object.values(PLACES).map(p => p.name).join(', ')}`};
     moveCamera(centerOn(toCell(target.lat, target.lon), camera, viewport), target.name);
-    showFacts(target.facts, true); // the bundled figure is on screen before the network answers
+    showFacts(target.facts, true, {lat: target.lat, lon: target.lon}); // the bundled figure is on screen before the network answers
     lookUp(target.lat, target.lon, target.name);
     break;
    }
@@ -483,6 +485,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
     const resolved = goToCoord(intent.lat, intent.lon);
     if ('error' in resolved) { notice = resolved.error; changed(); return {ok: false, message: resolved.error}; }
     moveCamera(centerOn(resolved.cell, camera, viewport), resolved.label);
+    showFacts(null,false);
     lookUp(intent.lat, intent.lon);
     break;
    }
@@ -580,8 +583,8 @@ export function createCityClient(config: CityClientConfig): CityClient {
    clock.setSpeed(speed);
    // The bundled facts of the restored place are a zero-I/O warm start; the live lookup refreshes them. Keep the
    // census pending until the first load so publishing it follows the ordinary revision/save path.
-   const warm = placeByName(place)?.facts ?? null;
-   if (warm) { cityFacts = warm; pendingCensus = warm; }
+   const warmPlace = placeByName(place), warm = warmPlace?.facts ?? null;
+   if (warm && warmPlace) { cityFacts = warm; factsAt = {lat: warmPlace.lat, lon: warmPlace.lon}; pendingCensus = warm; }
    refreshPreview();
    changed();
    // The first visible-region pass. A non-animating host runs it at once (its idle() then waits for it); the browser
@@ -620,7 +623,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
    const chunks = new Map<string, ChunkStatus>();
    for (const id of requested) { const status = local.getChunk(id); if (status) chunks.set(id, status); }
    cached = {ready, state, stats: statsOf(state), tool, speed, place, camera, viewport, glide, hover, stroke, preview, notice, save: saveStatus(), card,
-    facts: cityFacts, scale: scaleText(state), map: {message: loadMessage, attribution}, center: centerCell(), chunks, cellAt, chunk: id => local.getChunk(id),
+    facts: cityFacts, factsAt, scale: scaleText(state), map: {message: loadMessage, attribution}, center: centerCell(), chunks, cellAt, chunk: id => local.getChunk(id),
     history: versions ? versions.history() : null, branches: versions ? versions.branches() : null, scenarios: versions ? versions.scenarios() : null, export: exportBytes};
    return cached;
   },

@@ -482,7 +482,10 @@ const updateHud = () => {
  const view = client.view();
  const focus=geographicFocus(view.camera,view.viewport),scale=mapScale(view.camera,view.viewport);
  const nearby=Object.values(PLACES).find(p=>Math.hypot((p.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),p.lat-focus.lat)<.15);
- const where=geography?(view.camera.zoom<GLOBE_ZOOM?'Terra':nearby?.name??`${focus.lat.toFixed(3)}°, ${focus.lon.toFixed(3)}°`):view.place;
+ // A lookup belongs to its requested location. Moving elsewhere hides it until new facts arrive.
+ const anchored=view.factsAt && Math.hypot((view.factsAt.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),view.factsAt.lat-focus.lat)<.01?view.facts:null;
+ const visibleFacts=geography?(view.camera.zoom<GLOBE_ZOOM?null:anchored??nearby?.facts??null):view.facts;
+ const where=geography?(view.camera.zoom<GLOBE_ZOOM?'Terra':visibleFacts?.label??`${focus.lat.toFixed(3)}°, ${focus.lon.toFixed(3)}°`):view.place;
  const scaleLabel=hudRoot.querySelector<HTMLElement>('#map-scale-label'),scaleBar=hudRoot.querySelector<HTMLElement>('#map-scale-bar'),mapMode=hudRoot.querySelector<HTMLElement>('#map-mode');
  if(scaleLabel)scaleLabel.textContent=scale.label;
  if(scaleBar)scaleBar.style.width=`${Math.round(scale.pixels/deviceScale())}px`;
@@ -496,6 +499,7 @@ const updateHud = () => {
  const help=hudRoot.querySelector<HTMLElement>('#map-help');if(help)help.textContent=view.tool==='explore'?'Arraste para explorar · Roda para zoom · Q / E ou dois dedos para girar':view.tool==='demolish'?'Demolir: arraste sobre os lotes · Confira o custo antes de soltar':`${({road:'Rua',avenue:'Avenida',highway:'Estrada',residential:'Moradia',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'} as Record<string,string>)[view.tool]}: arraste para marcar · Solte para construir`;
  hud.update({
   stats: view.stats,
+  facts: visibleFacts,
   tool: view.tool,
   speed: view.speed,
   place: where,
@@ -506,7 +510,7 @@ const updateHud = () => {
   canOverwriteSave: view.save.blocked,
   rotation: view.camera.rotation,
  });
- renderFacts(view.facts, view.scale);
+ renderFacts(visibleFacts,visibleFacts?.id===view.facts?.id?view.scale:'');
  showCacheStats();
  multiplayer.update(sessions.describe());
  // The version and scenarios panels are read straight off the client's view: the browser owns no version state.

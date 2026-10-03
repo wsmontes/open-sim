@@ -58,10 +58,39 @@ test('the bar is always there, and it is the only thing that always is',()=>{
  hud.update(info());
  expect(element('hud-place').textContent).toBe('Vancouver');
  expect(element('hud-money').textContent).toBe('1.234');
- expect(element('hud-population').textContent).toBe('56');
+ expect(element('hud-population').textContent).toBe('—');
+ expect(element('economy-population').textContent).toBe('56');
  expect(element('hud-happiness').textContent).toBe('80%');
  expect(element('hud-energy').textContent).toBe('30/90');
  expect(element('hud-attribution').textContent).toContain('OpenStreetMap');
+ hud.destroy();
+});
+
+test('Vancouver shows its dated real population instead of the 380 simulated residents',()=>{
+ const hud=createHud(element('hud'),callbacks());
+ hud.update(info({stats:{...stats,population:380},facts:{id:'Q24639',label:'Vancouver',population:662248,populationYear:2021,source:{dataset:'Wikidata',url:'https://www.wikidata.org/wiki/Q24639',license:'CC0'}}}));
+ expect(element('hud-population').textContent).toBe('662.248 · 2021');
+ expect(element('hud-population').title).toContain('Wikidata');
+ expect(element('hud-population').title).toContain('Vancouver');
+ expect(element('economy-population').textContent).toBe('380');
+ hud.destroy();
+});
+
+test('missing real demography never falls back to the simulated population',()=>{
+ const hud=createHud(element('hud'),callbacks());
+ hud.update(info({stats:{...stats,population:380},facts:null}));
+ expect(element('hud-population').textContent).toBe('—');
+ expect(element('hud-population').title).toContain('indisponível');
+ hud.destroy();
+});
+
+test('travelling does not show Vancouver demography under the name Lisboa',()=>{
+ const hud=createHud(element('hud'),callbacks());
+ const facts={id:'Q24639',label:'Vancouver',population:662248,populationYear:2021,source:{dataset:'Wikidata',url:'https://www.wikidata.org/wiki/Q24639',license:'CC0'}};
+ hud.update(info({facts}));
+ hud.update(info({place:'Lisboa',facts}));
+ expect(element('hud-population').textContent).toBe('—');
+ expect(element('hud-population').title).not.toContain('Vancouver');
  hud.destroy();
 });
 

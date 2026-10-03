@@ -1,7 +1,8 @@
 import type {CityStats} from '../../core/model';
 export type {SelectedTool} from '../../presentation/tools';
 import type {SelectedTool} from '../../presentation/tools';
-import {economyPanel,netText,saveText} from '../../presentation/words';
+import {economyPanel,netText,saveText,realPopulationText} from '../../presentation/words';
+import type {CityFacts} from '../../client/facts';
 import {BORROW_STEP,COST,SERVICES_MAX,SERVICES_MIN,TAX_MAX,TAX_MIN} from '../../core/model';
 import type {LayoutMode} from '../../presentation/layout';
 import type {Speed} from '../../presentation/clock';
@@ -38,6 +39,7 @@ export type HudCallbacks = {
 };
 export type HudInfo = {
  stats:CityStats;
+ facts?:CityFacts|null;
  tool:SelectedTool;
  speed:Speed;
  place:string;
@@ -187,7 +189,7 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
  const placeLabel=el('#hud-place'),money=el('#hud-money'),population=el('#hud-population'),energy=el('#hud-energy'),happiness=el('#hud-happiness');
  const message=el('#map-message'),retry=el('#map-retry'),saveStatus=el('#save-status'),overwrite=el('#save-overwrite'),notice=el('#command-notice');
  const needle=el('#hud-compass-needle'),attribution=root.querySelector<HTMLAnchorElement>('#hud-attribution');
- const economyRevenue=el('#economy-revenue'),economyExpense=el('#economy-expense'),economyNet=el('#economy-net');
+ const economyPopulation=el('#economy-population'),economyRevenue=el('#economy-revenue'),economyExpense=el('#economy-expense'),economyNet=el('#economy-net');
  const economyLand=el('#economy-land'),economyDebt=el('#economy-debt'),economyInterest=el('#economy-interest');
  const economyRating=el('#economy-rating'),economyDemand=el('#economy-demand'),economyCrisis=el('#economy-crisis');
  const taxInput=el<HTMLInputElement>('#economy-tax'),taxValue=el('#economy-tax-value');
@@ -271,7 +273,10 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
   update(info){
    placeLabel.textContent=info.place;
    money.textContent=info.stats.money.toLocaleString('pt-BR');
-   population.textContent=info.stats.population.toLocaleString('pt-BR');
+   const facts=info.facts?.label===info.place?info.facts:null;
+   population.textContent=realPopulationText(facts);
+   population.title=population.textContent==='—'?'População real indisponível para este lugar':`${facts!.label} · município · ${facts!.source.dataset} · ${facts!.populationYear??'ano não informado'} · ${facts!.source.url}`;
+   economyPopulation.textContent=info.stats.population.toLocaleString('pt-BR');
    energy.textContent=`${info.stats.energyUsed}/${info.stats.energySupply}`;
    energy.title='energia usada / fornecida';
    happiness.textContent=`${info.stats.happiness}%`;
