@@ -73,26 +73,47 @@ function bounds(feature:GeographicFeature){
 function roadPath(ctx:CanvasRenderingContext2D,view:WorldView,feature:GeographicFeature,shift:number){
  ctx.beginPath();for(const ring of feature.geometry){if(!ring.length)continue;const a=project({x:ring[0].x+shift-.5,y:ring[0].y-.5},view.camera);ctx.moveTo(a.x,a.y);for(let i=1;i<ring.length;i++){const p=project({x:ring[i].x+shift-.5,y:ring[i].y-.5},view.camera);ctx.lineTo(p.x,p.y);}}
 }
-function drawRoads(ctx:CanvasRenderingContext2D,view:WorldView,roads:Array<{feature:GeographicFeature;shift:number}>){
+// A street is drawn in passes, not whole one feature after another. Painted whole, the second street of every crossing
+// lays its kerb across the pavement of the first and the corner becomes a pale bar over a dark road — the seam that
+// shows at every junction. Kerbs for the whole city first, then the surfaces, then the markings: every street then has
+// the same claim on a junction, the kerb survives only where no pavement covers it, and a crossing reads as a crossing.
+export type RoadPass='kerb'|'surface'|'marking';
+// What a street is, read once per feature and kept: the three passes below ask the same three questions of every street
+// in the city, and a regular expression per street per pass is a cost the far zooms pay for nothing.
+const roadKinds=new WeakMap<GeographicFeature,{highway:boolean;arterial:boolean;pathway:boolean}>();
+function roadKindOf(feature:GeographicFeature){
+ let kind=roadKinds.get(feature);
+ if(!kind){kind={highway:/^(motorway|trunk)/.test(feature.kind),arterial:/^(primary|secondary)/.test(feature.kind),pathway:/^(footway|path|steps|cycleway|pedestrian)/.test(feature.kind)};roadKinds.set(feature,kind);}
+ return kind;
+}
+function drawRoads(ctx:CanvasRenderingContext2D,view:WorldView,roads:Array<{feature:GeographicFeature;shift:number}>,pass:RoadPass){
  const scale=TILE_W*view.camera.zoom;
  ctx.lineCap='round';ctx.lineJoin='round';
  for(const {feature,shift} of roads){
-  const highway=/^(motorway|trunk)/.test(feature.kind),arterial=/^(primary|secondary)/.test(feature.kind),pathway=/^(footway|path|steps|cycleway|pedestrian)/.test(feature.kind);
+  const {highway,arterial,pathway}=roadKindOf(feature);
   const width=Math.max(pathway?.55:1,(highway?1.65:arterial?1.2:pathway?.10:feature.kind==='service'?.4:.8)*scale);
-  roadPath(ctx,view,feature,shift);ctx.strokeStyle=pathway?'#cac7ad':PALETTE.sidewalk;ctx.lineWidth=width+Math.max(.8,scale*.23);ctx.stroke();
-  if(!pathway){ctx.strokeStyle=highway?'#8d8870':PALETTE.pavement;ctx.lineWidth=width;ctx.stroke();}
-  if(width>6&&!pathway){ctx.strokeStyle=highway?'#ebd696':'#e0d8bf';ctx.lineWidth=Math.max(.6,scale*.016);ctx.setLineDash([Math.max(2,scale*.16),Math.max(2,scale*.14)]);ctx.stroke();ctx.setLineDash([]);}
-
+  // A footpath is not a road with kerbs: it is one quiet band, drawn with the kerbs so that the pavement of the street
+  // it meets runs over it instead of under it.
+  if(pathway){if(pass==='kerb'){roadPath(ctx,view,feature,shift);ctx.strokeStyle='#cac7ad';ctx.lineWidth=Math.max(1.1,width);ctx.stroke();}continue;}
+  if(pass==='kerb'){roadPath(ctx,view,feature,shift);ctx.strokeStyle=PALETTE.sidewalk;ctx.lineWidth=width+Math.max(.8,scale*.23);ctx.stroke();continue;}
+  if(pass==='surface'){roadPath(ctx,view,feature,shift);ctx.strokeStyle=highway?'#8d8870':PALETTE.pavement;ctx.lineWidth=width;ctx.stroke();continue;}
+  if(width>6){roadPath(ctx,view,feature,shift);ctx.strokeStyle=highway?'#ebd696':'#e0d8bf';ctx.lineWidth=Math.max(.6,scale*.016);ctx.setLineDash([Math.max(2,scale*.16),Math.max(2,scale*.14)]);ctx.stroke();ctx.setLineDash([]);}
  }
 }
-function drawPlayerRoad(ctx:CanvasRenderingContext2D,view:WorldView,c:CellCoord,cell:Cell,lookup:(p:CellCoord)=>Cell|null){
- const connections=roadConnections(c,lookup),p=project(c,view.camera),scale=TILE_W*view.camera.zoom,kind=roadClassOf(cell);
- const width=Math.max(1,scale*(kind==='highway'?.56:kind==='avenue'?.4:.25));
- for(const [key,dx,dy] of [['east',.5,0],['west',-.5,0],['north',0,-.5],['south',0,.5]] as const){
-  if(!connections[key])continue;const end=project({x:c.x+dx,y:c.y+dy},view.camera);
-  ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(end.x,end.y);ctx.strokeStyle=PALETTE.sidewalk;ctx.lineWidth=width+scale*.1;ctx.stroke();ctx.strokeStyle=PALETTE.pavement;ctx.lineWidth=width;ctx.stroke();
+function drawPlayerRoad(ctx:CanvasRenderingContext2D,view:WorldView,c:CellCoord,cell:Cell,lookup:(p:CellCoord)=>Cell|null,pass:RoadPass){
+ const scale=TILE_W*view.camera.zoom,kind=roadClassOf(cell);
+ const width=Math.max(1,scale*(kind==='highway'?.56:kind==='avenue'?.4:.25)),p=project(c,view.camera);
+ if(pass==='kerb'||pass==='surface'){
+  // The player's street joins the city's streets on the same terms: its kerb is laid in the kerb pass, so where it
+  // meets a mapped street the two pavements meet and neither kerb is drawn over the other.
+  const connections=roadConnections(c,lookup);
+  ctx.strokeStyle=pass==='kerb'?PALETTE.sidewalk:PALETTE.pavement;ctx.lineWidth=pass==='kerb'?width+scale*.1:width;
+  for(const [key,dx,dy] of [['east',.5,0],['west',-.5,0],['north',0,-.5],['south',0,.5]] as const){
+   if(!connections[key])continue;const end=project({x:c.x+dx,y:c.y+dy},view.camera);
+   ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(end.x,end.y);ctx.stroke();
+  }
  }
- ctx.fillStyle=PALETTE.pavement;ctx.beginPath();ctx.arc(p.x,p.y,width*.5,0,Math.PI*2);ctx.fill();
+ if(pass==='surface'){ctx.fillStyle=PALETTE.pavement;ctx.beginPath();ctx.arc(p.x,p.y,width*.5,0,Math.PI*2);ctx.fill();}
 }
 export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldView){
  if(view.camera.zoom<GLOBE_ZOOM){drawGlobe(ctx,view);return;}
@@ -151,12 +172,17 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   const depth=Math.max(...footprint.rings[0].map(p=>project({x:p.x+shift,y:p.y},camera).y));
   for(const remaining of remainingFootprints(footprint,edits.map(e=>({x:e.coord.x-shift,y:e.coord.y}))))buildings.push({footprint:remaining,shift,depth});
  }
- drawRoads(ctx,view,roads);
- drawStreetDetails(ctx,view,roads,centre.x);
  const lookup=(p:CellCoord):Cell|null=>{const id=chunkId(p),managed=view.state.chunks[id],i=cellIndex(p),status=view.chunks.get(id);return managed?(managed.edits[i]??managed.base.cells[i]):status?.status==='ready'?status.base.cells[i]:null;};
+ // Ground for what the player changed, then every street's kerb, then every surface, then the markings, then the
+ // street furniture: one order for the whole city, so no street is ever drawn across another's pavement.
+ for(const {coord,cell} of edits)rectCell(ctx,view,coord,cell.terrain==='water'?PALETTE.water:cell.building==='park'?PALETTE.park:PALETTE.ground);
+ drawRoads(ctx,view,roads,'kerb');
+ for(const {coord,cell} of edits)if(cell.road)drawPlayerRoad(ctx,view,coord,cell,lookup,'kerb');
+ drawRoads(ctx,view,roads,'surface');
+ for(const {coord,cell} of edits)if(cell.road)drawPlayerRoad(ctx,view,coord,cell,lookup,'surface');
+ drawRoads(ctx,view,roads,'marking');
+ drawStreetDetails(ctx,view,roads,centre.x);
  for(const {coord,cell} of edits){
-  rectCell(ctx,view,coord,cell.terrain==='water'?PALETTE.water:cell.building==='park'?PALETTE.park:PALETTE.ground);
-  if(cell.road)drawPlayerRoad(ctx,view,coord,cell,lookup);
   if(cell.building&&cell.building!=='park'){
    const r=cell.building==='industrial'?.42:.34;
    const ring=[{x:coord.x-r+.5,y:coord.y-r+.5},{x:coord.x+r+.5,y:coord.y-r+.5},{x:coord.x+r+.5,y:coord.y+r+.5},{x:coord.x-r+.5,y:coord.y+r+.5},{x:coord.x-r+.5,y:coord.y-r+.5}];

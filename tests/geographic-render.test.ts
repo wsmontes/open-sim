@@ -74,6 +74,16 @@ test('a glass tower casts one shadow, thrown by its whole height, and water move
  expect(still.paths).not.toEqual(later.paths);
 });
 
+test('every kerb in the city is laid before the first pavement, so no street crosses another street kerb',()=>{
+ const crossing=[{layer:'streets',kind:'residential',bridge:false,type:2,geometry:[[{x:0,y:3},{x:20,y:3}]]},{layer:'streets',kind:'residential',bridge:false,type:2,geometry:[[{x:6,y:0},{x:6,y:12}]]}];
+ const rec=recorder();render(rec.context,{...view,geography:{...view.geography!,tiles:[{z:14,x:0,y:0,features:crossing}]}});
+ const painted=rec.strokes.filter(s=>s.color==='#cec6b3'||s.color==='#656d6b').map(s=>s.color);
+ const lastKerb=painted.lastIndexOf('#cec6b3'),firstPavement=painted.indexOf('#656d6b');
+ expect(lastKerb).toBeGreaterThanOrEqual(0);
+ expect(firstPavement).toBeGreaterThanOrEqual(0);
+ expect(lastKerb).toBeLessThan(firstPavement);
+});
+
 test('at night the avenues carry lamps, and by day they do not',()=>{
  const streets=[3,4,5,6,7,8].map(y=>({layer:'streets',kind:'secondary',bridge:false,type:2,geometry:[[{x:0,y},{x:20,y}]]}));
  const tiles=[{z:14,x:0,y:0,features:streets}];
