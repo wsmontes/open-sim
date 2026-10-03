@@ -63,3 +63,5 @@ Exemplos: Vancouver combina fontes globais + StatCan + BC + TransLink/porto/Aqua
 ## Elevação e relevo
 
 Fontes e proposta em [terrain-sources.md](terrain-sources.md): LidarBC (cobertura por coleção), CanElevation MRDEM/HRDEM (Canadá, com HRDEM parcial), Copernicus GLO-30/GLO-90 (global DSM). Geometria OSM não substitui altitude. Distinguir solo de superfície, datums e ausência de cobertura.
+
+BC Ferries exige programação oficial por data/direção, não horário simulado genérico. Consulta a schedules redirecionou para fila Queue-it em 2026-10-02; current-conditions e mapa foram legíveis pela ferramenta de pesquisa, mas API/CORS continuam não comprovados. Acessibilidade da página não prova integração direta.

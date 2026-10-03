@@ -255,3 +255,13 @@ Executar depois do contrato compartilhado de movimento, antes da verificação f
 - [ ] Aplicar teto de agentes e tempo compartilhado; preservar replays sem gravação de posições por frame.
 - [ ] Exibir fontes/temporada e “Rotas e terminais reais · movimentos simulados”. Calendário previsto não equivale a posição AIS ao vivo.
 - [ ] Verificar no navegador cenas de Canada Place, Burrard Inlet e False Creek; registrar captura e desempenho com trânsito terrestre e aviões ativos.
+
+
+### Complemento marítimo: BC Ferries com programação oficial
+
+- [ ] Capturar fontes oficiais por rota/direção/data de serviço, terminais, escalas, período de vigência, saídas/chegadas e corredor verificado. Registrar fuso/offset aplicável e procedência; não promover mapa esquemático a traçado exato.
+- [ ] Validar disponibilidade dos arquivos e condições de acesso. Página de horários encontrou fila Queue-it na pesquisa; API pública/CORS não estão comprovados. Não usar proxies públicos nem contornar bloqueios.
+- [ ] Implementar adaptador de programação com calendário, exceções, viagens noturnas e expiração. Não gerar partidas por intervalo inventado ou copiar temporada anterior fora de validade.
+- [ ] Implementar relógio civil para BC Ferries independente do multiplicador econômico; pausa visual e retomada recalculam progresso previsto. Separar modo cenário e “posição estimada pelo horário oficial” de tracking real.
+- [ ] Verificar atraso/cancelamento somente se fonte dinâmica puder ser lida e validada; sem isso conservar rótulo de horário previsto e última captura.
+- [ ] Cobrir horário por data/direção, escalas, meia-noite, temporada expirada, offset, pausa/retomada e ausência de duplicação; comparar uma viagem animada com a tabela original no navegador.
