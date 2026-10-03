@@ -12,6 +12,9 @@ export function projectSurface(view:WorldView,point:Point,elevationM?:number):Po
  const height=elevationM??view.terrain?.sample(toGeo(point))?.elevationM;
  return height===undefined?project(point,view.camera):projectElevated(point,height,view.camera,terrainMetres(view));
 }
+export function surfaceDepth(view:WorldView,point:Point,elevationM?:number):number{
+ return view.terrain?.tiles.length?terrainDepth(point,elevationM??view.terrain.sample(toGeo(point))?.elevationM??0,view.camera,terrainMetres(view)):project(point,view.camera).y;
+}
 const meshes=new WeakMap<object,Map<number,readonly TerrainTriangle[]>>();
 const visibility=new WeakMap<Camera,{tiles:object;width:number;height:number;triangles:readonly TerrainTriangle[];depth?:ReturnType<typeof createTerrainDepthBuffer>}>();
 let painted:{camera:Camera;tiles:object;width:number;height:number;light:string;canvas:OffscreenCanvas}|null=null;

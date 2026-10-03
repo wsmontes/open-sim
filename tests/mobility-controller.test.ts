@@ -1,0 +1,7 @@
+import {it,expect} from 'vitest';
+import {createMobilityController} from '../src/client/mobility-controller';
+import type {GeographicTile} from '../src/presentation/geographic-map';
+const tile:GeographicTile={z:14,x:0,y:0,features:[{layer:'streets',kind:'residential',type:2,bridge:false,geometry:[[{x:0,y:0},{x:10,y:0}]]}]};
+it('retains street topology when visual zoom changes',()=>{const c=createMobilityController(1);c.setGeography([tile]);const edge=[...c.network().edges.values()][0];c.setAgents([{id:'test',kind:'car',route:[edge.id],edgeIndex:0,distanceM:0,speedMps:1,seed:1}]);c.advance(.2);const before=c.frame();c.setGeography([{...tile,z:12}]);c.setGeography([tile]);expect(c.frame()).toEqual(before);});
+it('uses the same engine for cell roads',()=>{const c=createMobilityController(1);c.setCells([{coord:{x:0,y:0},cell:{terrain:'land',road:true}},{coord:{x:1,y:0},cell:{terrain:'land',road:true}}],'cells');expect(c.network().edges.size).toBe(2);c.setDemand({vehicles:1,pedestrians:0,truckShare:0,hour:12});c.advance(1/30);expect(c.frame()).toHaveLength(1);});
+it('dispose releases the current topology and agents',()=>{const c=createMobilityController(1);c.setGeography([tile]);c.dispose();expect(c.network().edges.size).toBe(0);expect(c.frame()).toEqual([]);});

@@ -64,12 +64,13 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
   }
  };
  const generate=()=>{
+  const inside=(p:Point)=>!demand.bounds||p.x>=demand.bounds.minX&&p.x<=demand.bounds.maxX&&p.y>=demand.bounds.minY&&p.y<=demand.bounds.maxY;
   const vehicleTarget=Math.max(0,Math.min(CAP,Math.floor(demand.vehicles))),walkerTarget=Math.max(0,Math.min(CAP-vehicleTarget,Math.floor(demand.pedestrians)));
   for(const [walking,target] of [[false,vehicleTarget],[true,walkerTarget]] as const){
-   let count=[...agents.values()].filter(a=>(a.kind==='pedestrian')===walking).length;
+   let count=[...agents.values()].filter(a=>(a.kind==='pedestrian')===walking&&inside(network.edges.get(a.route[a.edgeIndex])!.path[0])).length;
    for(let attempt=0;count<target&&agents.size<CAP&&attempt<8;attempt++){
     const kind=walking?'pedestrian':random()<demand.truckShare?'truck':'car';
-    let edges=edgePools.get(kind);if(!edges){edges=[...network.edges.values()].filter(edge=>edge.allowed.includes(kind));edgePools.set(kind,edges);}if(!edges.length)break;
+    let edges=edgePools.get(kind);if(!edges){edges=[...network.edges.values()].filter(edge=>edge.allowed.includes(kind)&&inside(edge.path[0]));edgePools.set(kind,edges);}if(!edges.length)break;
     const from=edges[Math.floor(random()*edges.length)].from,to=edges[Math.floor(random()*edges.length)].to,route=findMobilityRoute(network,from,to,kind);if(!route?.length)continue;
     const id=`demand:${seed}:${++sequence}`,first=network.edges.get(route[0])!;
     if([...agents.values()].some(a=>a.route[a.edgeIndex]===first.id&&lane(a)===(walking?'sidewalk':'vehicle')&&a.distanceM<(MOBILITY_LENGTH[kind]+MOBILITY_LENGTH[a.kind])/2+2))continue;
@@ -80,10 +81,23 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
  };
  return {
   setNetwork(next:MobilityNetwork){
-   if(next.revision===network.revision)return;network=next;reservations.clear();edgePools.clear();readIntersections();
-   for(const agent of agents.values())if(!valid(agent))finish(agent.id);
+   if(next.revision===network.revision)return;const previous=network;network=next;reservations.clear();edgePools.clear();readIntersections();
+   for(const agent of agents.values())if(!valid(agent)){
+    const route:string[]=[];let distance=agent.distanceM,failed=false;
+    for(let i=agent.edgeIndex;i<agent.route.length;i++){
+     const old=previous.edges.get(agent.route[i]);if(!old){failed=true;break;}
+     const replacement=findMobilityRoute(network,old.from,old.to,agent.kind);if(!replacement?.length){failed=true;break;}route.push(...replacement);
+    }
+    if(failed){finish(agent.id);continue;}
+    let edgeIndex=0;while(edgeIndex<route.length-1&&distance>=network.edges.get(route[edgeIndex])!.lengthM){distance-=network.edges.get(route[edgeIndex])!.lengthM;edgeIndex++;}
+    agent.route=route;agent.edgeIndex=edgeIndex;agent.distanceM=distance;
+   }
   },
-  setDemand(next:MobilityDemand){demand={vehicles:Number.isFinite(next.vehicles)?Math.max(0,next.vehicles):0,pedestrians:Number.isFinite(next.pedestrians)?Math.max(0,next.pedestrians):0,truckShare:Number.isFinite(next.truckShare)?Math.max(0,Math.min(1,next.truckShare)):0,hour:Number.isFinite(next.hour)?next.hour:12};},
+  setDemand(next:MobilityDemand){
+   const bounds=next.bounds&&Object.values(next.bounds).every(Number.isFinite)?{...next.bounds}:undefined;
+   if(JSON.stringify(bounds)!==JSON.stringify(demand.bounds))edgePools.clear();
+   demand={vehicles:Number.isFinite(next.vehicles)?Math.max(0,next.vehicles):0,pedestrians:Number.isFinite(next.pedestrians)?Math.max(0,next.pedestrians):0,truckShare:Number.isFinite(next.truckShare)?Math.max(0,Math.min(1,next.truckShare)):0,hour:Number.isFinite(next.hour)?next.hour:12,bounds};
+  },
   setAgents(next:readonly MobilityAgent[]){
    const wanted=new Set(next.map(a=>a.id));for(const id of external)if(!wanted.has(id)){agents.delete(id);retired.delete(id);}external=wanted;
    for(const requested of next){

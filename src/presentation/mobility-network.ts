@@ -40,13 +40,13 @@ export function buildGeographicNetwork(features:readonly GeographicFeature[],rev
   }
  }
  // Segment bounding buckets limit intersection comparisons to nearby geometry.
- const buckets=new Map<string,number[]>(),pairs=new Set<string>();
- const compare=(a:number,b:number)=>{const key=`${Math.min(a,b)}:${Math.max(a,b)}`;if(a===b||pairs.has(key))return;pairs.add(key);connect(segments[a],segments[b]);};
+ const buckets=new Map<string,number[]>();
+ const compare=(a:number,b:number)=>{if(a!==b)connect(segments[a],segments[b]);};
  const wide:number[]=[];
  for(let i=0;i<segments.length;i++){
-  const s=segments[i],x0=Math.floor(Math.min(s.a.x,s.b.x)/128),x1=Math.floor(Math.max(s.a.x,s.b.x)/128),y0=Math.floor(Math.min(s.a.y,s.b.y)/128),y1=Math.floor(Math.max(s.a.y,s.b.y)/128);
+  const s=segments[i],x0=Math.floor(Math.min(s.a.x,s.b.x)/32),x1=Math.floor(Math.max(s.a.x,s.b.x)/32),y0=Math.floor(Math.min(s.a.y,s.b.y)/32),y1=Math.floor(Math.max(s.a.y,s.b.y)/32),checked=new Set<number>();
   if((x1-x0+1)*(y1-y0+1)>4096){wide.push(i);continue;}
-  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const key=`${x}:${y}:${s.level}`,list=buckets.get(key)??[];for(const j of list)compare(i,j);list.push(i);buckets.set(key,list);}
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const key=`${x}:${y}:${s.level}`,list=buckets.get(key)??[];for(const j of list)if(!checked.has(j)){checked.add(j);compare(i,j);}list.push(i);buckets.set(key,list);}
  }
  for(const i of wide)for(let j=0;j<segments.length;j++)compare(i,j);
  const nodes=new Map<string,MobilityNode>(),edges=new Map<string,MobilityEdge>(),outgoing=new Map<string,string[]>();

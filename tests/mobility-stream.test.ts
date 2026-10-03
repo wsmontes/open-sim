@@ -1,0 +1,9 @@
+import {it,expect} from 'vitest';
+import {createMobilityStream} from '../src/browser/mobility-stream';
+import {centerOn} from '../src/presentation/camera';
+import {toCell} from '../src/core/coordinates';
+import type {GeographicTile} from '../src/presentation/geographic-map';
+const viewport={width:480,height:360},camera=centerOn(toCell(49.2827,-123.1207),{x:0,y:0,zoom:.35,rotation:0},viewport);
+const tile=(z:number,x:number,y:number):GeographicTile=>({z,x,y,features:[{layer:'streets',kind:'residential',bridge:false,type:2,geometry:[[{x:x*256+20,y:y*256+20},{x:x*256+80,y:y*256+20}]]}]});
+it('requests direction-capable detail at most four tiles concurrently and does not fetch per frame',async()=>{const pending:{resolve:(tile:GeographicTile)=>void;z:number;x:number;y:number}[]=[],stream=createMobilityStream((z,x,y)=>new Promise(resolve=>pending.push({resolve,z,x,y})),1,()=>{});stream.update(camera,viewport);expect(pending.length).toBeLessThanOrEqual(4);expect(pending.every(p=>p.z===14)).toBe(true);stream.update(camera,viewport);expect(pending.length).toBeLessThanOrEqual(4);for(let rounds=0;rounds<20&&pending.length;rounds++){for(const p of pending.splice(0))p.resolve(tile(p.z,p.x,p.y));await new Promise(resolve=>setTimeout(resolve,0));}expect(stream.controller.network().edges.size).toBeGreaterThan(0);stream.update(camera,viewport);expect(pending).toEqual([]);stream.dispose();});
+it('dispose prevents a delayed tile from restoring the network',async()=>{let resolve!:(tile:GeographicTile)=>void;const stream=createMobilityStream(()=>new Promise(r=>resolve=r),1,()=>{});stream.update(camera,viewport);stream.dispose();resolve(tile(14,0,0));await new Promise(r=>setTimeout(r,0));expect(stream.controller.network().edges.size).toBe(0);});

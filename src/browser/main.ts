@@ -1,10 +1,15 @@
 /// <reference types="vite/client" />
 import {createGeographicStream} from './geographic-stream';
 import {createTerrainStream} from './terrain-stream';
+import {createMobilityStream} from './mobility-stream';
+import {motionSeconds} from '../presentation/clock';
+import {createSurfaceSupport} from '../presentation/terrain-surface';
 import {createTerrainSource} from '../adapters/map/terrain-source';
 import terrainManifest from '../adapters/map/data/vancouver-terrain/manifest.json';
 import type {TerrainManifest} from '../presentation/terrain-model';
 import {pickSurface,visibleTerrain} from '../surfaces/canvas/terrain-renderer';
+import {mobilityDrawCommands} from '../surfaces/canvas/mobility-draw';
+import {buildingCacheStats} from '../surfaces/canvas/architecture-renderer';
 import {geographicFocus,mapScale,GLOBE_ZOOM} from '../presentation/geographic-map';
 import {attachOfflineRegion} from './offline-controller';
 import {viewpointOf} from '../presentation/viewpoint';
@@ -35,7 +40,9 @@ import {createMultiplayerPanel} from '../surfaces/canvas/multiplayer-panel';
 import {createWorldHistory,downloadBundle,readBundleFile} from '../surfaces/canvas/world-history';
 import {createWorldComposition} from '../surfaces/canvas/world-composition';
 import {emptyComposition} from '../presentation/world-composition-model';
-import {chunkId,toCell} from '../core/coordinates';
+import {chunkId,toCell,toGeo,coordAt} from '../core/coordinates';
+import {effectiveCells} from '../core/world';
+import {createMobilityController} from '../client/mobility-controller';
 import {quoteAction} from '../core/quote';
 import type {Camera} from '../presentation/camera';
 import {normalizeAngle,project,settleZoom,zoomTo,MIN_ZOOM,centerOn,ROTATE_STEP} from '../presentation/camera';
@@ -360,6 +367,12 @@ let invalidateFrame = () => {};
 const geography = 'loadVisualTile' in maps ? createGeographicStream((z,x,y)=>(maps as OsmSource).loadVisualTile(z,x,y),()=>invalidateFrame()) : null;
 const terrainSource=createTerrainSource(async(url,signal)=>{const response=await fetch(url,{signal});if(!response.ok)throw new Error('Terrain unavailable');return new Uint8Array(await response.arrayBuffer());},terrainManifest as TerrainManifest);
 const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame());
+const mobilityStream=geography?createMobilityStream((z,x,y)=>(maps as OsmSource).loadVisualTile(z,x,y),SEED,()=>invalidateFrame()):null;
+const mobility=mobilityStream?.controller??createMobilityController(SEED);
+mobility.setSurface((point,edge)=>{
+ const surface=terrain.scene();if(edge.bridge)return createSurfaceSupport(surface.sample).foundation(edge.path)??surface.sample(toGeo(point))?.elevationM??null;
+ return surface.sample(toGeo(point))?.elevationM??null;
+});
 // The view reads the live branch through `head`, so it is created once the game's own state exists: a session view
 // that ran before those declarations would read a name that is not initialized yet.
 const sessions = createGameSessionView({
@@ -576,6 +589,7 @@ function onPlace(name: string) {
 }
 function onRetryMap() {
  geography?.retry();
+ mobilityStream?.retry();
  if (active) {
   tell({do: 'retryMap'});
   return;
@@ -661,6 +675,7 @@ window.screen?.orientation?.addEventListener?.('change', applyLayout);
 // The traffic's clock: wall time scaled by the game speed, so the streets move while the city runs, move twice as
 // fast at 2x and stand still while it is paused. It is presentation only — no tick reads it, no command carries it.
 let motion = 0;
+let motionMs=0,renderMs=0;
 // The card the player opened describes one cell. The moment the city slides under it, it is answering about a place
 // that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
 let hudCameraStamp='';
@@ -681,6 +696,12 @@ const draw = (now: number, seconds: number) => {
  const {width, height} = hand.viewport;
  geography?.update(camera,hand.viewport);
  terrain.update(camera,hand.viewport);
+ mobilityStream?.update(camera,hand.viewport);
+ if(!geography){
+  const cells=[...hand.chunks].flatMap(([id,status])=>{const managed=hand.state?.chunks[id],base=status.status==='ready'?status.base:null;const available=managed?effectiveCells(managed):base?.cells;return available?available.flatMap((cell,i)=>cell.road?[{coord:coordAt(id,i),cell}]:[]):[];});
+  mobility.setCells(cells,`${hand.state?.revision}:${[...hand.chunks.keys()].join('|')}`);mobility.setDemand({vehicles:50,pedestrians:24,truckShare:.08,hour:12});
+ }
+ const motionStart=performance.now();mobility.advance(motionSeconds(seconds,hand.speed));motionMs=performance.now()-motionStart;
  if(geography){
   const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
   if(stamp!==hudCameraStamp){hudCameraStamp=stamp;updateHud();}
@@ -693,6 +714,7 @@ const draw = (now: number, seconds: number) => {
   light:cityLight,
   geography: geography?.scene(),
   terrain:terrain.scene(),
+  mobility:mobility.frame(),
   pixelRatio:deviceScale(),
   camera,
   viewport: {width, height},
@@ -709,7 +731,7 @@ const draw = (now: number, seconds: number) => {
  // something it is drawn from changes: the moving traffic, where streets show it, or a tick, a tile or the camera. An
  // identical frame is not drawn again — the canvas still holds it.
  if (!sameFrame(lastView, view)) {
-  render(ctx, view);
+  const renderStart=performance.now();render(ctx, view);renderMs=performance.now()-renderStart;
   lastView = view;
  }
  return {moving, ambient: hand.speed !== 0};
@@ -720,6 +742,7 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  a.light === b.light &&
  a.geography?.revision === b.geography?.revision &&
  a.terrain?.revision === b.terrain?.revision &&
+ a.mobility?.length===b.mobility?.length &&
  a.camera.x === b.camera.x &&
  a.camera.y === b.camera.y &&
  a.camera.zoom === b.camera.zoom &&
@@ -733,12 +756,12 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  a.previewAffordable === b.previewAffordable &&
  a.hover?.x === b.hover?.x &&
  a.hover?.y === b.hover?.y &&
- (a.motion === b.motion || (b.geography?b.camera.zoom<.2:!drawsStreetLife(b.camera)));
+ (a.motion === b.motion || (b.mobility?b.mobility.length===0:b.geography?b.camera.zoom<.2:!drawsStreetLife(b.camera)));
 const frames = createFrameScheduler({draw});
 invalidateFrame = frames.invalidate;
 if (PERF_DEBUG) {
  const diagnostics=document.createElement('pre');diagnostics.id='open-sim-frame-stats';diagnostics.hidden=true;document.body.append(diagnostics);
- window.setInterval(()=>{diagnostics.textContent=JSON.stringify({frames:frames.stats(),terrain:terrain.status(),triangles:lastView?visibleTerrain(lastView).length:0});},1000);
+ window.setInterval(()=>{diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),buildings:buildingCacheStats(),terrain:terrain.status(),triangles:lastView?visibleTerrain(lastView).length:0,mobility:{visible:lastView?mobilityDrawCommands(ctx,lastView).length:0,agents:mobility.frame().length,nodes:mobility.network().nodes.size,edges:mobility.network().edges.size,positions:mobility.frame().slice(0,3).map(a=>({id:a.id,point:a.point}))}});},1000);
  const debugWindow = window as unknown as {
   openSimFrames?: () => ReturnType<typeof frames.stats>;
   openSimDebug?: () => unknown;

@@ -1,4 +1,6 @@
 import {lightContext} from './city-light';
+import {drawCellMobility,drawVisibleMobility} from './mobility-draw';
+import type {MobilityFrameAgent} from '../../presentation/mobility-model';
 import type {TerrainTile} from '../../presentation/terrain-model';
 import type {TerrainReading} from '../../presentation/terrain-surface';
 import {renderGeographicWorld} from './geographic-renderer';
@@ -17,6 +19,7 @@ export type WorldView = {
  light?:'day'|'night';
  geography?:GeographicScene;
  terrain?:{tiles:readonly TerrainTile[];sample:(geo:{lat:number;lon:number})=>TerrainReading|null;revision:number};
+ mobility?:readonly MobilityFrameAgent[];
  pixelRatio?:number;
  camera:Camera;
  viewport:Viewport;
@@ -207,12 +210,13 @@ function drawCell(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord){
     const nb=lookup(view,{x:wrapX(cx+x),y:ny});stage=Math.max(stage,nb?.stage??0);social||=nb?.building==='commercial'||nb?.building==='park';
    }
    const life=lifeAt({x:cx,y:cy,stage,social,road:kind},view.motion);
-   if(life){
+   if(life&&!view.mobility){
     const t=life.along-.5,side=life.lane*.08,lx=cx+(life.cross?side:t),ly=cy+(life.cross?t:side);
     const px=projXOf(lx,ly),py=projYOf(lx,ly);
     ctx.fillStyle=life.colour;ctx.fillRect(px-scale*.06,py-scale*.06,scale*.12,scale*.08);
    }
   }
+  if(view.mobility)drawCellMobility(ctx,view,coord);
  }
  if(cell.building)building(ctx,view,coord,cell,v);
  else if(cell.terrain==='green'&&scale>=14)tree(ctx,projXOf(cx,cy),projYOf(cx,cy),scale,v);
@@ -276,6 +280,7 @@ export function render(ctx:CanvasRenderingContext2D,view:WorldView):void{
   const coord={x:0,y:0};
   for(let k=0;k<count;k++){const i=ORDER[k]!;coord.x=CELLX[i]!;coord.y=CELLY[i]!;drawCell(ctx,view,coord);}
  }
+ if(isCoarse(camera))drawVisibleMobility(ctx,view);
  if(view.tool!=='explore')for(const cell of view.preview)marker(ctx,view,cell,view.previewAffordable);
  if(view.hover)marker(ctx,view,view.hover,true);
 }

@@ -607,7 +607,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
    // One frame of the camera gliding toward its target. The approach is exponential, so it never overshoots; the
    // tiles it is heading for are asked for as it goes (debounced), and on arrival it snaps to the exact target.
    if (!glide) return false;
-   camera = approach(camera, glide, 1 - Math.exp(-GLIDE_PER_SECOND * Math.max(0, seconds)));
+   camera = approach(camera, glide, 1 - Math.exp(-GLIDE_PER_SECOND * Math.max(0, seconds)), viewport);
    if (arrived(camera, glide)) { camera = glide; glide = null; scheduleSave(); }
    scheduleLoad();
    changed();

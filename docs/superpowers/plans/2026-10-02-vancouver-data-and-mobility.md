@@ -224,10 +224,10 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 
 **Interfaces:** `MobilityAgent={id:string;kind:MobilityKind;route:readonly string[];edgeIndex:number;distanceM:number;speedMps:number;seed:number;tripId?:string}`; `MobilityFrameAgent={id:string;kind:MobilityKind;point:Point;heading:Point;elevationM:number|null;seed:number;method:'simulated'|'observed';tripId?:string}`. `createMobilityEngine(network:MobilityNetwork,seed:number):MobilityEngine`; `MobilityEngine={setNetwork(network:MobilityNetwork):void;setDemand(demand:MobilityDemand):void;setAgents(agents:readonly MobilityAgent[]):void;advance(seconds:number):void;frame():readonly MobilityFrameAgent[]}`. `setAgents` reconcilia identidades, sem reiniciar agentes persistentes. Integração fixa 1/30 s, limite de catch-up 0.25 s por frame; distância mínima = metade de cada comprimento de veículo + 2 m. Comprimentos: carro 4.5 m, ônibus 12 m, caminhão 10 m; pedestre 0.5 m. Ciclo inferido de cruzamento: duas fases com verde de 20 s, amarelo de 3 s e limpeza de 2 s, identificado como simulado. Amarelo bloqueia novas entradas; agentes já dentro terminam a travessia. A Tarefa 16 liga esse estado ao desenho visível.
 
-- [ ] Escrever `cross_edge_without_teleport`, `queue_respects_lengths`, `intersection_conflicting_agents_wait`, `pause_zero_seconds`, `resume_bounded_catchup`, `removed_edge_replans_or_exits`, `same_revision_does_not_restart`, `truck_and_walker_permissions`; afirmar separação mínima e continuidade no trajeto L da Tarefa 10.
-- [ ] Executar `npx vitest run tests/mobility-engine.test.ts`; confirmar RED.
-- [ ] Implementar movimento métrico e controle por faixa/interseção, manter geração limitada e semente estável. Altura é resolvida pela superfície/deck da Tarefa 9, não reinicia percurso. Movimento derivado do relógio atual da partida; câmera/zoom não altera identidade. Destinos sem rota não geram agente. Ativar caminhões em classe rápida/industrial e demanda estimada por hora de cenário.
-- [ ] Executar testes alvo e regressões de pausa/relógio. Commit: `feat: simulate continuous street movement`.
+- [x] Escrever `cross_edge_without_teleport`, `queue_respects_lengths`, `intersection_conflicting_agents_wait`, `pause_zero_seconds`, `resume_bounded_catchup`, `removed_edge_replans_or_exits`, `same_revision_does_not_restart`, `truck_and_walker_permissions`; afirmar separação mínima e continuidade no trajeto L da Tarefa 10.
+- [x] Executar `npx vitest run tests/mobility-engine.test.ts`; confirmar RED.
+- [x] Implementar movimento métrico e controle por faixa/interseção, manter geração limitada e semente estável. Altura é resolvida pela superfície/deck da Tarefa 9, não reinicia percurso. Movimento derivado do relógio atual da partida; câmera/zoom não altera identidade. Destinos sem rota não geram agente. Ativar caminhões em classe rápida/industrial e demanda estimada por hora de cenário.
+- [x] Executar testes alvo e regressões de pausa/relógio. Commit: `feat: simulate continuous street movement`.
 
 ## Task 12: Desenho reconhecível nos dois mapas
 
@@ -235,10 +235,10 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 
 **Interfaces:** `drawMobilityAgent(ctx:CanvasRenderingContext2D,agent:MobilityFrameAgent,projectPoint:(point:Point)=>Point,pixelsPerMetre:number,motion:number):void`; acrescentar frame de mobilidade opcional ao `WorldView` existente. Desenho usa heading projetado pela câmera, não diagonal fixa.
 
-- [ ] Escrever `bus_longer_than_car`, `truck_distinct_cab_and_cargo`, `walker_legs_follow_motion`, `rotated_camera_preserves_heading`, `outside_view_culled`; validar operações Canvas significativas, não snapshot de cada chamada.
-- [ ] Executar `npx vitest run tests/mobility-draw.test.ts tests/geographic-render.test.ts`; confirmar RED novo.
-- [ ] Substituir agentes antigos na passagem ativa; conservar helpers de árvores/cruzamentos. Desenhar ônibus com janelas, caminhão com cabine/carga e pessoas com passos; projetar offsets de faixas/calçadas usando projectElevated e altura do frame; mesmo helper para sombras/apoio. Remover carros decorativos antigos nas passagens substituídas para não duplicar tráfego. Reusar buffers; limite inicial 480 agentes terrestres visíveis, reduzido para 120 no zoom distante, margem de rede de uma tela.
-- [ ] Inspecionar Downtown com curva, travessia, pausa, câmera girada e zoom; salvar checkpoint. Executar regressões geográficas e typecheck. Commit: `feat: render visible urban mobility`.
+- [x] Escrever `bus_longer_than_car`, `truck_distinct_cab_and_cargo`, `walker_legs_follow_motion`, `rotated_camera_preserves_heading`, `outside_view_culled`; validar operações Canvas significativas, não snapshot de cada chamada.
+- [x] Executar `npx vitest run tests/mobility-draw.test.ts tests/geographic-render.test.ts`; confirmar RED novo.
+- [x] Substituir agentes antigos na passagem ativa; conservar helpers de árvores/cruzamentos. Desenhar ônibus com janelas, caminhão com cabine/carga e pessoas com passos; projetar offsets de faixas/calçadas usando projectElevated e altura do frame; mesmo helper para sombras/apoio. Remover carros decorativos antigos nas passagens substituídas para não duplicar tráfego. Reusar buffers; limite inicial 480 agentes terrestres visíveis, reduzido para 120 no zoom distante, margem de rede de uma tela.
+- [x] Inspecionar Downtown com curva, travessia, pausa, câmera girada e zoom; salvar checkpoint. Executar regressões geográficas e typecheck. Commit: `feat: render visible urban mobility`.
 
 ## Task 13: Ônibus circulando nas rotas reais TransLink
 

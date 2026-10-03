@@ -1,5 +1,6 @@
 import {lightContext} from './city-light';
-import {drawTerrain,projectSurface,surfaceLine,foundationElevation,terrainRoadPath} from './terrain-renderer';
+import {mobilityDrawCommands} from './mobility-draw';
+import {drawTerrain,projectSurface,surfaceLine,foundationElevation,terrainRoadPath,surfaceDepth} from './terrain-renderer';
 import {isPowered} from '../../core/simulation';
 import {drawStreetDetails,drawPaving,drawPlanting,drawParkPlanting,drawTree} from './street-renderer';
 import {drawBuilding,drawGhost} from './architecture-renderer';
@@ -25,9 +26,16 @@ const PALETTE={ground:'#b6bd96',park:'#91ad79',forest:'#759267',water:'#648d9e',
 function path(ctx:CanvasRenderingContext2D,rings:readonly Point[][],offsetX=0,offsetY=0){
  ctx.beginPath();for(const ring of rings){if(!ring.length)continue;ctx.moveTo(ring[0].x+offsetX,ring[0].y+offsetY);for(let i=1;i<ring.length;i++)ctx.lineTo(ring[i].x+offsetX,ring[i].y+offsetY);ctx.closePath();}
 }
+const polygonProjections=new WeakMap<GeographicFeature,{cameraKey:string;tiles:object|undefined;rings:Map<number,Point[][]>}>();
 const projectRing=(view:WorldView,ring:Point[],shift:number,feature?:GeographicFeature)=>{
  const ocean=feature?.layer==='ocean'&&view.terrain?.tiles.some(t=>t.verticalDatum==='CGVD2013');
- return surfaceLine(view,ring.map(p=>({x:p.x+shift-.5,y:p.y-.5})),ocean?0:undefined);
+ if(!feature)return surfaceLine(view,ring.map(p=>({x:p.x+shift-.5,y:p.y-.5})),ocean?0:undefined);
+ const cameraKey=[view.camera.x,view.camera.y,view.camera.zoom,view.camera.rotation].join(':');
+ let cached=polygonProjections.get(feature);
+ if(!cached||cached.cameraKey!==cameraKey||cached.tiles!==view.terrain?.tiles){cached={cameraKey,tiles:view.terrain?.tiles,rings:new Map()};polygonProjections.set(feature,cached);}
+ let rings=cached.rings.get(shift);
+ if(!rings){rings=feature.geometry.map(r=>surfaceLine(view,r.map(p=>({x:p.x+shift-.5,y:p.y-.5})),ocean?0:undefined));cached.rings.set(shift,rings);}
+ return rings[feature.geometry.indexOf(ring)];
 };
 function polygon(ctx:CanvasRenderingContext2D,view:WorldView,feature:GeographicFeature,shift:number,fill:string){
  // Ocean reference is a derived nominal CGVD2013 surface, not a live tide measurement.
@@ -121,6 +129,7 @@ function drawPlayerRoad(ctx:CanvasRenderingContext2D,view:WorldView,c:CellCoord,
  }
  if(pass==='surface'){ctx.fillStyle=PALETTE.pavement;ctx.beginPath();ctx.arc(p.x,p.y,width*.5,0,Math.PI*2);ctx.fill();}
 }
+let groundBitmap:{key:string;tiles:object|undefined;terrain:object|undefined;canvas:OffscreenCanvas}|undefined;
 export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldView){
  if(view.camera.zoom<GLOBE_ZOOM){drawGlobe(ctx,view);return;}
  ctx=lightContext(ctx,view.light??'day');
@@ -144,6 +153,15 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   const origin=tile.x*WORLD/2**tile.z,shift=nearestWorldX(origin,centre.x)-origin;
   for(const feature of tile.features)if(visible(bounds(feature),shift))features.push({feature,shift});
  }
+ const mainContext=ctx,groundKey=[camera.x,camera.y,camera.zoom,camera.rotation,viewport.width,viewport.height,view.light,JSON.stringify(edits)].join(':');
+ const cachedGround=typeof OffscreenCanvas!=='undefined'&&groundBitmap?.key===groundKey&&groundBitmap.tiles===view.geography?.tiles&&groundBitmap.terrain===view.terrain?.tiles;
+ let groundCanvas:OffscreenCanvas|undefined;
+ if(!cachedGround&&typeof OffscreenCanvas!=='undefined'){
+  groundCanvas=groundBitmap?.canvas??new OffscreenCanvas(viewport.width,viewport.height);
+  groundCanvas.width=viewport.width;groundCanvas.height=viewport.height;
+  const groundContext=groundCanvas.getContext('2d');if(groundContext){ctx=lightContext(groundContext as unknown as CanvasRenderingContext2D,view.light??'day');ctx.fillStyle=PALETTE.ground;ctx.fillRect(0,0,viewport.width,viewport.height);}else groundCanvas=undefined;
+ }
+ if(!cachedGround){
  drawTerrain(ctx,view);
  for(const layer of ['land','sites','ocean','water_polygons','street_polygons'])for(const {feature,shift} of features){
   if(feature.layer!==layer||feature.type!==3)continue;
@@ -151,6 +169,48 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   ctx.globalAlpha=view.terrain?.tiles.length&&(layer==='land'||layer==='sites')?.35:1;
   polygon(ctx,view,feature,shift,fill);ctx.globalAlpha=1;
   if(layer==='street_polygons')drawPaving(ctx,view,feature,shift);
+  if(layer==='water_polygons'||layer==='ocean'){path(ctx,feature.geometry.map(r=>projectRing(view,r,shift,feature)));ctx.strokeStyle=PALETTE.shore;ctx.lineWidth=Math.min(1.3,scale*.12);ctx.stroke();}
+  if(PARKS.has(feature.kind))drawParkPlanting(ctx,view,feature,shift,box);
+ }
+ }
+ for(const {feature,shift} of features){
+  if(feature.layer==='streets'&&!feature.tunnel)roads.push({feature,shift});
+  if(!cachedGround&&feature.layer==='water_lines'){roadPath(ctx,view,feature,shift);ctx.strokeStyle=PALETTE.water;ctx.lineWidth=Math.max(1,scale*.06);ctx.stroke();}
+  if(!cachedGround&&feature.layer==='boundaries'&&camera.zoom<.003){roadPath(ctx,view,feature,shift);ctx.strokeStyle='rgba(91,94,73,.35)';ctx.lineWidth=.7;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([]);}
+  if(feature.layer==='place_labels'&&feature.name&&camera.zoom<.12){const p=feature.geometry[0]?.[0];if(p)labels.push({point:projectSurface(view,{x:p.x+shift,y:p.y}),name:feature.name,kind:feature.kind});}
+ }
+ for(const footprint of assembledFootprints(view.geography?.tiles??[])){
+  const shift=nearestWorldX(footprint.minX,centre.x)-footprint.minX;
+  if(!visible(footprint,shift))continue;
+  const base=foundationElevation(view,footprint.rings.flatMap(r=>r.map(p=>({x:p.x+shift-.5,y:p.y-.5}))));
+  const depth=Math.max(...footprint.rings[0].map(p=>surfaceDepth(view,{x:p.x+shift,y:p.y},base)));
+  for(const remaining of remainingFootprints(footprint,edits.map(e=>({x:e.coord.x-shift,y:e.coord.y}))))buildings.push({footprint:remaining,shift,depth});
+ }
+ const lookup=(p:CellCoord):Cell|null=>{const id=chunkId(p),managed=view.state.chunks[id],i=cellIndex(p),status=view.chunks.get(id);return managed?(managed.edits[i]??managed.base.cells[i]):status?.status==='ready'?status.base.cells[i]:null;};
+ // Ground for what the player changed, then every street's kerb, then every surface, then the markings, then the
+ // street furniture: one order for the whole city, so no street is ever drawn across another's pavement.
+ if(!cachedGround){
+ for(const {coord,cell} of edits)rectCell(ctx,view,coord,cell.terrain==='water'?PALETTE.water:cell.building==='park'?PALETTE.park:PALETTE.ground);
+ drawRoads(ctx,view,roads,'kerb');
+ for(const {coord,cell} of edits)if(cell.road)drawPlayerRoad(ctx,view,coord,cell,lookup,'kerb');
+ drawRoads(ctx,view,roads,'surface');
+ for(const {coord,cell} of edits)if(cell.road)drawPlayerRoad(ctx,view,coord,cell,lookup,'surface');
+ drawRoads(ctx,view,roads,'marking');
+ drawStreetDetails(ctx,view,roads,centre.x);
+ drawPlanting(ctx,view,roads,box);
+ }
+ for(const {coord,cell} of edits){
+  if(cell.building&&cell.building!=='park'){
+   const r=cell.building==='industrial'?.42:.34;
+   const ring=[{x:coord.x-r+.5,y:coord.y-r+.5},{x:coord.x+r+.5,y:coord.y-r+.5},{x:coord.x+r+.5,y:coord.y+r+.5},{x:coord.x-r+.5,y:coord.y+r+.5},{x:coord.x-r+.5,y:coord.y-r+.5}];
+   buildings.push({footprint:{rings:[ring],minX:coord.x-r,maxX:coord.x+r,minY:coord.y-r,maxY:coord.y+r,area:r*r*4,kind:cell.building,seed:(coord.x^Math.imul(coord.y,19349663))>>>0},shift:0,kind:cell.building,stage:cell.stage,powered:isPowered(view.state,{x:((coord.x%WORLD)+WORLD)%WORLD,y:coord.y}),depth:surfaceDepth(view,coord)});
+  }
+  if(!cachedGround&&cell.building==='park'&&scale>=4)drawTree(ctx,projectSurface(view,coord),scale,(coord.x^coord.y)>>>0);
+ }
+ ctx=mainContext;
+ if(groundCanvas){groundBitmap={key:groundKey,tiles:view.geography?.tiles,terrain:view.terrain?.tiles,canvas:groundCanvas};ctx.drawImage(groundCanvas,0,0);}
+ else if(cachedGround)ctx.drawImage(groundBitmap!.canvas,0,0);
+ for(const {feature,shift} of features){const layer=feature.layer;
   if((layer==='water_polygons'||layer==='ocean')&&scale>=7){ctx.save();path(ctx,feature.geometry.map(r=>projectRing(view,r,shift,feature)));ctx.clip('evenodd');ctx.strokeStyle=view.light==='night'?'rgba(190,217,224,.14)':'rgba(225,239,225,.22)';ctx.lineWidth=1;for(let i=0;i<28;i++){const x=(i*137+Math.sin(view.motion*.2+i)*10)%viewport.width,y=(i*83+29)%viewport.height;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+10+i%4*4,y);ctx.stroke();}ctx.restore();}
   else if((layer==='water_polygons'||layer==='ocean')&&scale>=4){
    // Too far for the reflection streaks to read, but not so far that the bay should stand still: three glints drift
@@ -161,42 +221,9 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
    for(let i=0;i<3;i++){const y=(0.22+i*0.27)*viewport.height+drift*(1+i*.2);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(viewport.width*.45,y);ctx.stroke();}
    ctx.restore();
   }
-  if(layer==='water_polygons'||layer==='ocean'){path(ctx,feature.geometry.map(r=>projectRing(view,r,shift,feature)));ctx.strokeStyle=PALETTE.shore;ctx.lineWidth=Math.min(1.3,scale*.12);ctx.stroke();}
-  if(PARKS.has(feature.kind))drawParkPlanting(ctx,view,feature,shift,box);
  }
- for(const {feature,shift} of features){
-  if(feature.layer==='streets'&&!feature.tunnel)roads.push({feature,shift});
-  if(feature.layer==='water_lines'){roadPath(ctx,view,feature,shift);ctx.strokeStyle=PALETTE.water;ctx.lineWidth=Math.max(1,scale*.06);ctx.stroke();}
-  if(feature.layer==='boundaries'&&camera.zoom<.003){roadPath(ctx,view,feature,shift);ctx.strokeStyle='rgba(91,94,73,.35)';ctx.lineWidth=.7;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([]);}
-  if(feature.layer==='place_labels'&&feature.name&&camera.zoom<.12){const p=feature.geometry[0]?.[0];if(p)labels.push({point:projectSurface(view,{x:p.x+shift,y:p.y}),name:feature.name,kind:feature.kind});}
- }
- for(const footprint of assembledFootprints(view.geography?.tiles??[])){
-  const shift=nearestWorldX(footprint.minX,centre.x)-footprint.minX;
-  if(!visible(footprint,shift))continue;
-  const depth=Math.max(...footprint.rings[0].map(p=>projectSurface(view,{x:p.x+shift,y:p.y}).y));
-  for(const remaining of remainingFootprints(footprint,edits.map(e=>({x:e.coord.x-shift,y:e.coord.y}))))buildings.push({footprint:remaining,shift,depth});
- }
- const lookup=(p:CellCoord):Cell|null=>{const id=chunkId(p),managed=view.state.chunks[id],i=cellIndex(p),status=view.chunks.get(id);return managed?(managed.edits[i]??managed.base.cells[i]):status?.status==='ready'?status.base.cells[i]:null;};
- // Ground for what the player changed, then every street's kerb, then every surface, then the markings, then the
- // street furniture: one order for the whole city, so no street is ever drawn across another's pavement.
- for(const {coord,cell} of edits)rectCell(ctx,view,coord,cell.terrain==='water'?PALETTE.water:cell.building==='park'?PALETTE.park:PALETTE.ground);
- drawRoads(ctx,view,roads,'kerb');
- for(const {coord,cell} of edits)if(cell.road)drawPlayerRoad(ctx,view,coord,cell,lookup,'kerb');
- drawRoads(ctx,view,roads,'surface');
- for(const {coord,cell} of edits)if(cell.road)drawPlayerRoad(ctx,view,coord,cell,lookup,'surface');
- drawRoads(ctx,view,roads,'marking');
- drawStreetDetails(ctx,view,roads,centre.x);
- drawPlanting(ctx,view,roads,box);
- for(const {coord,cell} of edits){
-  if(cell.building&&cell.building!=='park'){
-   const r=cell.building==='industrial'?.42:.34;
-   const ring=[{x:coord.x-r+.5,y:coord.y-r+.5},{x:coord.x+r+.5,y:coord.y-r+.5},{x:coord.x+r+.5,y:coord.y+r+.5},{x:coord.x-r+.5,y:coord.y+r+.5},{x:coord.x-r+.5,y:coord.y-r+.5}];
-   buildings.push({footprint:{rings:[ring],minX:coord.x-r,maxX:coord.x+r,minY:coord.y-r,maxY:coord.y+r,area:r*r*4,kind:cell.building,seed:(coord.x^Math.imul(coord.y,19349663))>>>0},shift:0,kind:cell.building,stage:cell.stage,powered:isPowered(view.state,{x:((coord.x%WORLD)+WORLD)%WORLD,y:coord.y}),depth:projectSurface(view,coord).y});
-  }
-  if(cell.building==='park'&&scale>=4)drawTree(ctx,projectSurface(view,coord),scale,(coord.x^coord.y)>>>0);
- }
- buildings.sort((a,b)=>a.depth-b.depth);
- for(const b of buildings){drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage,0,b.powered??true);if(b.powered===false&&scale>=7){const p=projectSurface(view,{x:(b.footprint.minX+b.footprint.maxX)/2,y:(b.footprint.minY+b.footprint.maxY)/2});ctx.fillStyle='rgba(242,178,86,.95)';ctx.font=`bold ${Math.max(10,scale*.3)}px system-ui`;ctx.fillText('!',p.x,p.y-scale*.6);}}
+ const volumes=[...mobilityDrawCommands(ctx,view),...buildings.map(b=>({depth:b.depth,draw:()=>{drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage,0,b.powered??true);if(b.powered===false&&scale>=7){const p=projectSurface(view,{x:(b.footprint.minX+b.footprint.maxX)/2,y:(b.footprint.minY+b.footprint.maxY)/2});ctx.fillStyle='rgba(242,178,86,.95)';ctx.font=`bold ${Math.max(10,scale*.3)}px system-ui`;ctx.fillText('!',p.x,p.y-scale*.6);}}}))];
+ volumes.sort((a,b)=>a.depth-b.depth);for(const volume of volumes)volume.draw();
  if(camera.zoom<.06){
   ctx.font=`${(camera.zoom<.003?12:11)*(view.pixelRatio??1)}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
   const occupied:Array<{x:number;y:number;width:number}>=[];

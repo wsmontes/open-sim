@@ -5,6 +5,7 @@ import {architectureOf,regionOf,type Footprint} from '../../presentation/city-ar
 import {geographicFocus} from '../../presentation/geographic-map';
 import {projectSurface,foundationElevation,terrainMetres,clipTerrainVolume} from './terrain-renderer';
 import {verticalPixelsPerMetre} from '../../presentation/terrain-projection';
+import {lightContext} from './city-light';
 function path(ctx:CanvasRenderingContext2D,rings:readonly Point[][],offsetX=0,offsetY=0){
  ctx.beginPath();for(const ring of rings){if(!ring.length)continue;ctx.moveTo(ring[0].x+offsetX,ring[0].y+offsetY);for(let i=1;i<ring.length;i++)ctx.lineTo(ring[i].x+offsetX,ring[i].y+offsetY);ctx.closePath();}
 }
@@ -27,8 +28,31 @@ export function drawGhost(ctx:CanvasRenderingContext2D,view:WorldView,footprint:
  path(ctx,rings,0,-height);ctx.fillStyle=affordable?'rgba(152,198,144,.75)':'rgba(210,140,130,.75)';ctx.fill('evenodd');
  ctx.strokeStyle=affordable?'#f5e4a2':'#f3b1a0';ctx.lineWidth=1.2;ctx.stroke();
 }
+const buildingBitmaps=new Map<Footprint,{cameraKey:string;tiles:object|undefined;width:number;height:number;key:string;canvas:OffscreenCanvas;x:number;y:number;bytes:number}>();
+let buildingBitmapBytes=0;
+let bitmapHits=0,bitmapMisses=0,bitmapEvictions=0;
+export const buildingCacheStats=()=>({entries:buildingBitmaps.size,bytes:buildingBitmapBytes,hits:bitmapHits,misses:bitmapMisses,evictions:bitmapEvictions});
 export function drawBuilding(ctx:CanvasRenderingContext2D,view:WorldView,footprint:Footprint,shift:number,kind?:Building,stage?:number,lift=0,powered=true,shadow=true,baseOverride?:number){
  const base=baseOverride??baseOf(view,footprint,shift);
+ if(typeof OffscreenCanvas!=='undefined'){
+  const key=[view.light,kind,stage,lift,powered,shadow,base,shift].join(':'),cameraKey=[view.camera.x,view.camera.y,view.camera.zoom,view.camera.rotation].join(':'),known=buildingBitmaps.get(footprint);
+  if(known?.cameraKey===cameraKey&&known.tiles===view.terrain?.tiles&&known.width===view.viewport.width&&known.height===view.viewport.height&&known.key===key){bitmapHits++;buildingBitmaps.delete(footprint);buildingBitmaps.set(footprint,known);ctx.drawImage(known.canvas,known.x,known.y);return;}bitmapMisses++;
+  const rings=footprint.rings.flatMap(r=>projectRing(view,r,shift,base)),floors=architectureOf(footprint,kind,stage,regionOf(geographicFocus(view.camera,view.viewport))).floors,height=heightOf(view,floors,base)+lift,margin=TILE_W*view.camera.zoom*.7+3;
+  const x=Math.floor(Math.min(...rings.map(p=>p.x))-margin),y=Math.floor(Math.min(...rings.map(p=>p.y))-height-margin),width=Math.ceil(Math.max(...rings.map(p=>p.x))+height*.4+margin-x),heightPixels=Math.ceil(Math.max(...rings.map(p=>p.y))+height*.2+margin-y);
+  if(x+width<0||y+heightPixels<0||x>view.viewport.width||y>view.viewport.height)return;
+  if(width>0&&heightPixels>0&&width*heightPixels<=262144){
+   const canvas=new OffscreenCanvas(width,heightPixels),context=canvas.getContext('2d');
+   if(context){
+    context.translate(-x,-y);drawOccludedBuilding(lightContext(context as unknown as CanvasRenderingContext2D,view.light??'day'),view,footprint,shift,kind,stage,lift,powered,shadow,base);
+    const previous=buildingBitmaps.get(footprint);if(previous){buildingBitmapBytes-=previous.bytes;buildingBitmaps.delete(footprint);}
+    const bytes=width*heightPixels*4;while(buildingBitmapBytes+bytes>64*1024*1024&&buildingBitmaps.size){const first=buildingBitmaps.keys().next().value!,old=buildingBitmaps.get(first)!;buildingBitmapBytes-=old.bytes;buildingBitmaps.delete(first);bitmapEvictions++;}
+    buildingBitmaps.set(footprint,{cameraKey,tiles:view.terrain?.tiles,width:view.viewport.width,height:view.viewport.height,key,canvas,x,y,bytes});buildingBitmapBytes+=bytes;ctx.drawImage(canvas,x,y);return;
+   }
+  }
+ }
+ drawOccludedBuilding(ctx,view,footprint,shift,kind,stage,lift,powered,shadow,base);
+}
+function drawOccludedBuilding(ctx:CanvasRenderingContext2D,view:WorldView,footprint:Footprint,shift:number,kind:Building|undefined,stage:number|undefined,lift:number,powered:boolean,shadow:boolean,base:number|undefined){
  if(base===undefined){drawSupportedBuilding(ctx,view,footprint,shift,kind,stage,lift,powered,shadow,base);return;}
  const floors=architectureOf(footprint,kind,stage,regionOf(geographicFocus(view.camera,view.viewport))).floors;
  ctx.save();clipTerrainVolume(ctx,view,footprint.rings[0].map(p=>({x:p.x+shift-.5,y:p.y-.5})),base,floors*3+lift/verticalPixelsPerMetre(view.camera,terrainMetres(view)));
@@ -44,8 +68,8 @@ function drawSupportedBuilding(ctx:CanvasRenderingContext2D,view:WorldView,footp
   const centre={x:(footprint.minX+footprint.maxX)/2,y:(footprint.minY+footprint.maxY)/2},factor=.50+(seed%3)*.08;
   const tower={...footprint,rings:footprint.rings.map(r=>r.map(p=>({x:centre.x+(p.x-centre.x)*factor,y:centre.y+(p.y-centre.y)*factor}))),area:area*factor*factor};
   if(shadow)drawShadow(ctx,tower.rings.map(r=>projectRing(view,r,shift,base)),height);
-  drawBuilding(ctx,view,footprint,shift,usage,3,0,powered,false,base);
-  drawBuilding(ctx,view,tower,shift,usage,floors-3,heightOf(view,3,base),powered,false,base);return;
+  drawSupportedBuilding(ctx,view,footprint,shift,usage,3,0,powered,false,base);
+  drawSupportedBuilding(ctx,view,tower,shift,usage,floors-3,heightOf(view,3,base),powered,false,base);return;
  }
  const rings=footprint.rings.map(r=>projectRing(view,r,shift,base).map(p=>({x:p.x,y:p.y-lift}))),outer=rings[0];
  if(base!==undefined&&lift===0){

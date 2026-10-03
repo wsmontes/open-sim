@@ -116,6 +116,7 @@ export function drawStreetDetails(ctx:CanvasRenderingContext2D,view:WorldView,ro
  }
  // The planting is its own pass: a tree stands where the ground says, not where the tile cut the street, so it is drawn
  // from the same lattice at every zoom (drawPlanting below), and the streets keep only what belongs to them.
+ if(view.mobility)return;
  const features=roads.map(({feature,shift})=>shift?{...feature,geometry:feature.geometry.map(r=>r.map(p=>({x:p.x+shift,y:p.y})))}:feature);
  for(const agent of streetAgents(features,view.motion,240,p=>inView(projectSurface(view,worldPoint(p)))&&visibleSurfacePoint(view,worldPoint(p)))){
   const p=projectSurface(view,worldPoint(agent.point));if(!inView(p))continue;
