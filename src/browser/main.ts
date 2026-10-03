@@ -1,4 +1,7 @@
 /// <reference types="vite/client" />
+import {createMaritimeEngine} from '../presentation/maritime-engine';
+import {readMaritimeCapture} from '../adapters/reality/maritime';
+import vancouverMaritimeCapture from '../adapters/reality/data/vancouver-maritime.json';
 import {createGeographicStream} from './geographic-stream';
 import {createTerrainStream} from './terrain-stream';
 import {createMobilityStream} from './mobility-stream';
@@ -371,6 +374,8 @@ const terrainSource=createTerrainSource(async(url,signal)=>{const response=await
 const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame());
 const mobilityStream=geography?createMobilityStream((z,x,y)=>(maps as OsmSource).loadVisualTile(z,x,y),SEED,()=>invalidateFrame()):null;
 const mobility=mobilityStream?.controller??createMobilityController(SEED);
+const maritime=geography?createMaritimeEngine(readMaritimeCapture(vancouverMaritimeCapture),SEED):null;
+maritime?.setScenario(new Date().toISOString());
 mobility.setSignalSites(vancouverSignalSites as readonly TrafficSignalSite[]);
 mobility.setSurface((point,edge)=>{
  const surface=terrain.scene();if(edge.bridge)return createSurfaceSupport(surface.sample).foundation(edge.path)??surface.sample(toGeo(point))?.elevationM??null;
@@ -704,6 +709,7 @@ const draw = (now: number, seconds: number) => {
   const cells=[...hand.chunks].flatMap(([id,status])=>{const managed=hand.state?.chunks[id],base=status.status==='ready'?status.base:null;const available=managed?effectiveCells(managed):base?.cells;return available?available.flatMap((cell,i)=>cell.road?[{coord:coordAt(id,i),cell}]:[]):[];});
   mobility.setCells(cells,`${hand.state?.revision}:${[...hand.chunks.keys()].join('|')}`);mobility.setDemand({vehicles:50,pedestrians:24,truckShare:.08,hour:12});
  }
+ maritime?.advance(motionSeconds(seconds,hand.speed));
  const motionStart=performance.now();mobility.advance(motionSeconds(seconds,hand.speed));motionMs=performance.now()-motionStart;
  if(geography){
   const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
@@ -719,6 +725,7 @@ const draw = (now: number, seconds: number) => {
   terrain:terrain.scene(),
   mobility:mobility.frame(),
   signals:mobility.signals(),
+  vessels:maritime?.frame(),
   pixelRatio:deviceScale(),
   camera,
   viewport: {width, height},
@@ -747,6 +754,7 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  a.geography?.revision === b.geography?.revision &&
  a.terrain?.revision === b.terrain?.revision &&
  a.mobility?.length===b.mobility?.length &&
+ a.vessels?.length===b.vessels?.length &&
  a.camera.x === b.camera.x &&
  a.camera.y === b.camera.y &&
  a.camera.zoom === b.camera.zoom &&
@@ -760,7 +768,7 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  a.previewAffordable === b.previewAffordable &&
  a.hover?.x === b.hover?.x &&
  a.hover?.y === b.hover?.y &&
- (a.motion === b.motion || (b.mobility?b.mobility.length===0:b.geography?b.camera.zoom<.2:!drawsStreetLife(b.camera)));
+ (a.motion === b.motion || (!b.vessels?.length&&(b.mobility?b.mobility.length===0:b.geography?b.camera.zoom<.2:!drawsStreetLife(b.camera))));
 const frames = createFrameScheduler({draw});
 invalidateFrame = frames.invalidate;
 if (PERF_DEBUG) {

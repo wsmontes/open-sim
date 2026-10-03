@@ -1035,7 +1035,8 @@
           "method": "reported",
           "reference": "First Narrows p5-5: channel least depth15m, clearance58.5m outside centre; table5.3 p5-8: CanadaPlace8.5m, Centerm15m"
         }
-      }
+      },
+      "berthId": "canada-place:west"
     },
     {
       "id": "cargo-centerm",
@@ -1158,6 +1159,160 @@
         "reference": "Water-side marina entry from mapped polygon; English Bay outing avoids the Burrard harbour sailing prohibition in CHS PAC201 p5-6"
       },
       "verified": true
+    },
+    {
+      "id": "cruise-first-narrows-east",
+      "operator": "Port of Vancouver",
+      "terminalIds": [
+        "first-narrows-gateway",
+        "canada-place"
+      ],
+      "path": [
+        {
+          "lat": 49.319,
+          "lon": -123.154
+        },
+        {
+          "lat": 49.316,
+          "lon": -123.141
+        },
+        {
+          "lat": 49.3113,
+          "lon": -123.13
+        },
+        {
+          "lat": 49.31,
+          "lon": -123.12
+        },
+        {
+          "lat": 49.301,
+          "lon": -123.108
+        },
+        {
+          "lat": 49.3,
+          "lon": -123.105
+        },
+        {
+          "lat": 49.296,
+          "lon": -123.107
+        },
+        {
+          "lat": 49.292,
+          "lon": -123.105
+        },
+        {
+          "lat": 49.2888,
+          "lon": -123.1087
+        },
+        {
+          "lat": 49.28835,
+          "lon": -123.1099
+        }
+      ],
+      "allowed": [
+        "cruise"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "CHS PAC201 August 2026 chapter 5",
+        "url": "https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/chs-shc-PAC201-eng-202608-41338200.pdf",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "First Narrows p5-5: channel least depth15m, clearance58.5m outside centre; table5.3 p5-8: CanadaPlace8.5m, Centerm15m; derived center corridor checked against OSM coastline, not AIS"
+      },
+      "verified": true,
+      "navigation": {
+        "leastDepthM": 8.5,
+        "airClearanceM": 58.5,
+        "verifiedForLargeShips": true,
+        "source": {
+          "dataset": "CHS PAC201 August 2026 chapter 5",
+          "url": "https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/chs-shc-PAC201-eng-202608-41338200.pdf",
+          "territoryId": "CA-BC",
+          "retrievedAt": "2026-10-03T21:07:30.350165Z",
+          "method": "reported",
+          "reference": "First Narrows p5-5: channel least depth15m, clearance58.5m outside centre; table5.3 p5-8: CanadaPlace8.5m, Centerm15m"
+        }
+      },
+      "berthId": "canada-place:east"
+    },
+    {
+      "id": "cruise-first-narrows-north",
+      "operator": "Port of Vancouver",
+      "terminalIds": [
+        "first-narrows-gateway",
+        "canada-place"
+      ],
+      "path": [
+        {
+          "lat": 49.319,
+          "lon": -123.154
+        },
+        {
+          "lat": 49.316,
+          "lon": -123.141
+        },
+        {
+          "lat": 49.3113,
+          "lon": -123.13
+        },
+        {
+          "lat": 49.31,
+          "lon": -123.12
+        },
+        {
+          "lat": 49.301,
+          "lon": -123.108
+        },
+        {
+          "lat": 49.3,
+          "lon": -123.105
+        },
+        {
+          "lat": 49.296,
+          "lon": -123.107
+        },
+        {
+          "lat": 49.292,
+          "lon": -123.107
+        },
+        {
+          "lat": 49.29,
+          "lon": -123.107
+        },
+        {
+          "lat": 49.2899,
+          "lon": -123.109
+        }
+      ],
+      "allowed": [
+        "cruise"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "CHS PAC201 August 2026 chapter 5",
+        "url": "https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/chs-shc-PAC201-eng-202608-41338200.pdf",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "First Narrows p5-5: channel least depth15m, clearance58.5m outside centre; table5.3 p5-8: CanadaPlace8.5m, Centerm15m; derived center corridor checked against OSM coastline, not AIS"
+      },
+      "verified": true,
+      "navigation": {
+        "leastDepthM": 8.5,
+        "airClearanceM": 58.5,
+        "verifiedForLargeShips": true,
+        "source": {
+          "dataset": "CHS PAC201 August 2026 chapter 5",
+          "url": "https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/chs-shc-PAC201-eng-202608-41338200.pdf",
+          "territoryId": "CA-BC",
+          "retrievedAt": "2026-10-03T21:07:30.350165Z",
+          "method": "reported",
+          "reference": "First Narrows p5-5: channel least depth15m, clearance58.5m outside centre; table5.3 p5-8: CanadaPlace8.5m, Centerm15m"
+        }
+      },
+      "berthId": "canada-place:north"
     }
   ],
   "cruiseCalls": [

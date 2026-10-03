@@ -314,16 +314,16 @@ expect(buildMaritimeNetwork(captureWithLandCrossing,land).routes.has('invalid-ro
 
 **Interfaces:** `VesselFrame={id:string;kind:VesselKind;operator:string;routeId:string;berthId?:string;position:MarinePoint;headingDegrees:number;phase:'sailing'|'approach'|'berthed'|'departing';waterElevationM:number;method:'simulated'|'schedule-estimate'|'observed'}`; `createMaritimeEngine(capture:MaritimeCapture,seed:number):{advance(seconds:number):void;frame():readonly VesselFrame[];dispose():void}`; `drawVessel(ctx:CanvasRenderingContext2D,vessel:VesselFrame,projectWater:(p:MarinePoint,h:number)=>Point,pixelsPerMetre:number):void`. WorldView recebe vessels opcional. BC Ferries entra por frames da Tarefa 19, não por geração livre deste motor.
 
-- [ ] Escrever testes `connected_water_motion`, `reserved_berth_no_overlap`, `cargo_distinct_from_cruise`, `sail_has_mast_and_sail`, `seabus_aquabus_distinct`, `wake_only_moving`, `pause_freezes_simulated_vessels`, `zoom_keeps_identity`, `bc_ferry_not_unscheduled_spawn`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
+- [x] Escrever testes `connected_water_motion`, `reserved_berth_no_overlap`, `cargo_distinct_from_cruise`, `sail_has_mast_and_sail`, `seabus_aquabus_distinct`, `wake_only_moving`, `pause_freezes_simulated_vessels`, `zoom_keeps_identity`, `bc_ferry_not_unscheduled_spawn`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
 
 ```ts
 expect(frames.filter(v=>v.phase==='berthed'&&v.berthId==='berth-1')).toHaveLength(1);
 ```
 
-- [ ] Executar `npx vitest run tests/maritime-engine.test.ts tests/vessel-draw.test.ts`; confirmar RED por comportamento/contrato ausente.
-- [ ] Implementar corredor contínuo, aproximação/atracação/espera/partida, reserva de berço, passageiros parando nas docas e veleiros em passeios simulados ligados a marina. Usar passo 1/30 s e catch-up 0.25 s; até 24 embarcações totais visíveis incluindo BC Ferries, prioritizando serviços e berços frente a veleiros decorativos. Velocidades/esperas de simulação são parâmetros identificados, nunca informação oficial sem fonte. Desenhar convés/contêineres/velas/operadores e esteira discreta na superfície de água da Tarefa 9.
-- [ ] Executar `npx vitest run tests/maritime-engine.test.ts tests/vessel-draw.test.ts` e `npm run typecheck`; confirmar PASS. Inspecionar False Creek, Canada Place e Burrard Inlet, pausa, noite e câmera girada; salvar operações completas e verificar escala dos navios frente aos terminais.
-- [ ] Commit: `feat: animate port vessels and passenger ferries`.
+- [x] Executar `npx vitest run tests/maritime-engine.test.ts tests/vessel-draw.test.ts`; confirmar RED por comportamento/contrato ausente.
+- [x] Implementar corredor contínuo, aproximação/atracação/espera/partida, reserva de berço, passageiros parando nas docas e veleiros em passeios simulados ligados a marina. Usar passo 1/30 s e catch-up 0.25 s; até 24 embarcações totais visíveis incluindo BC Ferries, prioritizando serviços e berços frente a veleiros decorativos. Velocidades/esperas de simulação são parâmetros identificados, nunca informação oficial sem fonte. Desenhar convés/contêineres/velas/operadores e esteira discreta na superfície de água da Tarefa 9.
+- [x] Executar `npx vitest run tests/maritime-engine.test.ts tests/vessel-draw.test.ts` e `npm run typecheck`; confirmar PASS. Inspecionar False Creek, Canada Place e Burrard Inlet, pausa, noite e câmera girada; salvar operações completas e verificar escala dos navios frente aos terminais.
+- [x] Commit: `feat: animate port vessels and passenger ferries`.
 
 
 ## Task 19: BC Ferries em rotas e horários oficiais

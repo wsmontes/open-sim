@@ -1,6 +1,6 @@
 {
   "source": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
-  "retrievedAt": "2026-10-03T21:07:31.931Z",
+  "retrievedAt": "2026-10-03T21:28:21.597Z",
   "zoom": 14,
   "tiles": 36,
   "landPolygons": 344,
@@ -16,7 +16,9 @@
     "aquabus:37079410",
     "cruise-first-narrows",
     "cargo-centerm",
-    "jericho-outing"
+    "jericho-outing",
+    "cruise-first-narrows-east",
+    "cruise-first-narrows-north"
   ],
   "rejected": []
 }

@@ -1,3 +1,4 @@
+import type {VesselFrame} from '../../presentation/maritime-engine';
 import {lightContext} from './city-light';
 import {drawCellMobility,drawVisibleMobility} from './mobility-draw';
 import type {MobilityFrameAgent,TrafficSignalFrame} from '../../presentation/mobility-model';
@@ -21,6 +22,7 @@ export type WorldView = {
  terrain?:{tiles:readonly TerrainTile[];sample:(geo:{lat:number;lon:number})=>TerrainReading|null;revision:number};
  mobility?:readonly MobilityFrameAgent[];
  signals?:readonly TrafficSignalFrame[];
+ vessels?:readonly VesselFrame[];
  pixelRatio?:number;
  camera:Camera;
  viewport:Viewport;
