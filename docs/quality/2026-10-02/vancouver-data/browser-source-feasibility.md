@@ -70,3 +70,17 @@ Não foi encontrado nesta pesquisa um feed público comprovado de posições de 
 4. Persistir cache no navegador, mostrar última atualização, cancelar ao mudar cidade e manter experiência funcional offline/com fonte indisponível. Limites por usuário/IP crescem com visitas; não prometer SLA de fonte gratuita.
 
 Documentação primária complementar: https://open-meteo.com/en/docs ; https://open-meteo.com/en/pricing ; https://api.open511.gov.bc.ca/help ; https://ourairports.com/data/ ; https://opendata.vancouver.ca/explore/dataset/traffic-signals/information/ ; https://opendata.vancouver.ca/explore/dataset/intersection-traffic-movement-counts/information/ ; https://www.translink.ca/about-us/doing-business-with-translink/app-developer-resources/gtfs/gtfs-data ; https://github.com/openskynetwork/opensky-api/blob/master/docs/free/rest.rst ; https://api.adsb.lol/docs .
+
+## Statistics Canada: prioridade para demografia canadense
+
+Fonte primária recomendada: Statistics Canada, com Wikidata para identidade e ligação entre fontes. Catálogo oficial de acesso: https://www.statcan.gc.ca/en/developers . O Census Profile 2021 dispõe de SDMX com JSON, CSV e XML; tabelas completas podem ser baixadas com metadados e distribuídas como captura estática no site. A existência de API não comprova CORS: chamadas diretas ainda precisam de teste na origem da aplicação.
+
+Perfil municipal de Vancouver: census subdivision 5915022, DGUID 2021A00055915022. Separar município, região metropolitana e província. População de 662.248 refere-se ao município no censo de 2021; não rotular como estimativa atual. Confirmação municipal: https://vancouver.ca/files/cov/2022-02-28-2021-census-population-dwelling-counts-and-metro-van-growth.pdf .
+
+Variáveis prioritárias para captura: população/densidade, faixas etárias, domicílios/tamanho familiar, renda, ocupação e modos de deslocamento ao trabalho. Catálogo de conteúdo: https://www150.statcan.gc.ca/n1/en/catalogue/98-401-X2021005 . Cada observação deve preservar território, unidade, período de referência, método e eventuais notas de supressão/arredondamento. Renda do perfil pode ter ano-base diferente do ano do censo; cada variável conserva seu próprio período. Modos de deslocamento do censo informam perfil agregado, não trânsito ao vivo.
+
+APIs WDS fornecem séries e metadados publicados em dias úteis: https://www.statcan.gc.ca/en/developers/wds/user-guide . Frequência de publicação depende da série e não implica que todas as estatísticas municipais sejam diárias. Preferir pacote estático para a demografia; usar atualizações periódicas somente para séries e territórios compatíveis.
+
+Limites municipais oficiais também são candidatos para substituir a identificação aproximada por proximidade da câmera: https://geo.statcan.gc.ca/geo_wa/rest/services/2025/lcsd000a25s_e/MapServer . Conferir compatibilidade temporal das fronteiras com o censo antes de cruzar dados.
+
+Esta seção registra fontes e critérios; não declara integração StatCan já implementada.
