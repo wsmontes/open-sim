@@ -59,3 +59,7 @@ Links e testes dos fornecedores locais estão em [browser-source-feasibility.md]
 6. Trânsito real exige fonte de trânsito; perfil de deslocamentos do censo calibra demanda, não posições atuais. Calendário de cruzeiros/voos é previsão programada, não rastreamento.
 
 Exemplos: Vancouver combina fontes globais + StatCan + BC + TransLink/porto/Aquabus/Mobi/fontes municipais; Victoria reutiliza globais + StatCan + BC e seu sistema BC Transit, com fontes locais próprias; Toronto reutiliza globais + StatCan e precisa de camada Ontario/operadores locais; Lisboa reutiliza globais e precisa de camada Portugal/operadores locais. Essas composições são regras de seleção, não alegações de integração já executada.
+
+## Elevação e relevo
+
+Fontes e proposta em [terrain-sources.md](terrain-sources.md): LidarBC (cobertura por coleção), CanElevation MRDEM/HRDEM (Canadá, com HRDEM parcial), Copernicus GLO-30/GLO-90 (global DSM). Geometria OSM não substitui altitude. Distinguir solo de superfície, datums e ausência de cobertura.
