@@ -28,7 +28,7 @@ const drag=(handle:Element,from:readonly [number,number],to:readonly [number,num
 };
 const stats:CityStats={money:1234,population:56,jobs:7,energySupply:90,energyUsed:30,happiness:80,income:12,managed:3,economy:EMPTY_ECONOMY};
 const info=(over:Partial<HudInfo>={}):HudInfo=>({stats,tool:'explore',speed:1,place:'Vancouver',attribution:{text:'© OpenStreetMap contributors',url:'https://www.openstreetmap.org/copyright'},mapMessage:'',notice:'',saveStatus:{status:'idle',blocked:false},canOverwriteSave:false,rotation:0,...over});
-const callbacks=()=>({onTool:vi.fn(),onPolicy:vi.fn(),onSpeed:vi.fn(),onPlace:vi.fn(),onRetryMap:vi.fn(),onOverwriteSave:vi.fn(),onOverview:vi.fn(),onZoomStep:vi.fn(),onNorth:vi.fn()}) satisfies HudCallbacks;
+const callbacks=()=>({onTool:vi.fn(),onPolicy:vi.fn(),onSpeed:vi.fn(),onPlace:vi.fn(),onRetryMap:vi.fn(),onOverwriteSave:vi.fn(),onOverview:vi.fn(),onZoomStep:vi.fn(),onRotateStep:vi.fn(),onNorth:vi.fn()}) satisfies HudCallbacks;
 const tree=(selector:string,root:Document|HTMLElement=document)=>{
  const found=root.querySelector<HTMLElement>(selector);
  if(!found)throw new Error(`Elemento ausente no teste: ${selector}`);
@@ -173,6 +173,10 @@ test('the dock fires the tool, the speed, the places and the camera cluster',()=
  expect(cbs.onZoomStep).toHaveBeenCalledWith(1);
  tree('#hud-zoom-out').click();
  expect(cbs.onZoomStep).toHaveBeenLastCalledWith(-1);
+ tree('#hud-rotate-left').click();
+ expect(cbs.onRotateStep).toHaveBeenCalledWith(-1);
+ tree('#hud-rotate-right').click();
+ expect(cbs.onRotateStep).toHaveBeenLastCalledWith(1);
  tree('#hud-north').click();
  expect(cbs.onNorth).toHaveBeenCalled();
  tree('#hud-overview').click();

@@ -31,6 +31,9 @@ export type HudCallbacks = {
  onOverwriteSave():void;
  onOverview():void;
  onZoomStep(direction:1|-1):void;
+ // Turning the view is a camera move like zooming, and the cluster offers it the same way: a step per press, so a
+ // player without a keyboard — or without knowing Q and E — can still turn the city.
+ onRotateStep(direction:1|-1):void;
  onNorth():void;
 };
 export type HudInfo = {
@@ -219,6 +222,7 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
  for(const button of speedButtons)on(button,'click',()=>callbacks.onSpeed(Number(button.dataset.speed) as Speed));
  for(const button of root.querySelectorAll<HTMLButtonElement>('[data-place]'))on(button,'click',()=>callbacks.onPlace(button.dataset.place??''));
  for(const button of root.querySelectorAll<HTMLButtonElement>('[data-zoom]'))on(button,'click',()=>callbacks.onZoomStep(Number(button.dataset.zoom)===1?1:-1));
+ for(const button of root.querySelectorAll<HTMLButtonElement>('[data-rotate]'))on(button,'click',()=>callbacks.onRotateStep(Number(button.dataset.rotate)===1?1:-1));
  on(el('#hud-north'),'click',()=>callbacks.onNorth());
  on(retry,'click',()=>callbacks.onRetryMap());
  on(overwrite,'click',()=>callbacks.onOverwriteSave());

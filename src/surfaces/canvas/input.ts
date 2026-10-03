@@ -2,7 +2,7 @@ import {GLOBE_ZOOM,dragGlobe,globeCoord,geographicFocus,planetRadius} from '../.
 import {toCell} from '../../core/coordinates';
 import type {CellCoord} from '../../core/model';
 import type {Camera,Point} from '../../presentation/camera';
-import {clampZoom,nextZoomStep,normalizeAngle,pick,rotateTo,zoomTo} from '../../presentation/camera';
+import {clampZoom,nextZoomStep,normalizeAngle,pick,rotateTo,zoomTo,ROTATE_STEP} from '../../presentation/camera';
 import type {SelectedTool} from './hud';
 export type InputCallbacks = {
  onHover(cell:CellCoord|null):void;
@@ -38,8 +38,16 @@ const PAN_STEP=48,PAN_FAST=4;
 const TOOL_KEYS:Record<string,SelectedTool>={'1':'explore','2':'road','3':'avenue','4':'highway','5':'residential','6':'commercial','7':'industrial','8':'park','9':'power','0':'demolish'};
 const PAN_KEYS:Record<string,{x:number;y:number}>={ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},
  a:{x:-1,y:0},d:{x:1,y:0},w:{x:0,y:-1},s:{x:0,y:1},A:{x:-1,y:0},D:{x:1,y:0},W:{x:0,y:-1},S:{x:0,y:1}};
-// A drag of one pixel sideways turns the view half a degree; Q/E step a whole 15 degrees per press.
-const ROTATE_RATE=Math.PI/360,ROTATE_STEP=Math.PI/12;
+// A drag of one pixel sideways turns the view half a degree; Q/E and the ⟲ ⟳ buttons step a whole 15 degrees, which is
+// ROTATE_STEP in the presentation layer, where the camera's vocabulary lives.
+const ROTATE_RATE=Math.PI/360;
+// Two fingers that turn together turn the city — the gesture every map has, and the only way to turn the view without a
+// keyboard. Two conditions keep a pinch or a drag from being read as a turn: the hand never holds its angle exactly, so
+// a turn only counts past a dead zone, and a twist keeps the fingers at the same distance from the point between them
+// while a finger that slides changes it. Both are needed: dragging with two fingers moves one finger at a time, and the
+// line between them swings wildly without the hand ever turning. The band is deliberately tight: a hand turning in place
+// holds its span to a couple of percent per frame, while one finger of a drag slid past the other changes it by far more.
+const TWIST_SLOP=Math.PI/24,TWIST_RADIUS=.1;
 export {MAX_STROKE,beginStroke,boxCells,extendStroke,strokeCells} from '../../presentation/strokes';
 export type {StrokeShape,StrokeState} from '../../presentation/strokes';
 import {beginStroke,extendStroke} from '../../presentation/strokes';
@@ -61,7 +69,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  // Every finger that is down, in the order it arrived: two of them are a pinch, and the first one to arrive may be a
  // drag the player is still making when the second lands.
  const fingers=new Map<number,Point>();
- let pinch:{distance:number;mid:Point;camera:Camera}|null=null;
+ let pinch:{distance:number;mid:Point;angle:number;radius:number;camera:Camera}|null=null;
  let buffer={width:canvas.width,height:canvas.height};
  const shape=()=>context.strokeShape?.()??'line';
  const midpoint=()=>{
@@ -72,6 +80,13 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   const points=[...fingers.values()];
   return Math.hypot(points[0]!.x-points[1]!.x,points[0]!.y-points[1]!.y);
  };
+ // Which way the two fingers point at each other: the pinch's own bearing, and what a twist turns.
+ const bearing=()=>{
+  const points=[...fingers.values()];
+  return Math.atan2(points[1]!.y-points[0]!.y,points[1]!.x-points[0]!.x);
+ };
+ // Everything a two-finger gesture is measured by, read together so the references always agree with each other.
+ const pose=()=>({distance:spread(),mid:midpoint(),angle:bearing(),radius:spread()/2});
  // Zoom about the midpoint and carry the map with it: the world point between the fingers stays between them.
  const pinchTo=(camera:Camera,mid:Point,distance:number,origin:Point,from:number)=>{
   const zoom=clampZoom(camera.zoom*(distance/Math.max(1,from))),ratio=zoom/camera.zoom;
@@ -100,7 +115,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
    // A second finger turns whatever was happening into a pinch; the drag or stroke in course is abandoned, not left
    // half-finished behind the gesture.
    stroke=null;pan=null;rotate=null;callbacks.onPreview([]);
-   pinch={distance:spread(),mid:midpoint(),camera};
+   pinch={...pose(),camera};
    capture(event);
    return;
   }
@@ -116,7 +131,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   if(buffer.width!==canvas.width||buffer.height!==canvas.height){
    const sx=canvas.width/Math.max(1,buffer.width),sy=canvas.height/Math.max(1,buffer.height),camera=context.camera();
    for(const [id,p] of fingers)fingers.set(id,{x:p.x*sx,y:p.y*sy});
-   if(pinch)pinch={distance:spread(),mid:midpoint(),camera};
+   if(pinch)pinch={...pose(),camera};
    if(pan)pan={point:fingers.values().next().value??{x:pan.point.x*sx,y:pan.point.y*sy},camera};
    if(rotate)rotate={point:fingers.values().next().value??{x:rotate.point.x*sx,y:rotate.point.y*sy},camera};
    if(touch)touch.point={x:touch.point.x*sx,y:touch.point.y*sy};
@@ -126,12 +141,15 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   if(touch&&touch.id===event.pointerId&&!touch.moved&&Math.hypot(point.x-touch.point.x,point.y-touch.point.y)>TAP_SLOP)touch.moved=true;
   if(fingers.has(event.pointerId))fingers.set(event.pointerId,point);
   if(pinch&&fingers.size>=2){
-   const distance=spread(),mid=midpoint();
+   const distance=spread(),mid=midpoint(),angle=bearing(),radius=distance/2;
    // The applied camera becomes the reference for the next frame: a pinch is a sequence of small ratios, and keeping
    // the original one would throw away every step but the last.
-   const next=pinchTo(pinch.camera,mid,distance,pinch.mid,pinch.distance);
+   const turn=normalizeAngle(angle-pinch.angle);
+   const twisted=Math.abs(turn)>TWIST_SLOP&&Math.abs(radius-pinch.radius)<=pinch.radius*TWIST_RADIUS;
+   const spun=twisted?rotateTo(pinch.camera,{width:canvas.width,height:canvas.height},pinch.camera.rotation+turn):pinch.camera;
+   const next=pinchTo(spun,mid,distance,pinch.mid,pinch.distance);
    callbacks.onCamera(next);
-   pinch={distance,mid,camera:next};
+   pinch={distance,mid,angle:twisted?angle:pinch.angle,radius:twisted?radius:pinch.radius,camera:next};
    return;
   }
   if(rotate)return callbacks.onCamera(rotateTo(rotate.camera,{width:canvas.width,height:canvas.height},rotate.camera.rotation+(point.x-rotate.point.x)*ROTATE_RATE));
@@ -148,7 +166,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   fingers.delete(event.pointerId);
   if(touch&&touch.id===event.pointerId)touch=null;
   if(fingers.size<2)pinch=null;
-  if(fingers.size>=2){pinch={distance:spread(),mid:midpoint(),camera:context.camera()};release(event);return;}
+  if(fingers.size>=2){pinch={...pose(),camera:context.camera()};release(event);return;}
   if(fingers.size>0){
    const point=fingers.values().next().value!;
    pan={point,camera:context.camera()};rotate=null;stroke=null;

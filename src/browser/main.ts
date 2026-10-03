@@ -27,7 +27,7 @@ import {emptyComposition} from '../presentation/world-composition-model';
 import {chunkId,toCell} from '../core/coordinates';
 import {quoteAction} from '../core/quote';
 import type {Camera} from '../presentation/camera';
-import {normalizeAngle,project,settleZoom,zoomTo,MIN_ZOOM,centerOn} from '../presentation/camera';
+import {normalizeAngle,project,settleZoom,zoomTo,MIN_ZOOM,centerOn,ROTATE_STEP} from '../presentation/camera';
 import type {WorldView} from '../surfaces/canvas/canvas-renderer';
 import {drawsStreetLife,render} from '../surfaces/canvas/canvas-renderer';
 import {createFrameScheduler} from '../presentation/frame-scheduler';
@@ -325,6 +325,7 @@ const hud = createHud(hudRoot, {
  onOverwriteSave,
  onOverview,
  onZoomStep,
+ onRotateStep,
  onNorth,
  onPolicy,
 });
@@ -492,7 +493,7 @@ const updateHud = () => {
  const visual=geography?.scene();
  const mapMessage=geography?(visual?.error?'Parte do mapa não carregou. Tente novamente.':visual?.loading?'Carregando mapa…':''):view.map.message;
  if (costEl) costEl.textContent = view.preview.message;
- const help=hudRoot.querySelector<HTMLElement>('#map-help');if(help)help.textContent=view.tool==='explore'?'Arraste para explorar · Roda para zoom · Q / E para girar':view.tool==='demolish'?'Demolir: arraste sobre os lotes · Confira o custo antes de soltar':`${({road:'Rua',avenue:'Avenida',highway:'Estrada',residential:'Moradia',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'} as Record<string,string>)[view.tool]}: arraste para marcar · Solte para construir`;
+ const help=hudRoot.querySelector<HTMLElement>('#map-help');if(help)help.textContent=view.tool==='explore'?'Arraste para explorar · Roda para zoom · Q / E ou dois dedos para girar':view.tool==='demolish'?'Demolir: arraste sobre os lotes · Confira o custo antes de soltar':`${({road:'Rua',avenue:'Avenida',highway:'Estrada',residential:'Moradia',commercial:'Comércio',industrial:'Indústria',park:'Parque',power:'Usina'} as Record<string,string>)[view.tool]}: arraste para marcar · Solte para construir`;
  hud.update({
   stats: view.stats,
   tool: view.tool,
@@ -582,6 +583,12 @@ function onOverview() {
 }
 function onZoomStep(direction: 1 | -1) {
  tell({do: 'zoom', direction});
+}
+// The button and Q/E are the same command: turn by one step from wherever the view is now. The client owns the camera,
+// so the surface only says which way.
+function onRotateStep(direction: 1 | -1) {
+ const view = client.view();
+ tell({do: 'rotate', radians: view.camera.rotation + direction * ROTATE_STEP});
 }
 hudRoot.querySelector('#hud-world')?.addEventListener('click',()=>{const v=client.view();tell({do:'camera',camera:zoomTo(v.camera,v.viewport,MIN_ZOOM),settle:true});});
 hudRoot.querySelector('#hud-city')?.addEventListener('click',()=>{const v=client.view();tell({do:'camera',camera:zoomTo(v.camera,v.viewport,.35),settle:true});});

@@ -483,6 +483,17 @@ test('keyboard: number keys select tools, Esc cancels, arrows/QE move/rotate, +/
  await h.client.idle();
  flushFrames(2);
  expect(h.client.view().camera.zoom).not.toBe(zoom0);
+
+ // The other two buttons of the cluster turn the view: what Q/E do from the keyboard, the cluster offers a thumb.
+ const rot1 = h.client.view().camera.rotation;
+ el<HTMLButtonElement>(h.doc, '#hud-rotate-right').click();
+ await h.client.idle();
+ flushFrames(2);
+ expect(h.client.view().camera.rotation).not.toBe(rot1);
+ el<HTMLButtonElement>(h.doc, '#hud-rotate-left').click();
+ await h.client.idle();
+ flushFrames(2);
+ expect(h.client.view().camera.rotation).toBeCloseTo(rot1, 4);
 });
 
 test('place buttons and the lat/lon form, including an invalid coordinate error', async () => {

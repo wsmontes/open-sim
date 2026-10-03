@@ -347,6 +347,21 @@ test('pointer cancellation never commits a build',()=>{
  const h=harness('road');h.finger('pointerdown',1,160,100);h.finger('pointermove',1,180,110);
  h.finger('pointercancel',1,180,110,window);expect(h.commits).toEqual([]);expect(h.previews.at(-1)).toEqual([]);h.detach();
 });
+test('two fingers that turn together turn the city, and a hand that wobbles does not',()=>{
+ const h=harness('explore');
+ // A pinch that keeps its angle is a zoom, never a turn: hands never hold their bearing exactly.
+ h.finger('pointerdown',1,140,100);h.finger('pointerdown',2,260,100);
+ h.finger('pointermove',2,262,104);
+ expect(h.camera.rotation).toBeCloseTo(0,9);
+ // Half a turn of the wrist about the midpoint: the city turns with it, and the fingers keep the same distance.
+ const turned=harness('explore');
+ turned.finger('pointerdown',1,140,100);turned.finger('pointerdown',2,260,100);
+ turned.finger('pointermove',1,200,40);turned.finger('pointermove',2,200,160);
+ expect(Math.abs(turned.camera.rotation)).toBeGreaterThan(Math.PI/8);
+ expect(turned.taps).toEqual([]);
+ h.detach();turned.detach();
+});
+
 test('lifting one pinch finger rebases the remaining drag',()=>{
  const h=harness('explore');h.finger('pointerdown',1,120,100);h.finger('pointerdown',2,200,100);
  h.finger('pointermove',2,240,100);h.finger('pointerup',2,240,100,window);
