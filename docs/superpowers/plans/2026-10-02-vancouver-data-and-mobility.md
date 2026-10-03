@@ -258,10 +258,10 @@ expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample
 
 **Interfaces:** `routeBuses(patterns:readonly TransitRoutePattern[],seed:number):readonly MobilityAgent[]` gera identidades estáveis por percurso e slot. Estender `MobilityAgent` com `patternId?:string` e `stopsM?:readonly number[]`; motor preserva estado de parada. Usar até dois ônibus por percurso visível, com fase inicial espaçada; tempo de parada simulado 15 s. Ao terminar o percurso, sair no limite e regenerar no início, sem atravessar o mapa como se o destino fosse conectado à origem.
 
-- [ ] Escrever `bus_follows_real_pattern`, `bus_stops_at_declared_stop`, `bus_dwell_15_simulated_seconds`, `pause_freezes_bus`, `game_acceleration_applies_to_bus`, `duplicate_pattern_does_not_multiply_fleet`, `route_end_does_not_teleport_across_city`, `changed_network_invalidates_pattern`.
-- [ ] Executar `npx vitest run tests/transit-motion.test.ts tests/mobility-engine.test.ts`; observar RED.
-- [ ] Integrar percursos e paradas ao motor da Tarefa 11, compartilhando filas e cruzamentos com carros. Frequência/posição são simuladas, sem consultar API de posições ou relógio real de serviço. Reconciliar IDs em vez de reiniciar frota a cada frame.
-- [ ] Executar testes e visualizar ônibus percorrendo uma curva e fazendo parada; registrar evidência de pausa e aceleração. Commit: `feat: simulate buses along real TransLink routes`.
+- [x] Escrever `bus_follows_real_pattern`, `bus_stops_at_declared_stop`, `bus_dwell_15_simulated_seconds`, `pause_freezes_bus`, `game_acceleration_applies_to_bus`, `duplicate_pattern_does_not_multiply_fleet`, `route_end_does_not_teleport_across_city`, `changed_network_invalidates_pattern`.
+- [x] Executar `npx vitest run tests/transit-motion.test.ts tests/mobility-engine.test.ts`; observar RED.
+- [x] Integrar percursos e paradas ao motor da Tarefa 11, compartilhando filas e cruzamentos com carros. Frequência/posição são simuladas, sem consultar API de posições ou relógio real de serviço. Reconciliar IDs em vez de reiniciar frota a cada frame.
+- [x] Executar testes e visualizar ônibus percorrendo uma curva e fazendo parada; registrar evidência de pausa e aceleração. Commit: `feat: simulate buses along real TransLink routes`.
 
 ## Task 15: Calibração por contagens municipais
 

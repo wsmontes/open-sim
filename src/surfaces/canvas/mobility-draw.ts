@@ -9,10 +9,10 @@ import {projectSurface,terrainMetres,visibleSurfacePoint,surfaceDepth} from './t
 import {metresPerCellAt} from '../../presentation/terrain-surface';
 export function drawMobilityAgent(ctx:CanvasRenderingContext2D,agent:MobilityFrameAgent,projectPoint:(point:Point)=>Point,pixelsPerMetre:number,motion:number):void{
  const p=projectPoint(agent.point),q=projectPoint({x:agent.point.x+agent.heading.x,y:agent.point.y+agent.heading.y}),angle=Math.atan2(q.y-p.y,q.x-p.x);
- const scale=Math.max(.2,pixelsPerMetre),length=Math.max(agent.kind==='bus'||agent.kind==='school-bus'?10:agent.kind==='truck'?8:4,MOBILITY_LENGTH[agent.kind]*scale),width=Math.max(2,2.1*scale);
+ const scale=Math.max(.2,pixelsPerMetre),length=Math.max(agent.kind==='bus'||agent.kind==='school-bus'?14:agent.kind==='truck'?10:6,MOBILITY_LENGTH[agent.kind]*scale),width=Math.max(agent.kind==='bus'||agent.kind==='school-bus'?4:3,2.1*scale);
  ctx.save();ctx.translate(p.x,p.y);
  if(agent.kind==='pedestrian'){
-  const body=Math.max(3,1.3*scale),step=Math.sin(motion*9+agent.seed)*body*.28,dx=Math.cos(angle),dy=Math.sin(angle);
+  const body=Math.max(4,1.3*scale),step=Math.sin(motion*9+agent.seed)*body*.28,dx=Math.cos(angle),dy=Math.sin(angle);
   ctx.strokeStyle='#3c4645';ctx.lineWidth=Math.max(.8,scale*.3);ctx.beginPath();ctx.moveTo(-.6,0);ctx.lineTo(-.6+dx*step,dy*step+1);ctx.moveTo(.6,0);ctx.lineTo(.6-dx*step,1-dy*step);ctx.stroke();
   ctx.fillStyle=['#bd8060','#577f91','#c0aa66'][agent.seed%3];ctx.fillRect(-Math.max(.7,scale*.3),-body,Math.max(1.4,scale*.6),body);
   ctx.fillStyle='#e2b995';ctx.beginPath();ctx.arc(0,-body-Math.max(.8,scale*.25),Math.max(.8,scale*.25),0,Math.PI*2);ctx.fill();ctx.restore();return;
@@ -30,6 +30,7 @@ export function drawMobilityAgent(ctx:CanvasRenderingContext2D,agent:MobilityFra
   ctx.fillStyle='#b8d0d1';ctx.fillRect(-length*.13,-width*.38,length*.31,width*.76);
   if(agent.kind==='police'){ctx.fillStyle='#35547a';ctx.fillRect(-length*.42,-width*.45,length*.22,width*.9);ctx.fillStyle=Math.floor(motion*4)%2?'#cf4e42':'#4d8cda';ctx.fillRect(-length*.08,-width*.48,Math.max(1,length*.12),width*.96);}
  }
+ ctx.strokeStyle='#435456';ctx.lineWidth=.7;ctx.strokeRect(-length/2,-width/2,length,width);
  ctx.fillStyle='#f4e5ac';ctx.fillRect(length*.43,-width*.42,Math.max(.6,scale*.24),width*.25);ctx.fillRect(length*.43,width*.2,Math.max(.6,scale*.24),width*.25);ctx.restore();
 }
 const byCell=new WeakMap<object,Map<string,MobilityFrameAgent[]>>();

@@ -12,3 +12,8 @@ it('truck_distinct_cab_and_cargo',()=>{const r=recorder();drawMobilityAgent(r.ct
 it('walker_legs_follow_motion',()=>{const a=recorder(),b=recorder();drawMobilityAgent(a.ctx,agent('pedestrian'),identity,3,0);drawMobilityAgent(b.ctx,agent('pedestrian'),identity,3,.2);expect(a.lines).not.toEqual(b.lines);expect(a.lines.length).toBeGreaterThanOrEqual(4);});
 it('rotated_camera_preserves_heading',()=>{const r=recorder();drawMobilityAgent(r.ctx,agent(),p=>({x:-p.y,y:p.x}),2,0);expect(r.rotations[0]).toBeCloseTo(Math.PI/2);});
 it('outside_view_culled',()=>{const r=recorder(),view:WorldView={camera:{x:100,y:100,zoom:1,rotation:0},viewport:{width:200,height:200},state:createGame('test',1,blank('0:0')),chunks:new Map(),tool:'explore',hover:null,preview:[],previewAffordable:true,seed:1,motion:0,mobility:[{...agent(),point:{x:5000,y:5000}}]};drawVisibleMobility(r.ctx,view);expect(r.translations).toEqual([]);});
+it('bus remains readable with visible windows at distant scale',()=>{
+ const r=recorder();drawMobilityAgent(r.ctx,agent('bus'),identity,.2,0);
+ expect(r.rects.find(p=>p.color==='#ecede6')!.height).toBeGreaterThanOrEqual(4);
+ expect(r.rects.filter(p=>p.color==='#577782').every(p=>p.height>=1&&p.width>=1)).toBe(true);
+});

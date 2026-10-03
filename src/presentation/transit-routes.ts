@@ -4,7 +4,7 @@ import type {Point} from './camera';
 import {WORLD} from '../core/coordinates';
 import {metresPerCellAt} from './terrain-surface';
 import {findMobilityRoute} from './mobility-network';
-export type TransitRoutePattern={id:string;routeId:string;shapeId?:string;directionId?:string;edges:readonly string[];stopDistancesM:readonly number[];method:'reported'|'derived';networkRevision:string};
+export type TransitRoutePattern={id:string;routeId:string;shapeId?:string;directionId?:string;edges:readonly string[];edgeLengthsM:readonly number[];stopDistancesM:readonly number[];method:'reported'|'derived';networkRevision:string};
 export type TransitPatternFailure={id:string;reason:'missing-stop'|'missing-shape'|'outside-network'|'disconnected';stopIndex?:number;fromNode?:string;toNode?:string};
 const point=(geo:{lat:number;lon:number}):Point=>({x:(geo.lon+180)/360*WORLD,y:(1-Math.log(Math.tan(Math.PI/4+geo.lat*Math.PI/360))/Math.PI)/2*WORLD});
 const distanceToSegment=(p:Point,a:Point,b:Point)=>{const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));return Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t);};
@@ -63,7 +63,7 @@ export function buildTransitPatterns(dataset:TransitContent,network:MobilityNetw
    }
    const best=states.sort((a,b)=>a.cost-b.cost)[0];if(!best)continue;
    const path=best.path,distances=best.distances;if(!path.length){fail('disconnected');continue;}
-   patterns.push({id,routeId:route.providerId,...(trip.shapeId?{shapeId:trip.shapeId}:{}),...(trip.directionId?{directionId:trip.directionId}:{}),edges:path,stopDistancesM:distances,method:'derived',networkRevision:network.revision});
+   patterns.push({id,routeId:route.providerId,...(trip.shapeId?{shapeId:trip.shapeId}:{}),...(trip.directionId?{directionId:trip.directionId}:{}),edges:path,edgeLengthsM:path.map(id=>edges.get(id)!.lengthM),stopDistancesM:distances,method:'derived',networkRevision:network.revision});
   }
  }
  return patterns;
