@@ -1,4 +1,8 @@
 /// <reference types="vite/client" />
+import {createFerryClock} from '../client/ferry-clock';
+import {scheduledFerryFrames} from '../presentation/ferry-schedule';
+import {readFerrySchedule} from '../adapters/reality/bc-ferries';
+import bcFerryCapture from '../adapters/reality/data/bc-ferries.json';
 import {createMaritimeEngine} from '../presentation/maritime-engine';
 import {readMaritimeCapture} from '../adapters/reality/maritime';
 import vancouverMaritimeCapture from '../adapters/reality/data/vancouver-maritime.json';
@@ -376,6 +380,7 @@ const mobilityStream=geography?createMobilityStream((z,x,y)=>(maps as OsmSource)
 const mobility=mobilityStream?.controller??createMobilityController(SEED);
 const maritime=geography?createMaritimeEngine(readMaritimeCapture(vancouverMaritimeCapture),SEED):null;
 maritime?.setScenario(new Date().toISOString());
+const marineCapture=readMaritimeCapture(vancouverMaritimeCapture),ferrySchedule=readFerrySchedule(bcFerryCapture,marineCapture.routes),ferryClock=createFerryClock(()=>new Date().toISOString());
 mobility.setSignalSites(vancouverSignalSites as readonly TrafficSignalSite[]);
 mobility.setSurface((point,edge)=>{
  const surface=terrain.scene();if(edge.bridge)return createSurfaceSupport(surface.sample).foundation(edge.path)??surface.sample(toGeo(point))?.elevationM??null;
@@ -709,6 +714,9 @@ const draw = (now: number, seconds: number) => {
   const cells=[...hand.chunks].flatMap(([id,status])=>{const managed=hand.state?.chunks[id],base=status.status==='ready'?status.base:null;const available=managed?effectiveCells(managed):base?.cells;return available?available.flatMap((cell,i)=>cell.road?[{coord:coordAt(id,i),cell}]:[]):[];});
   mobility.setCells(cells,`${hand.state?.revision}:${[...hand.chunks.keys()].join('|')}`);mobility.setDemand({vehicles:50,pedestrians:24,truckShare:.08,hour:12});
  }
+ ferryClock.setPaused(hand.speed===0);
+ const ferryFrames=geography?scheduledFerryFrames(ferrySchedule,marineCapture.routes,ferryClock.instant()):[];
+ maritime?.setReservedCapacity(ferryFrames.length);
  maritime?.advance(motionSeconds(seconds,hand.speed));
  const motionStart=performance.now();mobility.advance(motionSeconds(seconds,hand.speed));motionMs=performance.now()-motionStart;
  if(geography){
@@ -725,7 +733,7 @@ const draw = (now: number, seconds: number) => {
   terrain:terrain.scene(),
   mobility:mobility.frame(),
   signals:mobility.signals(),
-  vessels:maritime?.frame(),
+  vessels:maritime?[...ferryFrames,...maritime.frame()]:undefined,
   pixelRatio:deviceScale(),
   camera,
   viewport: {width, height},

@@ -1,0 +1,12 @@
+{
+  "source": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+  "retrievedAt": "2026-10-03T21:39:52.747Z",
+  "zoom": 14,
+  "tiles": 10,
+  "landPolygons": 74,
+  "accepted": [
+    "bc:HSB-BOW",
+    "bc:BOW-HSB"
+  ],
+  "rejected": []
+}

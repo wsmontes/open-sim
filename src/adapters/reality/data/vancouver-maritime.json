@@ -346,6 +346,54 @@
       "allowedKinds": [
         "sailboat"
       ]
+    },
+    {
+      "id": "bc:HSB",
+      "name": "Horseshoe Bay Berth2",
+      "operator": "BC Ferries",
+      "position": {
+        "lat": 49.3759628,
+        "lon": -123.27161
+      },
+      "berths": [
+        "bc:HSB:berth"
+      ],
+      "allowedKinds": [
+        "bc-ferry"
+      ],
+      "source": {
+        "dataset": "OpenStreetMap relation10348039, operator-confirmed BC Ferries route8",
+        "url": "https://www.openstreetmap.org/relation/10348039",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:30:00Z",
+        "method": "derived",
+        "license": "ODbL1.0",
+        "reference": "Official operator seasonal HSB-BOW schedule confirms both terminals; OSM centreline, not measured ship track."
+      }
+    },
+    {
+      "id": "bc:BOW",
+      "name": "Snug Cove",
+      "operator": "BC Ferries",
+      "position": {
+        "lat": 49.3794924,
+        "lon": -123.3313455
+      },
+      "berths": [
+        "bc:BOW:berth"
+      ],
+      "allowedKinds": [
+        "bc-ferry"
+      ],
+      "source": {
+        "dataset": "OpenStreetMap relation10348039, operator-confirmed BC Ferries route8",
+        "url": "https://www.openstreetmap.org/relation/10348039",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:30:00Z",
+        "method": "derived",
+        "license": "ODbL1.0",
+        "reference": "Official operator seasonal HSB-BOW schedule confirms both terminals; OSM centreline, not measured ship track."
+      }
     }
   ],
   "routes": [
@@ -1313,6 +1361,182 @@
         }
       },
       "berthId": "canada-place:north"
+    },
+    {
+      "id": "bc:HSB-BOW",
+      "operator": "BC Ferries",
+      "terminalIds": [
+        "bc:HSB",
+        "bc:BOW"
+      ],
+      "path": [
+        {
+          "lat": 49.3759628,
+          "lon": -123.27161
+        },
+        {
+          "lat": 49.376213,
+          "lon": -123.2715754
+        },
+        {
+          "lat": 49.3772115,
+          "lon": -123.2714415
+        },
+        {
+          "lat": 49.3802387,
+          "lon": -123.2712764
+        },
+        {
+          "lat": 49.3822071,
+          "lon": -123.2714162
+        },
+        {
+          "lat": 49.3837185,
+          "lon": -123.2724312
+        },
+        {
+          "lat": 49.3848653,
+          "lon": -123.2741692
+        },
+        {
+          "lat": 49.3855526,
+          "lon": -123.2763601
+        },
+        {
+          "lat": 49.3859535,
+          "lon": -123.2791474
+        },
+        {
+          "lat": 49.3860512,
+          "lon": -123.2824519
+        },
+        {
+          "lat": 49.3829283,
+          "lon": -123.3171928
+        },
+        {
+          "lat": 49.3828025,
+          "lon": -123.3185661
+        },
+        {
+          "lat": 49.3821879,
+          "lon": -123.3206904
+        },
+        {
+          "lat": 49.379555,
+          "lon": -123.3288263
+        },
+        {
+          "lat": 49.3793214,
+          "lon": -123.3302565
+        },
+        {
+          "lat": 49.3794924,
+          "lon": -123.3313455
+        }
+      ],
+      "allowed": [
+        "bc-ferry"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "OpenStreetMap relation10348039, operator-confirmed BC Ferries route8",
+        "url": "https://www.openstreetmap.org/relation/10348039",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:30:00Z",
+        "method": "derived",
+        "license": "ODbL1.0",
+        "reference": "Official operator seasonal HSB-BOW schedule confirms both terminals; OSM centreline, not measured ship track."
+      },
+      "verified": true
+    },
+    {
+      "id": "bc:BOW-HSB",
+      "operator": "BC Ferries",
+      "terminalIds": [
+        "bc:BOW",
+        "bc:HSB"
+      ],
+      "path": [
+        {
+          "lat": 49.3794924,
+          "lon": -123.3313455
+        },
+        {
+          "lat": 49.3793214,
+          "lon": -123.3302565
+        },
+        {
+          "lat": 49.379555,
+          "lon": -123.3288263
+        },
+        {
+          "lat": 49.3821879,
+          "lon": -123.3206904
+        },
+        {
+          "lat": 49.3828025,
+          "lon": -123.3185661
+        },
+        {
+          "lat": 49.3829283,
+          "lon": -123.3171928
+        },
+        {
+          "lat": 49.3860512,
+          "lon": -123.2824519
+        },
+        {
+          "lat": 49.3859535,
+          "lon": -123.2791474
+        },
+        {
+          "lat": 49.3855526,
+          "lon": -123.2763601
+        },
+        {
+          "lat": 49.3848653,
+          "lon": -123.2741692
+        },
+        {
+          "lat": 49.3837185,
+          "lon": -123.2724312
+        },
+        {
+          "lat": 49.3822071,
+          "lon": -123.2714162
+        },
+        {
+          "lat": 49.3802387,
+          "lon": -123.2712764
+        },
+        {
+          "lat": 49.3772115,
+          "lon": -123.2714415
+        },
+        {
+          "lat": 49.376213,
+          "lon": -123.2715754
+        },
+        {
+          "lat": 49.3759628,
+          "lon": -123.27161
+        }
+      ],
+      "allowed": [
+        "bc-ferry"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "OpenStreetMap relation10348039, operator-confirmed BC Ferries route8",
+        "url": "https://www.openstreetmap.org/relation/10348039",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:30:00Z",
+        "method": "derived",
+        "license": "ODbL1.0",
+        "reference": "Official operator seasonal HSB-BOW schedule confirms both terminals; OSM centreline, not measured ship track."
+      },
+      "verified": true
     }
   ],
   "cruiseCalls": [

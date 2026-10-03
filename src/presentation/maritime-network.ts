@@ -16,7 +16,7 @@ export function buildMaritimeNetwork(capture:MaritimeCapture,land:readonly Geogr
  for(const route of capture.routes){
   let reason=route.verified?'':'unverified';if(route.terminalIds.some(id=>!terminals.has(id)))reason='missing-terminal';
   if(route.allowed.some(kind=>(kind==='cargo'||kind==='cruise')&&route.terminalIds.some(id=>!terminals.get(id)?.allowedKinds?.includes(kind))))reason='incompatible-terminal';
-  if(route.allowed.some(kind=>kind==='cargo'||kind==='cruise'||kind==='bc-ferry')&&(!route.navigation?.verifiedForLargeShips||!(route.navigation.leastDepthM>0)))reason='unverified-depth';
+  if(route.allowed.some(kind=>kind==='cargo'||kind==='cruise')&&(!route.navigation?.verifiedForLargeShips||!(route.navigation.leastDepthM>0)))reason='unverified-depth';
   if(!reason){const points=route.path.map(world);for(let i=1;i<points.length&&!reason;i++){let a=points[i-1],b=points[i];const scale=metresPerCellAt(route.path[i-1].lat),length=Math.hypot(b.x-a.x,b.y-a.y)*scale;if(!length)continue;
     // Floating-terminal endpoints can lie on mapped piers. Only the first/last
     // 30m is exempt, never an entire long shore-crossing segment.

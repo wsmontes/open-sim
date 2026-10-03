@@ -1,0 +1,15 @@
+# BC Ferries — reviewed 2026-10-03
+
+Official seasonal page was accessible in the native browser even though the search fetch redirected to Queue-it. Its printable PDF https://www.bcferries.com/web_image/h78/h20/9110565912606.pdf (printed03:03,03.10.2026) covers June3,2026–March31,2027, pages1–2, both HSB–BOW directions. This delivery instantiates only October3–5: **90 records**, 86 scheduled and four confirmed October3 cancellations. Seasonal coverage outside those dates and other BC Ferries connections are unavailable in this capture.
+
+Official service notice https://www.bcferries.com/current-conditions/service-notices?serviceNoticeCode=8803994611464 adds20:25 from Snug Cove and20:55 from Horseshoe Bay on October3; cancels22:00/23:00 HSB and22:30/23:30 BOW. Arrival times of added trips use the published twenty-minute travel interval, not independently reported arrival estimates. Potential October4 cancellations05:45 HSB/06:15 BOW are omitted pending confirmation, not falsely stored as confirmed cancellation. No ship assignment is presumed.
+
+Both corridors use OSM relation10348039 / way556906192, connected berth2 approach ways1054808100 and557587301, sixteen vertices and actual terminal stop nodes1786985817/582681660. All ten actual z14 coastal tiles were checked: both centre corridors pass. No arbitrary straight connection or OSM duration supplies the official timetable. BC Ferries corridors use operator-confirmed ferry-service geometry; the large cargo/cruise numeric depth rule does not invent unreported corridor depths for an existing ferry connection. No bathymetric/tidal or navigational certification is claimed.
+
+Time conversion uses America/Vancouver and preserves local dates and resolved ISO offsets. BC's official2026 permanent time rule is documented at https://news.gov.bc.ca/releases/2026AG0013-000209; browser Intl implementations with older tzdb receive a sourced compatibility rule after March8,2026. Civil clock freezes on pause and resumes at injected now; economic speed never accelerates official sailings. Positions are smooth schedule estimates, not AIS/live reports.
+
+Native proof followed a twenty-minute outward trip and nineteen minutes of the return, and confirmed cancelled22:00 emits no vessel. Night and pause were captured. Production scene reserves ferry capacity before free vessel generation. Source/clock controls in the main panel remain Task22.
+
+A localhost-Origin response to current-conditions returned200 but no Access-Control-Allow-Origin header. Therefore automatic browser updates of delays/cancellations are unavailable; reviewed static facts are bundled without an application server. Website/PDF copyright retained; only normalized timetable facts are distributed, no PDF or website design. General operator terms https://www.bcferries.com/terms-and-conditions were reviewed; no open-data license was asserted.
+
+Validation:10 targeted tests; full check890 passed/5 skipped. Source metadata and original capture hashes are in bc-ferry-source-hashes.json.
