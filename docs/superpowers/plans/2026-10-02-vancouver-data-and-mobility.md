@@ -159,16 +159,16 @@ expect(readStatCanCapture(officialVancouverCapture,vancouver).find(o=>o.key==='p
 
 **Interfaces:** `TerrainTile={id:string;bounds:{west:number;south:number;east:number;north:number};size:number;spacingM:number;heightsM:Float32Array;valid:Uint8Array;kind:'dtm'|'dsm';verticalDatum:string;sourceId:string}`; `TerrainManifest={version:1;tiles:readonly {id:string;url:string;bytes:number;bounds:{west:number;south:number;east:number;north:number};spacingM:number}[];sources:readonly {id:string;url:string;retrievedAt:string;license:string;kind:'dtm'|'dsm';horizontalCrs:string;verticalDatum:string;resolutionM:number}[]}`. `decodeTerrainTile(bytes:Uint8Array,manifest:TerrainManifest):TerrainTile`; `createTerrainSource(fetchBytes:(url:string,signal:AbortSignal)=>Promise<Uint8Array>,manifest:TerrainManifest):{load(id:string,signal:AbortSignal):Promise<TerrainTile>}`. Captura exporta grid 65×65 com borda compartilhada, Float32 little-endian + valid mask, compressão HTTP do host, CRS horizontal WGS84 e datum vertical único escolhido no audit após verificar transformação disponível.
 
-- [ ] Escrever testes `nodata_not_zero`, `dsm_keeps_quality_flag`, `wrong_vertical_datum_rejected`, `tile_shared_border_equal`, `corrupt_length_rejected`, `unavailable_high_resolution_falls_back`, `no_capture_no_real_terrain_claim`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
+- [x] Escrever testes `nodata_not_zero`, `dsm_keeps_quality_flag`, `wrong_vertical_datum_rejected`, `tile_shared_border_equal`, `corrupt_length_rejected`, `unavailable_high_resolution_falls_back`, `no_capture_no_real_terrain_claim`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
 
 ```ts
 expect(decodeTerrainTile(tileWithMissingSample,manifest).valid[missingIndex]).toBe(0);
 ```
 
-- [ ] Executar `npx vitest run tests/terrain-source.test.ts`; confirmar RED por comportamento/contrato ausente.
-- [ ] Consultar footprints LidarBC/HRDEM para Vancouver e North Shore antes de escolher DTM; usar MRDEM onde validado, Copernicus apenas com flag DSM. Capturar recorte urbano/regionais necessários, nunca raster mundial inteiro. Registrar ferramenta/GDAL, transformação de datum, versão, resampling, licença/avisos, nodata e fontes. Se não houver transformação confiável, não misturar produtos na mesma superfície. Tile bruto ≤32 KiB; cache decodificado ≤32 MiB e máximo 8 fetches simultâneos. Recursos DSM urbanos não se tornam chão oficial; cobertura de solo urbana insuficiente permanece lacuna de aceitação.
-- [ ] Executar `npx vitest run tests/terrain-source.test.ts` e `npm run typecheck`; confirmar PASS. Comparar dez pontos válidos e três perfis com raster original, tolerância de amostragem 0.1 m para pontos coincidentes; tolerância de precisão do fornecedor é relatada separadamente. Registrar bytes totais, não fabricar detalhe além da resolução.
-- [ ] Commit: `feat: capture verified Vancouver terrain elevation`.
+- [x] Executar `npx vitest run tests/terrain-source.test.ts`; confirmar RED por comportamento/contrato ausente.
+- [x] Consultar footprints LidarBC/HRDEM para Vancouver e North Shore antes de escolher DTM; usar MRDEM onde validado, Copernicus apenas com flag DSM. Capturar recorte urbano/regionais necessários, nunca raster mundial inteiro. Registrar ferramenta/GDAL, transformação de datum, versão, resampling, licença/avisos, nodata e fontes. Se não houver transformação confiável, não misturar produtos na mesma superfície. Tile bruto ≤32 KiB; cache decodificado ≤32 MiB e máximo 8 fetches simultâneos. Recursos DSM urbanos não se tornam chão oficial; cobertura de solo urbana insuficiente permanece lacuna de aceitação.
+- [x] Executar `npx vitest run tests/terrain-source.test.ts` e `npm run typecheck`; confirmar PASS. Comparar dez pontos válidos e três perfis com raster original, tolerância de amostragem 0.1 m para pontos coincidentes; tolerância de precisão do fornecedor é relatada separadamente. Registrar bytes totais, não fabricar detalhe além da resolução.
+- [x] Commit: `feat: capture verified Vancouver terrain elevation`.
 
 
 ## Task 8: Superfície, projeção elevada e seleção por relevo
