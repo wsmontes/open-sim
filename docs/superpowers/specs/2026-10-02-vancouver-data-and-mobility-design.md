@@ -4,7 +4,7 @@
 
 O usuário quer elevar dados e efeitos dinâmicos ao nível da evolução gráfica: carros, ônibus, caminhões e pessoas visíveis, população e orçamento reais, e trânsito relacionado à cidade observada. Vancouver foi escolhida como referência. O desenho híbrido apresentado no chat foi aprovado: movimento simulado contínuo, calibrado por fontes oficiais, com observações ao vivo quando houver acesso e cobertura.
 
-Este documento detalha esse desenho para revisão. A aprovação no chat autorizou sua elaboração; implementação e plano ainda dependem das revisões previstas no fluxo de brainstorming. Não interpretar o documento anterior de vida urbana como autorização para alterar as regras econômicas deste trabalho.
+A orientação posterior do usuário simplifica os ônibus: rotas reais com movimento simulado, sem sincronização obrigatória com horários ou posições reais. Este documento incorpora essa alteração. A aprovação no chat autorizou sua elaboração; implementação e plano ainda dependem das revisões previstas no fluxo de brainstorming. Não interpretar o documento anterior de vida urbana como autorização para alterar as regras econômicas deste trabalho.
 
 ## Escopo e sequência
 
@@ -54,13 +54,13 @@ O relógio de movimento respeita pausa e velocidades do jogo. Integração usa p
 
 ### Ônibus TransLink
 
-GTFS estático fornece paradas, calendários, viagens e horários. Ler `shapes.txt` e `shape_id` quando presentes; uma sequência de paradas sozinha não autoriza inventar uma linha reta através de quarteirões. Sem shape utilizável, obter um caminho na rede carregada e marcá-lo como derivado; se não houver conexão, não desenhar essa viagem.
+O requisito é que os ônibus façam as rotas reais da TransLink. Sua posição, frequência, velocidade e duração das paradas são simuladas pelo relógio do jogo; sincronização com horários ou posições reais não faz parte desta entrega. Pausa e aceleração funcionam para ônibus como para os demais agentes.
 
-Respeitar timezone `America/Vancouver`, dia de serviço, exceções e horários GTFS após 24:00. No modo estimado por horário, ônibus percorrem trajetos e fazem parada; posição interpolada permanece estimada. O relógio de cenário informa qual data e hora de serviço está sendo mostrada.
+GTFS estático fornece rotas, paradas e variantes de percurso. Ler `shapes.txt` e `shape_id` das viagens para preservar direção e variante; uma sequência de paradas sozinha não autoriza inventar uma linha reta através de quarteirões. Sem shape utilizável, obter um caminho na rede carregada e marcá-lo como derivado; se não houver conexão, não desenhar esse percurso como rota real.
 
-GTFS Realtime da TransLink exige chave de API. A integração ao vivo usa porta configurável que recebe posições com instante da observação, identificador e vínculo com a viagem. Não criar conta nem supor credenciais existentes. Uma observação não corresponde a um comando econômico. Interpolar atualizações sem saltos quando a viagem e a geometria permitem; posições antigas deixam de aparecer como atuais.
+Desenhar ônibus em percursos distintos, nas duas direções quando fornecidas, com paradas reais e tempo de parada simulado. Frequência simulada é limitada pela capacidade visual, sem alegar correspondência à oferta real. Mostrar “Rotas TransLink · movimento simulado”, com data e fonte do feed. Calendários e horários permanecem preservados pelo importador existente, sem determinar a animação nesta entrega.
 
-Modo ao vivo usa timestamps do fornecedor; pausar congela a visualização, que mostra a idade da observação. Ao retomar, atualizar suavemente para a observação válida. Velocidade acelerada do jogo não acelera um veículo observado ao vivo. Ônibus ao vivo substituem a representação estimada da mesma viagem para evitar duplicação.
+GTFS Realtime e chaves de API não são necessários. Integração de posições ao vivo fica fora do escopo atual.
 
 ## Relação com trânsito real
 
@@ -83,7 +83,7 @@ Painel compacto de Vancouver mostra população/ano, finanças/moeda/exercício,
 1. Valores de população e finanças conferidos com fontes oficiais; referências de página/tabela e normalização de unidades revisáveis. Nenhum placeholder financeiro nem número inventado.
 2. Testes de município/QID, ranking e anos Wikidata, proveniência por campo, orçamento anual versus plano plurianual, ausência e respostas atrasadas.
 3. Testes de trajetos conectados, curvas, condução pela direita, distância mínima em filas, conflitos em cruzamentos, exclusão de pedestres das rodovias e invalidação por edição.
-4. Testes GTFS com shapes, calendário, exceções, horários após 24:00 e timezone; ônibus estimado versus observado, expiração de posição e deduplicação de viagem.
+4. Testes GTFS com shapes, variantes e direções; paradas reais, percurso conectado, deduplicação por rota/variante e movimento de ônibus respeitando pausa e aceleração do jogo.
 5. Testes de calibração: contagem não vira velocidade; período e direção preservados; observação distante ou sem correspondência não afeta o trecho.
 6. Economia reproduzível sem rede no núcleo; ação de calibração explícita e saves antigos preservados. Testes das regras e migrações realmente necessárias.
 7. Verificação visual em Downtown Vancouver, corredor de ônibus, área industrial e via rápida da região, com cobertura geográfica declarada. Carros, ônibus, caminhões e pessoas distinguíveis; curvas, paradas, filas, pausa e zoom documentados em imagens ou gravação.
@@ -96,7 +96,7 @@ Painel compacto de Vancouver mostra população/ano, finanças/moeda/exercício,
 - Orçamento aprovado: https://vancouver.ca/your-government/annual-budget.aspx
 - Documento final: https://vancouver.ca/files/cov/2026-budget.pdf (extração/conferência das tabelas pertence à implementação; não foi concluída nesta revisão).
 - Contagens municipais e acesso VanMap: https://vancouver.ca/streets-transportation/traffic-count-data.aspx
-- TransLink GTFS Realtime e exigência de chave: https://www.translink.ca/about-us/doing-business-with-translink/app-developer-resources/gtfs/gtfs-realtime
+- TransLink GTFS estático para rotas e paradas: https://www.translink.ca/about-us/doing-business-with-translink/app-developer-resources/gtfs/gtfs-data
 
 ## Próxima etapa
 

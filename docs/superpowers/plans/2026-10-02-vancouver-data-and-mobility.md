@@ -6,7 +6,7 @@
 
 **Architecture:** Adaptadores produzem capturas datadas; o cliente escolhe cenário e fontes. Um motor transitório percorre uma rede de ruas e entrega posições aos renderizadores. Calibração econômica é uma ação explícita e determinística, separada das posições ao vivo.
 
-**Tech Stack:** TypeScript, Canvas 2D, Vitest, Vite, importador GTFS existente e contratos de observação do projeto. Dependências novas somente se necessárias ao decoding GTFS Realtime; justificar e fixar versão no lockfile.
+**Tech Stack:** TypeScript, Canvas 2D, Vitest, Vite, importador GTFS existente e contratos de observação do projeto. Rotas e paradas vêm do GTFS estático; movimento dos ônibus é simulado e não exige dependência GTFS Realtime.
 
 **Spec:** `docs/superpowers/specs/2026-10-02-vancouver-data-and-mobility-design.md`
 
@@ -27,8 +27,8 @@
 
 1. Resposta de Vancouver chega depois de o usuário viajar: não substituir fatos da cidade nova (Tarefa 1).
 2. Tiles duplicados, níveis distintos e mudança de zoom: evitar ruas e agentes duplicados, conexões falsas e reinícios do movimento (Tarefas 4 e 5).
-3. Troca de dia/horário de verão e horários GTFS após 24:00: preservar dia de serviço e posição estimada coerente (Tarefa 7).
-4. Feed ao vivo fora de ordem ou com instante futuro: não recuar veículos nem rotular observação inválida como atual (Tarefa 9).
+3. Variantes e direções de uma linha: não misturar shapes nem paradas de percursos distintos (Tarefa 7).
+4. Repetição de tiles ou importação do mesmo feed: não multiplicar ônibus nem desenhar rotas duplicadas (Tarefas 7 e 9).
 5. Captura econômica alterada ou save antigo sem captura: não aplicar política silenciosa ou depender de rede no replay (Tarefa 3).
 
 ## Organização e dependências
@@ -42,7 +42,7 @@ Criar ou reutilizar worktree isolado na execução, conforme `using-git-worktree
 - Prefeitura: orçamento final 2026 em `https://vancouver.ca/files/cov/2026-budget.pdf`. Captura normalizada conferida por página/tabela; nenhum valor financeiro foi extraído na fase de planejamento.
 - Wikidata: Q24639; referência de censo municipal publicada em `https://vancouver.ca/news-calendar/our-city.aspx`.
 - TransLink estático: página oficial `https://www.translink.ca/about-us/doing-business-with-translink/app-developer-resources/gtfs/gtfs-data` oferece link público de download e informa atualização semanal. Resolver o link da página, registrar data de publicação e período efetivo do feed. Não fixar URL de arquivo deduzida.
-- TransLink ao vivo: `https://gtfsapi.translink.ca/v3/gtfsposition` e `gtfsrealtime`, com chave. Sem chave nesta sessão: implementar e testar porta com fixtures, mostrar indisponibilidade na UI e registrar verificação ao vivo como pendente de acesso.
+- Ônibus não exigem sincronização real: usar GTFS estático para trajetos e paradas, simular circulação pelo relógio do jogo. GTFS Realtime e chave de API estão fora desta entrega.
 - Contagens: `https://opendata.vancouver.ca/explore/assets/intersection-traffic-movement-counts/view/` e VanMap indicado em `https://vancouver.ca/streets-transportation/traffic-count-data.aspx`. O catálogo existe, mas o formato de exportação automática não foi confirmado. Tarefa 8 verifica o recurso real antes de implementar parser; se não houver download acessível, aceitar importação de arquivo oficial e declarar cobertura indisponível até existir captura válida.
 - Preservar termos declarados. Para dados TransLink, mostrar a atribuição exigida na página oficial e não reutilizar marca/logo como asset de ônibus. Termos não são convertidos em licença aberta genérica.
 
@@ -122,17 +122,17 @@ Definir em arquivos da tarefa responsável e exportar para consumidores; não re
 - [ ] Substituir agentes antigos na passagem ativa; conservar helpers de árvores/cruzamentos. Desenhar ônibus com janelas, caminhão com cabine/carga e pessoas com passos; projetar offsets de faixas/calçadas. Reusar buffers; limite inicial 480 agentes visíveis, reduzido para 120 no zoom distante, margem de rede de uma tela.
 - [ ] Inspecionar Downtown com curva, travessia, pausa, câmera girada e zoom; salvar checkpoint. Executar regressões geográficas e typecheck. Commit: `feat: render visible urban mobility`.
 
-## Tarefa 7: Ônibus em rotas e calendários TransLink
+## Tarefa 7: Ônibus circulando nas rotas reais TransLink
 
-**Files:** Modify `src/adapters/reality/gtfs.ts`; Create `tools/vancouver-transit.ts`, `src/presentation/transit-schedule.ts`, `src/adapters/reality/data/vancouver-transit.json`, `tests/transit-schedule.test.ts`; Modify `tests/gtfs-source.test.ts`.
+**Files:** Modify `src/adapters/reality/gtfs.ts`; Create `tools/vancouver-transit.ts`, `src/presentation/transit-routes.ts`, `src/adapters/reality/data/vancouver-transit.json`, `tests/transit-routes.test.ts`; Modify `tests/gtfs-source.test.ts`.
 
-**Interfaces:** Estender `TransitTrip` com `shapeId?:string`; `TransitContent` com `shapes:readonly {id:string;points:readonly {lat:number;lon:number;sequence:number;distance?:number}[]}[]`. `scheduledBuses(dataset:TransitContent,instant:string,network:MobilityNetwork):readonly MobilityAgent[]` produz IDs estáveis por viagem/dia de serviço. Shapes restringem matching à rede; sem match completo, emitir relatório e não desenhar conexão inventada.
+**Interfaces:** Estender `TransitTrip` com `shapeId?:string` e `directionId?:string`; `TransitContent` com `shapes:readonly {id:string;points:readonly {lat:number;lon:number;sequence:number;distance?:number}[]}[]`. `TransitRoutePattern={id:string;routeId:string;shapeId?:string;directionId?:string;edges:readonly string[];stopDistancesM:readonly number[];method:'reported'|'derived'}`; `buildTransitPatterns(dataset:TransitContent,network:MobilityNetwork):readonly TransitRoutePattern[]` agrupa variantes e preserva sequência de paradas. Shapes restringem matching à rede; sem match completo, emitir relatório e não desenhar conexão inventada.
 
-- [ ] Resolver download oficial na página GTFS; conferir arquivo, limites atuais, timezone, cobertura/validade e termos. Produzir captura Vancouver com dados mínimos necessários e proveniência; não elevar limites ZIP sem medir bytes expandidos e justificar. Manter importação local se navegador não puder buscar por CORS.
-- [ ] Escrever `shape_sequence_sorted`, `trip_shape_reference`, `added_removed_calendar`, `after_midnight_previous_service_day`, `DST_service_timezone`, `duplicate_stop_same_position_safe`, `missing_shape_connected_fallback`, `no_connection_no_bus`.
-- [ ] Executar `npx vitest run tests/gtfs-source.test.ts tests/transit-schedule.test.ts`; confirmar RED.
-- [ ] Ampliar importador existente, calcular calendário em America/Vancouver e projetar percurso conectado; dwell estimado mínimo 15 s quando horário não estabelece parada maior. Preservar capabilities que dizem que o importador sozinho não calcula rotas nem tempo real; scheduler é consumidor separado.
-- [ ] Executar testes e visualizar ônibus numa rota com paradas; afirmar na UI que posição é estimada por horário. Commit: `feat: add scheduled Vancouver buses`.
+- [ ] Resolver download oficial na página GTFS; conferir arquivo, limites atuais, cobertura/validade e termos. Produzir captura Vancouver com proveniência; não elevar limites ZIP sem medir bytes expandidos e justificar. Manter importação local se navegador não puder buscar por CORS.
+- [ ] Escrever `shape_sequence_sorted`, `trip_shape_reference`, `opposite_directions_preserved`, `variants_do_not_mix_stops`, `duplicate_stop_same_position_safe`, `missing_shape_connected_fallback`, `no_connection_no_bus`, `same_pattern_imported_once`.
+- [ ] Executar `npx vitest run tests/gtfs-source.test.ts tests/transit-routes.test.ts`; confirmar RED.
+- [ ] Ampliar importador existente e mapear cada percurso conectado e suas paradas. Preservar calendários/horários sem usá-los para sincronizar a animação. Manter capabilities do importador; cálculo de percursos é consumidor separado.
+- [ ] Executar testes e inspecionar geometria de uma linha em ambas as direções; conferir sequência de paradas contra o feed. Commit: `feat: load real Vancouver bus routes`.
 
 ## Tarefa 8: Calibração por contagens municipais
 
@@ -145,25 +145,25 @@ Definir em arquivos da tarefa responsável e exportar para consumidores; não re
 - [ ] Executar testes alvo e observar RED. Implementar conversão de intervalo, matching máximo 25 m com sentido até 30° quando declarado; incompatibilidade não afeta via. Fonte agregada ajusta volume total sem inventar classe. Fora de cobertura, demanda continua estimada.
 - [ ] Executar testes; guardar relatório de correspondências/rejeições e distinguir escala amostral de contagem oficial. Commit: `feat: calibrate mobility with traffic observations`.
 
-## Tarefa 9: Porta para posições observadas de ônibus
+## Tarefa 9: Movimento simulado dos ônibus nas rotas reais
 
-**Files:** Create `src/adapters/reality/translink-realtime.ts`, `src/client/transit-realtime.ts`, `tests/translink-realtime.test.ts`; fixtures GTFS-RT mínimos em `tests/fixtures/translink/`.
+**Files:** Create `src/presentation/transit-motion.ts`, `tests/transit-motion.test.ts`; Modify `src/presentation/mobility-engine.ts`, `mobility-model.ts`.
 
-**Interfaces:** `ObservedBus={id:string;tripId?:string;lat:number;lon:number;observedAt:string}`; `RealtimeTransitPort={positions(signal:AbortSignal):Promise<readonly ObservedBus[]>}`; `createTranslinkRealtimePort(options:{endpoint:string;fetcher?:typeof fetch}):RealtimeTransitPort`. Endpoint configurado pode ser proxy; credenciais não ficam no repositório nem em links/fontes/saves. Decoder valida envelope protobuf e ranges, selecionando biblioteca mínima se APIs existentes não bastarem.
+**Interfaces:** `routeBuses(patterns:readonly TransitRoutePattern[],seed:number):readonly MobilityAgent[]` gera identidades estáveis por percurso e slot. Estender `MobilityAgent` com `patternId?:string` e `stopsM?:readonly number[]`; motor preserva estado de parada. Usar até dois ônibus por percurso visível, com fase inicial espaçada; tempo de parada simulado 15 s. Ao terminar o percurso, sair no limite e regenerar no início, sem atravessar o mapa como se o destino fosse conectado à origem.
 
-- [ ] Escrever `decode_position_timestamp`, `reject_out_of_range`, `older_update_ignored`, `future_over_30s_rejected`, `expires_after_120s`, `realtime_replaces_same_scheduled_trip`, `paused_age_visible`, `accelerated_game_does_not_accelerate_observed_bus`, `timeout_preserves_last_valid`.
-- [ ] Executar `npx vitest run tests/translink-realtime.test.ts`; observar RED.
-- [ ] Implementar polling a cada 30 s somente com porta disponível, timeout 10 s, uma solicitação em voo e backoff até 5 min; expirar observações após 120 s. Snapshot antigo não se rotula ao vivo. Cancelar ao mudar cidade/desligar fonte. Interpolar pontos da mesma viagem e não avançar extrapolação indefinida.
-- [ ] Executar testes e typecheck; testar live apenas se houver endpoint autorizado configurado. Registrar sem acesso como fixture-tested e ao vivo indisponível, sem bloquear os outros modos. Commit: `feat: support observed transit positions`.
+- [ ] Escrever `bus_follows_real_pattern`, `bus_stops_at_declared_stop`, `bus_dwell_15_simulated_seconds`, `pause_freezes_bus`, `game_acceleration_applies_to_bus`, `duplicate_pattern_does_not_multiply_fleet`, `route_end_does_not_teleport_across_city`, `changed_network_invalidates_pattern`.
+- [ ] Executar `npx vitest run tests/transit-motion.test.ts tests/mobility-engine.test.ts`; observar RED.
+- [ ] Integrar percursos e paradas ao motor da Tarefa 5, compartilhando filas e cruzamentos com carros. Frequência/posição são simuladas, sem consultar API de posições ou relógio real de serviço. Reconciliar IDs em vez de reiniciar frota a cada frame.
+- [ ] Executar testes e visualizar ônibus percorrendo uma curva e fazendo parada; registrar evidência de pausa e aceleração. Commit: `feat: simulate buses along real TransLink routes`.
 
 ## Tarefa 10: Painel, integração, desempenho e revisão final
 
 **Files:** Modify `src/browser/main.ts`, `index.html`, `src/browser/style.css`, `src/client/city-client.ts`, `src/surfaces/text/render.ts`; Create `src/client/mobility-controller.ts`, `tests/mobility-controller.test.ts`, `docs/quality/2026-10-02/vancouver-data/README.md`; Extend `tools/browser-perf.mjs` somente para registrar métricas necessárias.
 
-**Interfaces:** `MobilityMode='estimated'|'calibrated'|'live'`; `MobilityStatus={mode:MobilityMode;available:boolean;sourcePeriod?:string;observedAt?:string;scenarioInstant:string}`; `createMobilityController(options:{seed:number;now:()=>string;onChange:()=>void;realtime?:RealtimeTransitPort}):{setCity(territoryId:string|null):void;setNetwork(network:MobilityNetwork):void;setTransit(dataset:TransitContent|null):void;setCounts(counts:readonly TrafficCount[]):void;setMode(mode:MobilityMode):void;setScenario(instant:string):void;advance(seconds:number):void;frame():readonly MobilityFrameAgent[];status():MobilityStatus;dispose():void}` conecta os consumidores das tarefas anteriores. Cliente fornece frame ao renderizador; UI não calcula economia nem cria rotas.
+**Interfaces:** `MobilityMode='estimated'|'calibrated'`; `MobilityStatus={mode:MobilityMode;available:boolean;sourcePeriod?:string;observedAt?:string;scenarioInstant:string}`; `createMobilityController(options:{seed:number;now:()=>string;onChange:()=>void}):{setCity(territoryId:string|null):void;setNetwork(network:MobilityNetwork):void;setTransit(dataset:TransitContent|null):void;setCounts(counts:readonly TrafficCount[]):void;setMode(mode:MobilityMode):void;setScenario(instant:string):void;advance(seconds:number):void;frame():readonly MobilityFrameAgent[];status():MobilityStatus;dispose():void}` conecta rede, movimento, percursos TransLink e contagens das tarefas anteriores. Cliente fornece frame ao renderizador; UI não calcula economia nem cria rotas.
 
-- [ ] Escrever `city_change_clears_old_finance_and_agents`, `unavailable_live_keeps_estimated_usable`, `paused_theme_still_renders`, `explicit_calibration_confirmation_contains_ratio`, `text_surface_preserves_fact_source`; verificar fonte/ano/CAD e razão 0.01 antes da ação, não solicitar aprovação extra ao desenvolvedor para essa UI de produto.
-- [ ] Executar testes alvo; observar RED dos fluxos novos. Ligar painel compacto, movimento on/off, relógio de cenário e modos com disponibilidade real; fontes/atribuição clicáveis. Aplicar calibração somente pelo controle explícito do cenário, nunca na chegada de facts.
+- [ ] Escrever `city_change_clears_old_finance_and_agents`, `missing_counts_keeps_estimated_usable`, `paused_theme_still_renders`, `explicit_calibration_confirmation_contains_ratio`, `text_surface_preserves_fact_source`; verificar fonte/ano/CAD e razão 0.01 antes da ação, não solicitar aprovação extra ao desenvolvedor para essa UI de produto.
+- [ ] Executar testes alvo; observar RED dos fluxos novos. Ligar painel compacto, movimento on/off, relógio de cenário e modos estimado/calibrado com disponibilidade real; fontes/atribuição clicáveis. Ônibus mostram “Rotas TransLink · movimento simulado” e data do feed; não oferecer sincronização ao vivo nesta entrega. Aplicar calibração somente pelo controle explícito do cenário, nunca na chegada de facts.
 - [ ] Executar `npm run check` e `npm run build`; registrar PASS e warnings preexistentes. Reexecutar somente após mudanças/correções que justifiquem.
 - [ ] Comparar versão-base e nova no bundle de produção, mesmo navegador/viewport/cenas, três medições de 30 s após aquecimento; reportar mediana do tempo de frame e agentes. Cenas: Downtown, corredor TransLink, industrial e via rápida regional. Não alegar rodovia municipal se cena está fora do limite de Vancouver.
 - [ ] Capturar desktop e 390×844, curvas, fila, pedestres, ônibus parando, caminhões, pausa/retomada, zoom/câmera, globo e edição de via. Registrar dados indisponíveis e cobertura efetiva; confirmar população/orçamento contra audit.
@@ -173,7 +173,7 @@ Definir em arquivos da tarefa responsável e exportar para consumidores; não re
 
 ## Autorrevisão do plano
 
-Cobertura: fontes/proveniência 1–2; economia/saves 3; redes e continuidade 4–5; distinção visual/desempenho 6/10; GTFS/timezone 7; contagens e cobertura 8; ao vivo/idade/duplicação 9; painel e validação final 10. Cada tipo consumido tem produtor definido acima; Graph e posições usam espaço de mundo, unidades métricas aparecem separadas. As cinco falhas de Review Focus têm testes nas tarefas indicadas. Disponibilidade de download de contagens e extração de finanças são verificações explícitas que precedem capturas, não pressupostos de dados já disponíveis.
+Cobertura: fontes/proveniência 1–2; economia/saves 3; redes e continuidade 4–5; distinção visual/desempenho 6/10; GTFS/variantes/direções 7; contagens e cobertura 8; ônibus simulados/paradas/duplicação 9; painel e validação final 10. Cada tipo consumido tem produtor definido acima; Graph e posições usam espaço de mundo, unidades métricas aparecem separadas. As cinco falhas de Review Focus têm testes nas tarefas indicadas. Disponibilidade de download de contagens e extração de finanças são verificações explícitas que precedem capturas, não pressupostos de dados já disponíveis.
 
 Exemplos de assertions que fixam decisões das tarefas 3 e 4 (fixtures sintéticas, não orçamento oficial):
 
