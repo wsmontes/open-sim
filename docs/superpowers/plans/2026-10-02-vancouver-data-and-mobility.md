@@ -195,16 +195,16 @@ expect(projectElevated(p,0,camera,metresPerCell)).toEqual(project(p,camera));
 
 **Interfaces:** `TerrainController={setRegion(cityId:string|null):void;setTiles(tiles:readonly TerrainTile[]):void;sample(geo:{lat:number;lon:number}):TerrainReading|null;status():{available:boolean;loading:boolean;limitedSurface:boolean};dispose():void}`; browser loader fornece tiles por viewport e cancela requisições antigas. `WorldView.terrain?:{tiles:readonly TerrainTile[];sample:(geo:{lat:number;lon:number})=>TerrainReading|null}`. `drawTerrain(ctx:CanvasRenderingContext2D,view:WorldView):void` desenha malha e hillshade juntos; `surfaceElevation(point:Point,level:number):number|null` em presentation/terrain-surface.ts resolve solo e decks capturados separados; sem deck oficial, derivação explícita auditada.
 
-- [ ] Escrever testes `terrain_changes_silhouette`, `road_follows_slope`, `foundation_not_double_building_height`, `bridge_deck_separate_from_ground`, `sea_level_not_hills`, `river_not_global_flat_ocean`, `preview_matches_pick`, `old_city_tile_ignored`, `no_spike_at_boundary`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
+- [x] Escrever testes `terrain_changes_silhouette`, `road_follows_slope`, `foundation_not_double_building_height`, `bridge_deck_separate_from_ground`, `sea_level_not_hills`, `river_not_global_flat_ocean`, `preview_matches_pick`, `old_city_tile_ignored`, `no_spike_at_boundary`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
 
 ```ts
 expect(surfaceElevation(bridgePoint,bridgeLevel)).toBeGreaterThan(surface.sample(bridgeGeo)!.elevationM);
 ```
 
-- [ ] Executar `npx vitest run tests/terrain-render.test.ts tests/terrain-controller.test.ts tests/geographic-render.test.ts`; confirmar RED por comportamento/contrato ausente.
-- [ ] Integrar triângulos, shading por normal e ordenação de profundidade com ruas, árvores e volumes. Subdividir linhas/polígonos para que acompanhem terreno, apoiar bases com fundações locais sem deformar toda cidade. Planos de água por corpo hídrico usam valores compatíveis com datum; mar não é hardcode zero em datum desconhecido. Preservar globo simplificado, reduzir triângulos por zoom a no máximo 40.000 visíveis, sem frestas. Atualizar picking/hover/stroke/previews com terreno. Nenhuma terraplanagem ou alteração econômica por declive nesta entrega.
-- [ ] Executar `npx vitest run tests/terrain-render.test.ts tests/terrain-controller.test.ts tests/geographic-render.test.ts` e `npm run typecheck`; confirmar PASS. Inspecionar encostas de Vancouver, montanhas do North Shore, litoral e ponte com screenshots dia/noite, câmera girada e mobile; documentar limites urbanos DSM e datum. Se Canvas falhar desempenho, otimizar/culling antes de propor migração 3D separada.
-- [ ] Commit: `feat: render real terrain under streets and buildings`.
+- [x] Executar `npx vitest run tests/terrain-render.test.ts tests/terrain-controller.test.ts tests/geographic-render.test.ts`; confirmar RED por comportamento/contrato ausente.
+- [x] Integrar triângulos, shading por normal e ordenação de profundidade com ruas, árvores e volumes. Subdividir linhas/polígonos para que acompanhem terreno, apoiar bases com fundações locais sem deformar toda cidade. Planos de água por corpo hídrico usam valores compatíveis com datum; mar não é hardcode zero em datum desconhecido. Preservar globo simplificado, reduzir triângulos por zoom a no máximo 40.000 visíveis, sem frestas. Atualizar picking/hover/stroke/previews com terreno. Nenhuma terraplanagem ou alteração econômica por declive nesta entrega.
+- [x] Executar `npx vitest run tests/terrain-render.test.ts tests/terrain-controller.test.ts tests/geographic-render.test.ts` e `npm run typecheck`; confirmar PASS. Inspecionar encostas de Vancouver, montanhas do North Shore, litoral e ponte com screenshots dia/noite, câmera girada e mobile; documentar limites urbanos DSM e datum. Se Canvas falhar desempenho, otimizar/culling antes de propor migração 3D separada.
+- [x] Commit: `feat: render real terrain under streets and buildings`.
 
 
 ## Task 10: Rede de mobilidade sobre geometria real

@@ -165,7 +165,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   if(PARKS.has(feature.kind))drawParkPlanting(ctx,view,feature,shift,box);
  }
  for(const {feature,shift} of features){
-  if(feature.layer==='streets')roads.push({feature,shift});
+  if(feature.layer==='streets'&&!feature.tunnel)roads.push({feature,shift});
   if(feature.layer==='water_lines'){roadPath(ctx,view,feature,shift);ctx.strokeStyle=PALETTE.water;ctx.lineWidth=Math.max(1,scale*.06);ctx.stroke();}
   if(feature.layer==='boundaries'&&camera.zoom<.003){roadPath(ctx,view,feature,shift);ctx.strokeStyle='rgba(91,94,73,.35)';ctx.lineWidth=.7;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([]);}
   if(feature.layer==='place_labels'&&feature.name&&camera.zoom<.12){const p=feature.geometry[0]?.[0];if(p)labels.push({point:projectSurface(view,{x:p.x+shift,y:p.y}),name:feature.name,kind:feature.kind});}
