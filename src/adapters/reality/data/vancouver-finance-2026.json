@@ -1,0 +1,30 @@
+{
+  "territoryId": "Q24639",
+  "fiscalYear": 2026,
+  "currency": "CAD",
+  "status": "approved-budget",
+  "source": {
+    "dataset": "City of Vancouver \u00b7 Council approval 2026 budget",
+    "url": "https://council.vancouver.ca/20251125/documents/regu20251125min.pdf",
+    "retrievedAt": "2026-10-03T06:10:18.667978+00:00",
+    "license": "Factual amounts; source document subject to City terms of use",
+    "sha256": "63f4c6373bda392b1a9eb5a89aa938a3b463c136f72a67847f83e28ddd44d7ae"
+  },
+  "operating": {
+    "value": 2392516009,
+    "unit": "CAD",
+    "period": "annual",
+    "reference": "Final motion F, printed page 20"
+  },
+  "capital": {
+    "value": 894,
+    "unit": "million-CAD",
+    "period": "annual",
+    "reference": "Final motion I, printed page 21"
+  },
+  "multiYearRequests": {
+    "value": 698,
+    "unit": "million-CAD",
+    "reference": "Final motion H, printed page 20; excluded from annual expenditure"
+  }
+}

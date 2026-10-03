@@ -136,11 +136,11 @@ expect(readStatCanCapture(officialVancouverCapture,vancouver).find(o=>o.key==='p
 
 **Interfaces:** `readBcMunicipalActuals(value:unknown,city:CityIdentity):readonly {year:number;revenueCad?:number;expenseCad?:number;status:'actual';source:MeasureSource}[]` mantém histórico realizado distinto de `MunicipalFinance`. `readVancouverFinance(value:unknown):MunicipalFinance` valida captura; `enrichVancouverFacts(facts:CityFacts,finance:MunicipalFinance):CityFacts` só associa mesmo território. Ferramenta atualiza captura a partir de valores conferidos, não usa extração heurística para publicar números sem revisão.
 
-- [ ] Capturar relatório financeiro municipal BC LGDE disponível e rejeitar como orçamento aprovado; preservar ano, unidade e município em testes `bc_actual_not_approved_budget` e `bc_wrong_municipality`. Baixar PDF oficial, extrair tabelas com ferramenta local disponível e conferir visualmente página/tabela de operação e capital. Registrar valor original, unidade, normalização e URL no audit; conferir termos antes de incluir captura. Se a extração falhar, não preencher valores por aproximação.
-- [ ] Escrever `reject_wrong_territory`, `reject_multiyear_as_annual`, `normalize_thousands_to_CAD`, `official_capture_matches_audit`; a fixture oficial usa os valores exatos conferidos no passo anterior.
-- [ ] Executar `npx vitest run tests/vancouver-data.test.ts`; observar RED antes do adaptador.
-- [ ] Implementar validação de valores finitos/não negativos, CAD, ano 2026, status e proveniência. Anexar orçamento apenas a Q24639; não misturar planilha de Metro Vancouver.
-- [ ] Executar testes e typecheck; revisar JSON contra audit. Commit: `feat: add verified Vancouver municipal budget`.
+- [x] Capturar relatório financeiro municipal BC LGDE disponível e rejeitar como orçamento aprovado; preservar ano, unidade e município em testes `bc_actual_not_approved_budget` e `bc_wrong_municipality`. Baixar PDF oficial, extrair tabelas com ferramenta local disponível e conferir visualmente página/tabela de operação e capital. Registrar valor original, unidade, normalização e URL no audit; conferir termos antes de incluir captura. Se a extração falhar, não preencher valores por aproximação.
+- [x] Escrever `reject_wrong_territory`, `reject_multiyear_as_annual`, `normalize_thousands_to_CAD`, `official_capture_matches_audit`; a fixture oficial usa os valores exatos conferidos no passo anterior.
+- [x] Executar `npx vitest run tests/vancouver-data.test.ts`; observar RED antes do adaptador.
+- [x] Implementar validação de valores finitos/não negativos, CAD, ano 2026, status e proveniência. Anexar orçamento apenas a Q24639; não misturar planilha de Metro Vancouver.
+- [x] Executar testes e typecheck; revisar JSON contra audit. Commit: `feat: add verified Vancouver municipal budget`.
 
 ## Task 6: Calibração econômica explícita e replay
 

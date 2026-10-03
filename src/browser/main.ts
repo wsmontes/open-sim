@@ -8,6 +8,8 @@ import type {OsmSource} from '../adapters/osm/provider';
 import {createIndexedDbTileCache} from '../adapters/osm/tile-cache';
 import {createIndexedDbChunkCache} from '../adapters/osm/chunk-cache';
 import {createWikidataDirectory} from '../adapters/reality/wikidata';
+import financeCapture from '../adapters/reality/data/vancouver-finance-2026.json';
+import {readVancouverFinance,enrichVancouverFacts} from '../adapters/reality/vancouver';
 import demographicCapture from '../adapters/reality/data/vancouver-demography.json';
 import {readStatCanCapture,mergeDemographics} from '../adapters/reality/statcan';
 import {readBcStatsCapture} from '../adapters/reality/bc-stats';
@@ -120,7 +122,7 @@ const mergeMunicipal = async (found: CityFacts | null): Promise<CityFacts | null
  if (!found) return null;
  const identity = CITY_IDENTITIES[found.id];
  if(identity)found={...found,identity,countryCode:identity.countryCode};
- if(identity?.qid==='Q24639')found=mergeDemographics(found,[...readStatCanCapture(demographicCapture.statcan,identity),...readBcStatsCapture(demographicCapture.bcStats,identity)]);
+ if(identity?.qid==='Q24639'){found=mergeDemographics(found,[...readStatCanCapture(demographicCapture.statcan,identity),...readBcStatsCapture(demographicCapture.bcStats,identity)]);found=enrichVancouverFacts(found,readVancouverFinance(financeCapture));}
  if (identity && !selectSources(identity,SOURCE_CATALOG).some(source=>source.id==='ibge')) return found;
  const municipal = found.municipalCode ? await municipalDirectory.byMunicipalCode(found.municipalCode) : null;
  if (!municipal) return found;
