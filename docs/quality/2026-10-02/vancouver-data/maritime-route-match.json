@@ -1,0 +1,22 @@
+{
+  "source": "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+  "retrievedAt": "2026-10-03T21:07:31.931Z",
+  "zoom": 14,
+  "tiles": 36,
+  "landPolygons": 344,
+  "accepted": [
+    "seabus:322385",
+    "seabus:322386",
+    "aquabus:37079397",
+    "aquabus:37079398",
+    "aquabus:37083929",
+    "aquabus:37079400",
+    "aquabus:37079402",
+    "aquabus:37079407",
+    "aquabus:37079410",
+    "cruise-first-narrows",
+    "cargo-centerm",
+    "jericho-outing"
+  ],
+  "rejected": []
+}

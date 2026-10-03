@@ -1,0 +1,1222 @@
+{
+  "terminals": [
+    {
+      "id": "waterfront",
+      "name": "Waterfront SeaBus",
+      "operator": "TransLink",
+      "position": {
+        "lat": 49.28651,
+        "lon": -123.110526
+      },
+      "berths": [
+        "waterfront:seabus"
+      ],
+      "source": {
+        "dataset": "TransLink GTFS 26SEP_20261002",
+        "url": "https://gtfs-static.translink.ca/gtfs/google_transit.zip",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "reported",
+        "reference": "route_type=4; terminal water positions use shape endpoints, not landside stop coordinates; Route and arrival data used in this product or service is provided by permission of TransLink. TransLink assumes no responsibility for the accuracy or currency of the Data used in this product or service.",
+        "license": "TransLink GTFS Terms and Conditions"
+      },
+      "allowedKinds": [
+        "seabus"
+      ]
+    },
+    {
+      "id": "lonsdale",
+      "name": "Lonsdale Quay SeaBus",
+      "operator": "TransLink",
+      "position": {
+        "lat": 49.309322,
+        "lon": -123.084112
+      },
+      "berths": [
+        "lonsdale:seabus"
+      ],
+      "source": {
+        "dataset": "TransLink GTFS 26SEP_20261002",
+        "url": "https://gtfs-static.translink.ca/gtfs/google_transit.zip",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "reported",
+        "reference": "route_type=4; terminal water positions use shape endpoints, not landside stop coordinates; Route and arrival data used in this product or service is provided by permission of TransLink. TransLink assumes no responsibility for the accuracy or currency of the Data used in this product or service.",
+        "license": "TransLink GTFS Terms and Conditions"
+      },
+      "allowedKinds": [
+        "seabus"
+      ]
+    },
+    {
+      "id": "aquabus:638861821",
+      "name": "Hornby Terminal (Aquabus)",
+      "operator": "Aquabus",
+      "position": {
+        "lat": 49.2742391,
+        "lon": -123.1343703
+      },
+      "berths": [
+        "aquabus:638861821:dock"
+      ],
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "allowedKinds": [
+        "aquabus"
+      ]
+    },
+    {
+      "id": "aquabus:3456666797",
+      "name": "Granville Island Terminal (Aquabus)",
+      "operator": "Aquabus",
+      "position": {
+        "lat": 49.2724851,
+        "lon": -123.133943
+      },
+      "berths": [
+        "aquabus:3456666797:dock"
+      ],
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "allowedKinds": [
+        "aquabus"
+      ]
+    },
+    {
+      "id": "aquabus:3456659790",
+      "name": "David Lam Park Terminal",
+      "operator": "Aquabus",
+      "position": {
+        "lat": 49.2704846,
+        "lon": -123.1251929
+      },
+      "berths": [
+        "aquabus:3456659790:dock"
+      ],
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "allowedKinds": [
+        "aquabus"
+      ]
+    },
+    {
+      "id": "aquabus:3456696411",
+      "name": "Stamps Landing Dock",
+      "operator": "Aquabus",
+      "position": {
+        "lat": 49.2694191,
+        "lon": -123.1187582
+      },
+      "berths": [
+        "aquabus:3456696411:dock"
+      ],
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "allowedKinds": [
+        "aquabus"
+      ]
+    },
+    {
+      "id": "aquabus:3456702076",
+      "name": "Spyglass Dock",
+      "operator": "Aquabus",
+      "position": {
+        "lat": 49.2710105,
+        "lon": -123.1155128
+      },
+      "berths": [
+        "aquabus:3456702076:dock"
+      ],
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "allowedKinds": [
+        "aquabus"
+      ]
+    },
+    {
+      "id": "aquabus:1356857891",
+      "name": "Yaletown Dock",
+      "operator": "Aquabus",
+      "position": {
+        "lat": 49.2717105,
+        "lon": -123.1179512
+      },
+      "berths": [
+        "aquabus:1356857891:dock"
+      ],
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "allowedKinds": [
+        "aquabus"
+      ]
+    },
+    {
+      "id": "aquabus:431234884",
+      "name": "Plaza of Nations Dock",
+      "operator": "Aquabus",
+      "position": {
+        "lat": 49.2741986,
+        "lon": -123.1098162
+      },
+      "berths": [
+        "aquabus:431234884:dock"
+      ],
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "allowedKinds": [
+        "aquabus"
+      ]
+    },
+    {
+      "id": "aquabus:431234943",
+      "name": "Village Dock",
+      "operator": "Aquabus",
+      "position": {
+        "lat": 49.2724874,
+        "lon": -123.1056477
+      },
+      "berths": [
+        "aquabus:431234943:dock"
+      ],
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "allowedKinds": [
+        "aquabus"
+      ]
+    },
+    {
+      "id": "canada-place",
+      "name": "Canada Place",
+      "operator": "Port of Vancouver",
+      "position": {
+        "lat": 49.289,
+        "lon": -123.1128
+      },
+      "berths": [
+        "canada-place:west",
+        "canada-place:north",
+        "canada-place:east"
+      ],
+      "allowedKinds": [
+        "cruise"
+      ],
+      "source": {
+        "dataset": "OSM terminal shore geometry with CHS port facility classification",
+        "url": "https://www.openstreetmap.org/way/223635729",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "Water-side offsets from pier edge; illustrative berth centers, not reported ship coordinates"
+      },
+      "berthPositions": {
+        "canada-place:west": {
+          "lat": 49.289,
+          "lon": -123.1128
+        },
+        "canada-place:north": {
+          "lat": 49.2899,
+          "lon": -123.109
+        },
+        "canada-place:east": {
+          "lat": 49.28835,
+          "lon": -123.1099
+        }
+      }
+    },
+    {
+      "id": "centerm",
+      "name": "Centerm \u00b7 container terminal",
+      "operator": "DP World Canada",
+      "position": {
+        "lat": 49.28955,
+        "lon": -123.0958
+      },
+      "berths": [
+        "centerm:5-6"
+      ],
+      "allowedKinds": [
+        "cargo"
+      ],
+      "source": {
+        "dataset": "OSM terminal shore geometry with CHS port facility classification",
+        "url": "https://www.openstreetmap.org/way/220771243",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "Water-side offset from north-east quay; CHS table5.3 identifies cargo berths5/6 and DP World Canada"
+      }
+    },
+    {
+      "id": "first-narrows-gateway",
+      "name": "First Narrows \u00b7 offshore route anchor",
+      "operator": "Port of Vancouver",
+      "position": {
+        "lat": 49.319,
+        "lon": -123.154
+      },
+      "berths": [],
+      "allowedKinds": [
+        "cargo",
+        "cruise"
+      ],
+      "source": {
+        "dataset": "CHS PAC201 August 2026 chapter 5",
+        "url": "https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/chs-shc-PAC201-eng-202608-41338200.pdf",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "Offshore representation anchor on charted First Narrows approach; not a dock"
+      }
+    },
+    {
+      "id": "jericho-marina",
+      "name": "Royal Vancouver Yacht Club \u00b7 Jericho",
+      "operator": "Royal Vancouver Yacht Club",
+      "position": {
+        "lat": 49.2755,
+        "lon": -123.1865
+      },
+      "berths": [
+        "jericho:simulated-mooring"
+      ],
+      "source": {
+        "dataset": "OSM Royal Vancouver Yacht Club Jericho marina",
+        "url": "https://www.openstreetmap.org/way/54222106",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "Water-side marina entry from mapped polygon; English Bay outing avoids the Burrard harbour sailing prohibition in CHS PAC201 p5-6"
+      },
+      "allowedKinds": [
+        "sailboat"
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "seabus:322385",
+      "operator": "TransLink",
+      "terminalIds": [
+        "waterfront",
+        "lonsdale"
+      ],
+      "path": [
+        {
+          "lat": 49.28651,
+          "lon": -123.110526
+        },
+        {
+          "lat": 49.287099,
+          "lon": -123.108747
+        },
+        {
+          "lat": 49.287847,
+          "lon": -123.107922
+        },
+        {
+          "lat": 49.288614,
+          "lon": -123.107071
+        },
+        {
+          "lat": 49.289344,
+          "lon": -123.10626
+        },
+        {
+          "lat": 49.290237,
+          "lon": -123.10527
+        },
+        {
+          "lat": 49.290751,
+          "lon": -123.104693
+        },
+        {
+          "lat": 49.291202,
+          "lon": -123.104198
+        },
+        {
+          "lat": 49.291698,
+          "lon": -123.103649
+        },
+        {
+          "lat": 49.292032,
+          "lon": -123.103278
+        },
+        {
+          "lat": 49.292618,
+          "lon": -123.102618
+        },
+        {
+          "lat": 49.293141,
+          "lon": -123.102027
+        },
+        {
+          "lat": 49.2937,
+          "lon": -123.101422
+        },
+        {
+          "lat": 49.294151,
+          "lon": -123.100914
+        },
+        {
+          "lat": 49.294395,
+          "lon": -123.100653
+        },
+        {
+          "lat": 49.294972,
+          "lon": -123.100007
+        },
+        {
+          "lat": 49.295549,
+          "lon": -123.099374
+        },
+        {
+          "lat": 49.295973,
+          "lon": -123.098907
+        },
+        {
+          "lat": 49.296424,
+          "lon": -123.098412
+        },
+        {
+          "lat": 49.297226,
+          "lon": -123.097519
+        },
+        {
+          "lat": 49.298372,
+          "lon": -123.09624
+        },
+        {
+          "lat": 49.298859,
+          "lon": -123.095704
+        },
+        {
+          "lat": 49.299364,
+          "lon": -123.095145
+        },
+        {
+          "lat": 49.30909,
+          "lon": -123.084369
+        },
+        {
+          "lat": 49.309322,
+          "lon": -123.084112
+        }
+      ],
+      "allowed": [
+        "seabus"
+      ],
+      "method": "reported",
+      "source": {
+        "dataset": "TransLink GTFS 26SEP_20261002",
+        "url": "https://gtfs-static.translink.ca/gtfs/google_transit.zip",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "reported",
+        "reference": "route_type=4; terminal water positions use shape endpoints, not landside stop coordinates; Route and arrival data used in this product or service is provided by permission of TransLink. TransLink assumes no responsibility for the accuracy or currency of the Data used in this product or service.",
+        "license": "TransLink GTFS Terms and Conditions"
+      },
+      "verified": true
+    },
+    {
+      "id": "seabus:322386",
+      "operator": "TransLink",
+      "terminalIds": [
+        "lonsdale",
+        "waterfront"
+      ],
+      "path": [
+        {
+          "lat": 49.309322,
+          "lon": -123.084112
+        },
+        {
+          "lat": 49.30909,
+          "lon": -123.084369
+        },
+        {
+          "lat": 49.299364,
+          "lon": -123.095145
+        },
+        {
+          "lat": 49.298859,
+          "lon": -123.095704
+        },
+        {
+          "lat": 49.298372,
+          "lon": -123.09624
+        },
+        {
+          "lat": 49.297226,
+          "lon": -123.097519
+        },
+        {
+          "lat": 49.296424,
+          "lon": -123.098412
+        },
+        {
+          "lat": 49.295973,
+          "lon": -123.098907
+        },
+        {
+          "lat": 49.295549,
+          "lon": -123.099374
+        },
+        {
+          "lat": 49.294972,
+          "lon": -123.100007
+        },
+        {
+          "lat": 49.294395,
+          "lon": -123.100653
+        },
+        {
+          "lat": 49.294151,
+          "lon": -123.100914
+        },
+        {
+          "lat": 49.2937,
+          "lon": -123.101422
+        },
+        {
+          "lat": 49.293141,
+          "lon": -123.102027
+        },
+        {
+          "lat": 49.292618,
+          "lon": -123.102618
+        },
+        {
+          "lat": 49.292032,
+          "lon": -123.103278
+        },
+        {
+          "lat": 49.291698,
+          "lon": -123.103649
+        },
+        {
+          "lat": 49.291202,
+          "lon": -123.104198
+        },
+        {
+          "lat": 49.290751,
+          "lon": -123.104693
+        },
+        {
+          "lat": 49.290237,
+          "lon": -123.10527
+        },
+        {
+          "lat": 49.289344,
+          "lon": -123.10626
+        },
+        {
+          "lat": 49.288614,
+          "lon": -123.107071
+        },
+        {
+          "lat": 49.287847,
+          "lon": -123.107922
+        },
+        {
+          "lat": 49.287099,
+          "lon": -123.108747
+        },
+        {
+          "lat": 49.28651,
+          "lon": -123.110526
+        }
+      ],
+      "allowed": [
+        "seabus"
+      ],
+      "method": "reported",
+      "source": {
+        "dataset": "TransLink GTFS 26SEP_20261002",
+        "url": "https://gtfs-static.translink.ca/gtfs/google_transit.zip",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "reported",
+        "reference": "route_type=4; terminal water positions use shape endpoints, not landside stop coordinates; Route and arrival data used in this product or service is provided by permission of TransLink. TransLink assumes no responsibility for the accuracy or currency of the Data used in this product or service.",
+        "license": "TransLink GTFS Terms and Conditions"
+      },
+      "verified": true
+    },
+    {
+      "id": "aquabus:37079397",
+      "operator": "Aquabus",
+      "terminalIds": [
+        "aquabus:638861821",
+        "aquabus:3456666797"
+      ],
+      "path": [
+        {
+          "lat": 49.2742391,
+          "lon": -123.1343703
+        },
+        {
+          "lat": 49.2741451,
+          "lon": -123.134598
+        },
+        {
+          "lat": 49.273977,
+          "lon": -123.1346669
+        },
+        {
+          "lat": 49.2737794,
+          "lon": -123.1346235
+        },
+        {
+          "lat": 49.2728169,
+          "lon": -123.1338791
+        },
+        {
+          "lat": 49.2726618,
+          "lon": -123.1338824
+        },
+        {
+          "lat": 49.2724851,
+          "lon": -123.133943
+        }
+      ],
+      "allowed": [
+        "aquabus"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "verified": true
+    },
+    {
+      "id": "aquabus:37079398",
+      "operator": "Aquabus",
+      "terminalIds": [
+        "aquabus:3456666797",
+        "aquabus:3456659790"
+      ],
+      "path": [
+        {
+          "lat": 49.2724851,
+          "lon": -123.133943
+        },
+        {
+          "lat": 49.2725407,
+          "lon": -123.1337885
+        },
+        {
+          "lat": 49.2725652,
+          "lon": -123.1335712
+        },
+        {
+          "lat": 49.2723529,
+          "lon": -123.1331079
+        },
+        {
+          "lat": 49.2716081,
+          "lon": -123.1316458
+        },
+        {
+          "lat": 49.2706076,
+          "lon": -123.1298778
+        },
+        {
+          "lat": 49.2703342,
+          "lon": -123.1288784
+        },
+        {
+          "lat": 49.2701186,
+          "lon": -123.128092
+        },
+        {
+          "lat": 49.2700402,
+          "lon": -123.1272487
+        },
+        {
+          "lat": 49.2700304,
+          "lon": -123.1259537
+        },
+        {
+          "lat": 49.2702814,
+          "lon": -123.1252987
+        },
+        {
+          "lat": 49.2704846,
+          "lon": -123.1251929
+        }
+      ],
+      "allowed": [
+        "aquabus"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "verified": true
+    },
+    {
+      "id": "aquabus:37083929",
+      "operator": "Aquabus",
+      "terminalIds": [
+        "aquabus:3456659790",
+        "aquabus:3456696411"
+      ],
+      "path": [
+        {
+          "lat": 49.2704846,
+          "lon": -123.1251929
+        },
+        {
+          "lat": 49.2703349,
+          "lon": -123.1246046
+        },
+        {
+          "lat": 49.2700535,
+          "lon": -123.1216021
+        },
+        {
+          "lat": 49.2701025,
+          "lon": -123.1193716
+        },
+        {
+          "lat": 49.2700322,
+          "lon": -123.1191389
+        },
+        {
+          "lat": 49.2697754,
+          "lon": -123.1188817
+        },
+        {
+          "lat": 49.2694191,
+          "lon": -123.1187582
+        }
+      ],
+      "allowed": [
+        "aquabus"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "verified": true
+    },
+    {
+      "id": "aquabus:37079400",
+      "operator": "Aquabus",
+      "terminalIds": [
+        "aquabus:3456696411",
+        "aquabus:3456702076"
+      ],
+      "path": [
+        {
+          "lat": 49.2694191,
+          "lon": -123.1187582
+        },
+        {
+          "lat": 49.2695621,
+          "lon": -123.1186923
+        },
+        {
+          "lat": 49.2704362,
+          "lon": -123.1175433
+        },
+        {
+          "lat": 49.2709639,
+          "lon": -123.1162676
+        },
+        {
+          "lat": 49.2710351,
+          "lon": -123.1158714
+        },
+        {
+          "lat": 49.2710105,
+          "lon": -123.1155128
+        }
+      ],
+      "allowed": [
+        "aquabus"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "verified": true
+    },
+    {
+      "id": "aquabus:37079402",
+      "operator": "Aquabus",
+      "terminalIds": [
+        "aquabus:3456702076",
+        "aquabus:1356857891"
+      ],
+      "path": [
+        {
+          "lat": 49.2710105,
+          "lon": -123.1155128
+        },
+        {
+          "lat": 49.2713531,
+          "lon": -123.1167045
+        },
+        {
+          "lat": 49.2717105,
+          "lon": -123.1179512
+        }
+      ],
+      "allowed": [
+        "aquabus"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "verified": true
+    },
+    {
+      "id": "aquabus:37079407",
+      "operator": "Aquabus",
+      "terminalIds": [
+        "aquabus:1356857891",
+        "aquabus:431234884"
+      ],
+      "path": [
+        {
+          "lat": 49.2717105,
+          "lon": -123.1179512
+        },
+        {
+          "lat": 49.2717566,
+          "lon": -123.1170488
+        },
+        {
+          "lat": 49.2718185,
+          "lon": -123.1157614
+        },
+        {
+          "lat": 49.2722124,
+          "lon": -123.1136746
+        },
+        {
+          "lat": 49.2734259,
+          "lon": -123.1104804
+        },
+        {
+          "lat": 49.27372,
+          "lon": -123.1100914
+        },
+        {
+          "lat": 49.2741986,
+          "lon": -123.1098162
+        }
+      ],
+      "allowed": [
+        "aquabus"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "verified": true
+    },
+    {
+      "id": "aquabus:37079410",
+      "operator": "Aquabus",
+      "terminalIds": [
+        "aquabus:431234884",
+        "aquabus:431234943"
+      ],
+      "path": [
+        {
+          "lat": 49.2741986,
+          "lon": -123.1098162
+        },
+        {
+          "lat": 49.2737224,
+          "lon": -123.1096334
+        },
+        {
+          "lat": 49.2734852,
+          "lon": -123.1093789
+        },
+        {
+          "lat": 49.2730108,
+          "lon": -123.1067616
+        },
+        {
+          "lat": 49.2728974,
+          "lon": -123.1062197
+        },
+        {
+          "lat": 49.272718,
+          "lon": -123.1058086
+        },
+        {
+          "lat": 49.2724874,
+          "lon": -123.1056477
+        }
+      ],
+      "allowed": [
+        "aquabus"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "OSM Aquabus route geometry and operator-confirmed dock network",
+        "url": "https://www.openstreetmap.org/relation/10180776",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "OSM coordinates; operator dock identities/connections checked at https://theaquabus.com/; 2026 operator map and dock pages override OSM hours",
+        "license": "ODbL 1.0"
+      },
+      "verified": true
+    },
+    {
+      "id": "cruise-first-narrows",
+      "operator": "Port of Vancouver",
+      "terminalIds": [
+        "first-narrows-gateway",
+        "canada-place"
+      ],
+      "path": [
+        {
+          "lat": 49.319,
+          "lon": -123.154
+        },
+        {
+          "lat": 49.316,
+          "lon": -123.141
+        },
+        {
+          "lat": 49.3113,
+          "lon": -123.13
+        },
+        {
+          "lat": 49.31,
+          "lon": -123.12
+        },
+        {
+          "lat": 49.301,
+          "lon": -123.108
+        },
+        {
+          "lat": 49.3,
+          "lon": -123.105
+        },
+        {
+          "lat": 49.296,
+          "lon": -123.107
+        },
+        {
+          "lat": 49.292,
+          "lon": -123.112
+        },
+        {
+          "lat": 49.2897,
+          "lon": -123.1108
+        },
+        {
+          "lat": 49.289,
+          "lon": -123.1128
+        }
+      ],
+      "allowed": [
+        "cruise"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "CHS PAC201 August 2026 chapter 5",
+        "url": "https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/chs-shc-PAC201-eng-202608-41338200.pdf",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "First Narrows p5-5: channel least depth15m, clearance58.5m outside centre; table5.3 p5-8: CanadaPlace8.5m, Centerm15m; derived center corridor checked against OSM coastline, not AIS"
+      },
+      "verified": true,
+      "navigation": {
+        "leastDepthM": 8.5,
+        "airClearanceM": 58.5,
+        "verifiedForLargeShips": true,
+        "source": {
+          "dataset": "CHS PAC201 August 2026 chapter 5",
+          "url": "https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/chs-shc-PAC201-eng-202608-41338200.pdf",
+          "territoryId": "CA-BC",
+          "retrievedAt": "2026-10-03T21:07:30.350165Z",
+          "method": "reported",
+          "reference": "First Narrows p5-5: channel least depth15m, clearance58.5m outside centre; table5.3 p5-8: CanadaPlace8.5m, Centerm15m"
+        }
+      }
+    },
+    {
+      "id": "cargo-centerm",
+      "operator": "Port of Vancouver",
+      "terminalIds": [
+        "first-narrows-gateway",
+        "centerm"
+      ],
+      "path": [
+        {
+          "lat": 49.319,
+          "lon": -123.154
+        },
+        {
+          "lat": 49.316,
+          "lon": -123.141
+        },
+        {
+          "lat": 49.3113,
+          "lon": -123.13
+        },
+        {
+          "lat": 49.31,
+          "lon": -123.12
+        },
+        {
+          "lat": 49.301,
+          "lon": -123.108
+        },
+        {
+          "lat": 49.3,
+          "lon": -123.105
+        },
+        {
+          "lat": 49.2965,
+          "lon": -123.101
+        },
+        {
+          "lat": 49.2945,
+          "lon": -123.098
+        },
+        {
+          "lat": 49.2903,
+          "lon": -123.0985
+        },
+        {
+          "lat": 49.28955,
+          "lon": -123.0958
+        }
+      ],
+      "allowed": [
+        "cargo"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "CHS PAC201 August 2026 chapter 5",
+        "url": "https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/chs-shc-PAC201-eng-202608-41338200.pdf",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "First Narrows p5-5: channel least depth15m, clearance58.5m outside centre; table5.3 p5-8: CanadaPlace8.5m, Centerm15m; derived center corridor checked against OSM coastline, not AIS"
+      },
+      "verified": true,
+      "navigation": {
+        "leastDepthM": 15,
+        "airClearanceM": 58.5,
+        "verifiedForLargeShips": true,
+        "source": {
+          "dataset": "CHS PAC201 August 2026 chapter 5",
+          "url": "https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/chs-shc-PAC201-eng-202608-41338200.pdf",
+          "territoryId": "CA-BC",
+          "retrievedAt": "2026-10-03T21:07:30.350165Z",
+          "method": "reported",
+          "reference": "First Narrows p5-5: channel least depth15m, clearance58.5m outside centre; table5.3 p5-8: CanadaPlace8.5m, Centerm15m"
+        }
+      }
+    },
+    {
+      "id": "jericho-outing",
+      "operator": "Simulated recreational sailing",
+      "terminalIds": [
+        "jericho-marina"
+      ],
+      "path": [
+        {
+          "lat": 49.2755,
+          "lon": -123.1865
+        },
+        {
+          "lat": 49.279,
+          "lon": -123.184
+        },
+        {
+          "lat": 49.283,
+          "lon": -123.179
+        },
+        {
+          "lat": 49.281,
+          "lon": -123.173
+        },
+        {
+          "lat": 49.277,
+          "lon": -123.178
+        },
+        {
+          "lat": 49.2755,
+          "lon": -123.1865
+        }
+      ],
+      "allowed": [
+        "sailboat"
+      ],
+      "method": "derived",
+      "source": {
+        "dataset": "OSM Royal Vancouver Yacht Club Jericho marina",
+        "url": "https://www.openstreetmap.org/way/54222106",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "Water-side marina entry from mapped polygon; English Bay outing avoids the Burrard harbour sailing prohibition in CHS PAC201 p5-6"
+      },
+      "verified": true
+    }
+  ],
+  "cruiseCalls": [
+    {
+      "id": "2026-10-03:Koningsdam",
+      "vesselName": "Koningsdam",
+      "company": "Holland America Line",
+      "terminalId": "canada-place",
+      "berthId": "canada-place:west",
+      "arrival": "2026-10-03T00:00:00-07:00",
+      "departure": "2026-10-04T00:00:00-07:00",
+      "source": {
+        "dataset": "2026 Canada Place cruise calendar \u00b7 v1.12 April24",
+        "url": "https://www.portvancouver.com/sites/default/files/2025-12/2026%20Canada%20Place%20cruise%20ship%20calendar.pdf",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "Published date/berth; full-day display interval derived, arrival/departure times not published. Company verified at https://www.hollandamerica.com/en/us/cruise-ships",
+        "observedYear": 2026
+      },
+      "windowMethod": "derived"
+    },
+    {
+      "id": "2026-10-04:Eurodam",
+      "vesselName": "Eurodam",
+      "company": "Holland America Line",
+      "terminalId": "canada-place",
+      "berthId": "canada-place:east",
+      "arrival": "2026-10-04T00:00:00-07:00",
+      "departure": "2026-10-05T00:00:00-07:00",
+      "source": {
+        "dataset": "2026 Canada Place cruise calendar \u00b7 v1.12 April24",
+        "url": "https://www.portvancouver.com/sites/default/files/2025-12/2026%20Canada%20Place%20cruise%20ship%20calendar.pdf",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "Published date/berth; full-day display interval derived, arrival/departure times not published. Company verified at https://www.hollandamerica.com/en/us/cruise-ships",
+        "observedYear": 2026
+      },
+      "windowMethod": "derived"
+    },
+    {
+      "id": "2026-10-04:Zaandam",
+      "vesselName": "Zaandam",
+      "company": "Holland America Line",
+      "terminalId": "canada-place",
+      "berthId": "canada-place:west",
+      "arrival": "2026-10-04T00:00:00-07:00",
+      "departure": "2026-10-05T00:00:00-07:00",
+      "source": {
+        "dataset": "2026 Canada Place cruise calendar \u00b7 v1.12 April24",
+        "url": "https://www.portvancouver.com/sites/default/files/2025-12/2026%20Canada%20Place%20cruise%20ship%20calendar.pdf",
+        "territoryId": "CA-BC",
+        "retrievedAt": "2026-10-03T21:07:30.350165Z",
+        "method": "derived",
+        "reference": "Published date/berth; full-day display interval derived, arrival/departure times not published. Company verified at https://www.hollandamerica.com/en/us/cruise-ships",
+        "observedYear": 2026
+      },
+      "windowMethod": "derived"
+    }
+  ]
+}

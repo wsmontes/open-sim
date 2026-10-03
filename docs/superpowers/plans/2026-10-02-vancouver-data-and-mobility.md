@@ -296,16 +296,16 @@ Executar após Tarefas 10–12 e antes dos checks finais da Tarefa 22. Tarefa 22
 
 **Interfaces:** `VesselKind='cargo'|'cruise'|'sailboat'|'seabus'|'aquabus'|'bc-ferry'`; `MarinePoint={lat:number;lon:number}`; `MarineTerminal={id:string;name:string;operator:string;position:MarinePoint;berths:readonly string[];source:MeasureSource}`; `MarineRoute={id:string;operator:string;terminalIds:readonly string[];path:readonly MarinePoint[];allowed:readonly VesselKind[];method:'reported'|'derived';source:MeasureSource;verified:boolean}`; `MaritimeCapture={terminals:readonly MarineTerminal[];routes:readonly MarineRoute[];cruiseCalls:readonly {id:string;vesselName:string;company:string;terminalId:string;berthId?:string;arrival:string;departure:string;source:MeasureSource}[]}`. `readMaritimeCapture(value:unknown):MaritimeCapture`; `buildMaritimeNetwork(capture:MaritimeCapture,land:readonly GeographicFeature[]):{routes:ReadonlyMap<string,MarineRoute>;rejected:readonly string[]}`.
 
-- [ ] Escrever testes `seabus_waterfront_lonsdale`, `aquabus_operator_preserved`, `cargo_not_cruise_terminal`, `land_crossing_rejected`, `unverified_corridor_not_active`, `cruise_calendar_year_valid`, `duplicate_berth_identity`, `missing_depth_not_safe_for_large_ship`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
+- [x] Escrever testes `seabus_waterfront_lonsdale`, `aquabus_operator_preserved`, `cargo_not_cruise_terminal`, `land_crossing_rejected`, `unverified_corridor_not_active`, `cruise_calendar_year_valid`, `duplicate_berth_identity`, `missing_depth_not_safe_for_large_ship`. Assertion de referência (fixture sintética, salvo indicação de captura oficial):
 
 ```ts
 expect(buildMaritimeNetwork(captureWithLandCrossing,land).routes.has('invalid-route')).toBe(false);
 ```
 
-- [ ] Executar `npx vitest run tests/maritime-data.test.ts tests/maritime-network.test.ts`; confirmar RED por comportamento/contrato ausente.
-- [ ] Capturar SeaBus da TransLink (inspecionar route_type e shapes GTFS), docas/conexões Aquabus oficiais, Canada Place/berços/calendário vigente, terminais de carga e marinas verificadas. Conferir corredor aquático e passagens/ponte para porte; mapa esquemático não basta. Incluir BC Ferries no contrato mas programação na Tarefa 19. Cruzeiro sem berço publicado não inventa atribuição oficial: reserva de berço compatível simulada e identificada. Coleções sem geometria navegável confirmada não animam rota como real.
-- [ ] Executar `npx vitest run tests/maritime-data.test.ts tests/maritime-network.test.ts` e `npm run typecheck`; confirmar PASS. Auditar trajetos e operador contra fonte, conservar intervalos/temporada; calendário encontrado de 2025 não vale como 2026.
-- [ ] Commit: `feat: capture verified maritime routes and terminals`.
+- [x] Executar `npx vitest run tests/maritime-data.test.ts tests/maritime-network.test.ts`; confirmar RED por comportamento/contrato ausente.
+- [x] Capturar SeaBus da TransLink (inspecionar route_type e shapes GTFS), docas/conexões Aquabus oficiais, Canada Place/berços/calendário vigente, terminais de carga e marinas verificadas. Conferir corredor aquático e passagens/ponte para porte; mapa esquemático não basta. Incluir BC Ferries no contrato mas programação na Tarefa 19. Cruzeiro sem berço publicado não inventa atribuição oficial: reserva de berço compatível simulada e identificada. Coleções sem geometria navegável confirmada não animam rota como real.
+- [x] Executar `npx vitest run tests/maritime-data.test.ts tests/maritime-network.test.ts` e `npm run typecheck`; confirmar PASS. Auditar trajetos e operador contra fonte, conservar intervalos/temporada; calendário encontrado de 2025 não vale como 2026.
+- [x] Commit: `feat: capture verified maritime routes and terminals`.
 
 
 ## Task 18: Embarcações reconhecíveis, atracação e movimento

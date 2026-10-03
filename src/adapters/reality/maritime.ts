@@ -1,0 +1,16 @@
+import {isRecord} from '../../core/guards';
+import type {MaritimeCapture} from '../../core/maritime-data';
+const kinds=['cargo','cruise','sailboat','seabus','aquabus','bc-ferry'];
+const text=(x:unknown)=>typeof x==='string'&&x.length>0;
+const point=(x:unknown)=>isRecord(x)&&typeof x.lat==='number'&&Number.isFinite(x.lat)&&Math.abs(x.lat)<=85.05112878&&typeof x.lon==='number'&&Number.isFinite(x.lon)&&Math.abs(x.lon)<=180;
+const source=(x:unknown)=>isRecord(x)&&text(x.dataset)&&text(x.url)&&text(x.territoryId)&&typeof x.retrievedAt==='string'&&Number.isFinite(Date.parse(x.retrievedAt))&&['reported','derived'].includes(String(x.method));
+const list=(x:unknown)=>Array.isArray(x)&&x.length>0&&x.every(k=>kinds.includes(k));
+export function readMaritimeCapture(value:unknown):MaritimeCapture{
+ const invalid=()=>{throw new Error('Invalid maritime capture, identity, provenance or calendar');};
+ if(!isRecord(value)||!Array.isArray(value.terminals)||!Array.isArray(value.routes)||!Array.isArray(value.cruiseCalls))return invalid();
+ const ids=new Set<string>(),berths=new Map<string,string>();
+ for(const t of value.terminals){if(!isRecord(t)||!text(t.id)||ids.has(String(t.id))||!text(t.name)||!text(t.operator)||!point(t.position)||!source(t.source)||!Array.isArray(t.berths)||t.berths.some(b=>!text(b)||berths.has(b))||t.allowedKinds!==undefined&&!list(t.allowedKinds))return invalid();const terminalBerths=t.berths;if(t.berthPositions!==undefined&&(!isRecord(t.berthPositions)||Object.entries(t.berthPositions).some(([id,p])=>!terminalBerths.includes(id)||!point(p))))return invalid();ids.add(String(t.id));for(const b of t.berths){if(berths.has(b))return invalid();berths.set(b,String(t.id));}}
+ const routeIds=new Set<string>();for(const r of value.routes){if(!isRecord(r)||!text(r.id)||routeIds.has(String(r.id))||!text(r.operator)||!Array.isArray(r.terminalIds)||!r.terminalIds.length||r.terminalIds.some(id=>!ids.has(id))||!Array.isArray(r.path)||r.path.length<2||!r.path.every(point)||!list(r.allowed)||!['reported','derived'].includes(String(r.method))||!source(r.source)||typeof r.verified!=='boolean')return invalid();routeIds.add(String(r.id));if(r.navigation!==undefined){const n=r.navigation;if(!isRecord(n)||typeof n.leastDepthM!=='number'||!Number.isFinite(n.leastDepthM)||n.leastDepthM<=0||typeof n.verifiedForLargeShips!=='boolean'||!source(n.source)||n.airClearanceM!==undefined&&(typeof n.airClearanceM!=='number'||!Number.isFinite(n.airClearanceM)||n.airClearanceM<=0))return invalid();}}
+ const callIds=new Set<string>();for(const c of value.cruiseCalls){if(!isRecord(c)||!text(c.id)||callIds.has(String(c.id))||!text(c.vesselName)||!text(c.company)||!ids.has(String(c.terminalId))||c.berthId!==undefined&&berths.get(String(c.berthId))!==c.terminalId||!source(c.source)||typeof c.arrival!=='string'||typeof c.departure!=='string'||!Number.isFinite(Date.parse(c.arrival))||!(Date.parse(c.departure)>Date.parse(c.arrival)))return invalid();const year=Number(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Vancouver',year:'numeric'}).format(new Date(c.arrival)));if((c.source as Record<string,unknown>).observedYear!==year)return invalid();callIds.add(String(c.id));}
+ return structuredClone(value) as MaritimeCapture;
+}
