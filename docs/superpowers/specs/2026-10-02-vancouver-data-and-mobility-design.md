@@ -8,14 +8,14 @@ A orientação posterior do usuário simplifica os ônibus: rotas reais com movi
 
 ## Escopo e sequência
 
-A entrega compreende três módulos com interfaces separadas: fatos municipais, movimento urbano e calibração por observações. Implementar nessa ordem permite validar as fontes antes de usá-las no movimento. Todos fazem parte da mesma entrega Vancouver. Uma fonte sem acesso não deve bloquear os módulos independentes; sua integração deve permanecer explicitamente indisponível, nunca apresentada como concluída ou ao vivo.
+A entrega compreende fatos/fontes, relevo, mobilidade terrestre, navegação marítima, aviação e integração final. Implementar nessa ordem: fontes antes de calibração; relevo e projeção antes das redes e agentes; capturas de rotas e programação antes de sua animação. Todos fazem parte da mesma entrega Vancouver, com checkpoints testáveis por bloco. Uma fonte sem acesso não deve bloquear os módulos independentes; sua integração deve permanecer explicitamente indisponível, nunca apresentada como concluída ou ao vivo.
 
 Vancouver significa o município identificado por Wikidata Q24639. Dados da região metropolitana ou da rede regional TransLink precisam declarar seu território; somente trajetos dentro da área carregada são desenhados. Outras cidades continuam usando os adaptadores existentes e movimento estimado, sem herdar valores de Vancouver.
 
 ## Estado atual e pontos de integração
 
 - `src/adapters/reality/wikidata.ts` e `ibge.ts` já consultam demografia; `src/browser/main.ts` conecta essas fontes ao cliente.
-- `src/adapters/reality/city.ts` e `src/client/facts.ts` repetem o contrato de fatos. Centralizar o contrato compartilhado ao acrescentar finanças e proveniência por campo.
+- `src/adapters/reality/city.ts` e `src/client/facts.ts` repetem o contrato de fatos. Centralizar em src/core/municipal-facts.ts o contrato compartilhado ao acrescentar finanças e proveniência por campo; adapters/client reexportam, respeitando regras de dependência.
 - `src/presentation/street-life.ts` escolhe até um elemento por célula a partir de coordenadas e vizinhos. Não mantém trajetos, filas ou identidade entre células.
 - Existem renderizadores Canvas geográfico e de células. Integrar o movimento à geometria realmente exibida e validar ambos; não presumir que uma alteração no renderizador de células alcança o mapa geográfico.
 - `src/adapters/reality/gtfs.ts` já importa paradas, rotas, viagens e calendários. Declara corretamente que não calcula roteamento nem inclui tempo real. Estender esse importador para shapes e referências das viagens, em vez de criar um leitor concorrente.
@@ -28,7 +28,7 @@ Cada medida registra valor, unidade/moeda, território, fonte URL/dataset, perí
 
 ### População
 
-Wikidata continua como diretório global e fonte solicitada pelo usuário. Para Vancouver, verificar o município e selecionar a declaração válida mais recente com ano, respeitando declarações depreciadas. O censo de 2021 de 662.248 habitantes é uma referência verificável publicada pela prefeitura, não uma afirmação sobre população atual de 2026. Uma estimativa posterior deve ser identificada como estimativa e carregar seu ano. Consulta por nome deve evitar Vancouver de outro país; resolução geográfica não confunde Burnaby, Richmond ou Surrey com Vancouver.
+Wikidata continua como diretório global e fonte solicitada pelo usuário. Statistics Canada é fonte primária da demografia canadense, unido por CSD/DGUID ao QID; BC Stats fornece estimativas e projeções municipais em linhas separadas do censo. Para Vancouver, CSD 5915022 e DGUID 2021A00055915022 são a identidade censitária de referência. Idade, domicílios, renda, emprego e deslocamentos conservam período, unidade, denominador e notas próprios; ausência/supressão não é zero. Censo oficial confirmado permanece medida principal, estimativa oficial é apresentada separadamente, projeção não substitui população observada. Para Vancouver, verificar o município e selecionar a declaração válida mais recente com ano, respeitando declarações depreciadas. O censo de 2021 de 662.248 habitantes é uma referência verificável publicada pela prefeitura, não uma afirmação sobre população atual de 2026. Uma estimativa posterior deve ser identificada como estimativa e carregar seu ano. Consulta por nome deve evitar Vancouver de outro país; resolução geográfica não confunde Burnaby, Richmond ou Surrey com Vancouver.
 
 ### Finanças
 
@@ -130,7 +130,7 @@ Painel compacto de Vancouver mostra população/ano, finanças/moeda/exercício,
 
 ## Próxima etapa
 
-Após revisão deste documento, elaborar o plano de implementação com tarefas, arquivos, contratos de teste e checkpoints visuais. O plano deve resolver a disponibilidade concreta dos arquivos de contagem e GTFS antes de prometer sua ingestão automática e apresentar o método de execução para escolha do usuário.
+O plano consolidado está em docs/superpowers/plans/2026-10-02-vancouver-data-and-mobility.md, com 22 tarefas e critérios de aceitação. Capturas reais fazem parte das tarefas e precisam de auditoria antes de ativar capacidades; fixture sintética não prova fonte. Revisão do plano e escolha de execução precedem implementação dos novos sistemas.
 
 
 ## Navegação marítima solicitada: porto, cruzeiros e transporte de passageiros
@@ -166,3 +166,18 @@ No modo de horário real, BC Ferries segue relógio civil, independente da veloc
 https://www.bcferries.com/current-conditions publica condições, partidas/chegadas e links de tracking. São candidatos a incorporar atraso/cancelamento, mas página pública não comprova API legível por frontend. Nesta pesquisa a página geral de horários redirecionou para fila Queue-it; não contornar bloqueio nem inventar disponibilidade. API/CORS/termos de automação ainda precisam ser validados. Primeiro caminho sem backend: captura autorizada dos horários vigentes servida junto ao site, com fonte/data/validade visíveis. Se não houver acesso automatizável, não prometer sincronização de cancelamentos ou posições ao vivo.
 
 Aceitação: selecionar dia e direção reproduz partidas oficiais e escalas; ferry permanece atracado antes da saída; duração acompanha horário publicado sem aumentar velocidade para compensar pausa; viagem que atravessa meia-noite mantém data correta; mudança de temporada invalida captura anterior; retomada não duplica viagem; rota nunca cruza terra. Nome de embarcação só será oficial quando a alocação estiver publicada; caso contrário usar identificação do operador e tipo confirmado.
+
+
+## Relevo obrigatório antes da mobilidade
+
+O cenário precisa representar elevações reais na geometria, não somente com hillshade. Fonte preferencial é DTM de solo LidarBC/CanElevation HRDEM onde a cobertura for verificada; MRDEM fornece camada canadense de resolução média. Copernicus GLO-30/GLO-90 é alternativa mundial de superfície (DSM), com limitações de árvores/telhados explícitas. Conferir cobertura, datum, CRS, no-data, resolução e licença antes de combinar. Capturas regionais recortadas são distribuídas com o site, sem backend próprio; não empacotar mundo inteiro ou declarar chão urbano real a partir de DSM sem tratamento verificado.
+
+Conservar altitude física em metros, escala vertical 1:1. Malha elevada altera projeção, profundidade/oclusão, seleção e previews. Ruas/árvores/edifícios/veículos usam a superfície comum; fundações locais não transformam o relevo em plano. Pontes têm deck próprio e túneis nível próprio. Oceano e rios usam superfícies coerentes com datum/corpo hídrico; DEM terrestre não substitui batimetria. Amostras compartilhadas evitam degraus nas bordas; no-data não é elevação zero. Não incluir terraplanagem ou economia por declive nesta entrega.
+
+Primeira validação cobre encostas de Vancouver e contexto do North Shore, que não muda a demografia municipal. Comparar pontos/perfis com raster original, registrar precisão do produto, inspecionar relevo/apoio/picking/água/ponte/rotação/mobile e medir desempenho combinado. Tile exportado tem grid 65×65 com máscara de validade, até 32 KiB bruto; cache decodificado 32 MiB, até 8 downloads concorrentes, 40.000 triângulos visíveis com redução por zoom. Detalhamento e auditoria: docs/quality/2026-10-02/vancouver-data/terrain-sources.md.
+
+## Orçamento de cena e tempos
+
+Até 512 agentes visíveis combinados: 480 terrestres, 24 embarcações (incluindo BC Ferries) e 8 aeronaves; até 160 no zoom distante. Movimento simulado usa passos de 1/30 s e catch-up máximo 0.25 s. BC Ferries conserva a exceção de relógio civil já definida, sem multiplicador econômico. Priorizar transporte/serviços diante de elementos decorativos ao reduzir agentes. A exigência de menos de 20% de regressão na mediana continua aplicável ao conjunto, incluindo relevo.
+
+Finanças municipais históricas de BC LGDE podem enriquecer comparação entre cidades, mas realizado histórico não é orçamento aprovado. Fontes globais/nacionais/provinciais/locais são selecionadas por variável e cobertura verificada; nenhuma integração de Vancouver é herdada automaticamente por cidade de outro território.
