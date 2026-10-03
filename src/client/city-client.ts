@@ -557,6 +557,10 @@ export function createCityClient(config: CityClientConfig): CityClient {
     if (!action || !cells.length) { refreshPreview(); changed(); return {ok: false, message: tool === 'explore' ? 'Escolha uma ferramenta antes de construir' : 'Nenhuma célula escolhida'}; }
     return submit(action, cells);
    }
+   case 'municipal-calibration': {
+    const receipt=await router.submitAction({type:'municipal-calibration',calibration:intent.calibration});
+    const refused=router.refusal();notice=refused?refused.reason:'';changed();config.afterAction?.(receipt);return {ok:!refused,message:notice};
+   }
    case 'policy': {
     const {do: _ignored, ...policy} = intent;
     const receipt = await router.submitAction({type: 'policy', ...policy});

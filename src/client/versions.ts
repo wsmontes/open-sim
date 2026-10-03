@@ -89,6 +89,7 @@ function describeError(error: unknown): string {
  return typeof message === 'string' && message ? message : 'Falha ao falar com o armazenamento das versões.';
 }
 function actionLabel(action: Action, cells: readonly CellCoord[]): string {
+ if(action.type==='municipal-calibration')return action.calibration?'Ativou referência municipal de despesas':'Desativou referência municipal de despesas';
  if (action.type === 'demolish') return `Demoliu ${cells.length} célula(s)`;
  if (action.type === 'build') return `${TOOL_LABELS[action.tool]} em ${cells.length} célula(s)`;
  return 'Ação';

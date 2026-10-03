@@ -1,3 +1,4 @@
+import {validCalibration} from './municipal-calibration';
 import type {Action,BaseChunk,GameState,ManagedChunk} from './model';
 import {BORROW_MAX,COST,SERVICES_MAX,SERVICES_MIN,TAX_MAX,TAX_MIN,isRoadTool} from './model';
 import {cellIndex,chunkId,validCell} from './coordinates';
@@ -13,6 +14,11 @@ export function quoteAction(state:GameState,action:Action,available:readonly Bas
   if(!isComponentKey(action.key))return blocked(0,'Namespace inválido');
   if(!isEntityId(action.entity))return blocked(0,'Identificador inválido');
   try{assertJsonSafe(action.value,'Valor do componente');}catch(error){return blocked(0,(error as Error).message);}
+  return {status:'ok',cost:0};
+ }
+ if(action.type==='municipal-calibration'){
+  if(action.calibration!==null&&!validCalibration(action.calibration))return blocked(0,'Calibração municipal inválida');
+  try{assertJsonSafe(action.calibration,'Calibração municipal');}catch{return blocked(0,'Calibração municipal inválida');}
   return {status:'ok',cost:0};
  }
  if(action.type==='policy'){

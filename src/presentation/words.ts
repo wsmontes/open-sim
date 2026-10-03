@@ -35,6 +35,7 @@ export const netText = (net: number): string => `${net > 0 ? '+' : ''}${grouped(
 
 export function economyPanel(economy: CityEconomy): readonly (readonly [string, string])[] {
  return [
+  ...(economy.calibration?[["Referência municipal",`${economy.calibration.territoryId} · ${economy.calibration.fiscalYear} · ${economy.calibration.gameUnitsPerCad} unidades/CAD`] as const]:[]),
   ['Imposto', `${economy.taxPercent}%`],
   ['Serviços', `${economy.servicesPercent}%`],
   ['Receita/mês', grouped(economy.monthly.revenue)],

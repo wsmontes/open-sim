@@ -1,3 +1,4 @@
+import type {MunicipalCalibration} from '../core/municipal-calibration';
 import type {CellCoord} from '../core/model';
 import type {Speed} from '../presentation/clock';
 import type {Camera} from '../presentation/camera';
@@ -16,6 +17,7 @@ export type Intent =
  | {do: 'commit'; cells?: readonly CellCoord[]}
  | {do: 'cancel'}
  | {do: 'speed'; speed: Speed}
+ | {do:'municipal-calibration';calibration:MunicipalCalibration|null}
  | {do: 'policy'; tax?: number; services?: number; borrow?: number}
  // Open the card of one cell, or close it.
  | {do: 'inspect'; cell: CellCoord | null}

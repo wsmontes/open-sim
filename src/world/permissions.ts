@@ -1,3 +1,4 @@
+import {validCalibration} from '../core/municipal-calibration';
 import type {Action, CellCoord, Tool} from '../core/model';
 import {COST} from '../core/model';
 import {chunkId, validCell} from '../core/coordinates';
@@ -288,7 +289,7 @@ export async function authorize(grant: Grant, proposal: Proposal, context: Autho
  const growth = chainError(context.chain, grant);
  if (growth) return failed('PERMISSION', growth);
  // The action itself: capability, then the region, namespace and entity bounds.
- const action: ActionCapability = proposal.intent.type;
+ const action: ActionCapability = proposal.intent.type==='municipal-calibration'?'policy':proposal.intent.type;
  if (!grant.actions.includes(action)) return failed('PERMISSION', `Concessão sem a ação ${action}`);
  const outside = scopeError(grant, proposal.intent);
  if (outside) return failed('PERMISSION', outside);
@@ -556,6 +557,13 @@ export function intentFrom(value: unknown): WorldResult<Action> {
   const tool = TOOL_KIND[name];
   if (!tool) return failed('MALFORMED', `Ferramenta desconhecida: ${name}`);
   return ok({type: 'build', tool, cells: cells.value});
+ }
+ if(type==='municipal-calibration'){
+  assertClosed(value,['type','calibration'],'Intenção');
+  const calibration=value['calibration'];
+  if(calibration!==null&&!validCalibration(calibration))return failed('MALFORMED','Calibração municipal inválida');
+  try{assertJsonSafe(calibration,'Calibração municipal');}catch{return failed('MALFORMED','Calibração municipal inválida');}
+  return ok({type:'municipal-calibration',calibration});
  }
  if (type === 'policy') {
   assertClosed(value, ['type', 'tax', 'services', 'borrow'], 'Intenção');

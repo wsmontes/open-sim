@@ -1,3 +1,4 @@
+import {calibrationOf,calibratedMonthlyExpense} from './municipal-calibration';
 import type {Cell,CellCoord,CityStats,Demand,GameState,ManagedChunk,MonthlyLedger,RoadClass,Tool} from './model';
 import {ROAD_CLASS,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN,roadClassOf} from './model';
 import {cellEconomy,effectiveCells,getCell,occupied} from './world';
@@ -175,7 +176,8 @@ const TRANSFER_SHARE=0.2,CAPITAL_PER_CELL=0.4,PARK_UPKEEP=0.6,PER_CAPITA=18,TAX_
 export function monthlyBudget(s:GameState,policy=policyOf(s),a:Aggregate=aggregate(s)):MonthlyLedger {
  const taxRevenue=(a.population*a.landValueAverage/120)*policy.tax*TAX_PER_POINT;
  const revenue=whole(taxRevenue*(1+TRANSFER_SHARE));
- const serviceCost=a.population*PER_CAPITA*(policy.services/100);
+ const calibration=calibrationOf(s);
+ const serviceCost=(calibration?calibratedMonthlyExpense(a.population,calibration):a.population*PER_CAPITA)*(policy.services/100);
  const upkeep=a.roadCells*CAPITAL_PER_CELL+a.parkCells*PARK_UPKEEP;
  const debtService=whole(policy.debt*interestRateFor(s,policy.debt,a)/100/12);
  const expense=whole(serviceCost+upkeep+debtService);
@@ -205,6 +207,7 @@ function economyWith(s:GameState,a:Aggregate):CityStats['economy'] {
  const rating=ratingFor(s,policy.debt,a);
  return {
   taxPercent:policy.tax,
+  ...(calibrationOf(s)?{calibration:calibrationOf(s)!}:{}),
   servicesPercent:policy.services,
   serviceLevel:serviceLevelOf(policy.services),
   demand:{...policy.valves},

@@ -1,3 +1,4 @@
+import {validCalibration} from './municipal-calibration';
 import {policyOf,stepSimulation,withPolicy} from './simulation';
 import type {Action,BaseChunk,Command,CommandResult,GameState} from './model';
 import {BORROW_MAX,COST,FORMAT_VERSION,RULES_VERSION,SERVICES_MAX,SERVICES_MIN,TAX_MAX,TAX_MIN,isRoadTool} from './model';
@@ -5,7 +6,7 @@ import {adopt,getCell,placement} from './world';
 import {assertJsonSafe,cloneJson,isComponentKey,isEntityId} from './protocol';
 import {cellIndex,chunkId,validCell} from './coordinates';
 export function createGame(worldId:string,seed:number,initial:BaseChunk):GameState {
- return {formatVersion:FORMAT_VERSION as 1,rulesVersion:RULES_VERSION as 4,worldId,seed,revision:0,tick:0,money:20000,chunks:{[initial.id]:adopt(initial)},actors:{},components:{}};
+ return {formatVersion:FORMAT_VERSION as 1,rulesVersion:RULES_VERSION as 5,worldId,seed,revision:0,tick:0,money:20000,chunks:{[initial.id]:adopt(initial)},actors:{},components:{}};
 }
 export function applyCommand(state:GameState,c:Command,available:readonly BaseChunk[]):CommandResult {
  const reject=(reason:string):CommandResult=>({state,status:'rejected',reason});
@@ -14,7 +15,7 @@ export function applyCommand(state:GameState,c:Command,available:readonly BaseCh
  if(c.sequence<=last)return{state,status:'duplicate'};
  if(c.sequence!==last+1||c.expectedRevision!==state.revision)return reject('A partida mudou. Tente novamente.');
  const a:Action=c.action;
- if(!a||!['build','demolish','tick','component','policy'].includes(a.type))return reject('Ação inválida');
+ if(!a||!['build','demolish','tick','component','policy','municipal-calibration'].includes(a.type))return reject('Ação inválida');
  let next:GameState={...state,chunks:{...state.chunks},actors:{...state.actors}};
  if(a.type==='tick')return {status:'applied',state:{...stepSimulation(state),revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
  if(a.type==='component'){
@@ -25,6 +26,13 @@ export function applyCommand(state:GameState,c:Command,available:readonly BaseCh
   if(a.value===null)delete namespace[a.entity];else namespace[a.entity]=cloneJson(a.value);
   next={...next,components:{...next.components,[a.key]:namespace}};
   return {status:'applied',state:{...next,revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
+ }
+ if(a.type==='municipal-calibration'){
+  if(a.calibration!==null&&!validCalibration(a.calibration))return reject('Calibração municipal inválida');
+  try{assertJsonSafe(a.calibration,'Calibração municipal');}catch{return reject('Calibração municipal inválida');}
+  const entry={...state.components['city.economy']};
+  if(a.calibration===null)delete entry.calibration;else entry.calibration=cloneJson(a.calibration);
+  return {status:'applied',state:{...next,components:{...state.components,'city.economy':entry},revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
  }
  if(a.type==='policy'){
   const policy=policyOf(state);

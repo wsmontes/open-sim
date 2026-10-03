@@ -502,7 +502,11 @@ const updateHud = () => {
  const nearby=Object.values(PLACES).find(p=>Math.hypot((p.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),p.lat-focus.lat)<.15);
  // A lookup belongs to its requested location. Moving elsewhere hides it until new facts arrive.
  const anchored=view.factsAt && Math.hypot((view.factsAt.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),view.factsAt.lat-focus.lat)<.01?view.facts:null;
- const visibleFacts=geography?(view.camera.zoom<GLOBE_ZOOM?null:anchored??nearby?.facts??null):view.facts;
+ let visibleFacts=geography?(view.camera.zoom<GLOBE_ZOOM?null:anchored??nearby?.facts??null):view.facts;
+ if(visibleFacts?.id==='Q24639'){const identity=CITY_IDENTITIES.Q24639;visibleFacts=enrichVancouverFacts(mergeDemographics({...visibleFacts,identity,countryCode:'CA'},[...readStatCanCapture(demographicCapture.statcan,identity),...readBcStatsCapture(demographicCapture.bcStats,identity)]),readVancouverFinance(financeCapture));}
+ const calibration=view.stats.economy.calibration;
+ const calibrationText=hudRoot.querySelector<HTMLElement>('#economy-calibration');if(calibrationText)calibrationText.textContent=calibration?`Referência ativa: ${calibration.territoryId} · ${calibration.fiscalYear} · ${calibration.gameUnitsPerCad} unidades/CAD`:'Referência municipal desativada.';
+ const calibrationButton=hudRoot.querySelector<HTMLButtonElement>('#economy-calibrate');if(calibrationButton)calibrationButton.disabled=!view.facts?.finance||!view.facts.population;
  const where=geography?(view.camera.zoom<GLOBE_ZOOM?'Terra':visibleFacts?.label??`${focus.lat.toFixed(3)}°, ${focus.lon.toFixed(3)}°`):view.place;
  const scaleLabel=hudRoot.querySelector<HTMLElement>('#map-scale-label'),scaleBar=hudRoot.querySelector<HTMLElement>('#map-scale-bar'),mapMode=hudRoot.querySelector<HTMLElement>('#map-mode');
  if(scaleLabel)scaleLabel.textContent=scale.label;
@@ -600,6 +604,11 @@ function onRegion(chunkId: string): void {
 function onPolicy(policy: {tax?: number; services?: number; borrow?: number}): void {
  tell({do: 'policy', ...policy});
 }
+hudRoot.querySelector('#economy-calibrate')?.addEventListener('click',()=>{
+ const f=client.view().facts;if(!f?.finance||!f.population)return;const budget=f.finance;
+ tell({do:'municipal-calibration',calibration:{version:1,territoryId:budget.territoryId,fiscalYear:budget.fiscalYear,annualOperatingCad:budget.operating.value,population:f.population,gameUnitsPerCad:.01,source:budget.operating.source}});
+});
+hudRoot.querySelector('#economy-calibration-off')?.addEventListener('click',()=>tell({do:'municipal-calibration',calibration:null}));
 function onOverview() {
  if(geography){const v=client.view();tell({do:'camera',camera:zoomTo(v.camera,v.viewport,.025),settle:true});}else tell({do: 'overview'});
 }
