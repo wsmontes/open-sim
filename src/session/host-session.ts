@@ -337,6 +337,9 @@ export type HostOptions={
  peers?:readonly string[];
  capabilities?:CapabilityPublisher;
  ledgerWindow?:number;
+ // Identity-keyed memoization of the addresses of frozen regions. On by default; `tools/bench-commit.ts` and the
+ // byte-identity test turn it off to measure and compare against the cache-free path. It changes no bytes.
+ memo?:boolean;
 };
 export type HostCheckpoint={head:Head;state:GameState};
 export type HostSeat={principal:Principal;sessionId:string;epoch:number;uri:string};
@@ -455,13 +458,28 @@ export function createHostSession(options:HostOptions):HostSession{
   }
  }
  function baseValue(base:BaseChunk):JsonValue{return baseValueOf(base);}
- async function baseObject(base:BaseChunk):Promise<WorldObject>{
-  const object:WorldObject={ref:await options.hasher.ref(options.codec.encode(baseValue(base))),value:baseValue(base)};
-  published.set(object.ref.hash,object);
-  // Only the regions this session can still be asked about are kept: the administered area is bounded by the plan's
-  // limit, and an evicted object is simply asked for again from the live version.
-  trimOldest(published,LIMIT.published);
-  return object;
+ // A frozen region is addressed by its own bytes, and the core never mutates one: `applyCommand` and `stepSimulation`
+ // rewrite a managed region by spread and keep the same `base` object, so the base a version holds across commits is
+ // the same object. Identity is therefore a valid content key, and only a region that never existed before pays the
+ // canonical encoding and the SHA-256. `options.memo=false` computes every address again, which is the cache-free
+ // path the bench and the byte-identity test compare against.
+ const baseObjects=new WeakMap<BaseChunk,Promise<WorldObject>>();
+ function baseObject(base:BaseChunk):Promise<WorldObject>{
+  const address=async():Promise<WorldObject>=>{
+   const value=baseValue(base);
+   const object:WorldObject={ref:await options.hasher.ref(options.codec.encode(value)),value};
+   published.set(object.ref.hash,object);
+   // Only the regions this session can still be asked about are kept: the administered area is bounded by the plan's
+   // limit, and an evicted object is simply asked for again from the live version.
+   trimOldest(published,LIMIT.published);
+   return object;
+  };
+  if(options.memo===false)return address();
+  const cached=baseObjects.get(base);
+  if(cached)return cached;
+  const pending=address().catch(error=>{baseObjects.delete(base);throw error;});
+  baseObjects.set(base,pending);
+  return pending;
  }
  async function basesOfState(target:GameState):Promise<BaseRef[]>{
   const bases:BaseRef[]=[];

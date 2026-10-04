@@ -51,7 +51,7 @@ export type WorldRepository = {
  history(head:Head,limit?:number):Promise<WorldResult<WorldVersion[]>>;
  branches(worldId:string):Promise<WorldResult<Head[]>>;
 };
-export function createWorldRepository({storage,codec,hasher}:{storage:WorldStorage;codec:WorldCodec;hasher:ContentHasher}):WorldRepository {
+export function createWorldRepository({storage,codec,hasher,memo=true}:{storage:WorldStorage;codec:WorldCodec;hasher:ContentHasher;memo?:boolean}):WorldRepository {
  // Objects come back from the device and from foreign packages through the same door, so a package is adopted
  // without a detour through bytes and a stored object is verified exactly like a received one.
  type Source = {read(ref:ObjectRef):Promise<WorldResult<JsonValue>>};
@@ -125,17 +125,31 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
   if(!isRecord(value)||value['kind']!=='city-state'||!isRecord(value['state']))return failed('MALFORMED','Objeto de estado inválido');
   return ok(value['state'] as unknown as GameState);
  }
- async function objectOf(value:JsonValue):Promise<StoredObject> {
-  const bytes=codec.encode(value);
-  return {ref:await hasher.ref(bytes),bytes};
+ // An object is addressed by its canonical bytes, and the core never mutates one: a frozen region keeps the same
+ // object across versions and a caller may hand the same object back after a retry. The address is therefore
+ // memoized by value identity, so a repeated encoding and SHA-256 happens once. `memo:false` recomputes every time,
+ // which is the cache-free path the byte-identity test and the bench compare against; the bytes never differ.
+ const addressed=new WeakMap<object,Promise<StoredObject>>();
+ function objectOf(value:JsonValue):Promise<StoredObject>{
+  const address=async():Promise<StoredObject>=>{
+   const bytes=codec.encode(value);
+   return {ref:await hasher.ref(bytes),bytes};
+  };
+  if(!memo||value===null||typeof value!=='object')return address();
+  const container=value as object;
+  const cached=addressed.get(container);
+  if(cached)return cached;
+  const pending=address().catch(error=>{addressed.delete(container);throw error;});
+  addressed.set(container,pending);
+  return pending;
  }
  async function stored(objects:readonly WorldObject[]):Promise<WorldResult<StoredObject[]>> {
   const kept:StoredObject[]=[];
   for(const object of objects){
-   const bytes=codec.encode(object.value),ref=await hasher.ref(bytes);
-   if(!sameRef(ref,object.ref))return failed('HASH_MISMATCH',`Objeto ${object.ref.hash.slice(0,12)}… não corresponde ao conteúdo`);
-   if(ref.bytes>MAX_OBJECT_BYTES)return failed('LIMIT',`Objeto de ${ref.bytes} bytes excede o limite de ${MAX_OBJECT_BYTES}`);
-   kept.push({ref,bytes});
+   const addressedObject=await objectOf(object.value);
+   if(!sameRef(addressedObject.ref,object.ref))return failed('HASH_MISMATCH',`Objeto ${object.ref.hash.slice(0,12)}… não corresponde ao conteúdo`);
+   if(addressedObject.ref.bytes>MAX_OBJECT_BYTES)return failed('LIMIT',`Objeto de ${addressedObject.ref.bytes} bytes excede o limite de ${MAX_OBJECT_BYTES}`);
+   kept.push(addressedObject);
   }
   return ok(kept);
  }
@@ -156,7 +170,15 @@ export function createWorldRepository({storage,codec,hasher}:{storage:WorldStora
   const found=bundle.objects.find(object=>sameRef(object.ref,ref));
   return found?ok(found.value):failed('NOT_FOUND',`Objeto ausente: ${ref.hash.slice(0,12)}…`);
  }});
- const stateValue=(state:GameState):JsonValue=>({kind:'city-state',state:state as unknown as JsonValue});
+ const stateValues=new WeakMap<GameState,JsonValue>();
+ const stateValue=(state:GameState):JsonValue=>{
+  if(!memo)return {kind:'city-state',state:state as unknown as JsonValue};
+  const cached=stateValues.get(state);
+  if(cached)return cached;
+  const value:JsonValue={kind:'city-state',state:state as unknown as JsonValue};
+  stateValues.set(state,value);
+  return value;
+ };
  // The snapshot of a version is one object, as the plan allows for small worlds. The regions it froze are published
  // as content addresses anyway, so a fork in another world shares them by identity and a later partitioned tree can
  // store each one on its own without changing which bases a version rests on.
