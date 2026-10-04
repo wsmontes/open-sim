@@ -275,7 +275,8 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
    money.textContent=info.stats.money.toLocaleString('pt-BR');
    const facts=info.facts?.label===info.place?info.facts:null;
    population.textContent=realPopulationText(facts);
-   population.title=population.textContent==='—'?'População real indisponível para este lugar':`${facts!.label} · município · ${facts!.source.dataset} · ${facts!.populationYear??'ano não informado'} · ${facts!.source.url}`;
+   const populationSource=facts?.measures?.population?.source??facts?.source;
+   population.title=population.textContent==='—'?'População real indisponível para este lugar':`${facts!.label} · município · ${populationSource!.dataset} · ${facts!.populationYear??'ano não informado'} · ${populationSource!.url}`;
    economyPopulation.textContent=info.stats.population.toLocaleString('pt-BR');
    energy.textContent=`${info.stats.energyUsed}/${info.stats.energySupply}`;
    energy.title='energia usada / fornecida';

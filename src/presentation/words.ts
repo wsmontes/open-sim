@@ -49,3 +49,8 @@ export function economyPanel(economy: CityEconomy): readonly (readonly [string, 
   ['Valor da terra', grouped(economy.landValueAverage)],
  ];
 }
+
+export function municipalCalibrationPreview(facts:import('../core/municipal-facts').CityFacts|null):string{
+ const budget=facts?.finance;if(!budget||!facts?.population)return 'Referência municipal indisponível para este lugar.';
+ return `${facts.label} · orçamento operacional aprovado ${budget.fiscalYear}: CAD ${grouped(budget.operating.value)} por ano · população ${grouped(facts.population)} (${facts.populationYear??'ano não informado'}) · conversão 0,01 unidades/CAD · fonte: ${budget.operating.source.url}`;
+}

@@ -272,3 +272,9 @@ test('sheet focus returns to its opener when dismissed',()=>{
  const hud=createHud(mount(),callbacks());const button=tree('button[data-sheet="lugares"]');button.focus();button.click();
  tree('#panel-places [data-close]').click();expect(document.activeElement).toBe(button);hud.destroy();
 });
+
+test('population credit follows the statistical measure instead of the encyclopedia identity',()=>{
+ const root=mount(),hud=createHud(root,callbacks());hud.update(info({facts:{id:'Q24639',label:'Vancouver',population:662248,populationYear:2021,source:{dataset:'Wikidata',url:'https://www.wikidata.org/wiki/Q24639',license:'CC0'},measures:{population:{value:662248,unit:'people',source:{dataset:'Statistics Canada Census 2021',url:'https://www12.statcan.gc.ca/census-recensement/2021/',territoryId:'2021A00055915022',retrievedAt:'2026-10-03T00:00:00Z',observedYear:2021,method:'reported'}}}}}));expect(element('hud-population').title).toContain('Statistics Canada Census 2021');expect(element('hud-population').title).toContain('https://www12.statcan.gc.ca');hud.destroy();
+});
+test('source panel participates in responsive sheet layout',()=>{const root=mount(),panel=createSourceInspector(root);expect(element('panel-source').closest('#hud-sheets')).not.toBeNull();panel.destroy();});
+test('source addresses are clickable without interpreting provider text as markup',()=>{const root=mount(),panel=createSourceInspector(root);panel.update({title:'Fonte',rows:[{label:'Origem',value:'2026 · CAD · https://example.test/source?q=1&year=2026'},{label:'Texto',value:'<img src=x onerror=alert(1)>'}],notes:[],message:''});const link=element('panel-source').querySelector('a');expect(link?.getAttribute('href')).toBe('https://example.test/source?q=1&year=2026');expect(element('panel-source').querySelector('img')).toBeNull();panel.destroy();});

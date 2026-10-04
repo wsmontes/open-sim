@@ -340,7 +340,8 @@
         {
           "terminalId": "bc:BOW",
           "arrivalInstant": "2026-10-03T21:15:00-07:00",
-          "localArrival": "2026-10-03T21:15:00"
+          "localArrival": "2026-10-03T21:15:00",
+          "arrivalMethod": "derived"
         }
       ],
       "status": "scheduled",
@@ -350,7 +351,7 @@
         "territoryId": "CA-BC",
         "retrievedAt": "2026-10-03T21:34:00Z",
         "method": "reported",
-        "reference": "PDF pages1–2; official exceptions reviewed; dates instantiated in America/Vancouver. Service-notice8803994611464 applied October3. https://www.bcferries.com/current-conditions/service-notices?serviceNoticeCode=8803994611464"
+        "reference": "PDF pages1–2; official exceptions reviewed; dates instantiated in America/Vancouver. Service-notice8803994611464 applied October3. https://www.bcferries.com/current-conditions/service-notices?serviceNoticeCode=8803994611464 Added trip: departure reported by the notice, arrival derived from the published twenty-minute crossing interval."
       }
     },
     {
@@ -745,7 +746,8 @@
         {
           "terminalId": "bc:HSB",
           "arrivalInstant": "2026-10-03T20:45:00-07:00",
-          "localArrival": "2026-10-03T20:45:00"
+          "localArrival": "2026-10-03T20:45:00",
+          "arrivalMethod": "derived"
         }
       ],
       "status": "scheduled",
@@ -755,7 +757,7 @@
         "territoryId": "CA-BC",
         "retrievedAt": "2026-10-03T21:34:00Z",
         "method": "reported",
-        "reference": "PDF pages1–2; official exceptions reviewed; dates instantiated in America/Vancouver. Service-notice8803994611464 applied October3. https://www.bcferries.com/current-conditions/service-notices?serviceNoticeCode=8803994611464"
+        "reference": "PDF pages1–2; official exceptions reviewed; dates instantiated in America/Vancouver. Service-notice8803994611464 applied October3. https://www.bcferries.com/current-conditions/service-notices?serviceNoticeCode=8803994611464 Added trip: departure reported by the notice, arrival derived from the published twenty-minute crossing interval."
       }
     },
     {

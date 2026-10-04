@@ -1,4 +1,9 @@
 /// <reference types="vite/client" />
+import {municipalCalibrationPreview} from '../presentation/words';
+import {containsLocalArea} from '../presentation/municipal-coverage';
+import vancouverLocalAreas from '../adapters/reality/data/vancouver-local-areas.json';
+import {createMobilityPanel} from '../surfaces/canvas/mobility-panel';
+import type {TransitContent} from '../core/transit-data';
 import {createAviationEngine} from '../presentation/aviation';
 import {readAirportCapture} from '../adapters/reality/airports';
 import cyvrCapture from '../adapters/reality/data/cyvr.json';
@@ -18,7 +23,9 @@ import {createTerrainSource} from '../adapters/map/terrain-source';
 import terrainManifest from '../adapters/map/data/vancouver-terrain/manifest.json';
 import type {TerrainManifest} from '../presentation/terrain-model';
 import {pickSurface,visibleTerrain} from '../surfaces/canvas/terrain-renderer';
-import {mobilityDrawCommands} from '../surfaces/canvas/mobility-draw';
+import {aircraftDrawCommands} from '../surfaces/canvas/aircraft-draw';
+import {vesselDrawCommands} from '../surfaces/canvas/vessel-draw';
+import {mobilityDrawCommands,signalDrawCommands} from '../surfaces/canvas/mobility-draw';
 import {buildingCacheStats} from '../surfaces/canvas/architecture-renderer';
 import {geographicFocus,mapScale,GLOBE_ZOOM} from '../presentation/geographic-map';
 import {attachOfflineRegion} from './offline-controller';
@@ -53,13 +60,14 @@ import {emptyComposition} from '../presentation/world-composition-model';
 import {chunkId,toCell,toGeo,coordAt} from '../core/coordinates';
 import {effectiveCells} from '../core/world';
 import {createMobilityController} from '../client/mobility-controller';
-import vancouverSignalSites from '../adapters/reality/data/vancouver-signals.json';
+import {parseVancouverSchools} from '../adapters/reality/vancouver-schools';
+import type {SchoolSite} from '../core/traffic-data';
 import type {TrafficSignalSite} from '../core/traffic-data';
 import {quoteAction} from '../core/quote';
 import type {Camera} from '../presentation/camera';
 import {normalizeAngle,project,settleZoom,zoomTo,MIN_ZOOM,centerOn,ROTATE_STEP} from '../presentation/camera';
 import type {WorldView} from '../surfaces/canvas/canvas-renderer';
-import {drawsStreetLife,render} from '../surfaces/canvas/canvas-renderer';
+import {render} from '../surfaces/canvas/canvas-renderer';
 import {createFrameScheduler} from '../presentation/frame-scheduler';
 import type {Speed} from '../presentation/clock';
 import {createHud} from '../surfaces/canvas/hud';
@@ -179,6 +187,7 @@ const facts: FactsPort = testPorts?.facts ?? {
   return mergeMunicipal(await cityDirectory.near(lat, lon, 25));
  },
 };
+let displayedCityFacts:CityFacts|null=null;
 let sourcePanel: ReturnType<typeof createSourceInspector> | null = null;
 const rowOf = (element: HTMLElement | null, value: string | null) => {
  if (!element) return;
@@ -212,9 +221,10 @@ const renderFacts = (cityFacts: CityFacts | null, scale: string) => {
    ? `R$ ${(cityFacts.gdpThousandsBrl / 1_000_000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} bi${cityFacts.gdpYear ? ` · ${cityFacts.gdpYear}` : ''}`
    : null,
  );
+ const displayedPopulationSource=cityFacts?.measures?.population?.source??cityFacts?.source;
  if (citySourceEl)
-  citySourceEl.textContent = cityFacts
-   ? `${cityFacts.source.dataset} · ${cityFacts.source.license} · ${cityFacts.source.url}`
+  citySourceEl.textContent = displayedPopulationSource
+   ? `${displayedPopulationSource.dataset} · ${displayedPopulationSource.license??'licença não declarada'} · ${displayedPopulationSource.url}`
    : '';
  if (cityScaleEl) {
   cityScaleEl.hidden = !scale;
@@ -226,9 +236,11 @@ const renderFacts = (cityFacts: CityFacts | null, scale: string) => {
    {label: 'Termos do mapa', value: 'ODbL · © OpenStreetMap contributors'},
   ];
   if (cityFacts) {
-   rows.push({label: 'Demografia', value: cityFacts.source.dataset});
-   rows.push({label: 'Termos da demografia', value: cityFacts.source.license});
-   rows.push({label: 'Endereço da demografia', value: cityFacts.source.url});
+   const populationSource=cityFacts.measures?.population?.source??cityFacts.source;
+   rows.push({label: 'População · fonte e ano', value: `${populationSource.dataset} · ${cityFacts.populationYear??'ano não informado'}`});
+   rows.push({label: 'Termos da demografia', value: populationSource.license??'não declarados'});
+   rows.push({label: 'Endereço da demografia', value: populationSource.url});
+   if(cityFacts.finance)rows.push({label:'Orçamento aprovado',value:`${cityFacts.finance.fiscalYear} · CAD · ${cityFacts.finance.operating.source.url}`});
   }
   sourcePanel.update({
    title: cityFacts ? `Fontes · ${cityFacts.label}` : 'Fontes desta cidade',
@@ -381,11 +393,41 @@ const terrainSource=createTerrainSource(async(url,signal)=>{const response=await
 const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame());
 const mobilityStream=geography?createMobilityStream((z,x,y)=>(maps as OsmSource).loadVisualTile(z,x,y),SEED,()=>invalidateFrame()):null;
 const mobility=mobilityStream?.controller??createMobilityController(SEED);
+let mobilityEnabled=true;
 const maritime=geography?createMaritimeEngine(readMaritimeCapture(vancouverMaritimeCapture),SEED):null;
 maritime?.setScenario(new Date().toISOString());
 const aviation=geography?createAviationEngine(readAirportCapture(cyvrCapture),SEED):null;
 const marineCapture=readMaritimeCapture(vancouverMaritimeCapture),ferrySchedule=readFerrySchedule(bcFerryCapture,marineCapture.routes),ferryClock=createFerryClock(()=>new Date().toISOString());
-mobility.setSignalSites(vancouverSignalSites as readonly TrafficSignalSite[]);
+// The transit, signal and school captures are Vancouver's, and the mobility network is built from whatever the camera is
+// looking at: without this gate, panning to Lisboa would fill Lisbon's streets with Vancouver's buses and its corners
+// with Vancouver's signals. Coverage is the same local-planning guard the facts use, so a city and its traffic agree on
+// where the city ends, and leaving it tears the captures down instead of leaving them behind.
+let mobilityCity:null|'vancouver'=null,mobilityCaptures:{transit:TransitContent;signals:readonly TrafficSignalSite[];schools:readonly SchoolSite[]}|null=null;
+const syncMobilityCity=(inCoverage:boolean)=>{
+ if(!geography)return;
+ const wanted=inCoverage?'vancouver':null;
+ if(wanted===mobilityCity)return;
+ mobilityCity=wanted;
+ if(!wanted){mobility.setCity(null);invalidateFrame();return;}
+ mobility.setCity('CA-BC');
+ // setCity tears the streets down, and the stream only speaks when its tile selection changes: hand it back what it
+ // already has, or the city would come back empty and stay empty until the camera moved.
+ mobilityStream?.republish();
+ const apply=()=>{if(mobilityCity!=='vancouver'||!mobilityCaptures)return;mobility.setTransit(mobilityCaptures.transit);mobility.setSignalSites(mobilityCaptures.signals);mobility.setCivicSites(mobilityCaptures.schools);invalidateFrame();};
+ if(mobilityCaptures){apply();return;}
+ void Promise.all([
+  import('../adapters/reality/data/vancouver-transit-mobility.json'),
+  import('../adapters/reality/data/vancouver-signals.json'),
+  import('../adapters/reality/data/vancouver-schools.json'),
+ ]).then(([transit,signals,schools])=>{
+  mobilityCaptures={transit:transit.default as TransitContent,signals:signals.default as readonly TrafficSignalSite[],schools:parseVancouverSchools(schools.default)};
+  apply();
+ });
+};
+const mobilityPanelRoot=hudRoot.querySelector<HTMLElement>('#panel-source [data-panel-body]');
+// The clock in the panel is Vancouver's, and so is the route list under it: the panel says what city these controls
+// describe, and stops claiming Vancouver where the coverage does not reach.
+const mobilityPanel=mobilityPanelRoot?createMobilityPanel(mobilityPanelRoot,{onMovement:enabled=>{mobilityEnabled=enabled;lastView=null;invalidateFrame();},onScenario:instant=>{ferryClock.setScenario(instant);if(instant)mobility.setScenario(instant);lastView=null;invalidateFrame();}}):null;
 mobility.setSurface((point,edge)=>{
  const surface=terrain.scene();if(edge.bridge)return createSurfaceSupport(surface.sample).foundation(edge.path)??surface.sample(toGeo(point))?.elevationM??null;
  return surface.sample(toGeo(point))?.elevationM??null;
@@ -540,10 +582,17 @@ const updateHud = () => {
  // A lookup belongs to its requested location. Moving elsewhere hides it until new facts arrive.
  const anchored=view.factsAt && Math.hypot((view.factsAt.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),view.factsAt.lat-focus.lat)<.01?view.facts:null;
  let visibleFacts=geography?(view.camera.zoom<GLOBE_ZOOM?null:anchored??nearby?.facts??null):view.facts;
+ if(geography&&visibleFacts?.id==='Q24639'&&!containsLocalArea(vancouverLocalAreas.areas,focus))visibleFacts=null;
+ // The same coverage decides what the streets carry: the Vancouver captures apply inside it and are torn down outside.
+ const inVancouverCoverage=geography?containsLocalArea(vancouverLocalAreas.areas,focus):false;
+ syncMobilityCity(inVancouverCoverage);
+ mobilityPanel?.setCoverage(inVancouverCoverage);
  if(visibleFacts?.id==='Q24639'){const identity=CITY_IDENTITIES.Q24639;visibleFacts=enrichVancouverFacts(mergeDemographics({...visibleFacts,identity,countryCode:'CA'},[...readStatCanCapture(demographicCapture.statcan,identity),...readBcStatsCapture(demographicCapture.bcStats,identity)]),readVancouverFinance(financeCapture));}
+ displayedCityFacts=visibleFacts;
+ const municipalPreview=hudRoot.querySelector<HTMLElement>('#economy-municipal-preview');if(municipalPreview)municipalPreview.textContent=municipalCalibrationPreview(visibleFacts);
  const calibration=view.stats.economy.calibration;
  const calibrationText=hudRoot.querySelector<HTMLElement>('#economy-calibration');if(calibrationText)calibrationText.textContent=calibration?`Referência ativa: ${calibration.territoryId} · ${calibration.fiscalYear} · ${calibration.gameUnitsPerCad} unidades/CAD`:'Referência municipal desativada.';
- const calibrationButton=hudRoot.querySelector<HTMLButtonElement>('#economy-calibrate');if(calibrationButton)calibrationButton.disabled=!view.facts?.finance||!view.facts.population;
+ const calibrationButton=hudRoot.querySelector<HTMLButtonElement>('#economy-calibrate');if(calibrationButton)calibrationButton.disabled=!visibleFacts?.finance||!visibleFacts.population;
  const where=geography?(view.camera.zoom<GLOBE_ZOOM?'Terra':visibleFacts?.label??`${focus.lat.toFixed(3)}°, ${focus.lon.toFixed(3)}°`):view.place;
  const scaleLabel=hudRoot.querySelector<HTMLElement>('#map-scale-label'),scaleBar=hudRoot.querySelector<HTMLElement>('#map-scale-bar'),mapMode=hudRoot.querySelector<HTMLElement>('#map-mode');
  if(scaleLabel)scaleLabel.textContent=scale.label;
@@ -643,7 +692,7 @@ function onPolicy(policy: {tax?: number; services?: number; borrow?: number}): v
  tell({do: 'policy', ...policy});
 }
 hudRoot.querySelector('#economy-calibrate')?.addEventListener('click',()=>{
- const f=client.view().facts;if(!f?.finance||!f.population)return;const budget=f.finance;
+ const f=displayedCityFacts;if(!f?.finance||!f.population)return;const budget=f.finance;
  tell({do:'municipal-calibration',calibration:{version:1,territoryId:budget.territoryId,fiscalYear:budget.fiscalYear,annualOperatingCad:budget.operating.value,population:f.population,gameUnitsPerCad:.01,source:budget.operating.source}});
 });
 hudRoot.querySelector('#economy-calibration-off')?.addEventListener('click',()=>tell({do:'municipal-calibration',calibration:null}));
@@ -718,12 +767,15 @@ const draw = (now: number, seconds: number) => {
   const cells=[...hand.chunks].flatMap(([id,status])=>{const managed=hand.state?.chunks[id],base=status.status==='ready'?status.base:null;const available=managed?effectiveCells(managed):base?.cells;return available?available.flatMap((cell,i)=>cell.road?[{coord:coordAt(id,i),cell}]:[]):[];});
   mobility.setCells(cells,`${hand.state?.revision}:${[...hand.chunks.keys()].join('|')}`);mobility.setDemand({vehicles:50,pedestrians:24,truckShare:.08,hour:12});
  }
- ferryClock.setPaused(hand.speed===0);
- const ferryFrames=geography?scheduledFerryFrames(ferrySchedule,marineCapture.routes,ferryClock.instant()):[];
+ ferryClock.setPaused(hand.speed===0||!mobilityEnabled);
+ const civilInstant=ferryClock.instant();
+ maritime?.setScenario(civilInstant);
+ mobility.setScenario(civilInstant);
+ const ferryFrames=geography?scheduledFerryFrames(ferrySchedule,marineCapture.routes,civilInstant):[];
  maritime?.setReservedCapacity(ferryFrames.length);
- maritime?.advance(motionSeconds(seconds,hand.speed));
- aviation?.advance(motionSeconds(seconds,hand.speed));
- const motionStart=performance.now();mobility.advance(motionSeconds(seconds,hand.speed));motionMs=performance.now()-motionStart;
+ maritime?.advance(motionSeconds(seconds,mobilityEnabled?hand.speed:0));
+ aviation?.advance(motionSeconds(seconds,mobilityEnabled?hand.speed:0));
+ const motionStart=performance.now();mobility.advance(motionSeconds(seconds,mobilityEnabled?hand.speed:0));motionMs=performance.now()-motionStart;
  if(geography){
   const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
   if(stamp!==hudCameraStamp){hudCameraStamp=stamp;updateHud();}
@@ -731,7 +783,7 @@ const draw = (now: number, seconds: number) => {
  if (cardCamera && (cardCamera.x !== camera.x || cardCamera.y !== camera.y || cardCamera.zoom !== camera.zoom))
   inspector.show(null);
  cardCamera = {x: camera.x, y: camera.y, zoom: camera.zoom};
- if (hand.speed !== 0) motion += seconds * hand.speed;
+ if (hand.speed !== 0&&mobilityEnabled) motion += seconds * hand.speed;
  const view: WorldView = {
   light:cityLight,
   geography: geography?.scene(),
@@ -762,6 +814,7 @@ const draw = (now: number, seconds: number) => {
  return {moving, ambient: hand.speed !== 0};
 };
 let lastView: WorldView | null = null;
+const hasVisibleMotion=(view:WorldView)=>mobilityDrawCommands(ctx,view).length>0||vesselDrawCommands(ctx,view).length>0||aircraftDrawCommands(ctx,view).aircraft.length>0;
 const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  !!a &&
  a.light === b.light &&
@@ -783,12 +836,12 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  a.previewAffordable === b.previewAffordable &&
  a.hover?.x === b.hover?.x &&
  a.hover?.y === b.hover?.y &&
- (a.motion === b.motion || (!b.vessels?.length&&!b.aircraft?.length&&(b.mobility?b.mobility.length===0:b.geography?b.camera.zoom<.2:!drawsStreetLife(b.camera))));
+ (a.motion === b.motion || !hasVisibleMotion(b));
 const frames = createFrameScheduler({draw});
 invalidateFrame = frames.invalidate;
 if (PERF_DEBUG) {
  const diagnostics=document.createElement('pre');diagnostics.id='open-sim-frame-stats';diagnostics.hidden=true;document.body.append(diagnostics);
- window.setInterval(()=>{diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),buildings:buildingCacheStats(),terrain:terrain.status(),triangles:lastView?visibleTerrain(lastView).length:0,mobility:{visible:lastView?mobilityDrawCommands(ctx,lastView).length:0,agents:mobility.frame().length,nodes:mobility.network().nodes.size,edges:mobility.network().edges.size,positions:mobility.frame().slice(0,3).map(a=>({id:a.id,point:a.point}))}});},1000);
+ window.setInterval(()=>{diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),buildings:buildingCacheStats(),terrain:terrain.status(),triangles:lastView?visibleTerrain(lastView).length:0,mobility:{visible:lastView?mobilityDrawCommands(ctx,lastView).length-signalDrawCommands(ctx,lastView).length:0,agents:mobility.frame().length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,mobility.frame().filter(agent=>agent.kind===kind).length])),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size,positions:mobility.frame().slice(0,3).map(a=>({id:a.id,point:a.point}))}});},1000);
  const debugWindow = window as unknown as {
   openSimFrames?: () => ReturnType<typeof frames.stats>;
   openSimDebug?: () => unknown;

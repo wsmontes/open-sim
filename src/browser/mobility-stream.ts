@@ -26,6 +26,10 @@ export function createMobilityStream(load:(z:number,x:number,y:number)=>Promise<
    controller.setDemand({vehicles:140,pedestrians:80,truckShare:.08,hour:12,bounds:{minX:Math.min(...visibleCorners.map(p=>p.x)),maxX:Math.max(...visibleCorners.map(p=>p.x)),minY:Math.min(...visibleCorners.map(p=>p.y)),maxY:Math.max(...visibleCorners.map(p=>p.y))}});
   },
   retry(){failed.clear();pump();},
+  // A controller that was emptied (a city change tears its streets down) has to be handed back the tiles this stream
+  // already holds. Waiting for the next tile selection is not an option: with a warm cache and a camera at rest there
+  // is no next selection, and the city would stay empty until the player moved.
+  republish(){publish();},
   dispose(){disposed=true;controller.dispose();cache.clear();},
  };
 }

@@ -91,7 +91,10 @@ export function factsLines(view: ClientView): string[] {
  if (facts.population !== undefined) lines.push(`  População: ${facts.population.toLocaleString('pt-BR')}${facts.populationYear ? ` · ${facts.populationYear}` : ''}`);
  if (facts.areaKm2 !== undefined) lines.push(`  Área: ${facts.areaKm2.toLocaleString('pt-BR')} km²`);
  if (facts.densityPerKm2 !== undefined) lines.push(`  Densidade: ${Math.round(facts.densityPerKm2).toLocaleString('pt-BR')} hab/km²`);
+ const populationSource=facts.measures?.population?.source;
+ if(populationSource)lines.push(`  Fonte da população: ${populationSource.dataset} · ${populationSource.territoryId} · ${populationSource.observedYear??facts.populationYear??'ano não informado'} · ${populationSource.license??'licença não declarada'} · ${populationSource.url}`);
  lines.push(...demographicLines(facts).map(line=>`  ${line}`));
+ if(facts.finance)lines.push(`  Fonte do orçamento: ${facts.finance.operating.source.dataset} · ${facts.finance.fiscalYear} · ${facts.finance.operating.source.url}`);
  lines.push(`  Fonte: ${facts.source.dataset} · ${facts.source.license} · ${facts.source.url}`);
  if (view.scale) lines.push(`  ${view.scale}`);
  return lines;

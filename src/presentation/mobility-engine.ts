@@ -1,3 +1,4 @@
+import {WORLD} from '../core/coordinates';
 import type {Point} from './camera';
 import type {MobilityAgent,MobilityDemand,MobilityEdge,MobilityFrameAgent,MobilityNetwork,MobilitySignal,MobilitySignalPhase} from './mobility-model';
 import type {TrafficSignalSite} from '../core/traffic-data';
@@ -17,6 +18,13 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
  const progress=(agent:MobilityAgent)=>{let lengths=routeLengths.get(agent.route);if(!lengths){const values=[0];for(const id of agent.route)values.push(values.at(-1)!+(network.edges.get(id)?.lengthM??0));lengths=values;routeLengths.set(agent.route,lengths);}return lengths[agent.edgeIndex]+agent.distanceM;};
  const startStops=(agent:MobilityAgent)=>{if(!agent.stopsM?.length){stops.delete(agent.id);return;}const at=progress(agent);stops.set(agent.id,{cursor:agent.stopsM?.findIndex(m=>m>=at-1e-7)??-1,remaining:0});};
  const geometry=new WeakMap<MobilityEdge,{length:number;parts:readonly number[]}>();
+ const locate=(agent:MobilityAgent,edge:MobilityEdge)=>{
+    let shape=geometry.get(edge);if(!shape){const parts:number[]=[];let length=0;for(let i=1;i<edge.path.length;i++){const a=edge.path[i-1],b=edge.path[i],part=Math.hypot(b.x-a.x,b.y-a.y);parts.push(part);length+=part;}shape={length,parts};geometry.set(edge,shape);}
+    let distance=Math.min(1,agent.distanceM/edge.lengthM)*shape.length,index=0;
+    while(index<shape.parts.length-1&&distance>shape.parts[index]){distance-=shape.parts[index];index++;}
+    const a=edge.path[index],b=edge.path[index+1],length=shape.parts[index]||1,t=Math.min(1,distance/length),dx=b.x-a.x,dy=b.y-a.y,point={x:a.x+dx*t,y:a.y+dy*t};
+  return {point,dx,dy,length};
+ };
  let surface:(point:Point,edge:MobilityEdge)=>number|null=()=>null;
  const reservations=new Map<string,{id:string;until:number}>();
  let intersections=new Set<string>(),signalTemplates: {nodeId:string;point:Point;direction:Point;axis:'east-west'|'north-south'}[]=[];let reportedSites:readonly TrafficSignalSite[]=[],reportedSignals:ReadonlyMap<string,TrafficSignalSite>=new Map();
@@ -118,8 +126,15 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
   },
   setDemand(next:MobilityDemand){
    const bounds=next.bounds&&Object.values(next.bounds).every(Number.isFinite)?{...next.bounds}:undefined;
-   if(JSON.stringify(bounds)!==JSON.stringify(demand.bounds))edgePools.clear();
+   const boundsChanged=JSON.stringify(bounds)!==JSON.stringify(demand.bounds);if(boundsChanged)edgePools.clear();
    demand={vehicles:Number.isFinite(next.vehicles)?Math.max(0,next.vehicles):0,pedestrians:Number.isFinite(next.pedestrians)?Math.max(0,next.pedestrians):0,truckShare:Number.isFinite(next.truckShare)?Math.max(0,Math.min(1,next.truckShare)):0,hour:Number.isFinite(next.hour)?next.hour:12,bounds};
+   if(bounds&&boundsChanged)for(const agent of agents.values()){
+    if(external.has(agent.id))continue;const edge=network.edges.get(agent.route[agent.edgeIndex]);if(!edge)continue;
+    const point=locate(agent,edge).point,px=point.x+Math.round(((bounds.minX+bounds.maxX)/2-point.x)/WORLD)*WORLD;
+    // Keep a quarter-tile buffer, so small camera moves retain nearby queues.
+    if(px<bounds.minX-64||px>bounds.maxX+64||point.y<bounds.minY-64||point.y>bounds.maxY+64){finish(agent.id);for(const [node,owner] of reservations)if(owner.id===agent.id)reservations.delete(node);}
+   }
+
   },
   setAgents(next:readonly MobilityAgent[]){
    const wanted=new Set(next.map(a=>a.id));for(const id of external)if(!wanted.has(id)){agents.delete(id);retired.delete(id);stops.delete(id);restarts.delete(id);}external=wanted;
@@ -149,10 +164,7 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
   frame():readonly MobilityFrameAgent[]{
    return [...agents.values()].flatMap(agent=>{
     const edge=network.edges.get(agent.route[agent.edgeIndex]);if(!edge)return [];
-    let shape=geometry.get(edge);if(!shape){const parts:number[]=[];let length=0;for(let i=1;i<edge.path.length;i++){const a=edge.path[i-1],b=edge.path[i],part=Math.hypot(b.x-a.x,b.y-a.y);parts.push(part);length+=part;}shape={length,parts};geometry.set(edge,shape);}
-    let distance=Math.min(1,agent.distanceM/edge.lengthM)*shape.length,index=0;
-    while(index<shape.parts.length-1&&distance>shape.parts[index]){distance-=shape.parts[index];index++;}
-    const a=edge.path[index],b=edge.path[index+1],length=shape.parts[index]||1,t=Math.min(1,distance/length),dx=b.x-a.x,dy=b.y-a.y,point={x:a.x+dx*t,y:a.y+dy*t};
+    const {point,dx,dy,length}=locate(agent,edge);
     return [{id:agent.id,kind:agent.kind,point,heading:{x:dx/length,y:dy/length},elevationM:surface(point,edge),seed:agent.seed,method:'simulated' as const,tripId:agent.tripId,schoolId:agent.schoolId,schoolName:agent.schoolName}];
    });
   },

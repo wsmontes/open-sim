@@ -20,7 +20,9 @@ export function drawVessel(ctx:CanvasRenderingContext2D,vessel:VesselFrame,proje
  ctx.restore();
 }
 
+const frameVessels=new WeakMap<object,{depth:number;draw:()=>void}[]>();
 export function vesselDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){
+ const cached=frameVessels.get(view);if(cached)return cached;
  if(!view.geography||view.camera.zoom<.001)return [];
  const centre=cellSpace({x:view.viewport.width/2,y:view.viewport.height/2},view.camera),result:{depth:number;draw:()=>void}[]=[];
  const convert=(p:MarinePoint)=>{const phi=p.lat*Math.PI/180;return {x:nearestWorldX((p.lon+180)/360*WORLD,centre.x)-.5,y:(1-Math.asinh(Math.tan(phi))/Math.PI)/2*WORLD-.5};};
@@ -28,5 +30,6 @@ export function vesselDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){
  for(const vessel of [...(view.vessels??[])].sort((a,b)=>Number(b.kind==='bc-ferry')-Number(a.kind==='bc-ferry'))){const point=convert(vessel.position),p=projectWater(vessel.position,vessel.waterElevationM),margin=Math.max(30,VESSEL_SIZE[vessel.kind].length*pixels);
   if(p.x< -margin||p.y< -margin||p.x>view.viewport.width+margin||p.y>view.viewport.height+margin||!visibleSurfacePoint(view,point,vessel.waterElevationM))continue;
   result.push({depth:surfaceDepth(view,point,vessel.waterElevationM),draw:()=>drawVessel(ctx,vessel,projectWater,pixels)});if(result.length>=(view.camera.zoom<.2?8:24))break;
- }return result;
+ }
+ frameVessels.set(view,result);return result;
 }

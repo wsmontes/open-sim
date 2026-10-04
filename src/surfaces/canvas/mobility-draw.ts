@@ -59,7 +59,15 @@ export function signalDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){
  for(const signal of view.signals??[]){const scale=metresPerCellAt(toGeo(signal.point).lat),point={x:nearestWorldX(signal.point.x,centre.x)-(signal.direction.x*6+signal.direction.y*3)/scale,y:signal.point.y-(signal.direction.y*6-signal.direction.x*3)/scale};if(view.geography){point.x-=.5;point.y-=.5;}const p=projectSurface(view,point);if(p.x<0||p.y<0||p.x>view.viewport.width||p.y>view.viewport.height||!visibleSurfacePoint(view,point))continue;result.push({depth:surfaceDepth(view,point),draw:()=>drawTrafficSignal(ctx,signal,p,view.camera.zoom)});if(result.length>=128)break;}
  return result;
 }
-export function mobilityDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){return [...commands(ctx,view,view.mobility??[]),...signalDrawCommands(ctx,view)];}
+// The frame asks for these lists twice — once to know whether anything visible is moving, once to draw it — and building
+// them projects every agent. The view object is built fresh for each frame, so remembering the list on it makes the
+// second question free while keeping what is drawn identical to what was asked about.
+const frameCommands=new WeakMap<object,{depth:number;draw:()=>void}[]>();
+export function mobilityDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){
+ const cached=frameCommands.get(view);if(cached)return cached;
+ const built=[...commands(ctx,view,view.mobility??[]),...signalDrawCommands(ctx,view)];
+ frameCommands.set(view,built);return built;
+}
 export function drawVisibleMobility(ctx:CanvasRenderingContext2D,view:WorldView):void{for(const command of mobilityDrawCommands(ctx,view).sort((a,b)=>a.depth-b.depth))command.draw();}
 export function drawCellMobility(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord):void{
  const frame=view.mobility;if(!frame)return;let index=byCell.get(frame);

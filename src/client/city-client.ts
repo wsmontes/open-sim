@@ -377,8 +377,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
   if (!state || !cityFacts?.population) return '';
   const built = state.components['city.census'];
   if (!built || !Object.keys(built).length) return '';
-  const simPopulation = statsOf(state).population;
-  return `Sua cidade reúne ${simPopulation.toLocaleString('pt-BR')} moradores simulados; a cidade real tem ${cityFacts.population.toLocaleString('pt-BR')} — o que você constrói é um bairro dentro dela.`;
+  return 'As estatísticas reais descrevem o município. Na partida, você administra os lotes e serviços do bairro construído.';
  };
 
  // Loading streams from the viewport centre outwards (src/session/map-streaming.ts): every visible region as an

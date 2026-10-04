@@ -65,7 +65,8 @@ test('going to a place shows its facts and publishes the census that unlocks the
  const view = opened.client.view();
  expect(view.place).toBe('Lisboa');
  expect(view.facts?.label).toBe('Lisboa');
- expect(view.scale).toContain('bairro dentro dela');
+ expect(view.scale).toContain('bairro construído');
+ expect(view.scale).not.toContain('moradores simulados');
  opened.client.stop();
 });
 

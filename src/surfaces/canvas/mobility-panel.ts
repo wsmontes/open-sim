@@ -1,0 +1,19 @@
+import {localCivil} from '../../presentation/civil-time';
+export function createMobilityPanel(root:HTMLElement,ports:{onMovement:(enabled:boolean)=>void;onScenario:(instant:string|null)=>void}){
+ const section=document.createElement('section');section.className='mobility-controls';section.setAttribute('aria-label','Mobilidade e cenário');
+ section.innerHTML=`<h3>Mobilidade</h3><label><input type="checkbox" checked> Movimento da cidade</label><label>Trânsito <select aria-label="Modelo de trânsito"><option value="estimated">Estimado</option><option value="calibrated" disabled>Calibrado indisponível</option></select></label><p>Contagens de trânsito indisponíveis. Carros, caminhões, pedestres e patrulhas têm movimento simulado.</p><div data-city-controls><label>Data e hora em Vancouver <input type="datetime-local" aria-label="Data e hora do cenário"></label><div><button type="button" data-scenario-apply>Aplicar cenário</button> <button type="button" data-scenario-now>Hora atual</button></div><p role="status" data-mobility-status>Relógio civil atual · pausa acompanha a partida.</p><ul><li>Rotas TransLink · movimento simulado. Feed 7/9/2026–3/1/2027; somente percursos conectados à rede carregada.</li><li>Ônibus escolares: escolas VSB reais, trajetos e horários de pico simulados.</li><li>BC Ferries: Horseshoe Bay–Bowen Island, 3–5/10/2026. Posição estimada pelo horário; programação indisponível fora dessa captura.</li><li>YVR: pistas reais em Richmond; Air Canada e WestJet com operações simuladas.</li><li>SeaBus e Aquabus: trajetos reais. Carga e veleiros: percursos simulados. Cruzeiros: calendário de 3–4/10/2026, sem horários de chegada publicados.</li></ul><p><a href="https://www.translink.ca/about-us/doing-business-with-translink/app-developer-resources" target="_blank" rel="noopener">TransLink</a> · <a href="https://www.bcferries.com/routes-fares/schedules/seasonal/HSB-BOW" target="_blank" rel="noopener">BC Ferries</a> · <a href="https://www.vsb.bc.ca/school-directory-and-map" target="_blank" rel="noopener">VSB</a> · <a href="https://ourairports.com/data/" target="_blank" rel="noopener">OurAirports</a></p></div><p data-outside hidden>Sem dados de trânsito, escolas, ferries ou aviação para esta cidade.</p>`;
+ const toggle=section.querySelector<HTMLInputElement>('input[type=checkbox]')!,input=section.querySelector<HTMLInputElement>('input[type=datetime-local]')!,status=section.querySelector<HTMLElement>('[data-mobility-status]')!;
+ toggle.addEventListener('change',()=>ports.onMovement(toggle.checked));
+ section.querySelector('[data-scenario-now]')!.addEventListener('click',()=>{input.value='';ports.onScenario(null);status.textContent='Relógio civil atual · pausa acompanha a partida.';});
+ section.querySelector('[data-scenario-apply]')!.addEventListener('click',()=>{const local=input.value;if(!local)return;let instant=new Date(`${local}:00Z`).getTime();if(!Number.isFinite(instant))return;
+  for(let i=0;i<3;i++){const formatted=localCivil(new Date(instant).toISOString(),'America/Vancouver');instant+=Date.parse(`${local}:00Z`)-Date.parse(`${formatted}Z`);}
+  const iso=new Date(instant).toISOString();if(localCivil(iso,'America/Vancouver').slice(0,16)!==local){status.textContent='Horário civil inválido.';return;}ports.onScenario(iso);status.textContent=`Cenário fixo · ${local.replace('T',' ')} em Vancouver`;});
+ root.append(section);
+ // What this panel controls is Vancouver's: outside its coverage the clock and the route list would be describing a
+ // city the player is not looking at, so they are replaced by the plain statement that there is no data here.
+ const city=section.querySelector<HTMLElement>('[data-city-controls]'),elsewhere=section.querySelector<HTMLElement>('[data-outside]');
+ return {setCoverage(inCoverage:boolean){
+  if(city)city.hidden=!inCoverage;
+  if(elsewhere)elsewhere.hidden=inCoverage;
+ },destroy(){section.remove();}};
+}

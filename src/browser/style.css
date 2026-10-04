@@ -287,3 +287,11 @@ textarea:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
  #hud-pulse{flex-basis:100%;max-width:none;width:100%;min-width:0;flex-wrap:wrap;justify-content:flex-end}
  #hud-pulse #map-message{white-space:normal;max-width:190px}
 }
+
+.mobility-controls{border-top:1px solid var(--line,#cbd5d1);margin-top:12px;padding-top:10px;font-size:12px}.mobility-controls label{display:flex;align-items:center;gap:8px;margin:8px 0;flex-wrap:wrap}.mobility-controls input[type=datetime-local]{max-width:100%;min-width:0}.mobility-controls p,.mobility-controls li{line-height:1.5}.mobility-controls ul{padding-left:18px}.mobility-controls a{color:inherit;text-decoration:underline}
+#hud.floating #panel-source{max-height:calc(100dvh - var(--bar) - var(--dock) - 28px)}
+#panel-source .panel-body{min-height:0;flex:1 1 auto}
+#panel-source{z-index:2}
+.mobility-controls input[type=datetime-local]{width:100%;flex:1 1 220px;font-size:12px}
+.source-rows dd{min-width:0;overflow-wrap:anywhere}
+.source-rows a{color:inherit}

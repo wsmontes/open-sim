@@ -3,7 +3,7 @@ const names:Record<string,string>={'population':'População estimada','age-shar
 const categories:Record<string,string>={'household-total':'','car-truck-van':'carro, caminhão ou van','public-transit':'transporte público','walk':'a pé','bicycle':'bicicleta','other':'outros'};
 export function demographicLines(facts:CityFacts):string[]{
  const finance=facts.finance;
- const budget=finance?[`Orçamento operacional aprovado: CAD ${finance.operating.value.toLocaleString('pt-BR')} · ${finance.fiscalYear} · ${finance.operating.source.dataset}`,...(finance.capital?[`Despesas anuais de capital aprovadas: CAD ${finance.capital.value.toLocaleString('pt-BR')} · ${finance.fiscalYear}`]:[])]:[];
+ const budget=finance?[`Orçamento operacional aprovado: CAD ${finance.operating.value.toLocaleString('pt-BR')} · ${finance.fiscalYear} · ${finance.operating.source.dataset}`,...(finance.capital?[`Despesas anuais de capital aprovadas: CAD ${finance.capital.value.toLocaleString('pt-BR')} · ${finance.fiscalYear} · ${finance.capital.source.dataset}`]:[])]:[];
  return [...budget,...(facts.demographics??[]).filter(o=>!(o.key==='population'&&o.kind==='census')).map(o=>{
   const category=o.category?(categories[o.category]??o.category):'';
   const value=o.value.toLocaleString('pt-BR',{maximumFractionDigits:1});
