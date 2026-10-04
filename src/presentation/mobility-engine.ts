@@ -1,3 +1,6 @@
+import {createSpatialIndex} from './spatial-index';
+import type {SignalTemplate} from './mobility-runtime';
+import {prepareMobilityRuntime} from './mobility-runtime';
 import {WORLD} from '../core/coordinates';
 import type {Point} from './camera';
 import type {MobilityAgent,MobilityDemand,MobilityEdge,MobilityFrameAgent,MobilityNetwork,MobilitySignal,MobilitySignalPhase} from './mobility-model';
@@ -25,13 +28,14 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
     const a=edge.path[index],b=edge.path[index+1],length=shape.parts[index]||1,t=Math.min(1,distance/length),dx=b.x-a.x,dy=b.y-a.y,point={x:a.x+dx*t,y:a.y+dy*t};
   return {point,dx,dy,length};
  };
+ let frameCache:readonly MobilityFrameAgent[]|undefined,signalCache:readonly MobilitySignal[]|undefined,signalStamp='';
+ let signalIndex:ReturnType<typeof createSpatialIndex<SignalTemplate>>|undefined;
  let surface:(point:Point,edge:MobilityEdge)=>number|null=()=>null;
  const reservations=new Map<string,{id:string;until:number}>();
  let intersections=new Set<string>(),signalTemplates: {nodeId:string;point:Point;direction:Point;axis:'east-west'|'north-south'}[]=[];let reportedSites:readonly TrafficSignalSite[]=[],reportedSignals:ReadonlyMap<string,TrafficSignalSite>=new Map();
  const readIntersections=()=>{
-  const neighbours=new Map<string,Set<string>>();for(const edge of network.edges.values()){if(!edge.allowed.includes('car')||edge.roadClass==='service')continue;const a=neighbours.get(edge.from)??new Set();a.add(edge.to);neighbours.set(edge.from,a);const b=neighbours.get(edge.to)??new Set();b.add(edge.from);neighbours.set(edge.to,b);}
-  intersections=new Set([...neighbours].filter(([,set])=>set.size>=3).map(([id])=>id));
-  signalTemplates=[];const seen=new Set<string>();for(const edge of network.edges.values()){if(!intersections.has(edge.to)||!edge.allowed.includes('car'))continue;const a=edge.path.at(-2)!,b=edge.path.at(-1)!,length=Math.hypot(b.x-a.x,b.y-a.y);if(!length)continue;const direction={x:(b.x-a.x)/length,y:(b.y-a.y)/length},key=`${edge.to}:${Math.round(direction.x*10)},${Math.round(direction.y*10)}`;if(seen.has(key))continue;seen.add(key);signalTemplates.push({nodeId:edge.to,point:network.nodes.get(edge.to)!.point,direction,axis:axis(edge)});}
+  const runtime=network.runtime??prepareMobilityRuntime(network);intersections=new Set(runtime.intersections);signalTemplates=[...runtime.signals];
+  signalIndex=createSpatialIndex(signalTemplates.map(s=>({bounds:{minX:s.point.x,minY:s.point.y,maxX:s.point.x,maxY:s.point.y},value:s})),64);signalCache=undefined;frameCache=undefined;
   reportedSignals=matchTrafficSignals(network,reportedSites);
  };readIntersections();
  const random=()=>{randomState^=randomState<<13;randomState^=randomState>>>17;randomState^=randomState<<5;return (randomState>>>0)/4294967296;};
@@ -125,6 +129,7 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
    }
   },
   setDemand(next:MobilityDemand){
+   frameCache=undefined;signalCache=undefined;
    const bounds=next.bounds&&Object.values(next.bounds).every(Number.isFinite)?{...next.bounds}:undefined;
    const boundsChanged=JSON.stringify(bounds)!==JSON.stringify(demand.bounds);if(boundsChanged)edgePools.clear();
    demand={vehicles:Number.isFinite(next.vehicles)?Math.max(0,next.vehicles):0,pedestrians:Number.isFinite(next.pedestrians)?Math.max(0,next.pedestrians):0,truckShare:Number.isFinite(next.truckShare)?Math.max(0,Math.min(1,next.truckShare)):0,hour:Number.isFinite(next.hour)?next.hour:12,bounds};
@@ -137,6 +142,7 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
 
   },
   setAgents(next:readonly MobilityAgent[]){
+   frameCache=undefined;
    const wanted=new Set(next.map(a=>a.id));for(const id of external)if(!wanted.has(id)){agents.delete(id);retired.delete(id);stops.delete(id);restarts.delete(id);}external=wanted;
    for(const requested of next){
     if(retired.has(requested.id)||!valid(requested)||!Number.isFinite(requested.distanceM)||!Number.isFinite(requested.speedMps)||!Number.isInteger(requested.edgeIndex)||requested.edgeIndex<0||requested.edgeIndex>=requested.route.length)continue;
@@ -149,9 +155,9 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
     agents.set(requested.id,{...requested,route:[...requested.route],distanceM,speedMps:Math.max(0,requested.speedMps)});startStops(agents.get(requested.id)!);
    }
   },
-  setSurface(resolve:(point:Point,edge:MobilityEdge)=>number|null){surface=resolve;},
+  setSurface(resolve:(point:Point,edge:MobilityEdge)=>number|null){surface=resolve;frameCache=undefined;},
   advance(seconds:number){
-   if(!Number.isFinite(seconds)||seconds<=0)return;
+   if(!Number.isFinite(seconds)||seconds<=0)return;frameCache=undefined;
    for(const [id,agent] of [...restarts]){restarts.delete(id);if(!external.has(id)||!valid(agent))continue;
     if([...agents.values()].some(other=>other.route[other.edgeIndex]===agent.route[0]&&lane(other)===lane(agent)&&other.distanceM<(MOBILITY_LENGTH[other.kind]+MOBILITY_LENGTH[agent.kind])/2+2)){restarts.set(id,agent);continue;}
     retired.delete(id);agents.set(id,agent);startStops(agent);
@@ -159,14 +165,18 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
    accumulator+=Math.min(.25,seconds);generate();while(accumulator+1e-10>=STEP){step();accumulator-=STEP;}
   },
   agents():readonly MobilityAgent[]{return [...agents.values()].map(a=>({...a,route:[...a.route]}));},
-  setSignalSites(sites:readonly TrafficSignalSite[]){reportedSites=sites;reportedSignals=matchTrafficSignals(network,sites);},
-  signals():readonly MobilitySignal[]{const current=phase();return signalTemplates.map(s=>({nodeId:s.nodeId,point:s.point,direction:s.direction,aspect:current===`${s.axis}-green`?'green':current===`${s.axis}-yellow`?'amber':'red',method:'derived',reportedSignalId:reportedSignals.get(s.nodeId)?.id}));},
+  setSignalSites(sites:readonly TrafficSignalSite[]){signalCache=undefined;reportedSites=sites;reportedSignals=matchTrafficSignals(network,sites);},
+  signals():readonly MobilitySignal[]{const current=phase();if(signalCache&&signalStamp===current)return signalCache;signalStamp=current;
+   const b=demand.bounds;let templates:readonly SignalTemplate[]=signalTemplates;if(b){const turn=Math.floor((b.minX+b.maxX)/2/WORLD);templates=[turn-1,turn,turn+1].flatMap(w=>signalIndex!.query({minX:b.minX-w*WORLD-8,maxX:b.maxX-w*WORLD+8,minY:b.minY-8,maxY:b.maxY+8}));}
+   return signalCache=Object.freeze(templates.map(s=>Object.freeze({nodeId:s.nodeId,point:s.point,direction:s.direction,aspect:current===`${s.axis}-green`?'green' as const:current===`${s.axis}-yellow`?'amber' as const:'red' as const,method:'derived' as const,reportedSignalId:reportedSignals.get(s.nodeId)?.id})));
+  },
   frame():readonly MobilityFrameAgent[]{
-   return [...agents.values()].flatMap(agent=>{
+   if(frameCache)return frameCache;
+   return frameCache=Object.freeze([...agents.values()].flatMap(agent=>{
     const edge=network.edges.get(agent.route[agent.edgeIndex]);if(!edge)return [];
     const {point,dx,dy,length}=locate(agent,edge);
     return [{id:agent.id,kind:agent.kind,point,heading:{x:dx/length,y:dy/length},elevationM:surface(point,edge),seed:agent.seed,method:'simulated' as const,tripId:agent.tripId,schoolId:agent.schoolId,schoolName:agent.schoolName}];
-   });
+   }));
   },
  };
 }

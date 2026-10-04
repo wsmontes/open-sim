@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import {createSemanticUpdateGate} from '../presentation/semantic-update-gate';
 import {createCameraUpdateGate} from '../presentation/camera-update-gate';
 import {createPerformanceSamples} from '../presentation/performance-samples';
 import {municipalCalibrationPreview} from '../presentation/words';
@@ -574,7 +575,12 @@ const formatBytes = (bytes: number) => {
  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 // The preview and the cost are the client's; the browser only writes them where the player reads them.
+const hudUpdateGate=createSemanticUpdateGate(200);let hudCriticalStamp='';
 const updateHud = () => {
+ const handForHud=client.view(),critical=[handForHud.state?.revision,handForHud.speed,handForHud.tool,handForHud.place,handForHud.notice,JSON.stringify(handForHud.save),handForHud.map.message,handForHud.facts?.id,handForHud.preview.affordable].join(':');
+ const hudKey=[critical,handForHud.camera.x,handForHud.camera.y,handForHud.camera.zoom,handForHud.camera.rotation,handForHud.viewport.width,handForHud.viewport.height,geography?.scene().revision].join(':');
+ if(!hudUpdateGate.shouldUpdate(hudKey,performance.now(),critical!==hudCriticalStamp))return;hudCriticalStamp=critical;
+ const hudStart=performance.now();
  // The device's own save report is the personal session's; the session view reads it, and a live session's own
  // durable confirmation is what then speaks for the branch (the client's view already follows that rule).
  sessions.setPersistence(session.getSaveStatus());
@@ -629,6 +635,7 @@ const updateHud = () => {
   if (view.branches) history.branches(view.branches.ids, view.branches.selected);
  }
  if (view.scenarios) scenarios.update(view.scenarios);
+ if(PERF_DEBUG)framePhases.hud=performance.now()-hudStart;
 };
 const saveNow = () => client.saveNow();
 // The buffer is the CSS size times this, and the zoom ladder is built from it: a tile has to be a whole number of
@@ -853,7 +860,7 @@ const frames = createFrameScheduler({draw,onSample:sample=>{if(PERF_DEBUG)perfSa
 invalidateFrame = frames.invalidate;
 if (PERF_DEBUG) {
  const diagnostics=document.createElement('pre');diagnostics.id='open-sim-frame-stats';diagnostics.hidden=true;document.body.append(diagnostics);
- window.setInterval(()=>{const agents=lastView?.mobility??[];diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),samples:perfSamples.snapshot(),buildings:buildingCacheStats(),terrain:terrain.status(),mobility:{agents:agents.length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,agents.filter(agent=>agent.kind===kind).length])),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size}});},1000);
+ window.setInterval(()=>{if(document.hidden)return;const agents=lastView?.mobility??[];diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),samples:perfSamples.snapshot(),buildings:buildingCacheStats(),terrain:terrain.status(),mobility:{agents:agents.length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,agents.filter(agent=>agent.kind===kind).length])),networkJob:mobilityStream?.status(),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size}});},1000);
  const debugWindow = window as unknown as {
   openSimFrames?: () => ReturnType<typeof frames.stats>;
   openSimDebug?: () => unknown;
@@ -965,7 +972,7 @@ async function start() {
   // A browser in a background tab is not a promise: while the host is hidden the session reports itself as paused.
   sessions.setHostVisible(!document.hidden);
   updateHud();
-  if (!document.hidden) invalidateFrame();
+  if(document.hidden)frames.stop();else invalidateFrame();
  });
  window.addEventListener('pagehide', () => saveNow());
  // First paint is the restored local state. Merely queueing network/storage work in the same task can still delay the
