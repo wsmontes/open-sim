@@ -8,7 +8,7 @@ Veículos genéricos usam viagens conectadas e limitadas sobre ruas reais, sem b
 
 ## Verificação
 
-Check completo: TypeScript, lint e testes; build de produção. Dez avisos de lint existentes permanecem. Testes cobrem coalescência, descarte de bitmaps, orçamento de memória, atores pausados após confirmação estática, recuperação da superfície após perda da GPU e publicação assíncrona de frotas.
+Check completo aprovado: TypeScript, lint e977testes passaram,5ignorados; build de produção aprovado. Dez avisos de lint existentes permanecem. Testes cobrem coalescência, descarte de bitmaps, orçamento de memória, atores pausados após confirmação estática, recuperação da superfície após perda da GPU e publicação assíncrona de frotas.
 
 Verificação nativa em 1280×720, DPR2, escala100m, False Creek: WebGL2 ativo,225atores (131carros,9caminhões,81pedestres,2ônibus e2policiais),128339arestas. Durante execução, trabalho da interface p50~1,4ms/p95~3,3ms; após pausar e girar, worker e filas ociosos, estático confirmado e atores mantidos. Cache raster~49,36MB e bitmap/textura apresentados~29,49MB. Esta observação curta não é uma comparação controlada com a baseline nem confirma metas para todos os dispositivos.
 

@@ -120,3 +120,11 @@
 - [ ] Measure20 scene journeys; caches <=128MiB and network<=140000; no monotonically retained resources. Pause and background produce no unchanged redraw or catch-up. Native desktop/390×844 visual proofs cover Task4/5/6 review focus, maritime/air operations, edit/demolish, north slope and day/night.
 - [ ] Verify old save/replay and city facts; full checks again only if code changed. Dispatch one fresh reviewer per executing-plans skill, fix Important/Critical once with reproducing RED→GREEN tests and full passing suite; defer minors explicitly.
 - [ ] Preserve raw measurements, review report, ruled decisions and proof links in tracked audit. Commit `perf: verify persistent scene architecture and stability`. Report only measured outcomes and unresolved limits; no push/deploy/merge presumed.
+
+## Estado final — 3/10/2026
+
+Implementações das tarefas1–7 concluídas, seguidas da extensão solicitada de composição/decodificação/frotas por worker e apresentação opcional WebGL2.977testes passaram,5ignorados,140arquivos; typecheck, lint e build aprovados. Revisão original e revisão da extensão concluídas,10achados importantes corrigidos. Evidência e decisões em `docs/quality/2026-10-03/performance/README.md`.
+
+A aceitação quantitativa extensa da tarefa8 permanece não verificada: a rodada final30execuções/20viagens e todas as provas móveis não foram realizadas nesta entrega. A observação nativa curta verifica execução, câmera pausada, filas ociosas e superfície acelerada, sem generalizar metas. Esta revisão de escopo segue a orientação do usuário de priorizar desenvolvimento.
+
+Publicação posteriormente autorizada pelo usuário: código051f550 enviado ao origin/codex/vancouver-data-mobility; build840c15f enviado ao origin/gh-pages por avanço normal, preservando histórico.
