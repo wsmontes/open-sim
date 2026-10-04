@@ -3,8 +3,12 @@ import {project,TILE_W,type Point} from '../../presentation/camera';
 import {streetJunctions,streetAgents,plantingStep,plantingStations,roadsideTrees,type Segment,type PlantingBox,type StreetJunction} from '../../presentation/street-detail';
 import type {GeographicFeature,GeographicTile} from '../../presentation/geographic-map';
 import {nearestWorldX} from '../../presentation/geographic-map';
-import {assembledFootprints,pointInside} from '../../presentation/city-art';
+import {assembledFootprints} from '../../presentation/city-art';
+import {footprintIndex,pointInsideAny} from '../../presentation/spatial-index';
 const cache=new WeakMap<readonly GeographicTile[],StreetJunction[]>();
+// Candidate scratch for the planting veto: the index decides which footprints to test, and writes them
+// here. Module-level because a render pass is synchronous, and module-level scratch is this file's style.
+const TREE_CANDIDATES=new Int32Array(64);
 // Bounds of a mapped polygon, read once: the plaza and the square both need to know where the ground is before they
 // decide what to draw on it.
 const featureBounds=new WeakMap<GeographicFeature,{minX:number;minY:number;maxX:number;maxY:number}>();
@@ -71,10 +75,11 @@ export function drawPlanting(ctx:CanvasRenderingContext2D,view:WorldView,roads:r
  if(!segments.length)return;
  // Building footprints veto occupied lots: a tree stands on the verge, never inside a wall.
  const footprints=assembledFootprints(view.geography?.tiles??[]);
+ const index=footprintIndex(footprints);
  for(const tree of roadsideTrees(segments,box,plantingStep(scale),0x51ed,72)){
   const screen=project(worldPoint(tree),view.camera);
   if(!inFrame(view,screen))continue;
-  if(footprints.some(f=>tree.x>=f.minX&&tree.x<=f.maxX&&tree.y>=f.minY&&tree.y<=f.maxY&&pointInside(tree,f.rings)))continue;
+  if(pointInsideAny(footprints,index,tree,TREE_CANDIDATES))continue;
   if(view.light==='night'&&tree.seed%3===0)drawLamp(ctx,screen,scale);
   else drawTree(ctx,screen,scale*(.88+(tree.seed>>>24&7)/7*.35),tree.seed);
  }

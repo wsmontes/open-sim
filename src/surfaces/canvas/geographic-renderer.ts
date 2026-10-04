@@ -11,7 +11,13 @@ import type {Building,Cell,CellCoord} from '../../core/model';
 import {roadClassOf} from '../../core/model';
 import {project,cellSpace,TILE_W,type Point} from '../../presentation/camera';
 import {assembledFootprints,remainingFootprints,roadConnections,type Footprint} from '../../presentation/city-art';
+import {editIndexFor,remainingIndexed} from '../../presentation/spatial-index';
 import {geographicFocus,nearestWorldX,GLOBE_ZOOM,globePoint,planetRadius,type GeographicFeature} from '../../presentation/geographic-map';
+
+// Scratch for the per-frame edit list: a render pass is synchronous, so one buffer per process is enough.
+const NO_EDITS:CellCoord[]=[];
+const PICKED_EDITS:CellCoord[]=[];
+const EDIT_SCRATCH=new Int32Array(512);
 
 const land=worldLand as unknown as GeoPermissibleObjects;
 const graticule=geoGraticule10();
@@ -156,11 +162,18 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   if(feature.layer==='boundaries'&&camera.zoom<.003){roadPath(ctx,view,feature,shift);ctx.strokeStyle='rgba(91,94,73,.35)';ctx.lineWidth=.7;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([]);}
   if(feature.layer==='place_labels'&&feature.name&&camera.zoom<.12){const p=feature.geometry[0]?.[0];if(p)labels.push({point:project({x:p.x+shift,y:p.y},camera),name:feature.name,kind:feature.kind});}
  }
- for(const footprint of assembledFootprints(view.geography?.tiles??[])){
+ const footprints=assembledFootprints(view.geography?.tiles??[]);
+ // The edits are mapped once per frame and the index is built once per state revision — not once per
+ // footprint, which is what the measured 2.2 ms was paying for.
+ const editCells=edits.length?edits.map(e=>({x:e.coord.x,y:e.coord.y})):NO_EDITS;
+ const editIdx=editCells.length?editIndexFor(view.state,editCells):null;
+ for(const footprint of footprints){
   const shift=nearestWorldX(footprint.minX,centre.x)-footprint.minX;
   if(!visible(footprint,shift))continue;
   const depth=Math.max(...footprint.rings[0].map(p=>project({x:p.x+shift,y:p.y},camera).y));
-  for(const remaining of remainingFootprints(footprint,edits.map(e=>({x:e.coord.x-shift,y:e.coord.y}))))buildings.push({footprint:remaining,shift,depth});
+  // The index speaks one coordinate frame; a wrapped shift is the rare case that needs its own mapping.
+  const pieces=editIdx&&shift===0?remainingIndexed(footprint,editCells,editIdx,PICKED_EDITS,EDIT_SCRATCH):remainingFootprints(footprint,edits.map(e=>({x:e.coord.x-shift,y:e.coord.y})));
+  for(const remaining of pieces)buildings.push({footprint:remaining,shift,depth});
  }
  const lookup=(p:CellCoord):Cell|null=>{const id=chunkId(p),managed=view.state.chunks[id],i=cellIndex(p),status=view.chunks.get(id);return managed?(managed.edits[i]??managed.base.cells[i]):status?.status==='ready'?status.base.cells[i]:null;};
  // Ground for what the player changed, then every street's kerb, then every surface, then the markings, then the
