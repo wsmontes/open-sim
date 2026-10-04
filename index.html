@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Open Sim</title>
+<!-- The icon is drawn here rather than shipped as a file: it is the same city the game draws, in the same palette, and
+     a browser that asks for one and gets a 404 is the first impression every visitor has. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c8794'/%3E%3Cpath d='M16 5l11 6.5-11 6.5-11-6.5z' fill='%23c9684b'/%3E%3Cpath d='M5 11.5v11l11 6.5v-11z' fill='%23cabd9f'/%3E%3Cpath d='M27 11.5v11L16 29v-11z' fill='%23efe7d3'/%3E%3C/svg%3E">
+  <script type="module" crossorigin src="./assets/index-DJXit739.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BOi9rW1Z.css">
+</head>
+<body>
+<main id="app">
+<canvas id="game" width="600" height="400" aria-label="Cidade isométrica"></canvas>
+<!-- The interface has three levels and only the first one is always on screen. What the player watches lives in the bar
+     at the top; what the player touched appears beside the touch; and everything the player manages is opened on
+     purpose, one screen at a time, over a city that keeps being visible. -->
+<section id="hud" aria-label="Interface do jogo">
+
+<header id="hud-top">
+<p id="hud-where">Agora em <strong id="hud-place">—</strong></p>
+<dl id="hud-vitals">
+<div><dt>Saldo</dt><dd id="hud-money">0</dd></div>
+<div><dt>População real</dt><dd id="hud-population">—</dd></div>
+<div><dt>Felicidade</dt><dd id="hud-happiness">0%</dd></div>
+<div><dt>Energia</dt><dd id="hud-energy">0/0</dd></div>
+</dl>
+<!-- What the city is saying right now: a save in flight, a map still loading, a command refused. It is one line, it
+     is always in the same place, and it is never a screen the player has to go and open. -->
+<p id="hud-pulse">
+<span id="cost-preview" role="status" aria-live="polite"></span>
+<span id="save-status" role="status"></span>
+<span id="command-notice" role="status" hidden></span>
+<span id="map-message" role="status" hidden></span>
+<button id="map-retry" type="button" hidden>Tentar novamente</button>
+<button id="save-overwrite" type="button" hidden>Sobrescrever save incompatível</button>
+</p>
+</header>
+
+<!-- Level two: what the player touched. Empty and hidden until something is selected, so the city is the screen. -->
+<aside id="hud-inspector" aria-live="polite" hidden></aside>
+
+<!-- Level three: the screens a player opens on purpose. They are the same panels as before — the same identities, so
+     every other module keeps working — arranged by the shell instead of floating over the map. -->
+<div id="hud-sheets">
+
+<section class="panel" id="panel-economy" data-panel="economy" data-sheet="prefeitura" aria-label="Economia da cidade">
+<header class="panel-head" data-drag-handle>
+<h2 class="panel-title">Prefeitura</h2>
+<button class="panel-close" type="button" data-close aria-label="Fechar Prefeitura" title="Fechar">&#10005;</button>
+</header>
+<div class="panel-body" data-panel-body>
+<dl id="hud-economy">
+<div><dt title="Contagem do modelo de moradias do bairro; não representa a população real do município.">Moradores do bairro simulado</dt><dd id="economy-population">0</dd></div>
+<div><dt>Arrecadação</dt><dd id="economy-revenue">0</dd></div>
+<div><dt>Despesa</dt><dd id="economy-expense">0</dd></div>
+<div><dt>Resultado do mês</dt><dd id="economy-net">0</dd></div>
+<div><dt>Valor da terra</dt><dd id="economy-land">0</dd></div>
+<div><dt>Dívida</dt><dd id="economy-debt">0</dd></div>
+<div><dt>Juros</dt><dd id="economy-interest">0%</dd></div>
+<div><dt>Nota</dt><dd id="economy-rating">A</dd></div>
+<div><dt>Demanda</dt><dd id="economy-demand">0 / 0 / 0</dd></div>
+</dl>
+<label class="slider" for="economy-tax"><span>Imposto</span> <output id="economy-tax-value">9%</output>
+<input type="range" id="economy-tax" min="0" max="20" step="1" value="9" aria-label="Imposto sobre a propriedade">
+</label>
+<label class="slider" for="economy-services"><span>Serviços</span> <output id="economy-services-value">100%</output>
+<input type="range" id="economy-services" min="50" max="150" step="5" value="100" aria-label="Nível dos serviços">
+</label>
+<button type="button" id="economy-borrow" title="Emprestar 10.000: entra no caixa agora e a dívida cobra juros todo mês">Emprestar 10.000</button>
+<p id="economy-crisis" class="panel-hint" role="alert" hidden></p>
+</div>
+</section>
+
+<section class="panel" id="panel-places" data-panel="places" data-sheet="lugares" aria-label="Lugares e coordenadas">
+<header class="panel-head" data-drag-handle>
+<h2 class="panel-title">Lugares</h2>
+<button class="panel-close" type="button" data-close aria-label="Fechar Lugares" title="Fechar">&#10005;</button>
+</header>
+<div class="panel-body" data-panel-body>
+<dl id="city-facts" hidden>
+<div><dt>População real</dt><dd id="city-population">—</dd></div>
+<div><dt>País</dt><dd id="city-country">—</dd></div>
+<div><dt>Área</dt><dd id="city-area">—</dd></div>
+<div><dt>Densidade</dt><dd id="city-density">—</dd></div>
+<div><dt>Produto municipal</dt><dd id="city-gdp">—</dd></div>
+</dl>
+<p id="city-scale" hidden></p>
+<p id="city-source" class="panel-hint"></p>
+<div id="hud-places" role="group" aria-label="Lugares">
+<button type="button" data-place="Vancouver">Vancouver</button>
+<button type="button" data-place="São Paulo">São Paulo</button>
+<button type="button" data-place="Lisboa">Lisboa</button>
+</div>
+<form id="place-form">
+<label for="place-lat">Latitude</label>
+<input id="place-lat" name="lat" inputmode="decimal" size="9" placeholder="-23.5505" autocomplete="off">
+<label for="place-lon">Longitude</label>
+<input id="place-lon" name="lon" inputmode="decimal" size="9" placeholder="-46.6333" autocomplete="off">
+<button type="submit">Ir</button>
+</form>
+<p id="place-error" role="alert" hidden></p>
+<div class="offline-region">
+<h3>Leve esta região com você</h3>
+<p class="panel-hint">Guarde uma área de 12 × 12 km ao redor da câmera, com visão geral e detalhe. Até 64 MB.</p>
+<div class="offline-actions"><button id="offline-prepare" type="button">Guardar região offline</button><button id="offline-stop" type="button" hidden>Pausar</button></div>
+<span id="tile-cache" class="panel-hint" role="status" title="Mapa guardado neste dispositivo"></span>
+<p id="offline-status" class="panel-hint" role="status" aria-live="polite"></p>
+</div>
+</div>
+</section>
+
+</div>
+
+<!-- What the player does to the city: one row of tools, reachable with a thumb, plus the way into the screens above. -->
+<nav id="hud-dock" aria-label="Ferramentas">
+<div id="hud-tools" role="group" aria-label="Ferramentas de construção">
+<button type="button" data-tool="explore" title="Explorar a cidade (1)"><span class="tool-icon" aria-hidden="true">&#9995;</span><span class="tool-name">Explorar</span></button>
+<button type="button" data-tool="road" title="Rua (2)"><span class="tool-icon" aria-hidden="true">&#9776;</span><span class="tool-name">Rua</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="avenue" title="Avenida (3)"><span class="tool-icon" aria-hidden="true">&#9568;</span><span class="tool-name">Avenida</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="highway" title="Estrada (4)"><span class="tool-icon" aria-hidden="true">&#9553;</span><span class="tool-name">Estrada</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="residential" title="Residencial (5)"><span class="tool-icon" aria-hidden="true">&#127968;</span><span class="tool-name">Moradia</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="commercial" title="Comércio (6)"><span class="tool-icon" aria-hidden="true">&#127978;</span><span class="tool-name">Comércio</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="industrial" title="Indústria (7)"><span class="tool-icon" aria-hidden="true">&#127981;</span><span class="tool-name">Indústria</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="park" title="Parque (8)"><span class="tool-icon" aria-hidden="true">&#127795;</span><span class="tool-name">Parque</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="power" title="Usina (9)"><span class="tool-icon" aria-hidden="true">&#9889;</span><span class="tool-name">Usina</span><span class="tool-cost"></span></button>
+<button type="button" data-tool="demolish" title="Demolir (0)"><span class="tool-icon" aria-hidden="true">&#128296;</span><span class="tool-name">Demolir</span><span class="tool-cost"></span></button>
+</div>
+<div id="hud-actions" role="group" aria-label="Telas e velocidade">
+<div id="hud-speed" role="group" aria-label="Velocidade da partida">
+<button type="button" data-speed="0" aria-label="Pausar" title="Pausar">&#10074;&#10074;</button>
+<button type="button" data-speed="1" aria-label="Velocidade 1×" title="Velocidade 1×">1×</button>
+<button type="button" data-speed="2" aria-label="Velocidade 2×" title="Velocidade 2×">2×</button>
+<button type="button" data-speed="3" aria-label="Velocidade 3×">3×</button>
+</div>
+<button type="button" id="hud-more-toggle" aria-expanded="false" aria-controls="hud-more" title="Telas da cidade">&#8943;</button>
+</div>
+<!-- Everything the player manages, in one place. The city keeps being visible behind it: these are screens to open,
+     not windows that live on the map. -->
+<div id="hud-more" role="menu" aria-label="Telas da cidade" hidden>
+<button type="button" role="menuitem" data-sheet="prefeitura" aria-expanded="false">Prefeitura<span>imposto, serviços, dívida</span></button>
+<button type="button" role="menuitem" data-sheet="lugares" aria-expanded="false">Lugares<span>ir para uma cidade real</span></button>
+<button type="button" role="menuitem" data-sheet="historia" aria-expanded="false">História<span>versões e ramificações</span></button>
+<button type="button" role="menuitem" data-sheet="planejamento" aria-expanded="false">Planejamento<span>comparar cenários</span></button>
+<button type="button" role="menuitem" data-sheet="pessoas" aria-expanded="false">Pessoas<span>sessão cooperativa</span></button>
+<button type="button" role="menuitem" data-sheet="fontes" aria-expanded="false">Fontes<span>de onde vem cada dado</span></button>
+</div>
+</nav>
+
+<!-- How the player looks at the city: a small cluster that belongs to the map rather than to a screen. -->
+<div id="hud-view" role="group" aria-label="Câmera">
+<div id="hud-nav" role="group" aria-label="Zoom e orientação">
+<button id="hud-zoom-out" type="button" data-zoom="-1" aria-label="Reduzir zoom" title="Reduzir zoom">&#8722;</button>
+<button id="hud-zoom-in" type="button" data-zoom="1" aria-label="Aumentar zoom" title="Aumentar zoom">+</button>
+<button id="hud-rotate-left" type="button" data-rotate="-1" aria-label="Girar à esquerda" title="Girar à esquerda (Q)">&#8634;</button>
+<button id="hud-rotate-right" type="button" data-rotate="1" aria-label="Girar à direita" title="Girar à direita (E)">&#8635;</button>
+<button id="hud-north" type="button" aria-label="Voltar ao norte" title="Voltar ao norte">
+<span class="compass" aria-hidden="true"><span id="hud-compass-needle" class="compass-needle">&#9650;</span></span>
+</button>
+</div>
+<button id="hud-overview" type="button" title="Ver a cidade inteira e os arredores" aria-label="Visão geral">Visão geral</button>
+<div id="hud-map-modes"><button id="hud-city" type="button" title="Voltar ao bairro" aria-label="Voltar ao bairro">Bairro</button><button id="hud-light" type="button" aria-label="Ativar modo noturno" aria-pressed="false">Noite</button><button id="hud-world" type="button" title="Ver o planeta" aria-label="Ver o planeta">Terra</button></div>
+</div>
+<div id="map-scale" aria-label="Escala do mapa"><span id="map-mode">Bairro</span><span id="map-coordinates"></span><span id="map-scale-label"></span><span id="map-scale-bar"></span></div>
+<div id="map-help">Arraste para explorar · Roda para zoom · Q / E para girar</div>
+
+<!-- The map data's terms travel with the map, at every size and in every mode: the licence asks for it to be seen, and
+     a panel the player can collapse is not a place to put it. -->
+<a id="hud-attribution" target="_blank" rel="noopener" href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>
+
+</section>
+</main>
+</body>
+</html>
