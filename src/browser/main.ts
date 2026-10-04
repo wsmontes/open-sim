@@ -35,7 +35,7 @@ import type {Speed} from '../presentation/clock';
 import {createHud} from '../surfaces/canvas/hud';
 import {createInspector} from '../surfaces/canvas/inspector';
 import {createSourceInspector} from '../surfaces/canvas/source-inspector';
-import {layoutFor} from '../presentation/layout';
+import {layoutFor,type LayoutMode} from '../presentation/layout';
 import type {SelectedTool} from '../surfaces/canvas/hud';
 import {attachInput} from '../surfaces/canvas/input';
 import {strokeShapeOf} from '../presentation/tools';
@@ -624,14 +624,31 @@ const resize = () => {
 // dragged, a window resized. A browser is never asked what kind of device it is — only how much room there is and
 // whether the pointer is a finger.
 const inspector = createInspector(hudRoot);
+let lastLayout:LayoutMode|null=null;
 const applyLayout = () => {
  const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
- hud.setMode(layoutFor(window.innerWidth, window.innerHeight, coarse));
+ const next=layoutFor(window.innerWidth,window.innerHeight,coarse);
+ // Re-arranging the shell is not free: it toggles classes, re-places every screen and measures the dock and the bar
+ // with getBoundingClientRect. A phone fires resize while the address bar slides, and each of those events used to pay
+ // for the whole pass. An arrangement that did not change is left alone.
+ if(lastLayout&&lastLayout.dock===next.dock&&lastLayout.sheets===next.sheets&&lastLayout.inspector===next.inspector&&lastLayout.floating===next.floating&&lastLayout.touch===next.touch)return;
+ lastLayout=next;
+ hud.setMode(next);
 };
 applyLayout();
-window.addEventListener('resize', applyLayout);
-window.visualViewport?.addEventListener('resize', applyLayout);
-window.screen?.orientation?.addEventListener?.('change', applyLayout);
+// A phone changes its viewport while the player is using it: the address bar slides away, the keyboard opens, the page
+// bounces. Every one of those events was treated as a layout change — the backing store was reallocated and the whole
+// shell re-arranged — so a drag on a phone paid for both many times a second, which is the difference between the
+// desktop and the phone. They are coalesced now: the work happens once, after the viewport stops moving.
+let viewportTimer:ReturnType<typeof setTimeout>|undefined;
+const viewportSettled=()=>{
+ clearTimeout(viewportTimer);
+ viewportTimer=setTimeout(()=>{viewportTimer=undefined;resize();applyLayout();},120);
+};
+window.addEventListener('resize', viewportSettled);
+window.visualViewport?.addEventListener('resize', viewportSettled);
+window.visualViewport?.addEventListener('scroll', viewportSettled);
+window.screen?.orientation?.addEventListener?.('change', viewportSettled);
 // The traffic's clock: wall time scaled by the game speed, so the streets move while the city runs, move twice as
 // fast at 2x and stand still while it is paused. It is presentation only — no tick reads it, no command carries it.
 let motion = 0;
@@ -671,6 +688,7 @@ const draw = (now: number, seconds: number) => {
  if (hand.speed !== 0) motion += seconds * hand.speed;
  const view: WorldView = {
   light:cityLight,
+  moving,
   geography: geography?.scene(),
   pixelRatio:deviceScale(),
   camera,
@@ -762,8 +780,7 @@ async function start() {
  };
  session.subscribe(redraw);
  client.subscribe(redraw);
- new ResizeObserver(() => resize()).observe(canvas);
- window.addEventListener('resize', () => resize());
+ new ResizeObserver(viewportSettled).observe(canvas);
  // The canvas surface: a gesture becomes the same intentions a typed command or a playthrough produces.
  attachInput(
   canvas,

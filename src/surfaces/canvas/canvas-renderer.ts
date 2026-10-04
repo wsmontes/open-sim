@@ -24,6 +24,10 @@ export type WorldView = {
  preview:readonly CellCoord[];
  previewAffordable:boolean;
  seed:number;
+ // True while a gesture is moving the camera. The furniture of the city — the planting, the street life, the painted
+ // junctions — is the most expensive and the least important part of a frame that is going to be replaced in sixteen
+ // milliseconds anyway, so it is left out while the map is being dragged and comes back when it stops.
+ moving?:boolean;
  // The animation clock, in seconds of wall time scaled by the game speed: it advances while the city runs and stops
  // when the city is paused, which is the whole of the traffic's motion. Nothing about it is stored or shared.
  motion:number;

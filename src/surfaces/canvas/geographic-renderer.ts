@@ -206,7 +206,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
    ctx.restore();
   }
   if(layer==='water_polygons'||layer==='ocean'){path(ctx,feature.geometry.map(r=>projectRing(view,r,shift)));ctx.strokeStyle=PALETTE.shore;ctx.lineWidth=Math.min(1.3,scale*.12);ctx.stroke();}
-  if(PARKS.has(feature.kind))drawParkPlanting(ctx,view,feature,shift,box);
+  if(PARKS.has(feature.kind)&&view.moving!==true)drawParkPlanting(ctx,view,feature,shift,box);
  }
  for(const {feature,shift} of features){
   if(feature.layer==='streets')roads.push({feature,shift});
@@ -236,8 +236,11 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  drawRoads(ctx,view,roads,'surface');
  for(const {coord,cell} of edits)if(cell.road)drawPlayerRoad(ctx,view,coord,cell,lookup,'surface');
  drawRoads(ctx,view,roads,'marking');
- drawStreetDetails(ctx,view,roads,centre.x);
- drawPlanting(ctx,view,roads,box);
+ // While the camera is moving, the furniture is left out: it is the part of the frame that costs the most to rebuild
+ // and the part nobody reads during a drag. It returns the moment the map stops.
+ const still=view.moving!==true;
+ if(still)drawStreetDetails(ctx,view,roads,centre.x);
+ if(still)drawPlanting(ctx,view,roads,box);
  for(const {coord,cell} of edits){
   if(cell.building&&cell.building!=='park'){
    const r=cell.building==='industrial'?.42:.34;
