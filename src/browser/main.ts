@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import {createCameraUpdateGate} from '../presentation/camera-update-gate';
 import {createPerformanceSamples} from '../presentation/performance-samples';
 import {municipalCalibrationPreview} from '../presentation/words';
 import {containsLocalArea} from '../presentation/municipal-coverage';
@@ -743,6 +744,7 @@ window.screen?.orientation?.addEventListener?.('change', applyLayout);
 // fast at 2x and stand still while it is paused. It is presentation only — no tick reads it, no command carries it.
 let motion = 0;
 let motionMs=0,renderMs=0;
+const cameraUpdates=createCameraUpdateGate();
 const perfSamples=createPerformanceSamples(),framePhases:Record<string,number>={};
 let framePresented=false;
 const phase=(name:string,start:number)=>{if(PERF_DEBUG)framePhases[name]=performance.now()-start;};
@@ -766,9 +768,7 @@ const draw = (now: number, seconds: number) => {
 
  const {width, height} = hand.viewport;
  const streamStart=performance.now();
- geography?.update(camera,hand.viewport);
- terrain.update(camera,hand.viewport);
- mobilityStream?.update(camera,hand.viewport);
+ if(cameraUpdates.changed(camera,hand.viewport)){geography?.update(camera,hand.viewport);terrain.update(camera,hand.viewport);mobilityStream?.update(camera,hand.viewport);}
  phase('streams',streamStart);
  if(!geography){
   const cells=[...hand.chunks].flatMap(([id,status])=>{const managed=hand.state?.chunks[id],base=status.status==='ready'?status.base:null;const available=managed?effectiveCells(managed):base?.cells;return available?available.flatMap((cell,i)=>cell.road?[{coord:coordAt(id,i),cell}]:[]):[];});

@@ -131,7 +131,7 @@ const compositors=new WeakMap<object,ReturnType<typeof createSceneCompositor>>()
 export const preparedSceneStats=()=>scenePreparer.stats();
 let groundBitmap:{key:string;tiles:object|undefined;terrain:object|undefined;canvas:OffscreenCanvas}|undefined;
 export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldView){
- if(view.camera.zoom<GLOBE_ZOOM){drawGlobe(ctx,view);return;}
+ if(view.camera.zoom<GLOBE_ZOOM){compositors.get(lightContext(ctx,view.light??'day'))?.clear();drawGlobe(ctx,view);return;}
  ctx=lightContext(ctx,view.light??'day');
  const {camera,viewport}=view,scale=TILE_W*camera.zoom;
  ctx.imageSmoothingEnabled=true;ctx.lineJoin='round';ctx.lineCap='round';
