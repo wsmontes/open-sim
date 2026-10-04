@@ -1,21 +1,21 @@
+import {createScenePreparer} from './prepared-scene';
 import {aircraftDrawCommands} from './aircraft-draw';
 import {vesselDrawCommands} from './vessel-draw';
 import {lightContext} from './city-light';
 import {mobilityDrawCommands} from './mobility-draw';
-import {drawTerrain,projectSurface,surfaceLine,foundationElevation,terrainRoadPath,surfaceDepth} from './terrain-renderer';
-import {isPowered} from '../../core/simulation';
+import {drawTerrain,projectSurface,surfaceLine,foundationElevation,terrainRoadPath,} from './terrain-renderer';
 import {drawStreetDetails,drawPaving,drawPlanting,drawParkPlanting,drawTree} from './street-renderer';
 import {drawBuilding,drawGhost} from './architecture-renderer';
 import {geoOrthographic,geoPath,geoGraticule10} from 'd3-geo';
 import type {GeoPermissibleObjects} from 'd3-geo';
 import worldLand from './world-land.json';
 import type {WorldView} from './canvas-renderer';
-import {WORLD,coordAt,chunkId,cellIndex} from '../../core/coordinates';
-import type {Building,Cell,CellCoord} from '../../core/model';
+import {chunkId,cellIndex} from '../../core/coordinates';
+import type {Cell,CellCoord} from '../../core/model';
 import {roadClassOf} from '../../core/model';
-import {cellSpace,TILE_W,type Point} from '../../presentation/camera';
-import {assembledFootprints,remainingFootprints,roadConnections,type Footprint} from '../../presentation/city-art';
-import {geographicFocus,nearestWorldX,GLOBE_ZOOM,globePoint,planetRadius,type GeographicFeature} from '../../presentation/geographic-map';
+import {TILE_W,type Point} from '../../presentation/camera';
+import {roadConnections,} from '../../presentation/city-art';
+import {geographicFocus,GLOBE_ZOOM,globePoint,planetRadius,type GeographicFeature} from '../../presentation/geographic-map';
 
 const land=worldLand as unknown as GeoPermissibleObjects;
 const graticule=geoGraticule10();
@@ -72,13 +72,6 @@ function drawGlobe(ctx:CanvasRenderingContext2D,view:WorldView){
 }
 export const globeRadius=(view:Pick<WorldView,'camera'|'viewport'>)=>planetRadius(view.camera.zoom,view.viewport);
 
-const featureBounds=new WeakMap<GeographicFeature,{minX:number;minY:number;maxX:number;maxY:number}>();
-function bounds(feature:GeographicFeature){
- let b=featureBounds.get(feature);if(b)return b;
- b={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity};
- for(const ring of feature.geometry)for(const p of ring){b.minX=Math.min(b.minX,p.x);b.minY=Math.min(b.minY,p.y);b.maxX=Math.max(b.maxX,p.x);b.maxY=Math.max(b.maxY,p.y);}
- featureBounds.set(feature,b);return b;
-}
 function roadPath(ctx:CanvasRenderingContext2D,view:WorldView,feature:GeographicFeature,shift:number){
  let mapped=roadPoints.get(feature);if(!mapped){mapped=new Map();roadPoints.set(feature,mapped);}
  let rings=mapped.get(shift);if(!rings){rings=feature.geometry.map(ring=>ring.map(p=>({x:p.x+shift-.5,y:p.y-.5})));mapped.set(shift,rings);}
@@ -131,31 +124,16 @@ function drawPlayerRoad(ctx:CanvasRenderingContext2D,view:WorldView,c:CellCoord,
  }
  if(pass==='surface'){ctx.fillStyle=PALETTE.pavement;ctx.beginPath();ctx.arc(p.x,p.y,width*.5,0,Math.PI*2);ctx.fill();}
 }
+const scenePreparer=createScenePreparer();
+export const preparedSceneStats=()=>scenePreparer.stats();
 let groundBitmap:{key:string;tiles:object|undefined;terrain:object|undefined;canvas:OffscreenCanvas}|undefined;
 export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldView){
  if(view.camera.zoom<GLOBE_ZOOM){drawGlobe(ctx,view);return;}
  ctx=lightContext(ctx,view.light??'day');
  const {camera,viewport}=view,scale=TILE_W*camera.zoom;
  ctx.imageSmoothingEnabled=true;ctx.lineJoin='round';ctx.lineCap='round';ctx.fillStyle=PALETTE.ground;ctx.fillRect(0,0,viewport.width,viewport.height);
- const centre=cellSpace({x:viewport.width/2,y:viewport.height/2},camera);
- const corners=[[0,0],[viewport.width,0],[0,viewport.height+scale*8],[viewport.width,viewport.height+scale*8]].map(([x,y])=>cellSpace({x,y},camera));
- const minX=Math.min(...corners.map(p=>p.x)),maxX=Math.max(...corners.map(p=>p.x)),minY=Math.min(...corners.map(p=>p.y)),maxY=Math.max(...corners.map(p=>p.y));
- const visible=(b:{minX:number;maxX:number;minY:number;maxY:number},shift=0)=>b.maxX+shift>=minX&&b.minX+shift<=maxX&&b.maxY>=minY&&b.minY<=maxY;
- const edits:Array<{coord:CellCoord;cell:Cell}>=[];
- for(const [id,chunk] of Object.entries(view.state.chunks))for(const [i,cell] of Object.entries(chunk.edits)){
-  if(cell.origin==='imported')continue;
-  const original=coordAt(id,Number(i)),coord={x:nearestWorldX(original.x,centre.x),y:original.y};
-  if(coord.x>=minX-1&&coord.x<=maxX+1&&coord.y>=minY-1&&coord.y<=maxY+1)edits.push({coord,cell});
- }
- const box={minX,minY,maxX,maxY};
- const roads:Array<{feature:GeographicFeature;shift:number}>=[],buildings:Array<{footprint:Footprint;shift:number;kind?:Building;stage?:number;powered?:boolean;depth:number}>=[],labels:Array<{point:Point;name:string;kind:string}>=[];
- // Ground first, then road geometry, then depth-sorted building geometry. Tile iteration order never buries roofs.
- const features:Array<{feature:GeographicFeature;shift:number}>=[];
- for(const tile of view.geography?.tiles??[]){
-  const origin=tile.x*WORLD/2**tile.z,shift=nearestWorldX(origin,centre.x)-origin;
-  for(const feature of tile.features)if(visible(bounds(feature),shift))features.push({feature,shift});
- }
- const mainContext=ctx,groundKey=[camera.x,camera.y,camera.zoom,camera.rotation,viewport.width,viewport.height,view.light,JSON.stringify(edits)].join(':');
+ const prepared=scenePreparer.prepare(view),{centre,box,edits,features,roads,buildings,labels}=prepared;
+ const mainContext=ctx,groundKey=prepared.key;
  const cachedGround=typeof OffscreenCanvas!=='undefined'&&groundBitmap?.key===groundKey&&groundBitmap.tiles===view.geography?.tiles&&groundBitmap.terrain===view.terrain?.tiles;
  let groundCanvas:OffscreenCanvas|undefined;
  if(!cachedGround&&typeof OffscreenCanvas!=='undefined'){
@@ -176,17 +154,8 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  }
  }
  for(const {feature,shift} of features){
-  if(feature.layer==='streets'&&!feature.tunnel)roads.push({feature,shift});
   if(!cachedGround&&feature.layer==='water_lines'){roadPath(ctx,view,feature,shift);ctx.strokeStyle=PALETTE.water;ctx.lineWidth=Math.max(1,scale*.06);ctx.stroke();}
   if(!cachedGround&&feature.layer==='boundaries'&&camera.zoom<.003){roadPath(ctx,view,feature,shift);ctx.strokeStyle='rgba(91,94,73,.35)';ctx.lineWidth=.7;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([]);}
-  if(feature.layer==='place_labels'&&feature.name&&camera.zoom<.12){const p=feature.geometry[0]?.[0];if(p)labels.push({point:projectSurface(view,{x:p.x+shift,y:p.y}),name:feature.name,kind:feature.kind});}
- }
- for(const footprint of assembledFootprints(view.geography?.tiles??[])){
-  const shift=nearestWorldX(footprint.minX,centre.x)-footprint.minX;
-  if(!visible(footprint,shift))continue;
-  const base=foundationElevation(view,footprint.rings.flatMap(r=>r.map(p=>({x:p.x+shift-.5,y:p.y-.5}))));
-  const depth=Math.max(...footprint.rings[0].map(p=>surfaceDepth(view,{x:p.x+shift,y:p.y},base)));
-  for(const remaining of remainingFootprints(footprint,edits.map(e=>({x:e.coord.x-shift,y:e.coord.y}))))buildings.push({footprint:remaining,shift,depth});
  }
  const lookup=(p:CellCoord):Cell|null=>{const id=chunkId(p),managed=view.state.chunks[id],i=cellIndex(p),status=view.chunks.get(id);return managed?(managed.edits[i]??managed.base.cells[i]):status?.status==='ready'?status.base.cells[i]:null;};
  // Ground for what the player changed, then every street's kerb, then every surface, then the markings, then the
@@ -201,14 +170,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  drawStreetDetails(ctx,view,roads,centre.x);
  drawPlanting(ctx,view,roads,box);
  }
- for(const {coord,cell} of edits){
-  if(cell.building&&cell.building!=='park'){
-   const r=cell.building==='industrial'?.42:.34;
-   const ring=[{x:coord.x-r+.5,y:coord.y-r+.5},{x:coord.x+r+.5,y:coord.y-r+.5},{x:coord.x+r+.5,y:coord.y+r+.5},{x:coord.x-r+.5,y:coord.y+r+.5},{x:coord.x-r+.5,y:coord.y-r+.5}];
-   buildings.push({footprint:{rings:[ring],minX:coord.x-r,maxX:coord.x+r,minY:coord.y-r,maxY:coord.y+r,area:r*r*4,kind:cell.building,seed:(coord.x^Math.imul(coord.y,19349663))>>>0},shift:0,kind:cell.building,stage:cell.stage,powered:isPowered(view.state,{x:((coord.x%WORLD)+WORLD)%WORLD,y:coord.y}),depth:surfaceDepth(view,coord)});
-  }
-  if(!cachedGround&&cell.building==='park'&&scale>=4)drawTree(ctx,projectSurface(view,coord),scale,(coord.x^coord.y)>>>0);
- }
+ for(const {coord,cell} of edits)if(!cachedGround&&cell.building==='park'&&scale>=4)drawTree(ctx,projectSurface(view,coord),scale,(coord.x^coord.y)>>>0);
  ctx=mainContext;
  if(groundCanvas){groundBitmap={key:groundKey,tiles:view.geography?.tiles,terrain:view.terrain?.tiles,canvas:groundCanvas};ctx.drawImage(groundCanvas,0,0);}
  else if(cachedGround)ctx.drawImage(groundBitmap!.canvas,0,0);
@@ -225,7 +187,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   }
  }
  const aviationCommands=aircraftDrawCommands(ctx,view);
- const volumes=[...aviationCommands.aircraft.filter(a=>a.grounded),...aviationCommands.shadows,...vesselDrawCommands(ctx,view),...mobilityDrawCommands(ctx,view),...buildings.map(b=>({depth:b.depth,draw:()=>{drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage,0,b.powered??true);if(b.powered===false&&scale>=7){const p=projectSurface(view,{x:(b.footprint.minX+b.footprint.maxX)/2,y:(b.footprint.minY+b.footprint.maxY)/2});ctx.fillStyle='rgba(242,178,86,.95)';ctx.font=`bold ${Math.max(10,scale*.3)}px system-ui`;ctx.fillText('!',p.x,p.y-scale*.6);}}}))];
+ const volumes=[...aviationCommands.aircraft.filter(a=>a.grounded),...aviationCommands.shadows,...vesselDrawCommands(ctx,view),...mobilityDrawCommands(ctx,view),...buildings.map(b=>({depth:b.depth,draw:()=>{drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage,0,b.powered??true,true,b.base);if(b.powered===false&&scale>=7){const p=projectSurface(view,{x:(b.footprint.minX+b.footprint.maxX)/2,y:(b.footprint.minY+b.footprint.maxY)/2});ctx.fillStyle='rgba(242,178,86,.95)';ctx.font=`bold ${Math.max(10,scale*.3)}px system-ui`;ctx.fillText('!',p.x,p.y-scale*.6);}}}))];
  volumes.sort((a,b)=>a.depth-b.depth);for(const volume of volumes)volume.draw();
  for(const plane of aviationCommands.aircraft.filter(a=>!a.grounded).sort((a,b)=>a.depth-b.depth))plane.draw();
  if(camera.zoom<.06){
