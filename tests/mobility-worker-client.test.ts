@@ -1,0 +1,3 @@
+import {expect,it} from 'vitest';
+import {createMobilityWorkerClient} from '../src/browser/mobility-worker-client';
+it('uses a bounded fallback after worker failure and disposes worker',async()=>{let terminate=0;const fake={postMessage(){queueMicrotask(()=>fake.onerror?.({} as ErrorEvent));},terminate(){terminate++;},onerror:null as ((e:ErrorEvent)=>void)|null,onmessage:null};const client=createMobilityWorkerClient(()=>fake as unknown as Worker);const result=await client.build({ticket:1,revision:'a',tiles:[],maxEdges:140000});expect(result.network.edges.size).toBe(0);expect(client.status().fallback).toBe(true);client.dispose();expect(terminate).toBe(1);});

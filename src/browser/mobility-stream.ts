@@ -1,11 +1,16 @@
+import {createNetworkJobQueue} from '../presentation/mobility-network-job';
+import {createMobilityWorkerClient} from './mobility-worker-client';
 import {createMobilityController} from '../client/mobility-controller';
 import {WORLD} from '../core/coordinates';
 import {cellSpace,type Camera,type Viewport} from '../presentation/camera';
 import {tileKey,type GeographicTile} from '../presentation/geographic-map';
 export function createMobilityStream(load:(z:number,x:number,y:number)=>Promise<GeographicTile>,seed:number,changed:()=>void){
  const controller=createMobilityController(seed),cache=new Map<string,GeographicTile>(),pending=new Set<string>(),failed=new Set<string>();
+ let networkTicket=0,limited=false,acceptedTiles=0;
+ const worker=createMobilityWorkerClient();
+ const queue=createNetworkJobQueue(worker.build,result=>{if(disposed||result.network.revision!==selection)return;controller.setNetwork(result.network);limited=result.limited;acceptedTiles=result.acceptedTileKeys.length;changed();});
  let selection='',demand:{z:number;x:number;y:number}[]=[],disposed=false;
- const publish=()=>{if(disposed)return;controller.setGeography(demand.flatMap(t=>cache.get(tileKey(t))?[cache.get(tileKey(t))!]:[]));changed();};
+ const publish=()=>{if(disposed)return;queue.submit({ticket:++networkTicket,revision:selection,tiles:demand.flatMap(t=>cache.get(tileKey(t))?[cache.get(tileKey(t))!]:[]),maxEdges:140000});};
  const pump=()=>{
   if(disposed)return;
   for(const t of demand){const key=tileKey(t);if(cache.has(key)||pending.has(key)||failed.has(key))continue;if(pending.size>=4)break;pending.add(key);
@@ -30,6 +35,7 @@ export function createMobilityStream(load:(z:number,x:number,y:number)=>Promise<
   // already holds. Waiting for the next tile selection is not an option: with a warm cache and a camera at rest there
   // is no next selection, and the city would stay empty until the player moved.
   republish(){publish();},
-  dispose(){disposed=true;controller.dispose();cache.clear();},
+  status:()=>({limited,acceptedTiles,...queue.stats(),...worker.status()}),
+  dispose(){disposed=true;queue.dispose();worker.dispose();controller.dispose();cache.clear();},
  };
 }

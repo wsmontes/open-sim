@@ -1,0 +1,7 @@
+import {buildNetworkJob,type NetworkRequest,type NetworkResult} from '../presentation/mobility-network-job';
+export function createMobilityWorkerClient(factory:()=>Worker=()=>new Worker(new URL('./mobility-worker.ts',import.meta.url),{type:'module'})){
+ let worker:Worker|undefined,fallback=false,disposed=false;
+ const pending=new Map<number,{request:NetworkRequest;resolve:(result:NetworkResult)=>void;reject:(error:Error)=>void}>();
+ try{worker=factory();worker.onmessage=event=>{const result=event.data as NetworkResult,entry=pending.get(result.ticket);if(entry){pending.delete(result.ticket);entry.resolve(result);}};worker.onerror=()=>{fallback=true;worker?.terminate();worker=undefined;for(const [ticket,entry] of pending){pending.delete(ticket);try{entry.resolve(buildNetworkJob(entry.request));}catch(error){entry.reject(error as Error);}}};}catch{fallback=true;}
+ return {build(request:NetworkRequest):Promise<NetworkResult>{if(disposed)return Promise.reject(new Error('Mobility worker disposed'));if(!worker)return Promise.resolve().then(()=>buildNetworkJob(request));return new Promise((resolve,reject)=>{pending.set(request.ticket,{request,resolve,reject});try{worker!.postMessage(request);}catch(error){pending.delete(request.ticket);reject(error as Error);}});},status:()=>({fallback,pending:pending.size}),dispose(){disposed=true;worker?.terminate();worker=undefined;for(const entry of pending.values())entry.reject(new Error('Mobility worker disposed'));pending.clear();}};
+}
