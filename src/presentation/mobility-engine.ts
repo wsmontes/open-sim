@@ -8,14 +8,15 @@ import type {TrafficSignalSite} from '../core/traffic-data';
 import {matchTrafficSignals} from './traffic-signals';
 import {findMobilityRoute} from './mobility-network';
 export const MOBILITY_LENGTH={car:4.5,bus:12,truck:10,pedestrian:.5,police:4.5,'school-bus':9} as const;
-const STEP=1/30,CAP=480;
+const STEP=1/30;
 const axis=(edge:MobilityEdge)=>{const a=edge.path.at(-2)!,b=edge.path.at(-1)!;return Math.abs(b.x-a.x)>=Math.abs(b.y-a.y)?'east-west':'north-south';};
 const lane=(agent:MobilityAgent)=>agent.kind==='pedestrian'?'sidewalk':'vehicle';
-export function createMobilityEngine(initial:MobilityNetwork,seed:number){
+export function createMobilityEngine(initial:MobilityNetwork,seed:number,capacity=480){
+ const CAP=Number.isFinite(capacity)?Math.max(0,Math.min(480,Math.floor(capacity))):480;
  let network=initial,clock=0,accumulator=0,sequence=0,randomState=seed>>>0||0x51ed;
  let demand:MobilityDemand={vehicles:0,pedestrians:0,truckShare:0,hour:12};
  const agents=new Map<string,MobilityAgent>(),retired=new Set<string>();let external=new Set<string>();
- const edgePools=new Map<MobilityAgent['kind'],readonly MobilityEdge[]>();
+ const edgePools=new Map<MobilityAgent['kind'],readonly string[]>();
  const stops=new Map<string,{cursor:number;remaining:number}>(),restarts=new Map<string,MobilityAgent>();
  const routeLengths=new WeakMap<object,readonly number[]>();
  const progress=(agent:MobilityAgent)=>{let lengths=routeLengths.get(agent.route);if(!lengths){const values=[0];for(const id of agent.route)values.push(values.at(-1)!+(network.edges.get(id)?.lengthM??0));lengths=values;routeLengths.set(agent.route,lengths);}return lengths[agent.edgeIndex]+agent.distanceM;};
@@ -103,8 +104,11 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
    let count=[...agents.values()].filter(a=>(a.kind==='pedestrian')===walking&&inside(network.edges.get(a.route[a.edgeIndex])!.path[0])).length;
    for(let attempt=0;count<target&&agents.size<CAP&&attempt<8;attempt++){
     const kind=walking?'pedestrian':random()<demand.truckShare?'truck':'car';
-    let edges=edgePools.get(kind);if(!edges){edges=[...network.edges.values()].filter(edge=>edge.allowed.includes(kind)&&inside(edge.path[0]));edgePools.set(kind,edges);}if(!edges.length)break;
-    const from=edges[Math.floor(random()*edges.length)].from,to=edges[Math.floor(random()*edges.length)].to,route=findMobilityRoute(network,from,to,kind);if(!route?.length)continue;
+    let edges=edgePools.get(kind);if(!edges){edges=network.runtime?.spawnEdges?.get(kind)??[...network.edges.values()].filter(edge=>edge.allowed.includes(kind)).map(e=>e.id);edgePools.set(kind,edges);}if(!edges.length)break;
+    let edge=network.edges.get(edges[Math.floor(random()*edges.length)])!;if(!inside(edge.path[0]))continue;const route:string[]=[];
+    // Ambient vehicles take bounded connected trips along actual streets; no city-wide path search in a frame.
+    for(let hop=0;hop<24;hop++){route.push(edge.id);const choices=(network.outgoing.get(edge.to)??[]).map(id=>network.edges.get(id)!).filter(e=>e.allowed.includes(kind)&&e.to!==edge.from);if(!choices.length)break;edge=choices[Math.floor(random()*choices.length)];}
+    if(!route.length)continue;
     const id=`demand:${seed}:${++sequence}`,first=network.edges.get(route[0])!;
     if([...agents.values()].some(a=>a.route[a.edgeIndex]===first.id&&lane(a)===(walking?'sidewalk':'vehicle')&&a.distanceM<(MOBILITY_LENGTH[kind]+MOBILITY_LENGTH[a.kind])/2+2))continue;
     const rush=demand.hour>=7&&demand.hour<10||demand.hour>=16&&demand.hour<19;
@@ -121,7 +125,7 @@ export function createMobilityEngine(initial:MobilityNetwork,seed:number){
     const route:string[]=[];let distance=agent.distanceM,failed=false;
     for(let i=agent.edgeIndex;i<agent.route.length;i++){
      const old=previous.edges.get(agent.route[i]);if(!old){failed=true;break;}
-     const replacement=findMobilityRoute(network,old.from,old.to,agent.kind);if(!replacement?.length){failed=true;break;}route.push(...replacement);
+     const replacement=findMobilityRoute(network,old.from,old.to,agent.kind,256);if(!replacement?.length){failed=true;break;}route.push(...replacement);
     }
     if(failed){finish(agent.id);continue;}
     let edgeIndex=0;while(edgeIndex<route.length-1&&distance>=network.edges.get(route[edgeIndex])!.lengthM){distance-=network.edges.get(route[edgeIndex])!.lengthM;edgeIndex++;}

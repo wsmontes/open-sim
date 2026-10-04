@@ -1,4 +1,10 @@
 /// <reference types="vite/client" />
+import {createFrameMerge} from '../presentation/frame-merge';
+import type {VesselFrame} from '../presentation/maritime-engine';
+import {createSceneSurface} from './scene-surface';
+import {sameSceneFrame} from '../surfaces/canvas/scene-frame';
+import {renderPolicy,renderPixelRatio} from '../presentation/render-policy';
+import {sceneRasterCache} from '../surfaces/canvas/scene-cache';
 import {createSemanticUpdateGate} from '../presentation/semantic-update-gate';
 import {createCameraUpdateGate} from '../presentation/camera-update-gate';
 import {createPerformanceSamples} from '../presentation/performance-samples';
@@ -26,9 +32,6 @@ import {createTerrainSource} from '../adapters/map/terrain-source';
 import terrainManifest from '../adapters/map/data/vancouver-terrain/manifest.json';
 import type {TerrainManifest} from '../presentation/terrain-model';
 import {pickSurface,} from '../surfaces/canvas/terrain-renderer';
-import {aircraftDrawCommands} from '../surfaces/canvas/aircraft-draw';
-import {vesselDrawCommands} from '../surfaces/canvas/vessel-draw';
-import {mobilityDrawCommands,} from '../surfaces/canvas/mobility-draw';
 import {buildingCacheStats} from '../surfaces/canvas/architecture-renderer';
 import {geographicFocus,mapScale,GLOBE_ZOOM} from '../presentation/geographic-map';
 import {attachOfflineRegion} from './offline-controller';
@@ -70,7 +73,6 @@ import {quoteAction} from '../core/quote';
 import type {Camera} from '../presentation/camera';
 import {normalizeAngle,project,settleZoom,zoomTo,MIN_ZOOM,centerOn,ROTATE_STEP} from '../presentation/camera';
 import type {WorldView} from '../surfaces/canvas/canvas-renderer';
-import {render} from '../surfaces/canvas/canvas-renderer';
 import {createFrameScheduler} from '../presentation/frame-scheduler';
 import type {Speed} from '../presentation/clock';
 import {createHud} from '../surfaces/canvas/hud';
@@ -391,15 +393,17 @@ const hud = createHud(hudRoot, {
 // client.step, the canvas and the panels.
 let active = false;
 let invalidateFrame = () => {};
-const geography = 'loadVisualTile' in maps ? createGeographicStream((z,x,y)=>(maps as OsmSource).loadVisualTile(z,x,y),()=>invalidateFrame()) : null;
+const loadSceneTile=(z:number,x:number,y:number)=>typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined'&&'loadEncodedTile' in maps?(maps as OsmSource).loadEncodedTile(z,x,y):(maps as OsmSource).loadVisualTile(z,x,y);
+const geography = 'loadVisualTile' in maps ? createGeographicStream(loadSceneTile,()=>invalidateFrame()) : null;
 const terrainSource=createTerrainSource(async(url,signal)=>{const response=await fetch(url,{signal});if(!response.ok)throw new Error('Terrain unavailable');return new Uint8Array(await response.arrayBuffer());},terrainManifest as TerrainManifest);
 const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame());
-const mobilityStream=geography?createMobilityStream((z,x,y)=>(maps as OsmSource).loadVisualTile(z,x,y),SEED,()=>invalidateFrame()):null;
-const mobility=mobilityStream?.controller??createMobilityController(SEED);
+const devicePolicy=renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.width,canvas.height);
+const mobilityStream=geography?createMobilityStream(loadSceneTile,SEED,()=>invalidateFrame(),devicePolicy.dynamicAgents):null;
+const mobility=mobilityStream?.controller??createMobilityController({seed:SEED,now:()=>new Date().toISOString(),onChange:()=>{},capacity:devicePolicy.dynamicAgents});
 let mobilityEnabled=true;
-const maritime=geography?createMaritimeEngine(readMaritimeCapture(vancouverMaritimeCapture),SEED):null;
+const maritime=geography?createMaritimeEngine(readMaritimeCapture(vancouverMaritimeCapture),SEED,devicePolicy.vessels):null;
 maritime?.setScenario(new Date().toISOString());
-const aviation=geography?createAviationEngine(readAirportCapture(cyvrCapture),SEED):null;
+const aviation=geography?createAviationEngine(readAirportCapture(cyvrCapture),SEED,devicePolicy.aircraft):null;
 const marineCapture=readMaritimeCapture(vancouverMaritimeCapture),ferrySchedule=readFerrySchedule(bcFerryCapture,marineCapture.routes),ferryClock=createFerryClock(()=>new Date().toISOString());
 // The transit, signal and school captures are Vancouver's, and the mobility network is built from whatever the camera is
 // looking at: without this gate, panning to Lisboa would fill Lisbon's streets with Vancouver's buses and its corners
@@ -575,11 +579,14 @@ const formatBytes = (bytes: number) => {
  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 // The preview and the cost are the client's; the browser only writes them where the player reads them.
-const hudUpdateGate=createSemanticUpdateGate(200);let hudCriticalStamp='';
+const hudUpdateGate=createSemanticUpdateGate(200);let hudCriticalStamp='',hudTrailingTimer:ReturnType<typeof setTimeout>|undefined;
+const hudModels=new WeakMap<object,string>();const hudModel=(value:object|null)=>{if(!value)return '';let key=hudModels.get(value);if(key===undefined){key=JSON.stringify(value);hudModels.set(value,key);}return key;};
 const updateHud = () => {
- const handForHud=client.view(),critical=[handForHud.state?.revision,handForHud.speed,handForHud.tool,handForHud.place,handForHud.notice,JSON.stringify(handForHud.save),handForHud.map.message,handForHud.facts?.id,handForHud.preview.affordable].join(':');
+ const handForHud=client.view(),critical=[handForHud.state?.revision,handForHud.speed,handForHud.tool,handForHud.place,handForHud.notice,JSON.stringify(handForHud.save),handForHud.map.message,handForHud.facts?.id,handForHud.preview.affordable,handForHud.preview.cost,handForHud.preview.message,hudModel(handForHud.history),JSON.stringify(handForHud.branches),hudModel(handForHud.scenarios),JSON.stringify(sessions.describe())].join(':');
  const hudKey=[critical,handForHud.camera.x,handForHud.camera.y,handForHud.camera.zoom,handForHud.camera.rotation,handForHud.viewport.width,handForHud.viewport.height,geography?.scene().revision].join(':');
- if(!hudUpdateGate.shouldUpdate(hudKey,performance.now(),critical!==hudCriticalStamp))return;hudCriticalStamp=critical;
+ const hudNow=performance.now();
+ if(!hudUpdateGate.shouldUpdate(hudKey,hudNow,critical!==hudCriticalStamp)){const retry=hudUpdateGate.retryAfter(hudKey,hudNow);if(retry!==null&&hudTrailingTimer===undefined)hudTrailingTimer=setTimeout(()=>{hudTrailingTimer=undefined;updateHud();},retry);return;}
+ if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}hudCriticalStamp=critical;
  const hudStart=performance.now();
  // The device's own save report is the personal session's; the session view reads it, and a live session's own
  // durable confirmation is what then speaks for the branch (the client's view already follows that rule).
@@ -640,7 +647,7 @@ const updateHud = () => {
 const saveNow = () => client.saveNow();
 // The buffer is the CSS size times this, and the zoom ladder is built from it: a tile has to be a whole number of
 // device pixels for a one pixel line to stay one pixel wide. The client is given this so it snaps zoom the same way.
-const deviceScale = () => BUFFER_SCALE * Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+const deviceScale = () => BUFFER_SCALE * renderPixelRatio(window.devicePixelRatio||1,(navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.clientWidth||window.innerWidth,canvas.clientHeight||window.innerHeight);
 // Direct pointer manipulation lands at once and cancels any glide in flight (the hand wins over the animation). The
 // surface already measured the exact camera; the client stores it and loads the regions it uncovered.
 const setCamera = (next: Camera, options: {snap?: boolean} = {}) => {
@@ -752,6 +759,8 @@ window.screen?.orientation?.addEventListener?.('change', applyLayout);
 let motion = 0;
 let motionMs=0,renderMs=0;
 const cameraUpdates=createCameraUpdateGate();
+const mergeVessels=createFrameMerge<VesselFrame>();
+const sceneSurface=createSceneSurface(ctx,()=>invalidateFrame(),(navigator as Navigator&{deviceMemory?:number}).deviceMemory);
 const perfSamples=createPerformanceSamples(),framePhases:Record<string,number>={};
 let framePresented=false;
 const phase=(name:string,start:number)=>{if(PERF_DEBUG)framePhases[name]=performance.now()-start;};
@@ -775,22 +784,23 @@ const draw = (now: number, seconds: number) => {
 
  const {width, height} = hand.viewport;
  const streamStart=performance.now();
- if(cameraUpdates.changed(camera,hand.viewport)){geography?.update(camera,hand.viewport);terrain.update(camera,hand.viewport);mobilityStream?.update(camera,hand.viewport);}
+ if(cameraUpdates.changed(camera,hand.viewport)){if(geography)syncMobilityCity(containsLocalArea(vancouverLocalAreas.areas,geographicFocus(camera,hand.viewport)));geography?.update(camera,hand.viewport);terrain.update(camera,hand.viewport);mobilityStream?.update(camera,hand.viewport);}
  phase('streams',streamStart);
  if(!geography){
   const cells=[...hand.chunks].flatMap(([id,status])=>{const managed=hand.state?.chunks[id],base=status.status==='ready'?status.base:null;const available=managed?effectiveCells(managed):base?.cells;return available?available.flatMap((cell,i)=>cell.road?[{coord:coordAt(id,i),cell}]:[]):[];});
   mobility.setCells(cells,`${hand.state?.revision}:${[...hand.chunks.keys()].join('|')}`);mobility.setDemand({vehicles:50,pedestrians:24,truckShare:.08,hour:12});
  }
  const simulationStart=performance.now();
+ const staticReady=sceneSurface.ready({...hand,state:hand.state!,geography:geography?.scene(),terrain:terrain.scene(),seed:SEED,motion,preview:hand.preview.cells,previewAffordable:hand.preview.affordable,light:cityLight,pixelRatio:deviceScale()});
  ferryClock.setPaused(hand.speed===0||!mobilityEnabled);
  const civilInstant=ferryClock.instant();
  maritime?.setScenario(civilInstant);
  mobility.setScenario(civilInstant);
  const ferryFrames=geography?scheduledFerryFrames(ferrySchedule,marineCapture.routes,civilInstant):[];
  maritime?.setReservedCapacity(ferryFrames.length);
- maritime?.advance(motionSeconds(seconds,mobilityEnabled?hand.speed:0));
- aviation?.advance(motionSeconds(seconds,mobilityEnabled?hand.speed:0));
- const motionStart=performance.now();mobility.advance(motionSeconds(seconds,mobilityEnabled?hand.speed:0));motionMs=performance.now()-motionStart;
+ maritime?.advance(motionSeconds(seconds,mobilityEnabled&&staticReady?hand.speed:0));
+ aviation?.advance(motionSeconds(seconds,mobilityEnabled&&staticReady?hand.speed:0));
+ const motionStart=performance.now();mobility.advance(motionSeconds(seconds,mobilityEnabled&&staticReady?hand.speed:0));motionMs=performance.now()-motionStart;
  phase('simulation',simulationStart);
  if(geography){
   const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
@@ -799,15 +809,16 @@ const draw = (now: number, seconds: number) => {
  if (cardCamera && (cardCamera.x !== camera.x || cardCamera.y !== camera.y || cardCamera.zoom !== camera.zoom))
   inspector.show(null);
  cardCamera = {x: camera.x, y: camera.y, zoom: camera.zoom};
- if (hand.speed !== 0&&mobilityEnabled) motion += seconds * hand.speed;
+ if (hand.speed !== 0&&mobilityEnabled&&staticReady) motion += seconds * hand.speed;
  const snapshotStart=performance.now();
  const view: WorldView = {
   light:cityLight,
+  quality:renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,width,height),
   geography: geography?.scene(),
   terrain:terrain.scene(),
   mobility:mobility.frame(),
   signals:mobility.signals(),
-  vessels:maritime?[...ferryFrames,...maritime.frame()]:undefined,
+  vessels:maritime?mergeVessels(ferryFrames,maritime.frame()):undefined,
   aircraft:aviation?.frame(),
   pixelRatio:deviceScale(),
   camera,
@@ -825,42 +836,21 @@ const draw = (now: number, seconds: number) => {
  // something it is drawn from changes: the moving traffic, where streets show it, or a tick, a tile or the camera. An
  // identical frame is not drawn again — the canvas still holds it.
  phase('snapshots',snapshotStart);renderMs=0;
- if (!sameFrame(lastView, view)) {
-  const renderStart=performance.now();render(ctx, view);renderMs=performance.now()-renderStart;
-  framePresented=true;phase('render',renderStart);
+ if (!sameFrame(lastView, view)||sceneSurface.pending()) {
+  const renderStart=performance.now();framePresented=sceneSurface.draw(view,now);renderMs=performance.now()-renderStart;
+  phase('render',renderStart);
   lastView = view;
  }
- return {moving, ambient: hand.speed !== 0,presented:framePresented};
+ return {moving:moving||sceneSurface.pending(), ambient: hand.speed !== 0&&staticReady,presented:framePresented};
 };
 let lastView: WorldView | null = null;
-const hasVisibleMotion=(view:WorldView)=>mobilityDrawCommands(ctx,view).length>0||vesselDrawCommands(ctx,view).length>0||aircraftDrawCommands(ctx,view).aircraft.length>0;
-const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
- !!a &&
- a.light === b.light &&
- a.geography?.revision === b.geography?.revision &&
- a.terrain?.revision === b.terrain?.revision &&
- a.mobility?.length===b.mobility?.length &&
- a.vessels?.length===b.vessels?.length &&
- a.aircraft?.length===b.aircraft?.length &&
- a.camera.x === b.camera.x &&
- a.camera.y === b.camera.y &&
- a.camera.zoom === b.camera.zoom &&
- a.camera.rotation === b.camera.rotation &&
- a.viewport.width === b.viewport.width &&
- a.viewport.height === b.viewport.height &&
- a.state === b.state &&
- a.chunks === b.chunks &&
- a.tool === b.tool &&
- a.preview === b.preview &&
- a.previewAffordable === b.previewAffordable &&
- a.hover?.x === b.hover?.x &&
- a.hover?.y === b.hover?.y &&
- (a.motion === b.motion || !hasVisibleMotion(b));
-const frames = createFrameScheduler({draw,onSample:sample=>{if(PERF_DEBUG)perfSamples.record({...sample,phases:framePhases});}});
+const sameFrame=sameSceneFrame;
+const frames = createFrameScheduler({draw,ambientFps:renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.width,canvas.height).dynamicFps,onSample:sample=>{if(PERF_DEBUG)perfSamples.record({...sample,phases:framePhases});}});
 invalidateFrame = frames.invalidate;
+let debugTimer:number|undefined;
 if (PERF_DEBUG) {
  const diagnostics=document.createElement('pre');diagnostics.id='open-sim-frame-stats';diagnostics.hidden=true;document.body.append(diagnostics);
- window.setInterval(()=>{if(document.hidden)return;const agents=lastView?.mobility??[];diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),samples:perfSamples.snapshot(),buildings:buildingCacheStats(),terrain:terrain.status(),mobility:{agents:agents.length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,agents.filter(agent=>agent.kind===kind).length])),networkJob:mobilityStream?.status(),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size}});},1000);
+ debugTimer=window.setInterval(()=>{if(document.hidden)return;const agents=lastView?.mobility??[];diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),samples:perfSamples.snapshot(),buildings:buildingCacheStats(),renderer:sceneSurface.status(),terrain:terrain.status(),mobility:{agents:agents.length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,agents.filter(agent=>agent.kind===kind).length])),networkJob:mobilityStream?.status(),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size}});},1000);
  const debugWindow = window as unknown as {
   openSimFrames?: () => ReturnType<typeof frames.stats>;
   openSimDebug?: () => unknown;
@@ -974,7 +964,8 @@ async function start() {
   updateHud();
   if(document.hidden)frames.stop();else invalidateFrame();
  });
- window.addEventListener('pagehide', () => saveNow());
+ window.addEventListener('pagehide', event => {saveNow();frames.stop();if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}if(!event.persisted){if(debugTimer!==undefined)clearInterval(debugTimer);mobilityStream?.dispose();terrain.dispose();geography?.dispose();if('destroy' in maps)(maps as OsmSource).destroy();maritime?.dispose();aviation?.dispose();sceneSurface.dispose();sceneRasterCache.clear();}});
+ window.addEventListener('pageshow',()=>{if(!document.hidden)invalidateFrame();});
  // First paint is the restored local state. Merely queueing network/storage work in the same task can still delay the
  // browser's actual paint on a phone, so background work starts only after one rendered frame has returned to the UA.
  updateHud();

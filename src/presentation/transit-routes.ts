@@ -8,7 +8,7 @@ export type TransitRoutePattern={id:string;routeId:string;shapeId?:string;direct
 export type TransitPatternFailure={id:string;reason:'missing-stop'|'missing-shape'|'outside-network'|'disconnected';stopIndex?:number;fromNode?:string;toNode?:string};
 const point=(geo:{lat:number;lon:number}):Point=>({x:(geo.lon+180)/360*WORLD,y:(1-Math.log(Math.tan(Math.PI/4+geo.lat*Math.PI/360))/Math.PI)/2*WORLD});
 const distanceToSegment=(p:Point,a:Point,b:Point)=>{const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));return Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t);};
-export function buildTransitPatterns(dataset:TransitContent,network:MobilityNetwork,report:(failure:TransitPatternFailure)=>void=()=>{}):readonly TransitRoutePattern[]{
+export function buildTransitPatterns(dataset:TransitContent,network:MobilityNetwork,report:(failure:TransitPatternFailure)=>void=()=>{},maxVisited=Infinity):readonly TransitRoutePattern[]{
  const stops=new Map(dataset.stops.map(s=>[s.providerId,s])),shapes=new Map(dataset.shapes.map(s=>[s.id,s])),seen=new Set<string>(),patterns:TransitRoutePattern[]=[];
  const buckets=new Map<string,MobilityNode[]>(),bucket=32;
  for(const node of network.nodes.values()){const key=`${Math.floor(node.point.x/bucket)}:${Math.floor(node.point.y/bucket)}`,list=buckets.get(key)??[];list.push(node);buckets.set(key,list);}
@@ -53,7 +53,7 @@ export function buildTransitPatterns(dataset:TransitContent,network:MobilityNetw
     for(const anchor of anchors[i]){
      let best:Match|undefined;
      for(const previous of states){
-      const part=previous.node===anchor.node.id?[]:findMobilityRoute(restricted,previous.node,anchor.node.id,'bus');if(!part)continue;
+      const part=previous.node===anchor.node.id?[]:findMobilityRoute(restricted,previous.node,anchor.node.id,'bus',maxVisited);if(!part)continue;
       const distance=part.reduce((sum,id)=>sum+edges.get(id)!.lengthM,0),cost=previous.cost+distance+anchor.offsetM*4,length=previous.length+distance;
       if(!best||cost<best.cost)best={node:anchor.node.id,cost,length,path:[...previous.path,...part],distances:[...previous.distances,length]};
      }

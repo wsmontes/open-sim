@@ -21,7 +21,7 @@ export type OsmSourceMetadata={
  normalizer:{name:string;version:BaseChunk['normalizerVersion']};
  attribution:{text:string;url:string};
 };
-export type OsmSource=MapSource&{loadVisualTile(z:number,x:number,y:number):Promise<GeographicTile>;metadata:OsmSourceMetadata;decodeStats():MapDecodeStats;prepareRegion(request:RegionRequest,onProgress:(coverage:RegionCoverage)=>void,signal?:AbortSignal):Promise<RegionCoverage>;destroy():void};
+export type OsmSource=MapSource&{loadEncodedTile(z:number,x:number,y:number):Promise<GeographicTile>;loadVisualTile(z:number,x:number,y:number):Promise<GeographicTile>;metadata:OsmSourceMetadata;decodeStats():MapDecodeStats;prepareRegion(request:RegionRequest,onProgress:(coverage:RegionCoverage)=>void,signal?:AbortSignal):Promise<RegionCoverage>;destroy():void};
 
 const DEFAULT_TILE_URL='https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt';
 const DATASET='OpenStreetMap · Shortbread v1';
@@ -34,6 +34,7 @@ const tileOf=(cell:number,side:number)=>Math.floor(cell/side);
 export function createOsmSource(config:OsmConfig={}):OsmSource{
  const template=config.tileUrl??DEFAULT_TILE_URL,fetcher=config.fetcher??fetch,overviewZoom=config.overviewZoom??DEFAULT_OVERVIEW_ZOOM;
  const kept=config.cache,normalized=config.chunks,decoder=config.decoder??createWorkerMapDecoder();
+ const encodedTiles=new Map<string,Promise<GeographicTile>>();let visualRevision=0;
  const pending=new Map<string,Promise<Uint8Array>>(),queue:Array<()=>void>=[];let active=0;
 
  async function limited<T>(job:()=>Promise<T>):Promise<T>{
@@ -64,6 +65,7 @@ export function createOsmSource(config:OsmConfig={}):OsmSource{
  return{
   attribution:{...ATTRIBUTION},
   metadata:{source:{id:'openstreetmap-shortbread-v1',dataset:DATASET,url:template},zooms:{detail:DETAIL_ZOOM,overview:overviewZoom},normalizer:{...NORMALIZER},attribution:{...ATTRIBUTION}},
+  loadEncodedTile(z,x,y){const key=`${z}:${x}:${y}`,known=encodedTiles.get(key);if(known){encodedTiles.delete(key);encodedTiles.set(key,known);return known;}const result=bytes(z,x,y).then(encoded=>({z,x,y,features:[],encoded,encodedRevision:String(++visualRevision)}));encodedTiles.set(key,result);while(encodedTiles.size>64)encodedTiles.delete(encodedTiles.keys().next().value!);void result.catch(()=>{if(encodedTiles.get(key)===result)encodedTiles.delete(key);});return result;},
   loadVisualTile:async(z,x,y)=>decodeVisualTile(await bytes(z,x,y),z,x,y),
   prepareRegion:(request,onProgress,signal)=>prepareRegion(request,{
    zooms:{overview:overviewZoom,detail:DETAIL_ZOOM},
@@ -72,7 +74,7 @@ export function createOsmSource(config:OsmConfig={}):OsmSource{
    write:async(key,value)=>{if(!kept)throw new Error('Armazenamento indisponível');await kept.put(key,value);},
   },onProgress,signal),
   decodeStats:()=>decoder.stats(),
-  destroy:()=>decoder.destroy?.(),
+  destroy:()=>{encodedTiles.clear();decoder.destroy?.();},
   async loadChunk(id,level:MapLevel='detail'){
    const zoom=level==='overview'?overviewZoom:DETAIL_ZOOM;
    const cacheKey=`${NORMALIZER.name}:${NORMALIZER.version}:${level}:z${zoom}:${template}:${id}`;

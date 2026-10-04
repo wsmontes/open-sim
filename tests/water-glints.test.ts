@@ -1,0 +1,3 @@
+import {it,expect} from 'vitest';
+import {waterGlints} from '../src/surfaces/canvas/water-glints';
+it('dirty bounds cover both drifting endpoints without invalidating the whole water polygon',()=>{for(const scale of [4,8]){const glints=waterGlints({width:1000,height:800},scale,20);expect(glints).toHaveLength(scale>=7?28:3);for(const g of glints){expect(g.bounds.x).toBeLessThanOrEqual(g.x);expect(g.bounds.y).toBeLessThan(g.y);expect(g.bounds.x+g.bounds.width).toBeGreaterThanOrEqual(g.endX);expect(g.bounds.y+g.bounds.height).toBeGreaterThan(g.y);}expect(glints.reduce((n,g)=>n+g.bounds.width*g.bounds.height,0)).toBeLessThan(1000*800*.1);}});

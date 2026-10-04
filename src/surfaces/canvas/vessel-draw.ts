@@ -30,7 +30,7 @@ export function vesselDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){
  const projectWater=(p:MarinePoint,h:number)=>projectSurface(view,convert(p),h),pixels=TILE_W*view.camera.zoom/terrainMetres(view);
  for(const vessel of [...(view.vessels??[])].sort((a,b)=>Number(b.kind==='bc-ferry')-Number(a.kind==='bc-ferry'))){const point=convert(vessel.position),p=projectWater(vessel.position,vessel.waterElevationM),margin=Math.max(30,VESSEL_SIZE[vessel.kind].length*pixels);
   if(p.x< -margin||p.y< -margin||p.x>view.viewport.width+margin||p.y>view.viewport.height+margin||!visibleSurfacePoint(view,point,vessel.waterElevationM))continue;
-  result.push({bounds:{x:p.x-margin*2,y:p.y-margin*2,width:margin*4,height:margin*4},depth:surfaceDepth(view,point,vessel.waterElevationM),draw:()=>drawVessel(ctx,vessel,projectWater,pixels)});if(result.length>=(view.camera.zoom<.2?8:24))break;
+  result.push({bounds:{x:p.x-margin*2,y:p.y-margin*2,width:margin*4,height:margin*4},depth:surfaceDepth(view,point,vessel.waterElevationM),draw:()=>drawVessel(ctx,vessel,projectWater,pixels)});if(result.length>=Math.min(view.quality?.vessels??24,view.camera.zoom<.2?8:24))break;
  }
  frameVessels.set(view,result);return result;
 }

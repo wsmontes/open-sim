@@ -3,25 +3,25 @@ import {geographicTiles,tileKey,GLOBE_ZOOM,type GeographicTile,type GeographicTi
 
 export function createGeographicStream(load:(z:number,x:number,y:number)=>Promise<GeographicTile>,changed:()=>void){
  const cache=new Map<string,GeographicTile>(),pending=new Set<string>(),failed=new Set<string>();
- let demand:GeographicTileId[]=[],signature='',revision=0;
+ let demand:GeographicTileId[]=[],signature='',revision=0,disposed=false;
  const waiters:Array<()=>void>=[];
  let snapshot:GeographicScene|null=null;
  const wanted=()=>demand.filter(t=>!cache.has(tileKey(t))&&!pending.has(tileKey(t))&&!failed.has(tileKey(t)));
- const announce=()=>{revision++;changed();};
- const pump=()=>{
+ const announce=()=>{if(disposed)return;revision++;changed();};
+ const pump=()=>{if(disposed)return;
   for(const tile of wanted()){
    if(pending.size>=4)break;
    const key=tileKey(tile);pending.add(key);
    void load(tile.z,tile.x,tile.y).then(value=>{
-    cache.set(key,value);
+    if(disposed)return;cache.set(key,value);
     const protectedKeys=new Set(demand.map(tileKey));
     for(const kept of cache.keys()){if(cache.size<=64)break;if(!protectedKeys.has(kept))cache.delete(kept);}
-   },()=>{failed.add(key);}).finally(()=>{pending.delete(key);announce();pump();});
+   },()=>{if(!disposed)failed.add(key);}).finally(()=>{pending.delete(key);announce();pump();});
   }
   if(pending.size===0&&wanted().length===0)for(const resolve of waiters.splice(0))resolve();
  };
  return{
-  update(camera:Camera,viewport:Viewport){
+  update(camera:Camera,viewport:Viewport){if(disposed)return;
    const next=camera.zoom<GLOBE_ZOOM?[]:geographicTiles(camera,viewport),key=next.map(tileKey).join('|');
    if(key===signature)return;signature=key;demand=next;announce();pump();
   },
@@ -41,6 +41,7 @@ export function createGeographicStream(load:(z:number,x:number,y:number)=>Promis
    }));
    return snapshot={tiles,revision,loading:demand.some(t=>!cache.has(tileKey(t))&&!failed.has(tileKey(t))),error:demand.some(t=>failed.has(tileKey(t)))};
   },
+  dispose(){disposed=true;demand=[];cache.clear();failed.clear();snapshot=null;revision++;for(const resolve of waiters.splice(0))resolve();},
   idle():Promise<void>{if(pending.size===0&&wanted().length===0)return Promise.resolve();return new Promise(resolve=>waiters.push(resolve));},
  };
 }

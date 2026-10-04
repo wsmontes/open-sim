@@ -17,7 +17,8 @@ import type {ChunkStatus} from '../../session/ports';
 import type {SelectedTool} from '../../presentation/tools';
 import type {Camera,Viewport} from '../../presentation/camera';
 import {TILE_H,TILE_W,cellSpace,isCoarse} from '../../presentation/camera';
-export type WorldView = {
+export type WorldView = {quality?:import('../../presentation/render-policy').RenderPolicy;
+ playerPower?:ReadonlyMap<string,boolean>;
  light?:'day'|'night';
  geography?:GeographicScene;
  terrain?:{tiles:readonly TerrainTile[];sample:(geo:{lat:number;lon:number})=>TerrainReading|null;revision:number};

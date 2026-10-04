@@ -1,3 +1,4 @@
+import {sceneRasterCache} from './scene-cache';
 import type {WorldView} from './canvas-renderer';
 import {toGeo} from '../../core/coordinates';
 import {project,TILE_H,type Point,type Camera} from '../../presentation/camera';
@@ -99,10 +100,11 @@ export function drawTerrain(ctx:CanvasRenderingContext2D,view:WorldView):void{
  if(!view.terrain?.tiles.length)return;
  if(typeof OffscreenCanvas!=='undefined'){
   const {width,height}=view.viewport,light=view.light??'day';
-  if(painted?.camera===view.camera&&painted.tiles===view.terrain.tiles&&painted.width===width&&painted.height===height&&painted.light===light){ctx.drawImage(painted.canvas,0,0);return;}
-  const canvas=painted?.canvas??new OffscreenCanvas(width,height);if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
+  if(painted&&sceneRasterCache.get('terrain-raster')?.canvas===painted.canvas&&painted.camera===view.camera&&painted.tiles===view.terrain.tiles&&painted.width===width&&painted.height===height&&painted.light===light){ctx.drawImage(painted.canvas,0,0);return;}
+  if(width*height*4>128*1024*1024){paintTerrain(ctx,view);return;}
+  const canvas=new OffscreenCanvas(width,height);
   const context=canvas.getContext('2d');
-  if(context){context.clearRect(0,0,width,height);paintTerrain(lightContext(context as unknown as CanvasRenderingContext2D,light),view);painted={camera:view.camera,tiles:view.terrain.tiles,width,height,light,canvas};ctx.drawImage(canvas,0,0);return;}
+  if(context){context.clearRect(0,0,width,height);paintTerrain(lightContext(context as unknown as CanvasRenderingContext2D,light),view);const retained=sceneRasterCache.set('terrain-raster',{canvas},width*height*4);painted=retained?{camera:view.camera,tiles:view.terrain.tiles,width,height,light,canvas}:null;ctx.drawImage(canvas,0,0);if(!retained){canvas.width=0;canvas.height=0;}return;}
  }
  paintTerrain(ctx,view);
 }

@@ -1,3 +1,4 @@
+import type {FleetInput} from '../presentation/mobility-fleet';
 import type {TransitContent} from '../core/transit-data';
 import {buildTransitPatterns} from '../presentation/transit-routes';
 import {routeBuses} from '../presentation/transit-motion';
@@ -12,20 +13,21 @@ import type {MobilityAgent,MobilityDemand,MobilityEdge,MobilityNetwork} from '..
 import type {Point} from '../presentation/camera';
 export type MobilityMode='estimated'|'calibrated';
 export type MobilityStatus={mode:MobilityMode;available:boolean;scenarioInstant:string};
-export function createMobilityController(options:number|{seed:number;now:()=>string;onChange:()=>void}){
+export function createMobilityController(options:number|{seed:number;now:()=>string;onChange:()=>void;capacity?:number;prepareFleet?:(network:MobilityNetwork,input:FleetInput)=>Promise<readonly MobilityAgent[]>}){
  const seed=typeof options==='number'?options:options.seed;
  const now=typeof options==='number'?()=>new Date().toISOString():options.now;
  const changed=typeof options==='number'?()=>{}:options.onChange;
  let city:string|null=null,scenario:string|null=null,schools:readonly SchoolSite[]=[],civic=false,fleetStamp='',transit:TransitContent|null=null,transitStamp='',buses:readonly MobilityAgent[]=[];
- const refreshFleet=()=>{if(!civic&&!transit)return;if(transitStamp!==network.revision){transitStamp=network.revision;buses=transit?routeBuses(buildTransitPatterns(transit,network),seed):[];}const instant=scenario??now(),stamp=network.revision+instant.slice(0,16);if(stamp===fleetStamp)return;fleetStamp=stamp;engine.setAgents([...buses,...(civic?policePatrolAgents(network,seed):[]),...schoolBusAgents(schools,network,instant,seed)]);};
+ const prepareFleet=typeof options==='number'?undefined:options.prepareFleet;let fleetGeneration=0;
+ const refreshFleet=()=>{if(!civic&&!transit)return;if(prepareFleet){const instant=scenario??now(),stamp=network.revision+instant.slice(0,16);if(stamp===fleetStamp)return;fleetStamp=stamp;const generation=++fleetGeneration,revision=network.revision;void prepareFleet(network,{seed,transit,schools,civic,instant}).then(agents=>{if(disposed||generation!==fleetGeneration||network.revision!==revision)return;engine.setAgents(agents);changed();}).catch(()=>{});return;}if(transitStamp!==network.revision){transitStamp=network.revision;buses=transit?routeBuses(buildTransitPatterns(transit,network),seed):[];}const instant=scenario??now(),stamp=network.revision+instant.slice(0,16);if(stamp===fleetStamp)return;fleetStamp=stamp;engine.setAgents([...buses,...(civic?policePatrolAgents(network,seed):[]),...schoolBusAgents(schools,network,instant,seed)]);};
  let network=buildGeographicNetwork([],'empty'),revision=0,disposed=false;
- const engine=createMobilityEngine(network,seed),tiles=new Map<string,GeographicTile>();
+ const engine=createMobilityEngine(network,seed,typeof options==='number'?undefined:options.capacity),tiles=new Map<string,GeographicTile>();
  return {
   setNetwork(next:MobilityNetwork){if(disposed)return;network=next;engine.setNetwork(next);refreshFleet();},
-  setTransit(dataset:TransitContent|null){if(disposed)return;transit=dataset;transitStamp='';fleetStamp='';if(!dataset&&!civic){buses=[];engine.setAgents([]);}else refreshFleet();},
+  setTransit(dataset:TransitContent|null){if(disposed)return;transit=dataset;transitStamp='';fleetStamp='';fleetGeneration++;if(!dataset&&!civic){buses=[];engine.setAgents([]);}else refreshFleet();},
   setCivicSites(sites:readonly SchoolSite[]){if(disposed)return;schools=sites;civic=true;fleetStamp='';refreshFleet();},
   setCity(territoryId:string|null){
-   if(disposed||city===territoryId)return;city=territoryId;tiles.clear();transit=null;schools=[];civic=false;buses=[];fleetStamp='';transitStamp='';
+   if(disposed||city===territoryId)return;city=territoryId;fleetGeneration++;tiles.clear();transit=null;schools=[];civic=false;buses=[];fleetStamp='';transitStamp='';
    network=buildGeographicNetwork([],`city:${++revision}`);engine.setNetwork(network);engine.setAgents([]);
    engine.setDemand({vehicles:0,pedestrians:0,truckShare:0,hour:12});changed();
   },

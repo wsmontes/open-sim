@@ -96,3 +96,5 @@ test('unpresented updates do not count toward visual fps and suspension resets o
  visible=false;run(100);visible=true;run(10_000);expect(samples.at(-1)?.intervalMs).toBe(0);
  scheduler.stop();run(20_000);expect(samples.at(-1)?.intervalMs).toBe(0);
 });
+
+test('ambient cadence subtracts rendering time from its wait',()=>{let now=0,wait=0,frame!:(at:number)=>void;const s=createFrameScheduler({draw(){now+=20;return {moving:false,ambient:true};},now:()=>now,request(cb){frame=cb;return 1;},cancel(){},delay(_cb,ms){wait=ms;return 1;},clearDelay(){}});s.invalidate();frame(16);expect(wait).toBeCloseTo(1000/30-20);s.stop();});

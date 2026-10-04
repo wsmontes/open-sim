@@ -87,3 +87,7 @@ No mesmo navegador nativo e produção, três execuções de 30 s após 15 s de 
 - `npm run check` e `npm run build` passam. Comparações de imagens usam tolerância documentada; testes estruturais verificam invalidação, orçamento e obsolescência sem limites frágeis de tempo em CI.
 
 Se uma meta falhar, documentar o cenário e o custo restante e continuar o diagnóstico antes de declarar resolvido. Nenhuma alegação de leveza se baseia apenas no tamanho do bundle ou em remover atores da cena.
+
+## Direção adicional do usuário —3/10/2026
+
+Priorizar desenvolvimento e separar superfícies de input do processamento. A cena será renderizada com OffscreenCanvas em worker quando disponível, com uma tarefa atual e uma pendente substituível. Imagens transferíveis preservam a composição atual de oclusão; o plano original de desenhar tudo no thread principal passa a ser fallback. A superfície de interação permanece no thread principal e uma apresentação WebGL2 opcional reprojeta a última textura durante navegação. Isso usa a GPU oferecida pelo navegador, sem prometer acesso direto a Metal. Perda de contexto e indisponibilidade retornam ao Canvas2D. Recursos e bitmaps possuem descarte explícito; orçamento ajustado pela memória anunciada pelo navegador. O estático precisa ser confirmado antes de avançar animação. A validação focará testes de fila, invalidação, descarte e uma verificação nativa curta; as rodadas extensas não são o caminho crítico.

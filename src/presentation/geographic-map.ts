@@ -3,7 +3,7 @@ import type {Camera,Point,Viewport} from './camera';
 import {cellSpace,TILE_W,centerOn} from './camera';
 
 export type GeographicFeature={layer:string;kind:string;bridge:boolean;type:number;geometry:Point[][];name?:string;height?:number;sourceId?:string;oneway?:-1|0|1;level?:number;tunnel?:boolean};
-export type GeographicTile={z:number;x:number;y:number;features:GeographicFeature[]};
+export type GeographicTile={encoded?:Uint8Array;encodedRevision?:string;z:number;x:number;y:number;features:GeographicFeature[]};
 export type GeographicTileId={z:number;x:number;y:number;worldX:number};
 export type GeographicScene={tiles:readonly GeographicTile[];revision:number;loading:boolean;error:boolean};
 export const GLOBE_ZOOM=.000014;

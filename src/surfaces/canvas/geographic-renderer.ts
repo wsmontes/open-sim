@@ -1,3 +1,4 @@
+import {waterGlints} from './water-glints';
 import {sceneRasterCache} from './scene-cache';
 import {createSceneCompositor,type SceneCommand} from './scene-compositor';
 import {createScenePreparer} from './prepared-scene';
@@ -128,6 +129,16 @@ function drawPlayerRoad(ctx:CanvasRenderingContext2D,view:WorldView,c:CellCoord,
 }
 const scenePreparer=createScenePreparer();
 const compositors=new WeakMap<object,ReturnType<typeof createSceneCompositor>>(),staticCommands=new WeakMap<object,WeakMap<object,readonly SceneCommand[]>>();
+export function drawInteractionOverlay(ctx:CanvasRenderingContext2D,view:WorldView){
+ const scale=TILE_W*view.camera.zoom;ctx=lightContext(ctx,view.light??'day');
+ if(view.tool!=='explore')for(const cell of view.preview){
+  rectCell(ctx,view,cell,view.previewAffordable?'rgba(100,178,107,.4)':'rgba(199,86,70,.4)');ctx.strokeStyle=view.previewAffordable?'#f5e4a2':'#f3b1a0';ctx.lineWidth=1.5;ctx.stroke();
+  if(!ZONE_TOOLS.has(view.tool)||view.preview.length>96)continue;
+  const r=view.tool==='industrial'?.42:.34;drawGhost(ctx,view,{rings:[[{x:cell.x-r+.5,y:cell.y-r+.5},{x:cell.x+r+.5,y:cell.y-r+.5},{x:cell.x+r+.5,y:cell.y+r+.5},{x:cell.x-r+.5,y:cell.y+r+.5},{x:cell.x-r+.5,y:cell.y-r+.5}]],minX:cell.x-r,maxX:cell.x+r,minY:cell.y-r,maxY:cell.y+r,area:r*r*4,kind:view.tool,seed:(cell.x^Math.imul(cell.y,19349663))>>>0},view.previewAffordable);
+ }
+ if(view.hover&&scale>=1.12){rectCell(ctx,view,view.hover,'rgba(255,244,191,.15)');ctx.strokeStyle='#f5e4a2';ctx.lineWidth=1;ctx.stroke();}
+}
+export function resetGeographicComposition(ctx:CanvasRenderingContext2D){compositors.get(lightContext(ctx,'day'))?.clear();compositors.get(lightContext(ctx,'night'))?.clear();}
 export const preparedSceneStats=()=>scenePreparer.stats();
 let groundBitmap:{key:string;tiles:object|undefined;terrain:object|undefined;canvas:OffscreenCanvas}|undefined;
 export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldView){
@@ -176,19 +187,14 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  }
  for(const {coord,cell} of edits)if(!cachedGround&&cell.building==='park'&&scale>=4)drawTree(ctx,projectSurface(view,coord),scale,(coord.x^coord.y)>>>0);
  ctx=mainContext;
- if(groundCanvas){sceneRasterCache.set('geographic-ground',{canvas:groundCanvas},viewport.width*viewport.height*4);groundBitmap={key:groundKey,tiles:view.geography?.tiles,terrain:view.terrain?.tiles,canvas:groundCanvas};}
- const drawGround=()=>{if(groundCanvas||cachedGround)ctx.drawImage(groundBitmap!.canvas,0,0);
- for(const {feature,shift} of features){const layer=feature.layer;
-  if((layer==='water_polygons'||layer==='ocean')&&scale>=7){ctx.save();path(ctx,feature.geometry.map(r=>projectRing(view,r,shift,feature)));ctx.clip('evenodd');ctx.strokeStyle=view.light==='night'?'rgba(190,217,224,.14)':'rgba(225,239,225,.22)';ctx.lineWidth=1;for(let i=0;i<28;i++){const x=(i*137+Math.sin(view.motion*.2+i)*10)%viewport.width,y=(i*83+29)%viewport.height;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+10+i%4*4,y);ctx.stroke();}ctx.restore();}
-  else if((layer==='water_polygons'||layer==='ocean')&&scale>=4){
-   // Too far for the reflection streaks to read, but not so far that the bay should stand still: three glints drift
-   // with the same clock, clipped to the polygon the map gave, so the water moves at every zoom at which it is seen.
-   ctx.save();path(ctx,feature.geometry.map(r=>projectRing(view,r,shift,feature)));ctx.clip('evenodd');
-   ctx.strokeStyle=view.light==='night'?'rgba(150,186,199,.14)':'rgba(224,240,232,.3)';ctx.lineWidth=Math.max(1,scale*.3);
-   const drift=Math.sin(view.motion*.25)*scale*3;
-   for(let i=0;i<3;i++){const y=(0.22+i*0.27)*viewport.height+drift*(1+i*.2);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(viewport.width*.45,y);ctx.stroke();}
-   ctx.restore();
-  }
+ const retainedGround=groundCanvas?sceneRasterCache.set('geographic-ground',{canvas:groundCanvas},viewport.width*viewport.height*4):false;
+ if(groundCanvas)groundBitmap=retainedGround?{key:groundKey,tiles:view.geography?.tiles,terrain:view.terrain?.tiles,canvas:groundCanvas}:undefined;
+ const waterPhase=Math.floor(view.motion*(view.quality?.waterHz??5)),waterMotion=waterPhase/(view.quality?.waterHz??5);
+ const glints=waterGlints(viewport,scale,waterMotion),hasWater=features.some(({feature})=>feature.layer==='water_polygons'||feature.layer==='ocean');
+ const drawGround=()=>{if(groundCanvas||cachedGround)ctx.drawImage(groundCanvas??groundBitmap!.canvas,0,0);
+ for(const {feature,shift} of features)if((feature.layer==='water_polygons'||feature.layer==='ocean')&&glints.length){
+  ctx.save();path(ctx,feature.geometry.map(r=>projectRing(view,r,shift,feature)));ctx.clip('evenodd');ctx.strokeStyle=view.light==='night'?scale>=7?'rgba(190,217,224,.14)':'rgba(150,186,199,.14)':scale>=7?'rgba(225,239,225,.22)':'rgba(224,240,232,.3)';
+  for(const glint of glints){ctx.lineWidth=glint.lineWidth;ctx.beginPath();ctx.moveTo(glint.x,glint.y);ctx.lineTo(glint.endX,glint.y);ctx.stroke();}ctx.restore();
  }
  };
  const aviationCommands=aircraftDrawCommands(ctx,view);
@@ -217,10 +223,12 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  }
  if(view.hover&&camera.zoom>=.035){rectCell(ctx,view,view.hover,'rgba(255,244,191,.15)');ctx.strokeStyle='#f5e4a2';ctx.lineWidth=1;ctx.stroke();}
  };
- const dynamic=[...aviationCommands.aircraft.map(a=>a.grounded?a:{...a,depth:Infinity}),...aviationCommands.shadows,...vesselDrawCommands(ctx,view),...mobilityDrawCommands(ctx,view)];
+ const dynamic:SceneCommand[]=[...aviationCommands.aircraft.map(a=>a.grounded?a:{...a,layer:1}),...aviationCommands.shadows,...vesselDrawCommands(ctx,view),...mobilityDrawCommands(ctx,view)];
+ if(hasWater)for(const [i,glint] of glints.entries())dynamic.push({id:`water:${i}`,version:waterPhase,depth:-Infinity,bounds:glint.bounds,draw(){}});
  const overlayCells=[...view.preview,...(view.hover?[view.hover]:[])],points=overlayCells.map(p=>projectSurface(view,p)),margin=Math.max(12,scale*2);
- if(labels.length&&camera.zoom<.06)dynamic.push({depth:Infinity,bounds:{x:0,y:0,width:viewport.width,height:viewport.height},draw:drawOverlays});
- else if(points.length){const x=Math.min(...points.map(p=>p.x))-margin,y=Math.min(...points.map(p=>p.y))-margin*3;dynamic.push({depth:Infinity,bounds:{x,y,width:Math.max(...points.map(p=>p.x))+margin-x,height:Math.max(...points.map(p=>p.y))+margin-y},draw:drawOverlays});}
+ if(labels.length&&camera.zoom<.06)dynamic.push({layer:2,depth:Infinity,bounds:{x:0,y:0,width:viewport.width,height:viewport.height},draw:drawOverlays});
+ else if(points.length){const x=Math.min(...points.map(p=>p.x))-margin,y=Math.min(...points.map(p=>p.y))-margin*3;dynamic.push({layer:2,depth:Infinity,bounds:{x,y,width:Math.max(...points.map(p=>p.x))+margin-x,height:Math.max(...points.map(p=>p.y))+margin-y},draw:drawOverlays});}
  // Recorder and older browsers without raster surfaces use a complete deterministic replay.
  compositor.compose(ctx,typeof OffscreenCanvas==='undefined'?{}:prepared,viewport.width,viewport.height,drawGround,statics,dynamic);
+ if(groundCanvas&&!retainedGround){groundCanvas.width=0;groundCanvas.height=0;}
 }

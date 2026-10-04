@@ -30,7 +30,7 @@ export function drawGhost(ctx:CanvasRenderingContext2D,view:WorldView,footprint:
  path(ctx,rings,0,-height);ctx.fillStyle=affordable?'rgba(152,198,144,.75)':'rgba(210,140,130,.75)';ctx.fill('evenodd');
  ctx.strokeStyle=affordable?'#f5e4a2':'#f3b1a0';ctx.lineWidth=1.2;ctx.stroke();
 }
-type BuildingBitmap={cameraKey:string;tiles:object|undefined;width:number;height:number;key:string;canvas:OffscreenCanvas;x:number;y:number;bytes:number};
+type BuildingBitmap={cameraX:number;cameraY:number;cameraKey:string;tiles:object|undefined;width:number;height:number;key:string;canvas:OffscreenCanvas;x:number;y:number;bytes:number};
 const bitmapIds=new WeakMap<Footprint,string>();let nextBitmapId=0,bitmapHits=0,bitmapMisses=0;
 const bitmapId=(footprint:Footprint)=>{let id=bitmapIds.get(footprint);if(!id){id=`building:${++nextBitmapId}`;bitmapIds.set(footprint,id);}return id;};
 export const buildingCacheStats=()=>({...sceneRasterCache.stats(),hits:bitmapHits,misses:bitmapMisses});
@@ -41,8 +41,9 @@ export function buildingScreenBounds(view:WorldView,footprint:Footprint,shift:nu
 export function drawBuilding(ctx:CanvasRenderingContext2D,view:WorldView,footprint:Footprint,shift:number,kind?:Building,stage?:number,lift=0,powered=true,shadow=true,baseOverride?:number){
  const base=baseOverride??baseOf(view,footprint,shift);
  if(typeof OffscreenCanvas!=='undefined'){
-  const key=[view.light,kind,stage,lift,powered,shadow,base,shift].join(':'),cameraKey=[view.camera.x,view.camera.y,view.camera.zoom,view.camera.rotation].join(':'),known=sceneRasterCache.get(bitmapId(footprint)) as BuildingBitmap|undefined;
-  if(known?.cameraKey===cameraKey&&known.tiles===view.terrain?.tiles&&known.width===view.viewport.width&&known.height===view.viewport.height&&known.key===key){bitmapHits++;ctx.drawImage(known.canvas,known.x,known.y);return;}bitmapMisses++;
+  const key=[view.light,kind,stage,lift,powered,shadow,base,shift].join(':'),cameraKey=[view.camera.zoom,view.camera.rotation].join(':'),known=sceneRasterCache.get(bitmapId(footprint)) as BuildingBitmap|undefined;
+  const reusablePan=known&&(known.cameraX===view.camera.x&&known.cameraY===view.camera.y||known.x>=0&&known.y>=0&&known.x+known.canvas.width<=known.width&&known.y+known.canvas.height<=known.height);
+  if(reusablePan&&known?.cameraKey===cameraKey&&known.tiles===view.terrain?.tiles&&known.width===view.viewport.width&&known.height===view.viewport.height&&known.key===key){bitmapHits++;ctx.drawImage(known.canvas,known.x+view.camera.x-known.cameraX,known.y+view.camera.y-known.cameraY);return;}bitmapMisses++;
   const rings=footprint.rings.flatMap(r=>projectRing(view,r,shift,base)),floors=architectureOf(footprint,kind,stage,regionOf(geographicFocus(view.camera,view.viewport))).floors,height=heightOf(view,floors,base)+lift,margin=TILE_W*view.camera.zoom*.7+3;
   const x=Math.floor(Math.min(...rings.map(p=>p.x))-margin),y=Math.floor(Math.min(...rings.map(p=>p.y))-height-margin),width=Math.ceil(Math.max(...rings.map(p=>p.x))+height*.4+margin-x),heightPixels=Math.ceil(Math.max(...rings.map(p=>p.y))+height*.2+margin-y);
   if(x+width<0||y+heightPixels<0||x>view.viewport.width||y>view.viewport.height)return;
@@ -50,7 +51,7 @@ export function drawBuilding(ctx:CanvasRenderingContext2D,view:WorldView,footpri
    const canvas=new OffscreenCanvas(width,heightPixels),context=canvas.getContext('2d');
    if(context){
     context.translate(-x,-y);drawOccludedBuilding(lightContext(context as unknown as CanvasRenderingContext2D,view.light??'day'),view,footprint,shift,kind,stage,lift,powered,shadow,base);
-    const bytes=width*heightPixels*4;const entry:BuildingBitmap={cameraKey,tiles:view.terrain?.tiles,width:view.viewport.width,height:view.viewport.height,key,canvas,x,y,bytes};
+    const bytes=width*heightPixels*4;const entry:BuildingBitmap={cameraX:view.camera.x,cameraY:view.camera.y,cameraKey,tiles:view.terrain?.tiles,width:view.viewport.width,height:view.viewport.height,key,canvas,x,y,bytes};
     if(!sceneRasterCache.set(bitmapId(footprint),entry,bytes)){canvas.width=0;canvas.height=0;}else {ctx.drawImage(canvas,x,y);return;}
 
    }
