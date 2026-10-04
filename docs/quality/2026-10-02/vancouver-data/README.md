@@ -46,3 +46,9 @@ Capturas desta verificação: `mobility-traffic-reentry.png` (tráfego presente 
 A verificação móvel usa um documento real de 390×844 num iframe nativo, pois a API de viewport do navegador não alterou o tamanho efetivo; isso não verifica chrome de navegador móvel nem hardware de toque.
 
 Limites: até 480 agentes terrestres, 24 embarcações e 8 aeronaves; culling por viewport e limites menores no zoom distante; até 40.000 triângulos de terreno. Posições de barcos/aviões fora da tela não devem obrigar redesenho da cena estática. O orçamento real entra na economia apenas pela calibração explícita do jogador, com razão visível **0,01 unidades/CAD**.
+
+## Retomada após trabalho do DeepSeek — 3/10/2026
+
+Os commits `22964d8` e `959f859` foram preservados na branch `codex/vancouver-data-mobility`. Na retomada, `npm run check` foi executado novamente: **122 arquivos, 920 testes passando e 5 ignorados**, com 10 avisos de lint. `npm run build` também passou; permanece o aviso de chunk principal acima de 500 kB (744,94 kB, 227,89 kB gzip).
+
+A tabela de desempenho e os achados de revisão acima são o registro deixado pelo executor anterior. As amostras brutas da comparação refeita e os pareceres completos dos dois revisores não foram encontrados entre os artefatos preservados. Portanto, esses resultados não foram revalidados independentemente nesta retomada; `performance-baseline.json` continua sendo apenas histórico, conforme a ressalva acima. A aceitação de desempenho permanece com essa lacuna de rastreabilidade.
