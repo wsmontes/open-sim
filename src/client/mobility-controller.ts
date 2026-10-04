@@ -31,7 +31,7 @@ export function createMobilityController(options:number|{seed:number;now:()=>str
    network=buildGeographicNetwork([],`city:${++revision}`);engine.setNetwork(network);engine.setAgents([]);
    engine.setDemand({vehicles:0,pedestrians:0,truckShare:0,hour:12});changed();
   },
-  setScenario(instant:string){if(disposed||!Number.isFinite(Date.parse(instant)))return;scenario=new Date(instant).toISOString();changed();},
+  setScenario(instant:string,quiet=false){if(disposed||!Number.isFinite(Date.parse(instant)))return;const next=new Date(instant).toISOString();if(next===scenario)return;scenario=next;if(!quiet)changed();},
   // Calibration is unavailable until an observed count is matched and an explicit
   // sampling policy is installed. A requested unavailable mode stays estimated.
   setMode(_mode:MobilityMode){if(!disposed)changed();},

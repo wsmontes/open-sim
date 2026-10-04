@@ -94,8 +94,18 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   if(planetary(camera))return zoomTo(dragGlobe(camera,viewport(),origin,mid),viewport(),zoom);
   return {x:mid.x-(origin.x-camera.x)*ratio,y:mid.y-(origin.y-camera.y)*ratio,zoom,rotation:normalizeAngle(camera.rotation)};
  };
+ // Reading the canvas rectangle costs a layout flush whenever anything wrote to the DOM earlier in the same
+ // frame, and the HUD writes on every state change. The rectangle cannot change without a resize or a
+ // scroll, so it is read once and remembered — the backing size is compared for free, with no layout read.
+ let canvasRect:DOMRect|null=null,rectWidth=0,rectHeight=0;
+ const syncRect=()=>{canvasRect=canvas.getBoundingClientRect();rectWidth=canvas.width;rectHeight=canvas.height;};
+ const rectOf=()=>{
+  if(!canvasRect||rectWidth!==canvas.width||rectHeight!==canvas.height)syncRect();
+  return canvasRect!;
+ };
+ const forgetRect=()=>{canvasRect=null;};
  const pointInBuffer=(event:{clientX:number;clientY:number}):Point=>{
-  const rect=canvas.getBoundingClientRect();
+  const rect=rectOf();
   return {x:(event.clientX-rect.left)*(rect.width?canvas.width/rect.width:1),y:(event.clientY-rect.top)*(rect.height?canvas.height/rect.height:1)};
  };
  const capture=(event:PointerEvent)=>{
@@ -193,7 +203,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  const onContextMenu=(event:Event)=>event.preventDefault();
  const onWheel=(event:WheelEvent)=>{
   event.preventDefault();
-  const camera=context.camera(),point=pointInBuffer(event),rect=canvas.getBoundingClientRect();
+  const camera=context.camera(),point=pointInBuffer(event),rect=rectOf();
   const scaleX=rect.width?canvas.width/rect.width:1,scaleY=rect.height?canvas.height/rect.height:1;
   // A wheel event is three different gestures. A touchpad pinch arrives with ctrlKey set (the browser's convention)
   // and is continuous; a mouse notch is a large, line-sized step; a two-finger touchpad swipe is a stream of small
@@ -252,6 +262,10 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  window.addEventListener('pointercancel',onPointerCancel);
  window.addEventListener('keydown',onKeyDown);
  window.addEventListener('keyup',onKeyUp);
+ // A scroll moves the canvas under the pointer without touching its backing size.
+ window.addEventListener('resize',forgetRect);
+ window.visualViewport?.addEventListener('resize',forgetRect);
+ window.addEventListener('scroll',forgetRect,{passive:true,capture:true});
  return ()=>{
   canvas.removeEventListener('pointerdown',onPointerDown);
   canvas.removeEventListener('pointermove',onPointerMove);
@@ -262,5 +276,8 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   window.removeEventListener('pointercancel',onPointerCancel);
   window.removeEventListener('keydown',onKeyDown);
   window.removeEventListener('keyup',onKeyUp);
+  window.removeEventListener('resize',forgetRect);
+  window.visualViewport?.removeEventListener('resize',forgetRect);
+  window.removeEventListener('scroll',forgetRect,{capture:true});
  };
 }

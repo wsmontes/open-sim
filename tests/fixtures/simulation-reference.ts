@@ -1,8 +1,15 @@
-import {calibrationOf,calibratedMonthlyExpense} from './municipal-calibration';
-import type {Cell,CellCoord,CityStats,Demand,GameState,ManagedChunk,MonthlyLedger,RoadClass,Tool} from './model';
-import {ROAD_CLASS,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN,roadClassOf} from './model';
-import {cellEconomy,getCell,occupied} from './world';
-import {CHUNK,WORLD,coordAt,wrapX} from './coordinates';
+// Independent reference: simulation and commands before memoization, from051f550 (rules5 including municipal calibration).
+import {validCalibration} from '../../src/core/municipal-calibration';
+import type {Action,BaseChunk,Command,CommandResult} from '../../src/core/model';
+import {BORROW_MAX,COST,FORMAT_VERSION,RULES_VERSION,isRoadTool} from '../../src/core/model';
+import {adopt,placement} from '../../src/core/world';
+import {assertJsonSafe,cloneJson,isComponentKey,isEntityId} from '../../src/core/protocol';
+import {cellIndex,chunkId,validCell} from '../../src/core/coordinates';
+import {calibrationOf,calibratedMonthlyExpense} from '../../src/core/municipal-calibration';
+import type {Cell,CellCoord,CityStats,Demand,GameState,ManagedChunk,MonthlyLedger,RoadClass,Tool} from '../../src/core/model';
+import {ROAD_CLASS,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN,roadClassOf} from '../../src/core/model';
+import {cellEconomy,effectiveCells,getCell,occupied} from '../../src/core/world';
+import {CHUNK,WORLD,coordAt,wrapX} from '../../src/core/coordinates';
 
 // --- the shape of the city's economy ---------------------------------------------------------------------------
 // Three demands the player can move, one tax rate, land value that follows what was built and where, a monthly
@@ -11,7 +18,7 @@ import {CHUNK,WORLD,coordAt,wrapX} from './coordinates';
 // from real municipal finance for the magnitudes: property tax as the main local revenue, debt priced by how deep the
 // city is in it. Everything here is a pure function of the world state, in a fixed order, with no clock and no
 // randomness beyond the deterministic `variant` — a session's two clients must agree.
-export {TAX_DEFAULT,TAX_MIN,TAX_MAX,TAX_DEFAULT as TAX, SERVICES_DEFAULT,SERVICES_MIN,SERVICES_MAX} from './model';
+export {TAX_DEFAULT,TAX_MIN,TAX_MAX,TAX_DEFAULT as TAX, SERVICES_DEFAULT,SERVICES_MIN,SERVICES_MAX} from '../../src/core/model';
 // The city profile keeps its own numbers under one namespace, exactly like `chunks` keeps the map: a client that does
 // not implement this profile leaves them alone, and a save carries them without the core knowing what they mean.
 const ECONOMY='city.economy';
@@ -61,116 +68,15 @@ function readerOf(s:GameState):Reader {
   return chunk.edits[i]??chunk.base.cells[i];
  };
 }
-// --- per-chunk derived memo -----------------------------------------------------------------------------------
-// A chunk's derived value is local. Every scan below looks at most 8 cells out, and a chunk is 32 wide, so the 17×17
-// window a lot samples never leaves the 3×3 block of chunks around its own: editing one chunk can only change the
-// derived values of the chunks within distance 1, and the dirty radius is bounded by the sampling radius. The state is
-// immutable by spread — an edit replaces the chunk — so a chunk object's identity is a valid content key. The memo
-// lives at module level, so it outlives the state object rebuilt every tick, and its key carries the chunk id and the
-// identities of all nine chunks, so two worlds at the same coordinates never share an entry.
-type Derived={
- key:string;
- // what one pass over the city adds from this chunk: the aggregate and the summary read the same cells.
- population:number;jobs:number;housing:number;roadCells:number;
- summaryJobs:number;energySupply:number;energyUsed:number;income:number;happySum:number;
- hasConducts:boolean;powerCount:number;
- // the centre-independent land base per lot (cell index -> value) and the lots that produce one.
- bonus:Int16Array;happy:Uint8Array;lots:Int32Array;occupied:Int32Array;
- // the distance-bound sum, recomputed only when the middle of the city moves.
- landCentre:string;landSum:number;
-};
-// `effectiveCells` allocates a fresh 1,024-cell array on every call and the chunk is immutable, so one is enough.
-const cellArrays=new WeakMap<ManagedChunk,Cell[]>();
-const cellsOf=(chunk:ManagedChunk):Cell[]=>{const known=cellArrays.get(chunk);if(known)return known;const cells=chunk.base.cells.map((c,i)=>chunk.edits[i]??c);cellArrays.set(chunk,cells);return cells;};
-// A monotonic stamp per chunk object: two distinct chunks never share one and a missing neighbour is always 0, so the
-// memo key below cannot collide across worlds or across coordinates.
-const stamps=new WeakMap<object,number>();
-let nextStamp=1;
-const stampOf=(value:object|undefined):number=>{if(!value)return 0;const known=stamps.get(value);if(known!==undefined)return known;const stamp=nextStamp;nextStamp+=1;stamps.set(value,stamp);return stamp;};
-const CHUNK_COLUMNS=WORLD/CHUNK;
-// The key is the chunk's own id plus the identity of its 3×3 neighbourhood (wrapping east–west, clamped north–south, as
-// the reader resolves them). Any edit to any of the nine replaces its chunk object, so the key changes exactly when
-// one of the values derived from this chunk could.
-function chunkKey(chunks:Record<string,ManagedChunk>,id:string):string {
- const colon=id.indexOf(':'),rx=Number(id.slice(0,colon)),ry=Number(id.slice(colon+1));
- let key=id;
- for(let dy=-1;dy<=1;dy+=1)for(let dx=-1;dx<=1;dx+=1){
-  const ny=ry+dy,col=(((rx+dx)%CHUNK_COLUMNS)+CHUNK_COLUMNS)%CHUNK_COLUMNS;
-  key+=`|${ny<0||ny>=CHUNK_COLUMNS?0:stampOf(chunks[`${col}:${ny}`])}`;
- }
- return key;
-}
-const chunkMemo=new Map<string,Derived>();
-let derivedRecomputations=0,landRecomputations=0,gridRecomputations=0;
-let gridCacheKey:string|undefined,gridCacheValue:Set<number>|undefined;
-// Read-only, for the tests and the bench that have to prove the memo is doing work rather than merely agreeing.
-export const memoStats={
- get derivedRecomputations(){return derivedRecomputations;},
- get landRecomputations(){return landRecomputations;},
- get gridRecomputations(){return gridRecomputations;},
-};
-export function resetSimulationMemo():void{
- chunkMemo.clear();
- gridCacheKey=undefined;gridCacheValue=undefined;
- derivedRecomputations=0;landRecomputations=0;gridRecomputations=0;
-}
-function derivedFor(s:GameState,id:string,read:Reader):Derived {
- const chunk=s.chunks[id]!;
- const key=chunkKey(s.chunks,id);
- const cached=chunkMemo.get(id);
- if(cached&&cached.key===key)return cached;
- derivedRecomputations+=1;
- const cells=cellsOf(chunk);
- const bonus=new Int16Array(CHUNK*CHUNK),happy=new Uint8Array(CHUNK*CHUNK);
- const lots:number[]=[],occupiedList:number[]=[];
- let population=0,jobs=0,housing=0,roadCells=0,summaryJobs=0,energyUsed=0,happySum=0,powerCount=0,hasConducts=false;
- let income=chunk.balanceAdjustment;
- for(let i=0;i<cells.length;i+=1){
-  const cell=cells[i]!;
-  if(cell.road||cell.building)hasConducts=true;
-  if(cell.road)roadCells+=1;
-  income+=cellEconomy(cell);
-  if(cell.building==='power')powerCount+=1;
-  const building=cell.building;
-  if(building!=='residential'&&building!=='commercial'&&building!=='industrial')continue;
-  if(cell.stage===undefined)continue;
-  const p=coordAt(id,i);
-  bonus[i]=landBaseWith(read,p);
-  if(building==='residential')happy[i]=happinessWith(read,p);
-  lots.push(i);
-  if(!occupied(cell))continue;
-  occupiedList.push(i);energyUsed+=2;
-  if(building==='residential'){population+=4*(cell.stage??0);housing+=4;happySum+=happy[i]!*4;}
-  else if(building==='commercial'){jobs+=6*(cell.stage??0);summaryJobs+=6;}
-  else{jobs+=10*(cell.stage??0);summaryJobs+=10;}
- }
- const derived:Derived={key,population,jobs,housing,roadCells,summaryJobs,energySupply:chunk.baseEnergy+powerCount*64,energyUsed,income,happySum,hasConducts,powerCount,bonus,happy,lots:Int32Array.from(lots),occupied:Int32Array.from(occupiedList),landCentre:'',landSum:0};
- chunkMemo.set(id,derived);
- return derived;
-}
-// The distance from the middle of the city is the one thing a lot reads that is not local, so the sum is cached against
-// the centre it was taken for: a growing city that does not move its middle pays nothing.
-function landSumFor(id:string,d:Derived,centre:CellCoord):number {
- const centreKey=`${centre.x}:${centre.y}`;
- if(d.landCentre===centreKey)return d.landSum;
- landRecomputations+=1;
- let sum=0;
- for(const i of d.occupied){const p=coordAt(id,i);sum+=landValueFrom(d.bonus[i]!,centre,p);}
- d.landCentre=centreKey;d.landSum=sum;
- return sum;
-}
 // Everything a pass over the city needs that does not change during the pass. The centre and the aggregate used to be
 // recomputed per lot — the centre walks up to 4,096 buildings, so every land value made the whole city quadratic.
 type Context={read:Reader;centre:CellCoord;aggregate:Aggregate};
 function contextOf(s:GameState):Context {
- const read=readerOf(s),centre=cityCentre(s,read);
+ const read=readerOf(s),centre=cityCentre(s);
  return {read,centre,aggregate:aggregate(s,read,centre)};
 }
 export function landValueAt(s:GameState,p:CellCoord):number {return landValueWith(readerOf(s),cityCentre(s),p);}
-// The part of a lot's value that comes from its neighbourhood, with the distance from the middle left for the caller:
-// the 17×17 window never leaves the 3×3 block of chunks around the lot, so this number is local to a chunk and can be
-// memoised, while the distance term is the only thing that reads the whole city.
-function landBaseWith(read:Reader,p:CellCoord):number {
+function landValueWith(read:Reader,centre:CellCoord,p:CellCoord):number {
  let parks=0,commerce=0,industry=0,avenues=0,highways=0;
  for(let dy=-8;dy<=8;dy++)for(let dx=-8;dx<=8;dx++){
   const reach=Math.abs(dx)+Math.abs(dy);
@@ -188,21 +94,19 @@ function landBaseWith(read:Reader,p:CellCoord):number {
    else if(kind==='highway'&&reach<=3)highways+=1;
   }
  }
- return 40+Math.min(60,parks*6)+Math.min(30,commerce*2)-Math.min(70,industry*7)+Math.min(18,avenues*6)-Math.min(36,highways*9);
-}
-function landValueFrom(base:number,centre:CellCoord,p:CellCoord):number {
  const distance=Math.abs(p.x-centre.x)+Math.abs(p.y-centre.y);
- return clamp(whole(base-Math.min(30,distance/256)),LAND_MIN,LAND_MAX);
+ const raw=40+Math.min(60,parks*6)+Math.min(30,commerce*2)-Math.min(70,industry*7)-Math.min(30,distance/256)+Math.min(18,avenues*6)-Math.min(36,highways*9);
+ return clamp(whole(raw),LAND_MIN,LAND_MAX);
 }
-function landValueWith(read:Reader,centre:CellCoord,p:CellCoord):number {return landValueFrom(landBaseWith(read,p),centre,p);}
 // The middle of what was built, recomputed from the buildings themselves: a city that grows south moves its own
 // centre, and nothing has to be stored to remember where it was.
-function cityCentre(s:GameState,read:Reader=readerOf(s)):CellCoord {
+function cityCentre(s:GameState):CellCoord {
  let sumX=0,sumY=0,count=0;
  for(const id of Object.keys(s.chunks).sort()){
-  // The occupied cells of a chunk, in index order, are exactly the ones the old scan tested; taking them from the
-  // memo keeps the walk under 4,096 steps instead of allocating and testing 1,024 cells per chunk.
-  for(const i of derivedFor(s,id,read).occupied){
+  const cells=effectiveCells(s.chunks[id]!);
+  for(let i=0;i<cells.length;i+=1){
+   const cell=cells[i]!;
+   if(!occupied(cell))continue;
    const p=coordAt(id,i);
    sumX+=p.x;sumY+=p.y;count+=1;
    if(count>=4096)return {x:whole(sumX/count),y:whole(sumY/count)};
@@ -222,19 +126,27 @@ export function taxEffect(taxPercent:number):number {
  return taxPercent<=TAX_DEFAULT?(TAX_DEFAULT-taxPercent)*22:-(taxPercent-TAX_DEFAULT)*70;
 }
 export type Aggregate={population:number;jobs:number;workers:number;housing:number;landValueAverage:number;serviceLevel:number;roadCells:number;parkCells:number;powerCells:number};
-function aggregate(s:GameState,read:Reader=readerOf(s),centre:CellCoord=cityCentre(s,read)):Aggregate {
- let population=0,jobs=0,housing=0,landSum=0,landCount=0,roadCells=0;
+function aggregate(s:GameState,read:Reader=readerOf(s),centre:CellCoord=cityCentre(s)):Aggregate {
+ let population=0,jobs=0,housing=0,landSum=0,landCount=0,roadCells=0,parkCells=0,powerCells=0;
  for(const id of Object.keys(s.chunks).sort()){
-  const derived=derivedFor(s,id,read);
-  population+=derived.population;jobs+=derived.jobs;housing+=derived.housing;roadCells+=derived.roadCells;
-  landSum+=landSumFor(id,derived,centre);landCount+=derived.occupied.length;
+  const chunk=s.chunks[id]!;
+  const cells=effectiveCells(chunk);
+  for(let i=0;i<cells.length;i+=1){
+   const cell=cells[i]!;
+   if(cell.road)roadCells+=1;
+   if(!occupied(cell))continue;
+   const p=coordAt(id,i);
+   landSum+=landValueWith(read,centre,p);landCount+=1;
+   if(cell.building==='residential'){const residents=4*(cell.stage??0);population+=residents;housing+=4;continue;}
+   if(cell.building==='commercial'){jobs+=6*(cell.stage??0);continue;}
+   if(cell.building==='industrial'){jobs+=10*(cell.stage??0);continue;}
+   if(cell.building==='park'){parkCells+=1;continue;}
+   if(cell.building==='power'){powerCells+=1;continue;}
+  }
  }
- // `parkCells` and `powerCells` are unreachable in the released rule: the `occupied` guard rejects parks and plants
- // before their branches run, so the tally has always been zero. The memo mirrors that result instead of reinterpreting
- // it, which is what keeps the monthly upkeep and every other number unchanged.
  // Services are read from the city's own policy: the level the player pays for is the level the city gets, and
  // hardcoding the default here was quietly making the whole slider cost money without changing anything.
- return {population,jobs,workers:whole(population*WORKERS_SHARE),housing,landValueAverage:landCount?whole(landSum/landCount):0,serviceLevel:serviceLevelOf(policyOf(s).services),roadCells,parkCells:0,powerCells:0};
+ return {population,jobs,workers:whole(population*WORKERS_SHARE),housing,landValueAverage:landCount?whole(landSum/landCount):0,serviceLevel:serviceLevelOf(policyOf(s).services),roadCells,parkCells,powerCells};
 }
 // Cities: Skylines' budget curve: below 100% the level falls with the square of what was spent, above it the extra
 // money buys less and less. The number is a multiplier around 1, which is what the rest of the model wants.
@@ -365,16 +277,21 @@ function happinessWith(read:Reader,p:CellCoord):number {
  }
  return Math.min(100,Math.max(0,60+Math.min(20,parks*5)-(industry?10:0)));
 }
-export function summarize(s:GameState):CityStats {return summarizeWith(s,contextOf(s));}
+export function referenceSummarize(s:GameState):CityStats {return summarizeWith(s,contextOf(s));}
 function summarizeWith(s:GameState,ctx:Context):CityStats {
  const stats:CityStats={money:s.money,population:0,jobs:0,energySupply:0,energyUsed:0,happiness:60,income:0,managed:Object.keys(s.chunks).length,economy:economyWith(s,ctx.aggregate)};
  let happy=0;
  for(const id of Object.keys(s.chunks).sort()){
-  // Every per-cell contribution of this pass is local to the chunk, so it comes back from the memo instead of walking
-  // the 1,024 cells and the 145-cell happiness window around each home.
-  const derived=derivedFor(s,id,ctx.read);
-  stats.energySupply+=derived.energySupply;stats.income+=derived.income;stats.energyUsed+=derived.energyUsed;
-  stats.population+=derived.housing;stats.jobs+=derived.summaryJobs;happy+=derived.happySum;
+  const ch=s.chunks[id];stats.energySupply+=ch.baseEnergy;stats.income+=ch.balanceAdjustment;
+  effectiveCells(ch).forEach((c,i)=>{
+   stats.income+=cellEconomy(c);
+   if(c.building==='power')stats.energySupply+=64;
+   if(!occupied(c))return;
+   stats.energyUsed+=2;
+   if(c.building==='residential'){stats.population+=4;happy+=happinessWith(ctx.read,coordAt(id,i))*4;}
+   if(c.building==='commercial')stats.jobs+=6;
+   if(c.building==='industrial')stats.jobs+=10;
+  });
  }
  if(stats.population)stats.happiness=Math.round(happy/stats.population);
  // A materialized person left the aggregate they were counted in, and counting both would make a city of 64 people
@@ -406,38 +323,29 @@ function materializedPeople(state:GameState):number {
 // part of the grid, so the answer is the same on every client and independent of what the camera has loaded.
 const conducts=(c:Cell|undefined):boolean=>!!c&&(!!c.road||!!c.building);
 const gridKey=(x:number,y:number)=>y*WORLD+x;
-// The grid is global, but it only changes when the built content of the city does: the identity of the chunks that
-// hold a road or a building *is* that content. Keying the one cached answer on those identities means a tick of a city
-// nobody edited reuses the whole BFS instead of walking the map again; any edit to a conducting chunk replaces it and
-// the key moves. Comparing a handful of chunk identities costs nothing next to a 1,024-cell scan per chunk.
+const gridCache=new WeakMap<GameState,Set<number>>();
 export function poweredCells(s:GameState):ReadonlySet<number> {
- const read=readerOf(s);
- let key='';
+ const cached=gridCache.get(s);
+ if(cached)return cached;
+ const read=readerOf(s),powered=new Set<number>(),queue:number[]=[];
  for(const id of Object.keys(s.chunks).sort()){
-  const derived=derivedFor(s,id,read);
-  if(derived.hasConducts)key+=`${id}:${stampOf(s.chunks[id]!)};`;
- }
- if(gridCacheValue&&gridCacheKey===key)return gridCacheValue;
- gridRecomputations+=1;
- const powered=new Set<number>(),queue:number[]=[];
- for(const id of Object.keys(s.chunks).sort()){
-  const cells=cellsOf(s.chunks[id]!);
+  const cells=effectiveCells(s.chunks[id]!);
   for(let i=0;i<cells.length;i+=1){
    if(cells[i]!.building!=='power')continue;
-   const p=coordAt(id,i),cellKey=gridKey(p.x,p.y);
-   if(!powered.has(cellKey)){powered.add(cellKey);queue.push(p.x,p.y);}
+   const p=coordAt(id,i),key=gridKey(p.x,p.y);
+   if(!powered.has(key)){powered.add(key);queue.push(p.x,p.y);}
   }
  }
  for(let head=0;head<queue.length;head+=2){
   const x=queue[head]!,y=queue[head+1]!;
   for(const [dx,dy] of NEIGHBOURS){
    const ny=y+dy;if(ny<0||ny>=WORLD)continue;
-   const nx=wrapX(x+dx),cellKey=gridKey(nx,ny);
-   if(powered.has(cellKey)||!conducts(read(nx,ny)))continue;
-   powered.add(cellKey);queue.push(nx,ny);
+   const nx=wrapX(x+dx),key=gridKey(nx,ny);
+   if(powered.has(key)||!conducts(read(nx,ny)))continue;
+   powered.add(key);queue.push(nx,ny);
   }
  }
- gridCacheKey=key;gridCacheValue=powered;
+ gridCache.set(s,powered);
  return powered;
 }
 export const isPowered=(s:GameState,p:CellCoord):boolean=>poweredCells(s).has(gridKey(wrapX(p.x),p.y));
@@ -459,7 +367,7 @@ function stageFor(tool:Tool,cell:{stage?:number},land:number,serviceLevel:number
  const cap=clamp(wanted,1,MAX_STAGE);
  return Math.min(cap,current+1);
 }
-export function stepSimulation(state:GameState):GameState {
+export function referenceStepSimulation(state:GameState):GameState {
  const policy=policyOf(state);
  const ctx=contextOf(state);
  const aggregateNow=ctx.aggregate;
@@ -471,12 +379,10 @@ export function stepSimulation(state:GameState):GameState {
   const grid=poweredCells(state);
   const valveOf=(tool:Tool)=>tool==='residential'?policy.valves.residential:tool==='commercial'?policy.valves.commercial:tool==='industrial'?policy.valves.industrial:0;
   for(const id of Object.keys(state.chunks).sort()){
-   if(energy<2)break; // without two spare units no lot can grow, and nothing else in this pass can change that
-   const derived=derivedFor(state,id,ctx.read),cells=cellsOf(state.chunks[id]!);
-   // The memo already knows which cells are lots (a home, a shop or a factory with a stage), in index order, which is
-   // the set and the order the old full-cell scan visited.
-   for(const i of derived.lots){
-    const c=cells[i]!;
+   const chunk=state.chunks[id];
+   const candidates=effectiveCells(chunk);
+   for(let i=0;i<candidates.length;i++){
+    const c=candidates[i];if(!c.building||c.stage===undefined||c.building==='park'||c.building==='power'||energy<2)continue;
     const p=coordAt(id,i);
     // Access is what the road facing the lot can carry: a street stops the city at two floors, an avenue lets it rise,
     // and a highway frontage is somewhere nobody builds tall. No road at all means no access.
@@ -490,12 +396,12 @@ export function stepSimulation(state:GameState):GameState {
     if(!grid.has(gridKey(wrapX(p.x),p.y)))continue;
     // A zone grows when its own demand is positive and it can pay the upkeep of one more floor; residential also
     // needs somebody willing to live there, which is what its valve is measuring.
-    const valve=valveOf(c.building!);
+    const valve=valveOf(c.building);
     if(valve<=0&&(c.stage??0)>=1)continue;
-    if(c.building==='residential'&&(valve<=0||derived.happy[i]!<40))continue;
-    const land=landValueFrom(derived.bonus[i]!,ctx.centre,p);
+    if(c.building==='residential'&&(valve<=0||happinessWith(ctx.read,p)<40))continue;
+    const land=landValueWith(ctx.read,ctx.centre,p);
     if(land<45&&valve<20)continue;
-    const stage=stageFor(c.building!,c,land,aggregateNow.serviceLevel,valve,access);
+    const stage=stageFor(c.building,c,land,aggregateNow.serviceLevel,valve,access);
     if(stage===(c.stage??0))continue;
     const current=next.chunks[id];next.chunks[id]={...current,edits:{...current.edits,[i]:{...c,stage}}};
     // A lot that becomes occupied starts drawing its 2 units (summarize counts occupancy, not floors). Until rules 4
@@ -515,4 +421,70 @@ export function stepSimulation(state:GameState):GameState {
   next={...next,money:after>=0?whole(after):0};
  }
  return next;
+}
+
+export function referenceCreateGame(worldId:string,seed:number,initial:BaseChunk):GameState {
+ return {formatVersion:FORMAT_VERSION as 1,rulesVersion:RULES_VERSION as 5,worldId,seed,revision:0,tick:0,money:20000,chunks:{[initial.id]:adopt(initial)},actors:{},components:{}};
+}
+export function referenceApplyCommand(state:GameState,c:Command,available:readonly BaseChunk[]):CommandResult {
+ const reject=(reason:string):CommandResult=>({state,status:'rejected',reason});
+ if(c.version!==1||c.worldId!==state.worldId||!/^[-\w]{1,80}$/.test(c.actorId)||['__proto__','constructor','prototype'].includes(c.actorId)||!Number.isSafeInteger(c.sequence)||c.sequence<1) return reject('Comando inválido');
+ const last=state.actors[c.actorId]??0;
+ if(c.sequence<=last)return{state,status:'duplicate'};
+ if(c.sequence!==last+1||c.expectedRevision!==state.revision)return reject('A partida mudou. Tente novamente.');
+ const a:Action=c.action;
+ if(!a||!['build','demolish','tick','component','policy','municipal-calibration'].includes(a.type))return reject('Ação inválida');
+ let next:GameState={...state,chunks:{...state.chunks},actors:{...state.actors}};
+ if(a.type==='tick')return {status:'applied',state:{...referenceStepSimulation(state),revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
+ if(a.type==='component'){
+  if(!isComponentKey(a.key))return reject('Namespace inválido');
+  if(!isEntityId(a.entity))return reject('Identificador inválido');
+  try{assertJsonSafe(a.value,'Valor do componente');}catch(error){return reject((error as Error).message);}
+  const namespace={...next.components[a.key]};
+  if(a.value===null)delete namespace[a.entity];else namespace[a.entity]=cloneJson(a.value);
+  next={...next,components:{...next.components,[a.key]:namespace}};
+  return {status:'applied',state:{...next,revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
+ }
+ if(a.type==='municipal-calibration'){
+  if(a.calibration!==null&&!validCalibration(a.calibration))return reject('Calibração municipal inválida');
+  try{assertJsonSafe(a.calibration,'Calibração municipal');}catch{return reject('Calibração municipal inválida');}
+  const entry={...state.components['city.economy']};
+  if(a.calibration===null)delete entry.calibration;else entry.calibration=cloneJson(a.calibration);
+  return {status:'applied',state:{...next,components:{...state.components,'city.economy':entry},revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
+ }
+ if(a.type==='policy'){
+  const policy=policyOf(state);
+  const tax=a.tax===undefined?policy.tax:Math.round(a.tax);
+  const services=a.services===undefined?policy.services:Math.round(a.services);
+  const borrow=a.borrow===undefined?0:a.borrow;
+  if(!Number.isFinite(tax)||tax<TAX_MIN||tax>TAX_MAX)return reject('Imposto fora do intervalo');
+  if(!Number.isFinite(services)||services<SERVICES_MIN||services>SERVICES_MAX)return reject('Serviços fora do intervalo');
+  if(!Number.isFinite(borrow)||borrow<0||borrow>BORROW_MAX||Math.round(borrow)!==borrow)return reject('Empréstimo inválido');
+  if(tax===policy.tax&&services===policy.services&&borrow===0)return reject('Nada a mudar');
+  // A loan is money now against money later: the balance rises with the debt, and the month that follows charges the
+  // interest on it. Both are written in one step, so two clients replaying these commands agree on both.
+  const changed=withPolicy({...next,money:next.money+borrow},{...policy,tax,services,debt:policy.debt+borrow});
+  return {status:'applied',state:{...changed,revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
+ }
+ if(!Array.isArray(a.cells)||!a.cells.length||a.cells.length>1024||a.cells.some(p=>!p||!validCell(p)))return reject('Seleção inválida');
+ if(a.type==='build'&&!Object.hasOwn(COST,a.tool))return reject('Ferramenta inválida');
+ const unique=[...new Map(a.cells.map(p=>[`${p.x}:${p.y}`,p])).values()];
+ let cost=0;
+ for(const p of unique){
+  const id=chunkId(p); if(!next.chunks[id]){const base=available.find(b=>b.id===id);if(!base)return reject('Espere o mapa carregar');next.chunks[id]=adopt(base);}
+  const old=getCell(next,p)!;const chunk=next.chunks[id];
+  if(a.type==='build'){
+   if(old.terrain==='water')return reject('Não é possível construir na água');
+   if(isRoadTool(a.tool)&&old.road)continue;
+   if(old.building||old.road)return reject('Demolir primeiro para liberar o terreno');
+   cost+=COST[a.tool];
+   next.chunks[id]={...chunk,edits:{...chunk.edits,[cellIndex(p)]:placement(a.tool,old.terrain)}};
+  }else{
+   if(!old.building&&!old.road)continue;
+   cost+=COST.demolish;next.chunks[id]={...chunk,edits:{...chunk.edits,[cellIndex(p)]:{terrain:old.terrain}}};
+  }
+ }
+ if(cost>state.money)return reject('Dinheiro insuficiente');
+ next={...next,money:state.money-cost,revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}};
+ return {state:next,status:'applied'};
 }

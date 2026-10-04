@@ -7,13 +7,41 @@ import {isPlainObject,RESERVED_KEYS as RESERVED} from './guards';
 export const PROTOCOL_VERSION = 1;
 // Object keys sorted, no whitespace, trailing newline: the same text for the same value in any runtime. This is the
 // serialization the portable contract is defined on, so it lives here and the save format builds on it.
+//
+// The walk reuses deeply frozen JSON data subtrees by identity. Mutable values and accessors are read afresh,
+// preserving the public serializer's ownership and content contract. Reused text keeps the same sorted bytes.
+// `setMemoEnabled(false)` restores the cache-free walk; tests and tools compare its bytes with the cached path.
+let memoOn = true;
+export const setMemoEnabled = (on: boolean): void => {memoOn = on;};
+// Only deeply frozen JSON is identity-cached. Mutable values retain fresh serialization and validation without changing caller ownership.
+const immutableJson=new WeakSet<object>();
+function isImmutableJson(value:object):boolean{
+ const visiting=new WeakSet<object>();let nodes=0;
+ const check=(container:object,depth:number):boolean=>{
+  if(++nodes>8192||depth>16)return false;if(immutableJson.has(container))return true;
+  if(visiting.has(container)||!Object.isFrozen(container)||Array.isArray(container)&&container.length>8192)return false;
+  visiting.add(container);
+  for(const key of Object.keys(container)){if(++nodes>8192)return false;const descriptor=Object.getOwnPropertyDescriptor(container,key);if(!descriptor||!('value' in descriptor))return false;const child=descriptor.value;if(child!==null&&typeof child==='object'&&!check(child,depth+1))return false;}
+  visiting.delete(container);immutableJson.add(container);return true;
+ };
+ return check(value,0);
+}
+const canonicalCache = new WeakMap<object,string>();
+function memoized(container: object, build: () => string): string {
+ if (!memoOn||!isImmutableJson(container)) return build();
+ const hit = canonicalCache.get(container);
+ if (hit !== undefined) return hit;
+ const text = build();
+ canonicalCache.set(container, text);
+ return text;
+}
 export function canonicalJson(value: unknown): string {return canonical(value) + '\n';}
 function canonical(value: unknown): string {
  if (value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') return JSON.stringify(value);
- if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+ if (Array.isArray(value)) return memoized(value, () => `[${value.map(canonical).join(',')}]`);
  if (typeof value === 'object') {
   const source = value as Record<string,unknown>;
-  return `{${Object.keys(source).filter(k=>source[k]!==undefined).sort().map(k=>`${JSON.stringify(k)}:${canonical(source[k])}`).join(',')}}`;
+  return memoized(source, () => `{${Object.keys(source).filter(k=>source[k]!==undefined).sort().map(k=>`${JSON.stringify(k)}:${canonical(source[k])}`).join(',')}}`);
  }
  throw new Error('Valor não serializável');
 }
@@ -30,29 +58,63 @@ export const isEntityId = (id: string) => ENTITY_ID.test(id) && !RESERVED.includ
 
 // Component payloads travel between clients that do not understand each other, so they may only carry plain JSON:
 // no undefined, no non-finite numbers, no functions, and a bounded size so a hostile save cannot wedge a client.
+// A valid subtree is remembered by identity together with its node count and relative depth, so a component quoted,
+// authorized and applied in the same turn is walked once. Reuse still accounts the subtree's nodes against the
+// 8192-node ceiling and its depth against the ceiling below, so a document composed of memoized pieces is bounded
+// exactly as if it had been walked whole. Only successes are cached; a rejected value is re-walked and keeps its
+// message. Like the serializer, this is licensed by the core never mutating a value in place.
+const shapeCache = new WeakMap<object,{nodes:number;depth:number}>();
 export function assertJsonSafe(value: unknown, label: string): void {
  checkShape(value, label, 0, {nodes: 0});
 }
-function checkShape(value: unknown, label: string, depth: number, counter: {nodes: number}): void {
+function checkShape(value: unknown, label: string, depth: number, counter: {nodes: number}): number {
+ if (value === null || typeof value === 'boolean' || typeof value === 'string') {
+  countNode(counter, depth, label);
+  return 0;
+ }
+ if (typeof value === 'number') {
+  countNode(counter, depth, label);
+  if (!Number.isFinite(value)) throw new Error(`${label} inválido`);
+  return 0;
+ }
+ if (typeof value !== 'object') {
+  countNode(counter, depth, label);
+  throw new Error(`${label} inválido`);
+ }
+ const container = value as object;
+ if (memoOn&&isImmutableJson(container)) {
+  const hit = shapeCache.get(container);
+  if (hit) {
+   counter.nodes += hit.nodes;
+   if (counter.nodes > MAX_NODES) throw new Error(`${label} é grande demais`);
+   if (depth + hit.depth > MAX_DEPTH) throw new Error(`${label} é profundo demais`);
+   return hit.depth;
+  }
+ }
+ const start = counter.nodes;
+ countNode(counter, depth, label);
+ let deepest = 0;
+ if (Array.isArray(value)) {
+  for (const item of value) {
+   const below = checkShape(item, label, depth + 1, counter);
+   if (below + 1 > deepest) deepest = below + 1;
+  }
+ } else {
+  const source = value as Record<string, unknown>, proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) throw new Error(`${label} inválido`);
+  for (const key of Object.keys(source)) {
+   if (RESERVED.includes(key)) throw new Error(`${label} inválido`);
+   const below = checkShape(source[key], label, depth + 1, counter);
+   if (below + 1 > deepest) deepest = below + 1;
+  }
+ }
+ if (memoOn&&isImmutableJson(container)) shapeCache.set(container, {nodes: counter.nodes - start, depth: deepest});
+ return deepest;
+}
+function countNode(counter: {nodes: number}, depth: number, label: string): void {
  counter.nodes += 1;
  if (counter.nodes > MAX_NODES) throw new Error(`${label} é grande demais`);
  if (depth > MAX_DEPTH) throw new Error(`${label} é profundo demais`);
- if (value === null || typeof value === 'boolean' || typeof value === 'string') return;
- if (typeof value === 'number') {
-  if (!Number.isFinite(value)) throw new Error(`${label} inválido`);
-  return;
- }
- if (Array.isArray(value)) {
-  for (const item of value) checkShape(item, label, depth + 1, counter);
-  return;
- }
- if (typeof value !== 'object') throw new Error(`${label} inválido`);
- const source = value as Record<string, unknown>, proto = Object.getPrototypeOf(value);
- if (proto !== Object.prototype && proto !== null) throw new Error(`${label} inválido`);
- for (const key of Object.keys(source)) {
-  if (RESERVED.includes(key)) throw new Error(`${label} inválido`);
-  checkShape(source[key], label, depth + 1, counter);
- }
 }
 export const cloneJson = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 

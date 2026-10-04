@@ -1,0 +1,1076 @@
+{
+  "before": {
+    "buildings": {
+      "bytes": 0,
+      "entries": 0,
+      "evictions": 0,
+      "hits": 0,
+      "misses": 0
+    },
+    "frames": {
+      "drawing": false,
+      "drawn": 9,
+      "fps": 0,
+      "frameMs": 15.788467369978266,
+      "frames": 40,
+      "p50": 0.2999999523162842,
+      "p95": 3.200000047683716
+    },
+    "mobility": {
+      "agents": 4,
+      "edges": 128339,
+      "kinds": {
+        "bus": 2,
+        "car": 0,
+        "pedestrian": 0,
+        "police": 2,
+        "school-bus": 0,
+        "truck": 0
+      },
+      "networkJob": {
+        "acceptedTiles": 12,
+        "active": 0,
+        "fallback": false,
+        "limited": true,
+        "pending": 0
+      },
+      "nodes": 53973
+    },
+    "motionMs": 0,
+    "renderMs": 0,
+    "renderer": {
+      "active": 0,
+      "available": true,
+      "backend": "webgl2",
+      "bytes": 50049924,
+      "displayBytes": 29491200,
+      "entries": 3416,
+      "pending": 0,
+      "staticReady": true,
+      "workMs": 15.200000047683716
+    },
+    "samples": [
+      {
+        "at": 186.362,
+        "intervalMs": 0,
+        "phases": {},
+        "presented": true,
+        "workMs": 0.39999985694885254
+      },
+      {
+        "at": 253.1,
+        "intervalMs": 66.738,
+        "phases": {
+          "hud": 0.7999999523162842,
+          "render": 0.09999990463256836,
+          "simulation": 1,
+          "snapshots": 0.3000001907348633,
+          "streams": 1
+        },
+        "presented": true,
+        "workMs": 3.200000047683716
+      },
+      {
+        "at": 269.8,
+        "intervalMs": 0,
+        "phases": {
+          "hud": 1.0999999046325684,
+          "render": 0.09999990463256836,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0.20000004768371585,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 1.6999998092651367
+      },
+      {
+        "at": 286.4,
+        "intervalMs": 0,
+        "phases": {
+          "hud": 0.8999998569488525,
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0.3000001907348633,
+          "streams": 0.09999990463256836
+        },
+        "presented": false,
+        "workMs": 1.5999999046325684
+      },
+      {
+        "at": 301.2,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0.10000014305114746,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.4000000953674317
+      },
+      {
+        "at": 319.6,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0.19999980926513672,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.39999985694885254
+      },
+      {
+        "at": 334.6,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 1.0999999046325684,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 1.2000000476837158
+      },
+      {
+        "at": 351.2,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 369.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.2999999523162842,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 386.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.6000001430511475
+      },
+      {
+        "at": 403.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 419.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.19999980926513672
+      },
+      {
+        "at": 436.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 453.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.19999980926513672
+      },
+      {
+        "at": 469.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 486.3,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 503.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 519.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 535.9,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.10000014305114746
+      },
+      {
+        "at": 553.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 568.6,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1768.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1836.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1853,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1869.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1886.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1903.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.19999980926513672
+      },
+      {
+        "at": 1919.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 2136.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0.09999990463256836,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 2153.066,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.39999985694885254,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.39999985694885254
+      },
+      {
+        "at": 2836.4,
+        "intervalMs": 2583.3,
+        "phases": {
+          "render": 390.39999985694885,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 390.5
+      },
+      {
+        "at": 3236.3,
+        "intervalMs": 399.9000000000001,
+        "phases": {
+          "render": 0.20000004768371585,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 3253,
+        "intervalMs": 16.699999999999818,
+        "phases": {
+          "render": 0.20000004768371585,
+          "simulation": 1.4000000953674316,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 1.6000001430511477
+      },
+      {
+        "at": 4403,
+        "intervalMs": 0,
+        "phases": {
+          "render": 1.3999998569488523,
+          "simulation": 0.10000014305114746,
+          "snapshots": 2,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 3.5
+      },
+      {
+        "at": 4417.8,
+        "intervalMs": 1164.8000000000002,
+        "phases": {
+          "render": 0.09999990463256836,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 4503.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 1.5,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0.20000004768371585,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 1.7999999523162842
+      },
+      {
+        "at": 4519.6,
+        "intervalMs": 101.80000000000018,
+        "phases": {
+          "render": 0.09999990463256836,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 35952.6,
+        "intervalMs": 0,
+        "phases": {
+          "render": 1.0999999046325684,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 1.0999999046325684
+      },
+      {
+        "at": 36469.3,
+        "intervalMs": 31949.700000000004,
+        "phases": {
+          "render": 0.10000014305114746,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0.09999990463256836
+        },
+        "presented": true,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 36519.3,
+        "intervalMs": 50,
+        "phases": {
+          "render": 0,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 0.20000004768371585
+      }
+    ],
+    "terrain": {
+      "available": true,
+      "limitedSurface": false,
+      "loading": false
+    }
+  },
+  "after": {
+    "buildings": {
+      "bytes": 0,
+      "entries": 0,
+      "evictions": 0,
+      "hits": 0,
+      "misses": 0
+    },
+    "frames": {
+      "drawing": false,
+      "drawn": 9,
+      "fps": 0,
+      "frameMs": 15.788467369978266,
+      "frames": 40,
+      "p50": 0.2999999523162842,
+      "p95": 3.200000047683716
+    },
+    "mobility": {
+      "agents": 4,
+      "edges": 128339,
+      "kinds": {
+        "bus": 2,
+        "car": 0,
+        "pedestrian": 0,
+        "police": 2,
+        "school-bus": 0,
+        "truck": 0
+      },
+      "networkJob": {
+        "acceptedTiles": 12,
+        "active": 0,
+        "fallback": false,
+        "limited": true,
+        "pending": 0
+      },
+      "nodes": 53973
+    },
+    "motionMs": 0,
+    "renderMs": 0,
+    "renderer": {
+      "active": 0,
+      "available": true,
+      "backend": "webgl2",
+      "bytes": 50049924,
+      "displayBytes": 29491200,
+      "entries": 3416,
+      "pending": 0,
+      "staticReady": true,
+      "workMs": 15.200000047683716
+    },
+    "samples": [
+      {
+        "at": 186.362,
+        "intervalMs": 0,
+        "phases": {},
+        "presented": true,
+        "workMs": 0.39999985694885254
+      },
+      {
+        "at": 253.1,
+        "intervalMs": 66.738,
+        "phases": {
+          "hud": 0.7999999523162842,
+          "render": 0.09999990463256836,
+          "simulation": 1,
+          "snapshots": 0.3000001907348633,
+          "streams": 1
+        },
+        "presented": true,
+        "workMs": 3.200000047683716
+      },
+      {
+        "at": 269.8,
+        "intervalMs": 0,
+        "phases": {
+          "hud": 1.0999999046325684,
+          "render": 0.09999990463256836,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0.20000004768371585,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 1.6999998092651367
+      },
+      {
+        "at": 286.4,
+        "intervalMs": 0,
+        "phases": {
+          "hud": 0.8999998569488525,
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0.3000001907348633,
+          "streams": 0.09999990463256836
+        },
+        "presented": false,
+        "workMs": 1.5999999046325684
+      },
+      {
+        "at": 301.2,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0.10000014305114746,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.4000000953674317
+      },
+      {
+        "at": 319.6,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0.19999980926513672,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.39999985694885254
+      },
+      {
+        "at": 334.6,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 1.0999999046325684,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 1.2000000476837158
+      },
+      {
+        "at": 351.2,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 369.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.2999999523162842,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 386.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.6000001430511475
+      },
+      {
+        "at": 403.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 419.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.19999980926513672
+      },
+      {
+        "at": 436.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 453.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.19999980926513672
+      },
+      {
+        "at": 469.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 486.3,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 503.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 519.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 535.9,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.10000014305114746
+      },
+      {
+        "at": 553.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 568.6,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1768.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1836.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1853,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1869.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1886.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 1903.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.19999980926513672
+      },
+      {
+        "at": 1919.7,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 2136.4,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0.09999990463256836,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 2153.066,
+        "intervalMs": 0,
+        "phases": {
+          "render": 0,
+          "simulation": 0.39999985694885254,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 0.39999985694885254
+      },
+      {
+        "at": 2836.4,
+        "intervalMs": 2583.3,
+        "phases": {
+          "render": 390.39999985694885,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 390.5
+      },
+      {
+        "at": 3236.3,
+        "intervalMs": 399.9000000000001,
+        "phases": {
+          "render": 0.20000004768371585,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 3253,
+        "intervalMs": 16.699999999999818,
+        "phases": {
+          "render": 0.20000004768371585,
+          "simulation": 1.4000000953674316,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 1.6000001430511477
+      },
+      {
+        "at": 4403,
+        "intervalMs": 0,
+        "phases": {
+          "render": 1.3999998569488523,
+          "simulation": 0.10000014305114746,
+          "snapshots": 2,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 3.5
+      },
+      {
+        "at": 4417.8,
+        "intervalMs": 1164.8000000000002,
+        "phases": {
+          "render": 0.09999990463256836,
+          "simulation": 0.10000014305114746,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 0.20000004768371585
+      },
+      {
+        "at": 4503.1,
+        "intervalMs": 0,
+        "phases": {
+          "render": 1.5,
+          "simulation": 0.09999990463256836,
+          "snapshots": 0.20000004768371585,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 1.7999999523162842
+      },
+      {
+        "at": 4519.6,
+        "intervalMs": 101.80000000000018,
+        "phases": {
+          "render": 0.09999990463256836,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 35952.6,
+        "intervalMs": 0,
+        "phases": {
+          "render": 1.0999999046325684,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": false,
+        "workMs": 1.0999999046325684
+      },
+      {
+        "at": 36469.3,
+        "intervalMs": 31949.700000000004,
+        "phases": {
+          "render": 0.10000014305114746,
+          "simulation": 0,
+          "snapshots": 0,
+          "streams": 0.09999990463256836
+        },
+        "presented": true,
+        "workMs": 0.2999999523162842
+      },
+      {
+        "at": 36519.3,
+        "intervalMs": 50,
+        "phases": {
+          "render": 0,
+          "simulation": 0.20000004768371585,
+          "snapshots": 0,
+          "streams": 0
+        },
+        "presented": true,
+        "workMs": 0.20000004768371585
+      }
+    ],
+    "terrain": {
+      "available": true,
+      "limitedSurface": false,
+      "loading": false
+    }
+  },
+  "additionalFrames": 0,
+  "additionalPresentations": 0
+}

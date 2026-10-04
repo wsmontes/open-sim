@@ -128,3 +128,7 @@ Implementações das tarefas1–7 concluídas, seguidas da extensão solicitada 
 A aceitação quantitativa extensa da tarefa8 permanece não verificada: a rodada final30execuções/20viagens e todas as provas móveis não foram realizadas nesta entrega. A observação nativa curta verifica execução, câmera pausada, filas ociosas e superfície acelerada, sem generalizar metas. Esta revisão de escopo segue a orientação do usuário de priorizar desenvolvimento.
 
 Publicação posteriormente autorizada pelo usuário: código051f550 enviado ao origin/codex/vancouver-data-mobility; build840c15f enviado ao origin/gh-pages por avanço normal, preservando histórico.
+
+## Continuação — 4/10/2026
+
+Integrar os6commits de desempenho do DeepSeek (d2f2776..c86acc1) sem regredir a arquitetura worker/GPU, relevo ou mobilidade. Portar consultas espaciais para a preparação persistente, incorporar cache de simulação/endereços de conteúdo e agrupamento do viewport móvel; resolver ownership do JSON mutável e limites de índices. Revisão independente concluída,3achados importantes corrigidos;1003testes passaram,5ignorados e build aprovado. Verificação nativa desktop/móvel e pausa documentada em docs/quality/2026-10-04/performance/README.md. Aceitação quantitativa extensa permanece pendente.

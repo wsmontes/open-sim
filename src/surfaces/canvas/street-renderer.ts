@@ -1,11 +1,41 @@
-import {projectSurface,visibleSurfacePoint} from './terrain-renderer';
+import {verticalPixelsPerMetre} from '../../presentation/terrain-projection';
+import {projectSurface,visibleSurfacePoint,terrainMetres} from './terrain-renderer';
 import type {WorldView} from './canvas-renderer';
-import {TILE_W,type Point} from '../../presentation/camera';
+import {cellSpace,TILE_W,type Point} from '../../presentation/camera';
 import {streetJunctions,streetAgents,plantingStep,plantingStations,roadsideTrees,type Segment,type PlantingBox,type StreetJunction} from '../../presentation/street-detail';
 import type {GeographicFeature,GeographicTile} from '../../presentation/geographic-map';
 import {nearestWorldX} from '../../presentation/geographic-map';
-import {assembledFootprints,pointInside} from '../../presentation/city-art';
+import {assembledFootprints} from '../../presentation/city-art';
+import {footprintIndex,pointInsideAny,junctionIndex,periodicBoxCandidates,type BoxIndex} from '../../presentation/spatial-index';
+import {WORLD} from '../../core/coordinates';
 const cache=new WeakMap<readonly GeographicTile[],StreetJunction[]>();
+// Candidate scratch for the planting veto: the index decides which footprints to test, and writes them
+// here. Module-level because a render pass is synchronous, and module-level scratch is this file's style.
+let TREE_CANDIDATES=new Int32Array(64);
+const JUNCTION_PICKS:number[]=[];
+let junctionScan=new Int32Array(4096);
+
+/**
+ * The junctions the viewport can show, as indices into `junctions`, in array order. The cell-space box
+ * of the screen expands by the loaded elevation range, so raised streets remain candidates, and the world repeats in x, so the box is asked for three times, one world apart.
+ */
+const elevationRanges=new WeakMap<object,{min:number;max:number}>();
+export function nearbyJunctions(view:WorldView,index:BoxIndex):number[]{
+ const {camera,viewport}=view;
+ let lower=0,upper=0;
+ const tiles=view.terrain?.tiles;if(tiles?.length){let range=elevationRanges.get(tiles);if(!range){let min=0,max=0;for(const tile of tiles)for(let i=0;i<tile.heightsM.length;i++)if(tile.valid[i]&&Number.isFinite(tile.heightsM[i])){min=Math.min(min,tile.heightsM[i]);max=Math.max(max,tile.heightsM[i]);}range={min,max};elevationRanges.set(tiles,range);}const pixels=verticalPixelsPerMetre(camera,terrainMetres(view));lower=range.min*pixels;upper=range.max*pixels;}
+ const c0=cellSpace({x:0,y:lower},camera),c1=cellSpace({x:viewport.width,y:lower},camera),c2=cellSpace({x:0,y:viewport.height+upper},camera),c3=cellSpace({x:viewport.width,y:viewport.height+upper},camera);
+ const minX=Math.min(c0.x,c1.x,c2.x,c3.x)-2,maxX=Math.max(c0.x,c1.x,c2.x,c3.x)+2,minY=Math.min(c0.y,c1.y,c2.y,c3.y)-2,maxY=Math.max(c0.y,c1.y,c2.y,c3.y)+2;
+ JUNCTION_PICKS.length=0;
+ let n=periodicBoxCandidates(index,minX,minY,maxX,maxY,WORLD,junctionScan);
+ while(n===junctionScan.length){
+  junctionScan=new Int32Array(junctionScan.length*2);
+  n=periodicBoxCandidates(index,minX,minY,maxX,maxY,WORLD,junctionScan);
+ }
+ const seen=new Set<number>();for(let i=0;i<n;i++){const at=junctionScan[i]!;if(!seen.has(at)){seen.add(at);JUNCTION_PICKS.push(at);}}
+ JUNCTION_PICKS.sort((a,b)=>a-b);
+ return JUNCTION_PICKS;
+}
 // Bounds of a mapped polygon, read once: the plaza and the square both need to know where the ground is before they
 // decide what to draw on it.
 const featureBounds=new WeakMap<GeographicFeature,{minX:number;minY:number;maxX:number;maxY:number}>();
@@ -72,10 +102,12 @@ export function drawPlanting(ctx:CanvasRenderingContext2D,view:WorldView,roads:r
  if(!segments.length)return;
  // Building footprints veto occupied lots: a tree stands on the verge, never inside a wall.
  const footprints=assembledFootprints(view.geography?.tiles??[]);
+ const index=footprintIndex(footprints);
+ if(TREE_CANDIDATES.length<footprints.length)TREE_CANDIDATES=new Int32Array(footprints.length);
  for(const tree of roadsideTrees(segments,box,plantingStep(scale),0x51ed,72)){
   const screen=projectSurface(view,worldPoint(tree));
   if(!inFrame(view,screen)||!visibleSurfacePoint(view,worldPoint(tree)))continue;
-  if(footprints.some(f=>tree.x>=f.minX&&tree.x<=f.maxX&&tree.y>=f.minY&&tree.y<=f.maxY&&pointInside(tree,f.rings)))continue;
+  if(pointInsideAny(footprints,index,tree,TREE_CANDIDATES))continue;
   if(view.light==='night'&&tree.seed%3===0)drawLamp(ctx,screen,scale);
   else drawTree(ctx,screen,scale*(.88+(tree.seed>>>24&7)/7*.35),tree.seed);
  }
@@ -101,7 +133,9 @@ export function drawStreetDetails(ctx:CanvasRenderingContext2D,view:WorldView,ro
  let junctions=cache.get(tiles);if(!junctions){junctions=streetJunctions(tiles.flatMap(t=>t.features),20000);cache.set(tiles,junctions);}
  const inView=(p:Point)=>p.x>0&&p.x<view.viewport.width&&p.y>65&&p.y<view.viewport.height-60;
  let count=0;
- for(const junction of junctions){
+ const picks=nearbyJunctions(view,junctionIndex(junctions));
+ for(const at of picks){
+  const junction=junctions[at]!;
   const shift=nearestWorldX(junction.point.x,centreX)-junction.point.x;
   if(!inView(projectSurface(view,worldPoint(junction.point,shift))))continue;
   if(count++>=140)break;
