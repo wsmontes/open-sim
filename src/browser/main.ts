@@ -475,17 +475,12 @@ const formatBytes = (bytes: number) => {
  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 // The preview and the cost are the client's; the browser only writes them where the player reads them.
-const updateHud = () => {
- // The device's own save report is the personal session's; the session view reads it, and a live session's own
- // durable confirmation is what then speaks for the branch (the client's view already follows that rule).
- sessions.setPersistence(session.getSaveStatus());
- const view = client.view();
+// What follows the camera: the scale bar, the bearing readout, the map mode and the layout classes. Kept
+// apart from `updateHud` on purpose — a drag changes the camera sixty times a second, and rebuilding the
+// whole HUD (the numbers, the facts, the cache stats, the session panel) is not what a camera move means.
+const updateMapHud = () => {
+ const view=client.view();
  const focus=geographicFocus(view.camera,view.viewport),scale=mapScale(view.camera,view.viewport);
- const nearby=Object.values(PLACES).find(p=>Math.hypot((p.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),p.lat-focus.lat)<.15);
- // A lookup belongs to its requested location. Moving elsewhere hides it until new facts arrive.
- const anchored=view.factsAt && Math.hypot((view.factsAt.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),view.factsAt.lat-focus.lat)<.01?view.facts:null;
- const visibleFacts=geography?(view.camera.zoom<GLOBE_ZOOM?null:anchored??nearby?.facts??null):view.facts;
- const where=geography?(view.camera.zoom<GLOBE_ZOOM?'Terra':visibleFacts?.label??`${focus.lat.toFixed(3)}°, ${focus.lon.toFixed(3)}°`):view.place;
  const scaleLabel=hudRoot.querySelector<HTMLElement>('#map-scale-label'),scaleBar=hudRoot.querySelector<HTMLElement>('#map-scale-bar'),mapMode=hudRoot.querySelector<HTMLElement>('#map-mode');
  if(scaleLabel)scaleLabel.textContent=scale.label;
  if(scaleBar)scaleBar.style.width=`${Math.round(scale.pixels/deviceScale())}px`;
@@ -493,6 +488,19 @@ const updateHud = () => {
  const coordinates=hudRoot.querySelector<HTMLElement>('#map-coordinates');if(coordinates)coordinates.textContent=`${Math.abs(focus.lat).toFixed(3)}° ${focus.lat>=0?'N':'S'} · ${Math.abs(focus.lon).toFixed(3)}° ${focus.lon>=0?'L':'O'}`;
  hudRoot.classList.toggle('world-view',view.camera.zoom<.035);
  hudRoot.classList.toggle('planet-view',view.camera.zoom<GLOBE_ZOOM);
+};
+const updateHud = () => {
+ // The device's own save report is the personal session's; the session view reads it, and a live session's own
+ // durable confirmation is what then speaks for the branch (the client's view already follows that rule).
+ sessions.setPersistence(session.getSaveStatus());
+ const view = client.view();
+ const focus=geographicFocus(view.camera,view.viewport);
+ const nearby=Object.values(PLACES).find(p=>Math.hypot((p.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),p.lat-focus.lat)<.15);
+ // A lookup belongs to its requested location. Moving elsewhere hides it until new facts arrive.
+ const anchored=view.factsAt && Math.hypot((view.factsAt.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),view.factsAt.lat-focus.lat)<.01?view.facts:null;
+ const visibleFacts=geography?(view.camera.zoom<GLOBE_ZOOM?null:anchored??nearby?.facts??null):view.facts;
+ const where=geography?(view.camera.zoom<GLOBE_ZOOM?'Terra':visibleFacts?.label??`${focus.lat.toFixed(3)}°, ${focus.lon.toFixed(3)}°`):view.place;
+ updateMapHud();
  const visual=geography?.scene();
  const mapMessage=geography?(visual?.error?'Parte do mapa não carregou. Tente novamente.':visual?.loading?'Carregando mapa…':''):view.map.message;
  if (costEl) costEl.textContent = view.preview.message;
@@ -630,6 +638,8 @@ let motion = 0;
 // The card the player opened describes one cell. The moment the city slides under it, it is answering about a place
 // that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
 let hudCameraStamp='';
+// False while a gesture is moving the camera, so the full HUD is rebuilt once when it stops.
+let hudSettled=true;
 let cardCamera: {x: number; y: number; zoom: number} | null = null;
 const draw = (now: number, seconds: number) => {
  // Nothing to draw until the city exists: a plain haze instead of a frame over a session that has not opened.
@@ -648,7 +658,12 @@ const draw = (now: number, seconds: number) => {
  geography?.update(camera,hand.viewport);
  if(geography){
   const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
-  if(stamp!==hudCameraStamp){hudCameraStamp=stamp;updateHud();}
+  if(stamp!==hudCameraStamp){
+   hudCameraStamp=stamp;
+   // A pan changes the camera every frame. The readouts that follow the camera update; the rest of the HUD
+   // waits until the gesture stops, which is the only moment its numbers can have changed.
+   if(moving){hudSettled=false;updateMapHud();}else{hudSettled=true;updateHud();}
+  }else if(!hudSettled&&!moving){hudSettled=true;updateHud();}
  }
  if (cardCamera && (cardCamera.x !== camera.x || cardCamera.y !== camera.y || cardCamera.zoom !== camera.zoom))
   inspector.show(null);
