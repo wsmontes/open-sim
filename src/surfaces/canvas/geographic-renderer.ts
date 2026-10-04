@@ -7,17 +7,73 @@ import type {GeoPermissibleObjects} from 'd3-geo';
 import worldLand from './world-land.json';
 import type {WorldView} from './canvas-renderer';
 import {WORLD,coordAt,chunkId,cellIndex} from '../../core/coordinates';
-import type {Building,Cell,CellCoord} from '../../core/model';
+import type {Building,Cell,CellCoord,GameState} from '../../core/model';
 import {roadClassOf} from '../../core/model';
 import {project,cellSpace,TILE_W,type Point} from '../../presentation/camera';
 import {assembledFootprints,remainingFootprints,roadConnections,type Footprint} from '../../presentation/city-art';
-import {editIndexFor,remainingIndexed} from '../../presentation/spatial-index';
+import {editIndexFor,periodicBoxCandidates,remainingIndexed} from '../../presentation/spatial-index';
 import {geographicFocus,nearestWorldX,GLOBE_ZOOM,globePoint,planetRadius,type GeographicFeature} from '../../presentation/geographic-map';
 
 // Scratch for the per-frame edit list: a render pass is synchronous, so one buffer per process is enough.
 const NO_EDITS:CellCoord[]=[];
 const PICKED_EDITS:CellCoord[]=[];
 const EDIT_SCRATCH=new Int32Array(512);
+
+// The world's player edits, in the order the original walk produced them — so the subsequence that is
+// visible is indistinguishable from the old one — plus the index that answers "which of them can be on
+// screen" without walking the whole world every frame. Rebuilt when the state changes, not per frame.
+let editStateKey:GameState|null=null;
+let editAll:CellCoord[]=[];
+let editCellList:Cell[]=[];
+let editScan=new Int32Array(2048);
+const editVisible:{coord:CellCoord;cell:Cell}[]=[];
+const editPicks:number[]=[];
+
+function refreshEdits(state:GameState):void{
+ editStateKey=state;
+ editAll=[];
+ editCellList=[];
+ for(const [id,chunk] of Object.entries(state.chunks))for(const [i,cell] of Object.entries(chunk.edits)){
+  if(cell.origin==='imported')continue;
+  editAll.push(coordAt(id,Number(i)));
+  editCellList.push(cell);
+ }
+}
+
+/**
+ * The player's edits that the current view can show. The index narrows the search to the visible
+ * rectangle (three of them, one world apart, because the world repeats in x); the predicate below runs
+ * in the camera's frame and decides exactly, and the sort restores the walk order.
+ */
+function visibleEdits(view:WorldView,minX:number,minY:number,maxX:number,maxY:number,centreX:number):{coord:CellCoord;cell:Cell}[]{
+ if(view.state!==editStateKey)refreshEdits(view.state);
+ editVisible.length=0;
+ if(editAll.length===0)return editVisible;
+ editPicks.length=0;
+ if(maxX-minX>=WORLD){
+  // A window wider than the world needs more than three copies of itself; walk, which is what the
+  // original did, instead of guessing how many.
+  for(let at=0;at<editAll.length;at++)editPicks.push(at);
+ }else{
+  const index=editIndexFor(view.state,editAll);
+  let n=periodicBoxCandidates(index,minX-1,minY-1,maxX+1,maxY+1,WORLD,editScan);
+  if(n===editScan.length){
+   editScan=new Int32Array(editScan.length*2);
+   n=periodicBoxCandidates(index,minX-1,minY-1,maxX+1,maxY+1,WORLD,editScan);
+  }
+  for(let i=0;i<n;i++){
+   const at=editScan[i]!;
+   const x=nearestWorldX(editAll[at]!.x,centreX);
+   if(x>=minX-1&&x<=maxX+1&&editAll[at]!.y>=minY-1&&editAll[at]!.y<=maxY+1)editPicks.push(at);
+  }
+ }
+ editPicks.sort((a,b)=>a-b);
+ for(const at of editPicks){
+  const raw=editAll[at]!;
+  editVisible.push({coord:{x:nearestWorldX(raw.x,centreX),y:raw.y},cell:editCellList[at]!});
+ }
+ return editVisible;
+}
 
 const land=worldLand as unknown as GeoPermissibleObjects;
 const graticule=geoGraticule10();
@@ -124,12 +180,8 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  const corners=[[0,0],[viewport.width,0],[0,viewport.height+scale*8],[viewport.width,viewport.height+scale*8]].map(([x,y])=>cellSpace({x,y},camera));
  const minX=Math.min(...corners.map(p=>p.x)),maxX=Math.max(...corners.map(p=>p.x)),minY=Math.min(...corners.map(p=>p.y)),maxY=Math.max(...corners.map(p=>p.y));
  const visible=(b:{minX:number;maxX:number;minY:number;maxY:number},shift=0)=>b.maxX+shift>=minX&&b.minX+shift<=maxX&&b.maxY>=minY&&b.minY<=maxY;
- const edits:Array<{coord:CellCoord;cell:Cell}>=[];
- for(const [id,chunk] of Object.entries(view.state.chunks))for(const [i,cell] of Object.entries(chunk.edits)){
-  if(cell.origin==='imported')continue;
-  const original=coordAt(id,Number(i)),coord={x:nearestWorldX(original.x,centre.x),y:original.y};
-  if(coord.x>=minX-1&&coord.x<=maxX+1&&coord.y>=minY-1&&coord.y<=maxY+1)edits.push({coord,cell});
- }
+ // The visible player edits, narrowed by the index instead of by walking every edit of the world.
+ const edits=visibleEdits(view,minX,minY,maxX,maxY,centre.x);
  const box={minX,minY,maxX,maxY};
  const roads:Array<{feature:GeographicFeature;shift:number}>=[],buildings:Array<{footprint:Footprint;shift:number;kind?:Building;stage?:number;powered?:boolean;depth:number}>=[],labels:Array<{point:Point;name:string;kind:string}>=[];
  // Ground first, then road geometry, then depth-sorted building geometry. Tile iteration order never buries roofs.

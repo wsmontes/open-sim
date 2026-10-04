@@ -1,14 +1,37 @@
 import type {WorldView} from './canvas-renderer';
-import {project,TILE_W,type Point} from '../../presentation/camera';
+import {project,cellSpace,TILE_W,type Point} from '../../presentation/camera';
 import {streetJunctions,streetAgents,plantingStep,plantingStations,roadsideTrees,type Segment,type PlantingBox,type StreetJunction} from '../../presentation/street-detail';
 import type {GeographicFeature,GeographicTile} from '../../presentation/geographic-map';
 import {nearestWorldX} from '../../presentation/geographic-map';
 import {assembledFootprints} from '../../presentation/city-art';
-import {footprintIndex,pointInsideAny} from '../../presentation/spatial-index';
+import {footprintIndex,pointInsideAny,junctionIndex,periodicBoxCandidates,type BoxIndex} from '../../presentation/spatial-index';
+import {WORLD} from '../../core/coordinates';
 const cache=new WeakMap<readonly GeographicTile[],StreetJunction[]>();
 // Candidate scratch for the planting veto: the index decides which footprints to test, and writes them
 // here. Module-level because a render pass is synchronous, and module-level scratch is this file's style.
 const TREE_CANDIDATES=new Int32Array(64);
+const JUNCTION_PICKS:number[]=[];
+let junctionScan=new Int32Array(4096);
+
+/**
+ * The junctions the viewport can show, as indices into `junctions`, in array order. The cell-space box
+ * of the screen is an upper bound for anything whose projection lands on screen (the projection is
+ * affine), and the world repeats in x, so the box is asked for three times, one world apart.
+ */
+function nearbyJunctions(view:WorldView,index:BoxIndex):number[]{
+ const {camera,viewport}=view;
+ const c0=cellSpace({x:0,y:0},camera),c1=cellSpace({x:viewport.width,y:0},camera),c2=cellSpace({x:0,y:viewport.height},camera),c3=cellSpace({x:viewport.width,y:viewport.height},camera);
+ const minX=Math.min(c0.x,c1.x,c2.x,c3.x)-2,maxX=Math.max(c0.x,c1.x,c2.x,c3.x)+2,minY=Math.min(c0.y,c1.y,c2.y,c3.y)-2,maxY=Math.max(c0.y,c1.y,c2.y,c3.y)+2;
+ JUNCTION_PICKS.length=0;
+ let n=periodicBoxCandidates(index,minX,minY,maxX,maxY,WORLD,junctionScan);
+ if(n===junctionScan.length){
+  junctionScan=new Int32Array(junctionScan.length*2);
+  n=periodicBoxCandidates(index,minX,minY,maxX,maxY,WORLD,junctionScan);
+ }
+ for(let i=0;i<n;i++)JUNCTION_PICKS.push(junctionScan[i]!);
+ JUNCTION_PICKS.sort((a,b)=>a-b);
+ return JUNCTION_PICKS;
+}
 // Bounds of a mapped polygon, read once: the plaza and the square both need to know where the ground is before they
 // decide what to draw on it.
 const featureBounds=new WeakMap<GeographicFeature,{minX:number;minY:number;maxX:number;maxY:number}>();
@@ -105,7 +128,9 @@ export function drawStreetDetails(ctx:CanvasRenderingContext2D,view:WorldView,ro
  let junctions=cache.get(tiles);if(!junctions){junctions=streetJunctions(tiles.flatMap(t=>t.features),20000);cache.set(tiles,junctions);}
  const inView=(p:Point)=>p.x>0&&p.x<view.viewport.width&&p.y>65&&p.y<view.viewport.height-60;
  let count=0;
- for(const junction of junctions){
+ const picks=nearbyJunctions(view,junctionIndex(junctions));
+ for(const at of picks){
+  const junction=junctions[at]!;
   const shift=nearestWorldX(junction.point.x,centreX)-junction.point.x;
   if(!inView(project(worldPoint(junction.point,shift),view.camera)))continue;
   if(count++>=140)break;

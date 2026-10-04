@@ -126,8 +126,20 @@ export function pointCandidates(index: BoxIndex, x: number, y: number, out: Int3
   return copyBin(index, by * index.cols + bx, out);
 }
 
+/**
+ * The world repeats in x, so a window that crosses the seam must be asked for on the other side too.
+ * Three windows, one world apart, appended into `out`; the caller wraps what it finds. Only valid while
+ * the window is narrower than the world, which is the only case the callers are in.
+ */
+export function periodicBoxCandidates(index: BoxIndex, minX: number, minY: number, maxX: number, maxY: number, world: number, out: Int32Array): number {
+  let n = boxCandidates(index, minX, minY, maxX, maxY, out, 0);
+  if (maxX - minX >= world) return n;
+  n = boxCandidates(index, minX - world, minY, maxX - world, maxY, out, n);
+  return boxCandidates(index, minX + world, minY, maxX + world, maxY, out, n);
+}
+
 /** Indices of every box that MIGHT overlap the given box. Still a superset: the caller tests exactly. */
-export function boxCandidates(index: BoxIndex, minX: number, minY: number, maxX: number, maxY: number, out: Int32Array): number {
+export function boxCandidates(index: BoxIndex, minX: number, minY: number, maxX: number, maxY: number, out: Int32Array, from = 0): number {
   const cx0 = Math.floor((minX - index.minX) / index.cell);
   const cx1 = Math.floor((maxX - index.minX) / index.cell);
   const cy0 = Math.floor((minY - index.minY) / index.cell);
@@ -136,8 +148,8 @@ export function boxCandidates(index: BoxIndex, minX: number, minY: number, maxX:
   const x1 = Math.max(0, Math.min(index.cols - 1, cx1));
   const y0 = Math.max(0, Math.min(index.rows - 1, cy0));
   const y1 = Math.max(0, Math.min(index.rows - 1, cy1));
-  if (!(x0 <= x1) || !(y0 <= y1)) return 0;
-  let n = 0;
+  if (!(x0 <= x1) || !(y0 <= y1)) return from;
+  let n = from;
   for (let by = y0; by <= y1; by++) {
     for (let bx = x0; bx <= x1; bx++) {
       const bin = by * index.cols + bx;
@@ -187,6 +199,20 @@ export function editIndexFor(key: object, cells: readonly CellCoord[]): BoxIndex
   if (cached) return cached;
   const built = buildCellIndex(cells);
   cache.set(key, built);
+  return built;
+}
+
+/** Index over street junctions, which are points. Cached by the junctions array's identity. */
+export function junctionIndex(junctions: readonly {point: Point}[]): BoxIndex {
+  const cached = cache.get(junctions);
+  if (cached) return cached;
+  const boxes: Box[] = new Array(junctions.length);
+  for (let i = 0; i < junctions.length; i++) {
+    const p = junctions[i]!.point;
+    boxes[i] = {minX: p.x, minY: p.y, maxX: p.x, maxY: p.y};
+  }
+  const built = buildFromBoxes(boxes, 0);
+  cache.set(junctions, built);
   return built;
 }
 
