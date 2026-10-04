@@ -85,3 +85,14 @@ test('fps statistics decay while an idle renderer sleeps',()=>{
  now=1200;
  expect(scheduler.stats().fps).toBe(0);
 });
+
+test('unpresented updates do not count toward visual fps and suspension resets origin',()=>{
+ const pending:Array<(at:number)=>void>=[],samples:Array<{intervalMs:number;presented:boolean}>=[];let now=0,shown=false,visible=true;
+ const scheduler=createFrameScheduler({draw:()=>({moving:false,ambient:false,presented:shown}),request:cb=>{pending.push(cb);return pending.length;},cancel:()=>{},now:()=>now,visible:()=>visible,onSample:s=>samples.push(s)});
+ const run=(at:number)=>{scheduler.invalidate();now=at;pending.shift()!(at);};
+ run(10);expect(scheduler.stats().drawn).toBe(0);expect(scheduler.stats().fps).toBe(0);
+ shown=true;run(20);expect(samples.at(-1)?.intervalMs).toBe(0);expect(scheduler.stats().drawn).toBe(1);
+ run(40);expect(samples.at(-1)?.intervalMs).toBe(20);
+ visible=false;run(100);visible=true;run(10_000);expect(samples.at(-1)?.intervalMs).toBe(0);
+ scheduler.stop();run(20_000);expect(samples.at(-1)?.intervalMs).toBe(0);
+});

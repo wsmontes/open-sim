@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import {createPerformanceSamples} from '../presentation/performance-samples';
 import {municipalCalibrationPreview} from '../presentation/words';
 import {containsLocalArea} from '../presentation/municipal-coverage';
 import vancouverLocalAreas from '../adapters/reality/data/vancouver-local-areas.json';
@@ -742,11 +743,15 @@ window.screen?.orientation?.addEventListener?.('change', applyLayout);
 // fast at 2x and stand still while it is paused. It is presentation only — no tick reads it, no command carries it.
 let motion = 0;
 let motionMs=0,renderMs=0;
+const perfSamples=createPerformanceSamples(),framePhases:Record<string,number>={};
+let framePresented=false;
+const phase=(name:string,start:number)=>{if(PERF_DEBUG)framePhases[name]=performance.now()-start;};
 // The card the player opened describes one cell. The moment the city slides under it, it is answering about a place
 // that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
 let hudCameraStamp='';
 let cardCamera: {x: number; y: number; zoom: number} | null = null;
 const draw = (now: number, seconds: number) => {
+ framePresented=false;for(const key of Object.keys(framePhases))delete framePhases[key];
  // Nothing to draw until the city exists: a plain haze instead of a frame over a session that has not opened.
  if (!client.view().state) {
   ctx.fillStyle = '#7c8794';
@@ -760,13 +765,16 @@ const draw = (now: number, seconds: number) => {
  const camera = hand.camera;
 
  const {width, height} = hand.viewport;
+ const streamStart=performance.now();
  geography?.update(camera,hand.viewport);
  terrain.update(camera,hand.viewport);
  mobilityStream?.update(camera,hand.viewport);
+ phase('streams',streamStart);
  if(!geography){
   const cells=[...hand.chunks].flatMap(([id,status])=>{const managed=hand.state?.chunks[id],base=status.status==='ready'?status.base:null;const available=managed?effectiveCells(managed):base?.cells;return available?available.flatMap((cell,i)=>cell.road?[{coord:coordAt(id,i),cell}]:[]):[];});
   mobility.setCells(cells,`${hand.state?.revision}:${[...hand.chunks.keys()].join('|')}`);mobility.setDemand({vehicles:50,pedestrians:24,truckShare:.08,hour:12});
  }
+ const simulationStart=performance.now();
  ferryClock.setPaused(hand.speed===0||!mobilityEnabled);
  const civilInstant=ferryClock.instant();
  maritime?.setScenario(civilInstant);
@@ -776,6 +784,7 @@ const draw = (now: number, seconds: number) => {
  maritime?.advance(motionSeconds(seconds,mobilityEnabled?hand.speed:0));
  aviation?.advance(motionSeconds(seconds,mobilityEnabled?hand.speed:0));
  const motionStart=performance.now();mobility.advance(motionSeconds(seconds,mobilityEnabled?hand.speed:0));motionMs=performance.now()-motionStart;
+ phase('simulation',simulationStart);
  if(geography){
   const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
   if(stamp!==hudCameraStamp){hudCameraStamp=stamp;updateHud();}
@@ -784,6 +793,7 @@ const draw = (now: number, seconds: number) => {
   inspector.show(null);
  cardCamera = {x: camera.x, y: camera.y, zoom: camera.zoom};
  if (hand.speed !== 0&&mobilityEnabled) motion += seconds * hand.speed;
+ const snapshotStart=performance.now();
  const view: WorldView = {
   light:cityLight,
   geography: geography?.scene(),
@@ -807,11 +817,13 @@ const draw = (now: number, seconds: number) => {
  // While the city runs, the ambient clock asks for a frame thirty times a second, but the picture only changes when
  // something it is drawn from changes: the moving traffic, where streets show it, or a tick, a tile or the camera. An
  // identical frame is not drawn again — the canvas still holds it.
+ phase('snapshots',snapshotStart);renderMs=0;
  if (!sameFrame(lastView, view)) {
   const renderStart=performance.now();render(ctx, view);renderMs=performance.now()-renderStart;
+  framePresented=true;phase('render',renderStart);
   lastView = view;
  }
- return {moving, ambient: hand.speed !== 0};
+ return {moving, ambient: hand.speed !== 0,presented:framePresented};
 };
 let lastView: WorldView | null = null;
 const hasVisibleMotion=(view:WorldView)=>mobilityDrawCommands(ctx,view).length>0||vesselDrawCommands(ctx,view).length>0||aircraftDrawCommands(ctx,view).aircraft.length>0;
@@ -837,11 +849,11 @@ const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
  a.hover?.x === b.hover?.x &&
  a.hover?.y === b.hover?.y &&
  (a.motion === b.motion || !hasVisibleMotion(b));
-const frames = createFrameScheduler({draw});
+const frames = createFrameScheduler({draw,onSample:sample=>{if(PERF_DEBUG)perfSamples.record({...sample,phases:framePhases});}});
 invalidateFrame = frames.invalidate;
 if (PERF_DEBUG) {
  const diagnostics=document.createElement('pre');diagnostics.id='open-sim-frame-stats';diagnostics.hidden=true;document.body.append(diagnostics);
- window.setInterval(()=>{diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),buildings:buildingCacheStats(),terrain:terrain.status(),triangles:lastView?visibleTerrain(lastView).length:0,mobility:{visible:lastView?mobilityDrawCommands(ctx,lastView).length-signalDrawCommands(ctx,lastView).length:0,agents:mobility.frame().length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,mobility.frame().filter(agent=>agent.kind===kind).length])),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size,positions:mobility.frame().slice(0,3).map(a=>({id:a.id,point:a.point}))}});},1000);
+ window.setInterval(()=>{const agents=lastView?.mobility??[];diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),samples:perfSamples.snapshot(),buildings:buildingCacheStats(),terrain:terrain.status(),mobility:{agents:agents.length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,agents.filter(agent=>agent.kind===kind).length])),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size}});},1000);
  const debugWindow = window as unknown as {
   openSimFrames?: () => ReturnType<typeof frames.stats>;
   openSimDebug?: () => unknown;
