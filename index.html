@@ -7,8 +7,8 @@
 <!-- The icon is drawn here rather than shipped as a file: it is the same city the game draws, in the same palette, and
      a browser that asks for one and gets a 404 is the first impression every visitor has. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c8794'/%3E%3Cpath d='M16 5l11 6.5-11 6.5-11-6.5z' fill='%23c9684b'/%3E%3Cpath d='M5 11.5v11l11 6.5v-11z' fill='%23cabd9f'/%3E%3Cpath d='M27 11.5v11L16 29v-11z' fill='%23efe7d3'/%3E%3C/svg%3E">
-  <script type="module" crossorigin src="./assets/index-DJXit739.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-BOi9rW1Z.css">
+  <script type="module" crossorigin src="./assets/index-BVqxMTYh.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-aZmb1fRV.css">
 </head>
 <body>
 <main id="app">
@@ -69,6 +69,11 @@
 <input type="range" id="economy-services" min="50" max="150" step="5" value="100" aria-label="Nível dos serviços">
 </label>
 <button type="button" id="economy-borrow" title="Emprestar 10.000: entra no caixa agora e a dívida cobra juros todo mês">Emprestar 10.000</button>
+<p id="economy-municipal-preview" class="panel-hint">Referência municipal indisponível para este lugar.</p>
+<p id="economy-calibration" class="panel-hint">Referência municipal desativada.</p>
+<p class="panel-hint">Conversão de despesas: 0,01 unidades do jogo por CAD. Usa operação anual por habitante; capital permanece informativo.</p>
+<button type="button" id="economy-calibrate" disabled>Usar orçamento municipal nas despesas</button>
+<button type="button" id="economy-calibration-off">Desativar referência municipal</button>
 <p id="economy-crisis" class="panel-hint" role="alert" hidden></p>
 </div>
 </section>
@@ -86,6 +91,7 @@
 <div><dt>Densidade</dt><dd id="city-density">—</dd></div>
 <div><dt>Produto municipal</dt><dd id="city-gdp">—</dd></div>
 </dl>
+<div id="city-demographics" class="panel-hint"></div>
 <p id="city-scale" hidden></p>
 <p id="city-source" class="panel-hint"></p>
 <div id="hud-places" role="group" aria-label="Lugares">

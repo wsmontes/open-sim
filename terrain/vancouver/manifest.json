@@ -1,0 +1,2931 @@
+{
+  "version": 1,
+  "tiles": [
+    {
+      "id": "city-6-0",
+      "url": "./terrain/vancouver/city-6-0.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-4-1",
+      "url": "./terrain/vancouver/city-4-1.bin",
+      "bytes": 21302,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-5-1",
+      "url": "./terrain/vancouver/city-5-1.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-6-1",
+      "url": "./terrain/vancouver/city-6-1.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-7-1",
+      "url": "./terrain/vancouver/city-7-1.bin",
+      "bytes": 21302,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-8-1",
+      "url": "./terrain/vancouver/city-8-1.bin",
+      "bytes": 21302,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-9-1",
+      "url": "./terrain/vancouver/city-9-1.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-10-1",
+      "url": "./terrain/vancouver/city-10-1.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-11-1",
+      "url": "./terrain/vancouver/city-11-1.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-3-2",
+      "url": "./terrain/vancouver/city-3-2.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-4-2",
+      "url": "./terrain/vancouver/city-4-2.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-5-2",
+      "url": "./terrain/vancouver/city-5-2.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-6-2",
+      "url": "./terrain/vancouver/city-6-2.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-7-2",
+      "url": "./terrain/vancouver/city-7-2.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-8-2",
+      "url": "./terrain/vancouver/city-8-2.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-9-2",
+      "url": "./terrain/vancouver/city-9-2.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-10-2",
+      "url": "./terrain/vancouver/city-10-2.bin",
+      "bytes": 21305,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-11-2",
+      "url": "./terrain/vancouver/city-11-2.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-3-3",
+      "url": "./terrain/vancouver/city-3-3.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-4-3",
+      "url": "./terrain/vancouver/city-4-3.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-5-3",
+      "url": "./terrain/vancouver/city-5-3.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-6-3",
+      "url": "./terrain/vancouver/city-6-3.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-7-3",
+      "url": "./terrain/vancouver/city-7-3.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-8-3",
+      "url": "./terrain/vancouver/city-8-3.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-9-3",
+      "url": "./terrain/vancouver/city-9-3.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-10-3",
+      "url": "./terrain/vancouver/city-10-3.bin",
+      "bytes": 21305,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-11-3",
+      "url": "./terrain/vancouver/city-11-3.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-2-4",
+      "url": "./terrain/vancouver/city-2-4.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-3-4",
+      "url": "./terrain/vancouver/city-3-4.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-4-4",
+      "url": "./terrain/vancouver/city-4-4.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-5-4",
+      "url": "./terrain/vancouver/city-5-4.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-6-4",
+      "url": "./terrain/vancouver/city-6-4.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-7-4",
+      "url": "./terrain/vancouver/city-7-4.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-8-4",
+      "url": "./terrain/vancouver/city-8-4.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-9-4",
+      "url": "./terrain/vancouver/city-9-4.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-10-4",
+      "url": "./terrain/vancouver/city-10-4.bin",
+      "bytes": 21305,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-11-4",
+      "url": "./terrain/vancouver/city-11-4.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-3-5",
+      "url": "./terrain/vancouver/city-3-5.bin",
+      "bytes": 21302,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-4-5",
+      "url": "./terrain/vancouver/city-4-5.bin",
+      "bytes": 21302,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-5-5",
+      "url": "./terrain/vancouver/city-5-5.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-6-5",
+      "url": "./terrain/vancouver/city-6-5.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-7-5",
+      "url": "./terrain/vancouver/city-7-5.bin",
+      "bytes": 21302,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-8-5",
+      "url": "./terrain/vancouver/city-8-5.bin",
+      "bytes": 21302,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-9-5",
+      "url": "./terrain/vancouver/city-9-5.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-10-5",
+      "url": "./terrain/vancouver/city-10-5.bin",
+      "bytes": 21304,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-11-5",
+      "url": "./terrain/vancouver/city-11-5.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-5-6",
+      "url": "./terrain/vancouver/city-5-6.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-6-6",
+      "url": "./terrain/vancouver/city-6-6.bin",
+      "bytes": 21303,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-7-6",
+      "url": "./terrain/vancouver/city-7-6.bin",
+      "bytes": 21302,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "city-8-6",
+      "url": "./terrain/vancouver/city-8-6.bin",
+      "bytes": 21302,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-0",
+      "url": "./terrain/vancouver/regional-0-0.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-0",
+      "url": "./terrain/vancouver/regional-1-0.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-0",
+      "url": "./terrain/vancouver/regional-2-0.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-0",
+      "url": "./terrain/vancouver/regional-3-0.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-0",
+      "url": "./terrain/vancouver/regional-4-0.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-0",
+      "url": "./terrain/vancouver/regional-5-0.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-0",
+      "url": "./terrain/vancouver/regional-6-0.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-0",
+      "url": "./terrain/vancouver/regional-7-0.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-0",
+      "url": "./terrain/vancouver/regional-8-0.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-0",
+      "url": "./terrain/vancouver/regional-9-0.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-0",
+      "url": "./terrain/vancouver/regional-10-0.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-0",
+      "url": "./terrain/vancouver/regional-11-0.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.18,
+        "north": 49.2
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-1",
+      "url": "./terrain/vancouver/regional-0-1.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-1",
+      "url": "./terrain/vancouver/regional-1-1.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-1",
+      "url": "./terrain/vancouver/regional-2-1.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-1",
+      "url": "./terrain/vancouver/regional-3-1.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-1",
+      "url": "./terrain/vancouver/regional-4-1.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-1",
+      "url": "./terrain/vancouver/regional-5-1.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-1",
+      "url": "./terrain/vancouver/regional-6-1.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-1",
+      "url": "./terrain/vancouver/regional-7-1.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-1",
+      "url": "./terrain/vancouver/regional-8-1.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-1",
+      "url": "./terrain/vancouver/regional-9-1.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-1",
+      "url": "./terrain/vancouver/regional-10-1.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-1",
+      "url": "./terrain/vancouver/regional-11-1.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.2,
+        "north": 49.22
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-2",
+      "url": "./terrain/vancouver/regional-0-2.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-2",
+      "url": "./terrain/vancouver/regional-1-2.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-2",
+      "url": "./terrain/vancouver/regional-2-2.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-2",
+      "url": "./terrain/vancouver/regional-3-2.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-2",
+      "url": "./terrain/vancouver/regional-4-2.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-2",
+      "url": "./terrain/vancouver/regional-5-2.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-2",
+      "url": "./terrain/vancouver/regional-6-2.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-2",
+      "url": "./terrain/vancouver/regional-7-2.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-2",
+      "url": "./terrain/vancouver/regional-8-2.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-2",
+      "url": "./terrain/vancouver/regional-9-2.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-2",
+      "url": "./terrain/vancouver/regional-10-2.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-2",
+      "url": "./terrain/vancouver/regional-11-2.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.22,
+        "north": 49.24
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-3",
+      "url": "./terrain/vancouver/regional-0-3.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-3",
+      "url": "./terrain/vancouver/regional-1-3.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-3",
+      "url": "./terrain/vancouver/regional-2-3.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-3",
+      "url": "./terrain/vancouver/regional-3-3.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-3",
+      "url": "./terrain/vancouver/regional-4-3.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-3",
+      "url": "./terrain/vancouver/regional-5-3.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-3",
+      "url": "./terrain/vancouver/regional-6-3.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-3",
+      "url": "./terrain/vancouver/regional-7-3.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-3",
+      "url": "./terrain/vancouver/regional-8-3.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-3",
+      "url": "./terrain/vancouver/regional-9-3.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-3",
+      "url": "./terrain/vancouver/regional-10-3.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-3",
+      "url": "./terrain/vancouver/regional-11-3.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.24,
+        "north": 49.26
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-4",
+      "url": "./terrain/vancouver/regional-0-4.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-4",
+      "url": "./terrain/vancouver/regional-1-4.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-4",
+      "url": "./terrain/vancouver/regional-2-4.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-4",
+      "url": "./terrain/vancouver/regional-3-4.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-4",
+      "url": "./terrain/vancouver/regional-4-4.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-4",
+      "url": "./terrain/vancouver/regional-5-4.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-4",
+      "url": "./terrain/vancouver/regional-6-4.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-4",
+      "url": "./terrain/vancouver/regional-7-4.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-4",
+      "url": "./terrain/vancouver/regional-8-4.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-4",
+      "url": "./terrain/vancouver/regional-9-4.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-4",
+      "url": "./terrain/vancouver/regional-10-4.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-4",
+      "url": "./terrain/vancouver/regional-11-4.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.26,
+        "north": 49.28
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-5",
+      "url": "./terrain/vancouver/regional-0-5.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-5",
+      "url": "./terrain/vancouver/regional-1-5.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-5",
+      "url": "./terrain/vancouver/regional-2-5.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-5",
+      "url": "./terrain/vancouver/regional-3-5.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-5",
+      "url": "./terrain/vancouver/regional-4-5.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-5",
+      "url": "./terrain/vancouver/regional-5-5.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-5",
+      "url": "./terrain/vancouver/regional-6-5.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-5",
+      "url": "./terrain/vancouver/regional-7-5.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-5",
+      "url": "./terrain/vancouver/regional-8-5.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-5",
+      "url": "./terrain/vancouver/regional-9-5.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-5",
+      "url": "./terrain/vancouver/regional-10-5.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-5",
+      "url": "./terrain/vancouver/regional-11-5.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.28,
+        "north": 49.3
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-6",
+      "url": "./terrain/vancouver/regional-0-6.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-6",
+      "url": "./terrain/vancouver/regional-1-6.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-6",
+      "url": "./terrain/vancouver/regional-2-6.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-6",
+      "url": "./terrain/vancouver/regional-3-6.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-6",
+      "url": "./terrain/vancouver/regional-4-6.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-6",
+      "url": "./terrain/vancouver/regional-5-6.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-6",
+      "url": "./terrain/vancouver/regional-6-6.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-6",
+      "url": "./terrain/vancouver/regional-7-6.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-6",
+      "url": "./terrain/vancouver/regional-8-6.bin",
+      "bytes": 21310,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-6",
+      "url": "./terrain/vancouver/regional-9-6.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-6",
+      "url": "./terrain/vancouver/regional-10-6.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-6",
+      "url": "./terrain/vancouver/regional-11-6.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.3,
+        "north": 49.32
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-7",
+      "url": "./terrain/vancouver/regional-0-7.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-7",
+      "url": "./terrain/vancouver/regional-1-7.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-7",
+      "url": "./terrain/vancouver/regional-2-7.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-7",
+      "url": "./terrain/vancouver/regional-3-7.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-7",
+      "url": "./terrain/vancouver/regional-4-7.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-7",
+      "url": "./terrain/vancouver/regional-5-7.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-7",
+      "url": "./terrain/vancouver/regional-6-7.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-7",
+      "url": "./terrain/vancouver/regional-7-7.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-7",
+      "url": "./terrain/vancouver/regional-8-7.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-7",
+      "url": "./terrain/vancouver/regional-9-7.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-7",
+      "url": "./terrain/vancouver/regional-10-7.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-7",
+      "url": "./terrain/vancouver/regional-11-7.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.32,
+        "north": 49.34
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-8",
+      "url": "./terrain/vancouver/regional-0-8.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-8",
+      "url": "./terrain/vancouver/regional-1-8.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-8",
+      "url": "./terrain/vancouver/regional-2-8.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-8",
+      "url": "./terrain/vancouver/regional-3-8.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-8",
+      "url": "./terrain/vancouver/regional-4-8.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-8",
+      "url": "./terrain/vancouver/regional-5-8.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-8",
+      "url": "./terrain/vancouver/regional-6-8.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-8",
+      "url": "./terrain/vancouver/regional-7-8.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-8",
+      "url": "./terrain/vancouver/regional-8-8.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-8",
+      "url": "./terrain/vancouver/regional-9-8.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-8",
+      "url": "./terrain/vancouver/regional-10-8.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-8",
+      "url": "./terrain/vancouver/regional-11-8.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.34,
+        "north": 49.36
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-9",
+      "url": "./terrain/vancouver/regional-0-9.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-9",
+      "url": "./terrain/vancouver/regional-1-9.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-9",
+      "url": "./terrain/vancouver/regional-2-9.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-9",
+      "url": "./terrain/vancouver/regional-3-9.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-9",
+      "url": "./terrain/vancouver/regional-4-9.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-9",
+      "url": "./terrain/vancouver/regional-5-9.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-9",
+      "url": "./terrain/vancouver/regional-6-9.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-9",
+      "url": "./terrain/vancouver/regional-7-9.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-9",
+      "url": "./terrain/vancouver/regional-8-9.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-9",
+      "url": "./terrain/vancouver/regional-9-9.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-9",
+      "url": "./terrain/vancouver/regional-10-9.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-9",
+      "url": "./terrain/vancouver/regional-11-9.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.36,
+        "north": 49.38
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-10",
+      "url": "./terrain/vancouver/regional-0-10.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-10",
+      "url": "./terrain/vancouver/regional-1-10.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-10",
+      "url": "./terrain/vancouver/regional-2-10.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-10",
+      "url": "./terrain/vancouver/regional-3-10.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-10",
+      "url": "./terrain/vancouver/regional-4-10.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-10",
+      "url": "./terrain/vancouver/regional-5-10.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-10",
+      "url": "./terrain/vancouver/regional-6-10.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-10",
+      "url": "./terrain/vancouver/regional-7-10.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-10",
+      "url": "./terrain/vancouver/regional-8-10.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-10",
+      "url": "./terrain/vancouver/regional-9-10.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-10",
+      "url": "./terrain/vancouver/regional-10-10.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-10",
+      "url": "./terrain/vancouver/regional-11-10.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.38,
+        "north": 49.4
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-11",
+      "url": "./terrain/vancouver/regional-0-11.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-11",
+      "url": "./terrain/vancouver/regional-1-11.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-11",
+      "url": "./terrain/vancouver/regional-2-11.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-11",
+      "url": "./terrain/vancouver/regional-3-11.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-11",
+      "url": "./terrain/vancouver/regional-4-11.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-11",
+      "url": "./terrain/vancouver/regional-5-11.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-11",
+      "url": "./terrain/vancouver/regional-6-11.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-11",
+      "url": "./terrain/vancouver/regional-7-11.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-11",
+      "url": "./terrain/vancouver/regional-8-11.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-11",
+      "url": "./terrain/vancouver/regional-9-11.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-11",
+      "url": "./terrain/vancouver/regional-10-11.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-11",
+      "url": "./terrain/vancouver/regional-11-11.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.4,
+        "north": 49.42
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-12",
+      "url": "./terrain/vancouver/regional-0-12.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-12",
+      "url": "./terrain/vancouver/regional-1-12.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-12",
+      "url": "./terrain/vancouver/regional-2-12.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-12",
+      "url": "./terrain/vancouver/regional-3-12.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-12",
+      "url": "./terrain/vancouver/regional-4-12.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-12",
+      "url": "./terrain/vancouver/regional-5-12.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-12",
+      "url": "./terrain/vancouver/regional-6-12.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-12",
+      "url": "./terrain/vancouver/regional-7-12.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-12",
+      "url": "./terrain/vancouver/regional-8-12.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-12",
+      "url": "./terrain/vancouver/regional-9-12.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-12",
+      "url": "./terrain/vancouver/regional-10-12.bin",
+      "bytes": 21314,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-12",
+      "url": "./terrain/vancouver/regional-11-12.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.42,
+        "north": 49.44
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-13",
+      "url": "./terrain/vancouver/regional-0-13.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-13",
+      "url": "./terrain/vancouver/regional-1-13.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-13",
+      "url": "./terrain/vancouver/regional-2-13.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-13",
+      "url": "./terrain/vancouver/regional-3-13.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-13",
+      "url": "./terrain/vancouver/regional-4-13.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-13",
+      "url": "./terrain/vancouver/regional-5-13.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-13",
+      "url": "./terrain/vancouver/regional-6-13.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-13",
+      "url": "./terrain/vancouver/regional-7-13.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-13",
+      "url": "./terrain/vancouver/regional-8-13.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-13",
+      "url": "./terrain/vancouver/regional-9-13.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-13",
+      "url": "./terrain/vancouver/regional-10-13.bin",
+      "bytes": 21314,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-13",
+      "url": "./terrain/vancouver/regional-11-13.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.44,
+        "north": 49.46
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-14",
+      "url": "./terrain/vancouver/regional-0-14.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-14",
+      "url": "./terrain/vancouver/regional-1-14.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-14",
+      "url": "./terrain/vancouver/regional-2-14.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-14",
+      "url": "./terrain/vancouver/regional-3-14.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-14",
+      "url": "./terrain/vancouver/regional-4-14.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-14",
+      "url": "./terrain/vancouver/regional-5-14.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-14",
+      "url": "./terrain/vancouver/regional-6-14.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-14",
+      "url": "./terrain/vancouver/regional-7-14.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-14",
+      "url": "./terrain/vancouver/regional-8-14.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-14",
+      "url": "./terrain/vancouver/regional-9-14.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-14",
+      "url": "./terrain/vancouver/regional-10-14.bin",
+      "bytes": 21314,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-14",
+      "url": "./terrain/vancouver/regional-11-14.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.46,
+        "north": 49.48
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-0-15",
+      "url": "./terrain/vancouver/regional-0-15.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.3,
+        "east": -123.275,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-1-15",
+      "url": "./terrain/vancouver/regional-1-15.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.275,
+        "east": -123.25,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-2-15",
+      "url": "./terrain/vancouver/regional-2-15.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.25,
+        "east": -123.225,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-3-15",
+      "url": "./terrain/vancouver/regional-3-15.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.225,
+        "east": -123.2,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-4-15",
+      "url": "./terrain/vancouver/regional-4-15.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.2,
+        "east": -123.175,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-5-15",
+      "url": "./terrain/vancouver/regional-5-15.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.175,
+        "east": -123.15,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-6-15",
+      "url": "./terrain/vancouver/regional-6-15.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.15,
+        "east": -123.125,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-7-15",
+      "url": "./terrain/vancouver/regional-7-15.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.125,
+        "east": -123.1,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-8-15",
+      "url": "./terrain/vancouver/regional-8-15.bin",
+      "bytes": 21311,
+      "bounds": {
+        "west": -123.1,
+        "east": -123.075,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-9-15",
+      "url": "./terrain/vancouver/regional-9-15.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.075,
+        "east": -123.05,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-10-15",
+      "url": "./terrain/vancouver/regional-10-15.bin",
+      "bytes": 21313,
+      "bounds": {
+        "west": -123.05,
+        "east": -123.025,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    },
+    {
+      "id": "regional-11-15",
+      "url": "./terrain/vancouver/regional-11-15.bin",
+      "bytes": 21312,
+      "bounds": {
+        "west": -123.025,
+        "east": -123.0,
+        "south": 49.48,
+        "north": 49.5
+      },
+      "spacingM": 34.8
+    }
+  ],
+  "sources": [
+    {
+      "id": "city",
+      "url": "https://canelevation-dem.s3.ca-central-1.amazonaws.com/hrdem-lidar/VILLE_VANCOUVER-VILLE_VANCOUVER-1m-dtm.tif",
+      "retrievedAt": "2026-10-03T15:23:08.579426+00:00",
+      "license": "Open Government Licence \u2013 Canada; \u00a9 Natural Resources Canada",
+      "kind": "dtm",
+      "horizontalCrs": "EPSG:4326",
+      "verticalDatum": "CGVD2013",
+      "resolutionM": 15.998653500897666
+    },
+    {
+      "id": "regional",
+      "url": "https://canelevation-dem.s3.ca-central-1.amazonaws.com/mrdem-30/mrdem-30-dtm.tif",
+      "retrievedAt": "2026-10-03T15:23:08.579426+00:00",
+      "license": "Open Government Licence \u2013 Canada; \u00a9 Natural Resources Canada; Contains modified Copernicus WorldDEM-30 \u00a9 DLR e.V. 2010\u20132014 and \u00a9 Airbus Defence and Space GmbH 2014\u20132018, provided under COPERNICUS by the European Union and ESA; all rights reserved.",
+      "kind": "dtm",
+      "horizontalCrs": "EPSG:4326",
+      "verticalDatum": "CGVD2013",
+      "resolutionM": 30.0
+    }
+  ]
+}
