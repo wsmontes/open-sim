@@ -1,3 +1,5 @@
+import {sceneRasterCache} from './scene-cache';
+import {createSceneCompositor,type SceneCommand} from './scene-compositor';
 import {createScenePreparer} from './prepared-scene';
 import {aircraftDrawCommands} from './aircraft-draw';
 import {vesselDrawCommands} from './vessel-draw';
@@ -5,7 +7,7 @@ import {lightContext} from './city-light';
 import {mobilityDrawCommands} from './mobility-draw';
 import {drawTerrain,projectSurface,surfaceLine,foundationElevation,terrainRoadPath,} from './terrain-renderer';
 import {drawStreetDetails,drawPaving,drawPlanting,drawParkPlanting,drawTree} from './street-renderer';
-import {drawBuilding,drawGhost} from './architecture-renderer';
+import {drawBuilding,drawGhost,buildingScreenBounds} from './architecture-renderer';
 import {geoOrthographic,geoPath,geoGraticule10} from 'd3-geo';
 import type {GeoPermissibleObjects} from 'd3-geo';
 import worldLand from './world-land.json';
@@ -125,23 +127,25 @@ function drawPlayerRoad(ctx:CanvasRenderingContext2D,view:WorldView,c:CellCoord,
  if(pass==='surface'){ctx.fillStyle=PALETTE.pavement;ctx.beginPath();ctx.arc(p.x,p.y,width*.5,0,Math.PI*2);ctx.fill();}
 }
 const scenePreparer=createScenePreparer();
+const compositors=new WeakMap<object,ReturnType<typeof createSceneCompositor>>(),staticCommands=new WeakMap<object,WeakMap<object,readonly SceneCommand[]>>();
 export const preparedSceneStats=()=>scenePreparer.stats();
 let groundBitmap:{key:string;tiles:object|undefined;terrain:object|undefined;canvas:OffscreenCanvas}|undefined;
 export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldView){
  if(view.camera.zoom<GLOBE_ZOOM){drawGlobe(ctx,view);return;}
  ctx=lightContext(ctx,view.light??'day');
  const {camera,viewport}=view,scale=TILE_W*camera.zoom;
- ctx.imageSmoothingEnabled=true;ctx.lineJoin='round';ctx.lineCap='round';ctx.fillStyle=PALETTE.ground;ctx.fillRect(0,0,viewport.width,viewport.height);
+ ctx.imageSmoothingEnabled=true;ctx.lineJoin='round';ctx.lineCap='round';
  const prepared=scenePreparer.prepare(view),{centre,box,edits,features,roads,buildings,labels}=prepared;
  const mainContext=ctx,groundKey=prepared.key;
- const cachedGround=typeof OffscreenCanvas!=='undefined'&&groundBitmap?.key===groundKey&&groundBitmap.tiles===view.geography?.tiles&&groundBitmap.terrain===view.terrain?.tiles;
+ const cachedGround=typeof OffscreenCanvas!=='undefined'&&sceneRasterCache.get('geographic-ground')?.canvas===groundBitmap?.canvas&&groundBitmap?.key===groundKey&&groundBitmap.tiles===view.geography?.tiles&&groundBitmap.terrain===view.terrain?.tiles;
  let groundCanvas:OffscreenCanvas|undefined;
- if(!cachedGround&&typeof OffscreenCanvas!=='undefined'){
-  groundCanvas=groundBitmap?.canvas??new OffscreenCanvas(viewport.width,viewport.height);
+ if(!cachedGround&&typeof OffscreenCanvas!=='undefined'&&viewport.width*viewport.height*4<=128*1024*1024){
+  groundCanvas=new OffscreenCanvas(viewport.width,viewport.height);
   groundCanvas.width=viewport.width;groundCanvas.height=viewport.height;
   const groundContext=groundCanvas.getContext('2d');if(groundContext){ctx=lightContext(groundContext as unknown as CanvasRenderingContext2D,view.light??'day');ctx.fillStyle=PALETTE.ground;ctx.fillRect(0,0,viewport.width,viewport.height);}else groundCanvas=undefined;
  }
  if(!cachedGround){
+ if(!groundCanvas){ctx.fillStyle=PALETTE.ground;ctx.fillRect(0,0,viewport.width,viewport.height);}
  drawTerrain(ctx,view);
  for(const layer of ['land','sites','ocean','water_polygons','street_polygons'])for(const {feature,shift} of features){
   if(feature.layer!==layer||feature.type!==3)continue;
@@ -172,8 +176,8 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  }
  for(const {coord,cell} of edits)if(!cachedGround&&cell.building==='park'&&scale>=4)drawTree(ctx,projectSurface(view,coord),scale,(coord.x^coord.y)>>>0);
  ctx=mainContext;
- if(groundCanvas){groundBitmap={key:groundKey,tiles:view.geography?.tiles,terrain:view.terrain?.tiles,canvas:groundCanvas};ctx.drawImage(groundCanvas,0,0);}
- else if(cachedGround)ctx.drawImage(groundBitmap!.canvas,0,0);
+ if(groundCanvas){sceneRasterCache.set('geographic-ground',{canvas:groundCanvas},viewport.width*viewport.height*4);groundBitmap={key:groundKey,tiles:view.geography?.tiles,terrain:view.terrain?.tiles,canvas:groundCanvas};}
+ const drawGround=()=>{if(groundCanvas||cachedGround)ctx.drawImage(groundBitmap!.canvas,0,0);
  for(const {feature,shift} of features){const layer=feature.layer;
   if((layer==='water_polygons'||layer==='ocean')&&scale>=7){ctx.save();path(ctx,feature.geometry.map(r=>projectRing(view,r,shift,feature)));ctx.clip('evenodd');ctx.strokeStyle=view.light==='night'?'rgba(190,217,224,.14)':'rgba(225,239,225,.22)';ctx.lineWidth=1;for(let i=0;i<28;i++){const x=(i*137+Math.sin(view.motion*.2+i)*10)%viewport.width,y=(i*83+29)%viewport.height;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+10+i%4*4,y);ctx.stroke();}ctx.restore();}
   else if((layer==='water_polygons'||layer==='ocean')&&scale>=4){
@@ -186,10 +190,12 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
    ctx.restore();
   }
  }
+ };
  const aviationCommands=aircraftDrawCommands(ctx,view);
- const volumes=[...aviationCommands.aircraft.filter(a=>a.grounded),...aviationCommands.shadows,...vesselDrawCommands(ctx,view),...mobilityDrawCommands(ctx,view),...buildings.map(b=>({depth:b.depth,draw:()=>{drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage,0,b.powered??true,true,b.base);if(b.powered===false&&scale>=7){const p=projectSurface(view,{x:(b.footprint.minX+b.footprint.maxX)/2,y:(b.footprint.minY+b.footprint.maxY)/2});ctx.fillStyle='rgba(242,178,86,.95)';ctx.font=`bold ${Math.max(10,scale*.3)}px system-ui`;ctx.fillText('!',p.x,p.y-scale*.6);}}}))];
- volumes.sort((a,b)=>a.depth-b.depth);for(const volume of volumes)volume.draw();
- for(const plane of aviationCommands.aircraft.filter(a=>!a.grounded).sort((a,b)=>a.depth-b.depth))plane.draw();
+ let targetStatics=staticCommands.get(prepared);if(!targetStatics){targetStatics=new WeakMap();staticCommands.set(prepared,targetStatics);}let statics=targetStatics.get(ctx);
+ if(!statics){statics=buildings.map(b=>({bounds:buildingScreenBounds(view,b.footprint,b.shift,b.kind,b.stage,b.base),depth:b.depth,draw:()=>{drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage,0,b.powered??true,true,b.base);if(b.powered===false&&scale>=7){const p=projectSurface(view,{x:(b.footprint.minX+b.footprint.maxX)/2,y:(b.footprint.minY+b.footprint.maxY)/2});ctx.fillStyle='rgba(242,178,86,.95)';ctx.font=`bold ${Math.max(10,scale*.3)}px system-ui`;ctx.fillText('!',p.x,p.y-scale*.6);}}})).filter(c=>c.bounds.x+c.bounds.width>=0&&c.bounds.y+c.bounds.height>=0&&c.bounds.x<=viewport.width&&c.bounds.y<=viewport.height);targetStatics.set(ctx,statics);}
+ let compositor=compositors.get(ctx);if(!compositor){compositor=createSceneCompositor();compositors.set(ctx,compositor);}
+ const drawOverlays=()=>{
  if(camera.zoom<.06){
   ctx.font=`${(camera.zoom<.003?12:11)*(view.pixelRatio??1)}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
   const occupied:Array<{x:number;y:number;width:number}>=[];
@@ -210,4 +216,11 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   }
  }
  if(view.hover&&camera.zoom>=.035){rectCell(ctx,view,view.hover,'rgba(255,244,191,.15)');ctx.strokeStyle='#f5e4a2';ctx.lineWidth=1;ctx.stroke();}
+ };
+ const dynamic=[...aviationCommands.aircraft.map(a=>a.grounded?a:{...a,depth:Infinity}),...aviationCommands.shadows,...vesselDrawCommands(ctx,view),...mobilityDrawCommands(ctx,view)];
+ const overlayCells=[...view.preview,...(view.hover?[view.hover]:[])],points=overlayCells.map(p=>projectSurface(view,p)),margin=Math.max(12,scale*2);
+ if(labels.length&&camera.zoom<.06)dynamic.push({depth:Infinity,bounds:{x:0,y:0,width:viewport.width,height:viewport.height},draw:drawOverlays});
+ else if(points.length){const x=Math.min(...points.map(p=>p.x))-margin,y=Math.min(...points.map(p=>p.y))-margin*3;dynamic.push({depth:Infinity,bounds:{x,y,width:Math.max(...points.map(p=>p.x))+margin-x,height:Math.max(...points.map(p=>p.y))+margin-y},draw:drawOverlays});}
+ // Recorder and older browsers without raster surfaces use a complete deterministic replay.
+ compositor.compose(ctx,typeof OffscreenCanvas==='undefined'?{}:prepared,viewport.width,viewport.height,drawGround,statics,dynamic);
 }

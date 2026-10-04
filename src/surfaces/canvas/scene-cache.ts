@@ -9,3 +9,5 @@ export function createSceneCache<T>(limitBytes:number,dispose:(value:T)=>void=()
   stats:()=>({bytes,entries:entries.size,hits,misses,evictions}),
  };
 }
+// Raster resources have one owner; all consumers compete within the same byte budget.
+export const sceneRasterCache=createSceneCache<{canvas:OffscreenCanvas}>(128*1024*1024,value=>{value.canvas.width=0;value.canvas.height=0;});

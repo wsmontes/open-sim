@@ -1,3 +1,4 @@
+import type {ScreenBounds} from './scene-compositor';
 import type {MobilityFrameAgent,TrafficSignalFrame} from '../../presentation/mobility-model';
 import {MOBILITY_LENGTH} from '../../presentation/mobility-engine';
 import {TILE_W,cellSpace,type Point} from '../../presentation/camera';
@@ -38,7 +39,7 @@ function commands(ctx:CanvasRenderingContext2D,view:WorldView,agents:readonly Mo
  const m=terrainMetres(view),pixels=TILE_W*view.camera.zoom/m,limit=view.camera.zoom<.2?120:480;
  const centre=cellSpace({x:view.viewport.width/2,y:view.viewport.height/2},view.camera);
  let count=0;
- const result:{depth:number;draw:()=>void}[]=[];
+ const result:{depth:number;bounds:ScreenBounds;draw:()=>void}[]=[];
  for(const agent of agents){
   const reference=toGeo({x:agent.point.x,y:agent.point.y}),offset=(agent.kind==='pedestrian'?3.5:1.8)/metresPerCellAt(reference.lat);
   const point={x:nearestWorldX(agent.point.x,centre.x)-agent.heading.y*offset,y:agent.point.y+agent.heading.x*offset};
@@ -47,7 +48,8 @@ function commands(ctx:CanvasRenderingContext2D,view:WorldView,agents:readonly Mo
   const projectPoint=(p:Point)=>projectSurface(view,p,agent.elevationM??undefined);
   const p=projectPoint(point);if(p.x<-24||p.y<-24||p.x>view.viewport.width+24||p.y>view.viewport.height+24||!Number.isFinite(p.x)||!Number.isFinite(p.y)||!visibleSurfacePoint(view,point,agent.elevationM??undefined))continue;
   if(count++>=limit)break;
-  result.push({depth:surfaceDepth(view,point,agent.elevationM??undefined),draw:()=>drawMobilityAgent(ctx,{...agent,point},projectPoint,pixels,view.motion)});
+  const radius=Math.max(18,MOBILITY_LENGTH[agent.kind]*Math.max(.2,pixels)*1.5);
+  result.push({bounds:{x:p.x-radius,y:p.y-radius,width:radius*2,height:radius*2},depth:surfaceDepth(view,point,agent.elevationM??undefined),draw:()=>drawMobilityAgent(ctx,{...agent,point},projectPoint,pixels,view.motion)});
  }
  return result;
 }
@@ -55,14 +57,14 @@ export function drawTrafficSignal(ctx:CanvasRenderingContext2D,signal:TrafficSig
  const size=Math.max(2,Math.min(4,zoom*5));ctx.save();ctx.translate(point.x,point.y);ctx.strokeStyle='#647573';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-size*7);ctx.stroke();ctx.fillStyle='#27393b';ctx.fillRect(-size*.8,-size*8,size*1.6,size*4.6);for(const [i,color] of ['red','amber','green'].entries()){ctx.fillStyle=signal.aspect===color?['#ef5c52','#f4bd51','#5cce84'][i]:'#455955';ctx.beginPath();ctx.arc(0,-size*7.2+i*size*1.4,size*.55,0,Math.PI*2);ctx.fill();}ctx.restore();
 }
 export function signalDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){
- if(view.camera.zoom<.15)return [];const centre=cellSpace({x:view.viewport.width/2,y:view.viewport.height/2},view.camera),result:{depth:number;draw:()=>void}[]=[];
- for(const signal of view.signals??[]){const scale=metresPerCellAt(toGeo(signal.point).lat),point={x:nearestWorldX(signal.point.x,centre.x)-(signal.direction.x*6+signal.direction.y*3)/scale,y:signal.point.y-(signal.direction.y*6-signal.direction.x*3)/scale};if(view.geography){point.x-=.5;point.y-=.5;}const p=projectSurface(view,point);if(p.x<0||p.y<0||p.x>view.viewport.width||p.y>view.viewport.height||!visibleSurfacePoint(view,point))continue;result.push({depth:surfaceDepth(view,point),draw:()=>drawTrafficSignal(ctx,signal,p,view.camera.zoom)});if(result.length>=128)break;}
+ if(view.camera.zoom<.15)return [];const centre=cellSpace({x:view.viewport.width/2,y:view.viewport.height/2},view.camera),result:{depth:number;bounds:ScreenBounds;draw:()=>void}[]=[];
+ for(const signal of view.signals??[]){const scale=metresPerCellAt(toGeo(signal.point).lat),point={x:nearestWorldX(signal.point.x,centre.x)-(signal.direction.x*6+signal.direction.y*3)/scale,y:signal.point.y-(signal.direction.y*6-signal.direction.x*3)/scale};if(view.geography){point.x-=.5;point.y-=.5;}const p=projectSurface(view,point);if(p.x<0||p.y<0||p.x>view.viewport.width||p.y>view.viewport.height||!visibleSurfacePoint(view,point))continue;result.push({bounds:{x:p.x-12,y:p.y-44,width:24,height:56},depth:surfaceDepth(view,point),draw:()=>drawTrafficSignal(ctx,signal,p,view.camera.zoom)});if(result.length>=128)break;}
  return result;
 }
 // The frame asks for these lists twice — once to know whether anything visible is moving, once to draw it — and building
 // them projects every agent. The view object is built fresh for each frame, so remembering the list on it makes the
 // second question free while keeping what is drawn identical to what was asked about.
-const frameCommands=new WeakMap<object,{depth:number;draw:()=>void}[]>();
+const frameCommands=new WeakMap<object,{depth:number;bounds:ScreenBounds;draw:()=>void}[]>();
 export function mobilityDrawCommands(ctx:CanvasRenderingContext2D,view:WorldView){
  const cached=frameCommands.get(view);if(cached)return cached;
  const built=[...commands(ctx,view,view.mobility??[]),...signalDrawCommands(ctx,view)];

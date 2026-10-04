@@ -7,8 +7,11 @@ export function cityColor(color:string,light:CityLight):string{
  const result=`#${rgb.map((v,i)=>Math.round(v*[.32,.40,.53][i]+[8,12,19][i]).toString(16).padStart(2,'0')).join('')}`;
  colors.set(color,result);return result;
 }
+const nightContexts=new WeakMap<CanvasRenderingContext2D,CanvasRenderingContext2D>();
 export function lightContext(ctx:CanvasRenderingContext2D,light:CityLight):CanvasRenderingContext2D{
  if(light==='day')return ctx;
+ const known=nightContexts.get(ctx);if(known)return known;
  const methods=new Map<PropertyKey,unknown>();
- return new Proxy(ctx,{get(target,key){const value=Reflect.get(target,key,target);if(typeof value!=='function')return value;if(!methods.has(key))methods.set(key,value.bind(target));return methods.get(key);},set(target,key,value){return Reflect.set(target,key,(key==='fillStyle'||key==='strokeStyle')&&typeof value==='string'?cityColor(value,light):value,target);}});
+ const proxy=new Proxy(ctx,{get(target,key){const value=Reflect.get(target,key,target);if(typeof value!=='function')return value;if(!methods.has(key))methods.set(key,value.bind(target));return methods.get(key);},set(target,key,value){return Reflect.set(target,key,(key==='fillStyle'||key==='strokeStyle')&&typeof value==='string'?cityColor(value,light):value,target);}});
+ nightContexts.set(ctx,proxy);return proxy;
 }
