@@ -123,3 +123,33 @@ test('without a repository the client still plays but reports no versions and re
  expect(refused.ok).toBe(false);
  client.stop();
 });
+
+
+async function cooperativeVersions(yieldWork:()=>Promise<void>,cancelled:()=>boolean=()=>false){
+ const {createVersions}=await import('../src/client/versions');
+ const {createJcsCodec}=await import('../src/adapters/codec/jcs');
+ const {bytesHasher}=await import('../src/adapters/hash/content');
+ const {createWorldMemoryStorage}=await import('../src/adapters/storage/world-memory');
+ const {createWorldRepository}=await import('../src/session/world-repository');
+ const {fixtureTown}=await import('../src/adapters/map/fixture');
+ const {createGame}=await import('../src/core/commands');
+ const codec=createJcsCodec(),hasher=bytesHasher(),base=fixtureTown('0:0'),state=createGame('cooperative',1,base);
+ const messages:string[]=[];
+ const versions=createVersions({repository:createWorldRepository({storage:createWorldMemoryStorage({}),codec,hasher}),codec,hasher,time:createManualTime(),worldId:'cooperative',branchId:'main',terms:[],state:()=>state,view:()=>({x:0,y:0,zoom:1,speed:0,place:'fixture'}),lastOperations:()=>[],availableBases:()=>[base],focus:()=>({x:2,y:3}),yield:yieldWork,cancelled,changed:()=>messages.push(versions.scenarios().message)});
+ return{versions,messages};
+}
+
+test('future comparison yields and exposes progress before the final comparison',async()=>{
+ let yields=0;const {versions,messages}=await cooperativeVersions(async()=>{yields++;});
+ await versions.compareFutures();
+ expect(yields).toBeGreaterThan(0);expect(messages.some(message=>message.includes('Calculando'))).toBe(true);
+ expect(versions.scenarios().comparison?.comparable).toBe(true);
+});
+
+test('cancelled future comparison ignores results after its scheduling boundary',async()=>{
+ let cancelled=false,yields=0;
+ const {versions,messages}=await cooperativeVersions(async()=>{yields++;cancelled=true;},()=>cancelled);
+ await versions.compareFutures();
+ expect(yields).toBeGreaterThan(0);expect(versions.scenarios().comparison).toBeNull();
+ const count=messages.length;await Promise.resolve();expect(messages).toHaveLength(count);
+});

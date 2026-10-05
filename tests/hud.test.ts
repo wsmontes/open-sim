@@ -272,3 +272,12 @@ test('sheet focus returns to its opener when dismissed',()=>{
  const hud=createHud(mount(),callbacks());const button=tree('button[data-sheet="lugares"]');button.focus();button.click();
  tree('#panel-places [data-close]').click();expect(document.activeElement).toBe(button);hud.destroy();
 });
+
+test('reflow clamps floating panels after resize within the same layout mode',()=>{
+ window.localStorage.setItem('open-sim:panels',JSON.stringify({'economy':{x:700,y:180}}));
+ const hud=createHud(element('hud'),callbacks());hud.setMode(DRESSER);
+ Object.defineProperty(window,'innerWidth',{value:700,configurable:true});
+ hud.reflow();
+ expect(Number.parseFloat(element('panel-economy').style.left)).toBeLessThanOrEqual(384);
+ hud.destroy();
+});

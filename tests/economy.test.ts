@@ -2,7 +2,7 @@ import {expect,test} from 'vitest';
 import {createGame,applyCommand} from '../src/core/commands';
 import {coordAt} from '../src/core/coordinates';
 import {economyOf,summarize,stepSimulation} from '../src/core/simulation';
-import type {Cell,GameState,Tool} from '../src/core/model';
+import type {GameState,Tool} from '../src/core/model';
 import {blank} from './fixtures/world';
 
 // The city economy: three demands, one tax rate, land value, a monthly budget and a debt ladder. The rules that matter
@@ -11,10 +11,6 @@ import {blank} from './fixtures/world';
 const REGION='0:0';
 const base=blank(REGION);
 const at=(index:number)=>coordAt(REGION,index);
-const put=(state:GameState,index:number,cell:Cell):GameState=>({
- ...state,
- chunks:{...state.chunks,[REGION]:{...state.chunks[REGION]!,edits:{...state.chunks[REGION]!.edits,[index]:cell}}},
-});
 const build=(state:GameState,tool:Tool,indices:number[]):GameState=>{
  const applied=applyCommand(state,{version:1,worldId:state.worldId,actorId:'local-player',sequence:(state.actors['local-player']??0)+1,expectedRevision:state.revision,action:{type:'build',tool,cells:indices.map(at)}},[]);
  if(applied.status!=='applied')throw new Error(applied.reason);

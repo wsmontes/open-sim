@@ -15,7 +15,7 @@ import {importLegacy} from '../src/session/world-bundle';
 import {createWorldRepository} from '../src/session/world-repository';
 import type {Checkpoint,WorldRepository} from '../src/session/world-repository';
 import type {CellField,ChangeField} from '../src/world/changes';
-import {compareScenarios,composeWorld,layerWrites,runScenario} from '../src/world/composition';
+import {compareScenarios,composeWorld,layerWrites,runScenario,runScenarioAsync} from '../src/world/composition';
 import type {Composition,LayerContract,LayerEffect,ResolvedObjects,ScenarioInput,ScenarioRun} from '../src/world/composition';
 import {createKernel} from '../src/world/kernel';
 import type {JsonValue,ObjectRef,WorldError,WorldResult} from '../src/world/model';
@@ -326,7 +326,7 @@ test('the comparison explains the divergence by the decisions, the premises and 
 });
 
 test('the comparison refuses a different interval, undeclared premises and undeclared external inputs',async()=>{
- const {blocks,parque,industria}=await futures();
+ const {blocks,parque}=await futures();
  const silent=valueOf(runScenario(compositionOf(blocks,[blocks.industria]),resolved(blocks,blocks.industria),{id:'industria-muda',interval:INTERVAL,inputs:INPUTS,premises:[]}));
  const undeclared=compareScenarios(parque,silent);
  expect(undeclared.comparable).toBe(false);
@@ -385,4 +385,21 @@ test('the writes a project made are derived from the material, so a caller can d
  expect(valueOf(layerWrites(blocks.point.state,blocks.parque.state))).toEqual(PROJECT_WRITES);
  // A visual layer's material is component-only, which is exactly what keeps it outside the durable identity.
  expect(valueOf(layerWrites(blocks.point.state,blocks.transito.state))).toEqual([{scope:'component',key:'scenario.visual',entity:'transito'}]);
+});
+
+
+test('yielding scenario preserves every field of synchronous fixture runs',async()=>{
+ const blocks=await build(),definition=compositionOf(blocks,[blocks.parque]),objects=resolved(blocks,blocks.parque);
+ const request={id:'cooperative',interval:{fromTick:0,toTick:13},inputs:INPUTS,premises:['parque']};
+ const progress:number[]=[];let yields=0;
+ const actual=await runScenarioAsync(definition,objects,request,{yield:async()=>{yields++;},batchTicks:5,progress:done=>progress.push(done)});
+ expect(actual).toEqual(runScenario(definition,objects,request));
+ expect(yields).toBe(2);expect(progress).toEqual([5,10,13]);
+});
+
+test('yielding scenario cancels at a batch boundary without publishing a partial run',async()=>{
+ const blocks=await build();let cancelled=false,yields=0;const progress:number[]=[];
+ const actual=await runScenarioAsync(compositionOf(blocks,[blocks.parque]),resolved(blocks,blocks.parque),{id:'cancelled',interval:INTERVAL,inputs:INPUTS,premises:[]},{yield:async()=>{yields++;cancelled=true;},cancelled:()=>cancelled,progress:done=>progress.push(done)});
+ expect(actual).toBeNull();expect(yields).toBe(1);expect(progress).toEqual([5]);
+ expect(blocks.point.state.tick).toBe(0);
 });

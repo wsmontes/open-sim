@@ -13,7 +13,7 @@ const mount=()=>{
  return document.getElementById('hud') as HTMLElement;
 };
 const reading=(over:Partial<CellReading>={}):CellReading=>({terrain:'land',occupied:false,residents:0,jobs:0,landValue:40,...over});
-const shown=(root:HTMLElement)=>{
+const shown=(_root:HTMLElement)=>{
  const card=document.getElementById('hud-inspector') as HTMLElement;
  return {
   hidden:card.hidden,

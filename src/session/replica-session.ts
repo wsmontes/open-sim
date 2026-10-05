@@ -385,7 +385,7 @@ export function createReplicaSession(options:ReplicaOptions):ReplicaSession{
    await send({kind:'base-request',bases:needed.bases,objects:needed.objects});
   }
  }
- async function handle(peer:string,message:WireMessage):Promise<void>{
+ async function handle(_peer:string,message:WireMessage):Promise<void>{
   const envelope=message.envelope;
   if(envelope.worldId!==head.worldId||envelope.branchId!==head.branchId)return;
   const replay=replayOf(seen,envelope);

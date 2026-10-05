@@ -85,3 +85,13 @@ test('fps statistics decay while an idle renderer sleeps',()=>{
  now=1200;
  expect(scheduler.stats().fps).toBe(0);
 });
+
+test('skipped render callbacks do not count as canvas draws',()=>{
+ const frames:Array<(now:number)=>void>=[];
+ const scheduler=createFrameScheduler({
+  draw:()=>({moving:false,ambient:false,drawn:false}),
+  request:cb=>{frames.push(cb);return 1;},cancel:()=>{},visible:()=>true,now:()=>1,
+ });
+ scheduler.invalidate();frames.shift()!(1);
+ expect(scheduler.stats().frames).toBe(1);expect(scheduler.stats().drawn).toBe(0);
+});

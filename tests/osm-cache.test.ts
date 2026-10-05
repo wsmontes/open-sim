@@ -113,3 +113,29 @@ test('reading a tile is what keeps it: the least recently used bytes go first',a
  expect(await cache.get('a')).not.toBeNull();
  expect(await cache.get('b')).toBeNull();
 });
+
+test('raw bytes belong to the configured source',async()=>{
+ const cache=createMemoryTileCache(),a={requests:0},b={requests:0};
+ await createOsmSource({tileUrl:'https://a/{z}/{x}/{y}',fetcher:serving(a),cache}).loadChunk('0:0');
+ await createOsmSource({tileUrl:'https://b/{z}/{x}/{y}',fetcher:serving(b),cache}).loadChunk('0:0');
+ expect(b.requests).toBe(1);
+});
+test('a cache that never answers does not hold map request slots',async()=>{
+ const maps=createOsmSource({timeoutMs:20,cache:{get:()=>new Promise(()=>{}),put:async()=>{}},fetcher:serving({requests:0})});
+ const outcome=await Promise.race([maps.loadChunk('0:0').then(()=> 'loaded'),new Promise(resolve=>setTimeout(()=>resolve('stuck'),100))]);
+ expect(outcome).toBe('loaded');
+});
+
+test('tile and normalized caches retry opens that miss their deadline',async()=>{
+ const {vi}=await import('vitest');vi.useFakeTimers();
+ const {IDBFactory}=await import('fake-indexeddb');const real=new IDBFactory();let opens=0;
+ vi.stubGlobal('indexedDB',{open:(...args:Parameters<IDBFactory['open']>)=>++opens<=2?{}:real.open(...args)});
+ try{
+  const {createIndexedDbTileCache}=await import('../src/adapters/osm/tile-cache');
+  const {createIndexedDbChunkCache}=await import('../src/adapters/osm/chunk-cache');
+  const tiles=createIndexedDbTileCache(),chunks=createIndexedDbChunkCache();
+  const pending=Promise.all([tiles.get('a'),chunks.get('a')]);await vi.advanceTimersByTimeAsync(8000);
+  expect(await pending).toEqual([null,null]);vi.useRealTimers();
+  await tiles.put('a',new Uint8Array([1]));expect(await tiles.get('a')).toEqual(new Uint8Array([1]));expect(await chunks.get('a')).toBeNull();expect(opens).toBe(4);
+ }finally{vi.unstubAllGlobals();vi.useRealTimers();}
+});

@@ -205,7 +205,7 @@ test('the invitation travels as text that survives a round trip, and a broken on
 });
 
 test('an invite outside its validity window or for another recipient is refused', async () => {
- const {host, invite} = await hostFixture();
+ const {invite} = await hostFixture();
  const {joiner, service} = await joinerFixture(31);
  expect(await service.open(invite)).toMatchObject({ok: true});
  const late = createInviteService({codec, now: () => at(7200), identity: joiner});

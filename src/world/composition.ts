@@ -458,13 +458,13 @@ function requestProblem(composed:ComposedWorld,request:ScenarioRequest):WorldErr
 }
 // A scenario is a simulation, not a validated forecast: the same ground, the same interval and the same declared
 // inputs, run by the profile's own rules, and the indicators it ends on.
-export function runScenario(definition:Composition,objects:ResolvedObjects,request:ScenarioRequest):WorldResult<ScenarioRun>{
+function* scenarioSteps(definition:Composition,objects:ResolvedObjects,request:ScenarioRequest):Generator<number,WorldResult<ScenarioRun>,void>{
  const composed=composeWorld(definition,objects);
  if(!composed.ok)return composed;
  const problem=requestProblem(composed.value,request);
  if(problem)return failed(problem.code,problem.message);
  let state=composed.value.state;
- while(state.tick<request.interval.toTick)state=stepSimulation(state);
+ while(state.tick<request.interval.toTick){state=stepSimulation(state);yield state.tick-request.interval.fromTick;}
  return ok({
   id:request.id,
   composition:definition,
@@ -475,6 +475,36 @@ export function runScenario(definition:Composition,objects:ResolvedObjects,reque
   state,
   indicators:indicatorsOf(state),
  });
+}
+
+export function runScenario(definition:Composition,objects:ResolvedObjects,request:ScenarioRequest):WorldResult<ScenarioRun>{
+ const steps=scenarioSteps(definition,objects,request);
+ let next=steps.next();while(!next.done)next=steps.next();return next.value;
+}
+
+// Scheduling belongs to the host: portable scenario execution never reads a clock or assumes a browser.
+export type ScenarioExecution={
+ yield():Promise<void>;
+ cancelled?():boolean;
+ batchTicks?:number;
+ progress?(completed:number,total:number):void;
+};
+export async function runScenarioAsync(definition:Composition,objects:ResolvedObjects,request:ScenarioRequest,execution:ScenarioExecution):Promise<WorldResult<ScenarioRun>|null>{
+ if(execution.cancelled?.())return null;
+ const steps=scenarioSteps(definition,objects,request),total=request.interval.toTick-request.interval.fromTick;
+ const batch=execution.batchTicks??5;
+ if(!Number.isSafeInteger(batch)||batch<1)return failed('MALFORMED','Lote de ticks inválido');
+ let completed=0;
+ while(true){
+  if(execution.cancelled?.())return null;
+  const next=steps.next();
+  if(next.done){if(completed>0&&completed%batch!==0)execution.progress?.(completed,total);return next.value;}
+  completed=next.value;
+  if(completed%batch===0){
+   execution.progress?.(completed,total);
+   if(completed<total)await execution.yield();
+  }
+ }
 }
 
 // --- comparing two futures (spec §12 "Dois futuros da mesma praça") ---------------------------------------------

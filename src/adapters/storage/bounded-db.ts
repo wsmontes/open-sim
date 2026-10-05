@@ -12,17 +12,19 @@ export type BoundedDb = {
  name: string;
  stores: readonly string[];
  factory: IDBFactory;
- timeoutMs: number;
+ timeoutMs?: number;
+ upgrade?: (db: IDBDatabase) => void;
  // How the player is told which storage is in trouble: "O armazenamento local", "O armazenamento das versões".
  subject: string;
 };
 
 export function boundedDb(options: BoundedDb): () => Promise<IDBDatabase> {
- const {name, stores, factory, timeoutMs, subject} = options;
+ const {name, stores, factory, timeoutMs = OPEN_TIMEOUT_MS, subject} = options;
  let handle: Promise<IDBDatabase> | null = null;
  return () => {
   if (handle) return handle;
-  const request = factory.open(name, 1);
+  let request: IDBOpenDBRequest;
+  try { request = factory.open(name, 1); } catch(error) { return Promise.reject(error); }
   const pending = new Promise<IDBDatabase>((resolve, reject) => {
    let settled = false;
    const timer = setTimeout(() => {
@@ -33,6 +35,7 @@ export function boundedDb(options: BoundedDb): () => Promise<IDBDatabase> {
    }, timeoutMs);
    const close = () => { settled = true; clearTimeout(timer); handle = null; };
    request.onupgradeneeded = () => {
+    if(options.upgrade){options.upgrade(request.result);return;}
     const db = request.result;
     for (const store of stores) if (!db.objectStoreNames.contains(store)) db.createObjectStore(store);
    };
@@ -42,7 +45,7 @@ export function boundedDb(options: BoundedDb): () => Promise<IDBDatabase> {
     settled = true;
     clearTimeout(timer);
     // Another tab upgrading the schema must not be blocked by this connection.
-    db.onversionchange = () => db.close();
+    db.onversionchange = () => { db.close(); handle = null; };
     resolve(db);
    };
    request.onerror = () => {

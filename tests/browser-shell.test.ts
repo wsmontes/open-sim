@@ -193,7 +193,7 @@ function mountIndexHtml(doc: Document): void {
  doc.body.innerHTML = body;
 }
 
-async function boot(options: {saves?: SaveStore & {slots: Map<string, string>}; failing?: ReadonlySet<string>; failTimes?: number; record?: boolean} = {}): Promise<Harness> {
+async function boot(options: {saves?: SaveStore & {slots: Map<string, string>}; failing?: ReadonlySet<string>; failTimes?: number; record?: boolean; beforeReady?(handle:{dispose():void}):void|Promise<void>} = {}): Promise<Harness> {
  installStubs();
  const doc = document;
  mountIndexHtml(doc);
@@ -223,8 +223,9 @@ async function boot(options: {saves?: SaveStore & {slots: Map<string, string>}; 
  // Import the real host fresh each test, so its module-level composition re-runs against this document and these ports.
  vi.resetModules();
  await import('../src/browser/main');
- const handle = (window as unknown as {__openSimTestClient?: {client: CityClient; hud: Hud; ready: Promise<void>}}).__openSimTestClient;
+ const handle = (window as unknown as {__openSimTestClient?: {client: CityClient; hud: Hud; dispose():void; ready: Promise<void>}}).__openSimTestClient;
  if (!handle) throw new Error('o host de teste não publicou o handle');
+ await options.beforeReady?.(handle);
  await handle.ready;
  // One frame so the first-frame/background work runs; then let the manual clock settle the facts/map/history work.
  flushFrames(2);
@@ -251,6 +252,7 @@ async function boot(options: {saves?: SaveStore & {slots: Map<string, string>}; 
   canvasPoint,
   landCell,
   reset() {
+   handle.dispose();
    delete (window as unknown as {__openSimTestClient?: unknown}).__openSimTestClient;
    delete (window as unknown as {__openSimTestPorts?: unknown}).__openSimTestPorts;
   },
@@ -278,16 +280,50 @@ async function dragStroke(h: Harness, canvas: HTMLCanvasElement, cells: readonly
  await h.client.idle();
 }
 
-async function key(doc: Document, k: string, init: KeyboardEventInit = {}): Promise<void> {
+async function key(_doc: Document, k: string, init: KeyboardEventInit = {}): Promise<void> {
  window.dispatchEvent(new window.KeyboardEvent('keydown', {key: k, bubbles: true, cancelable: true, ...init}));
 }
 
 afterEach(() => {
+ (window as unknown as {__openSimTestClient?:{dispose?:()=>void}}).__openSimTestClient?.dispose?.();
  delete (window as unknown as {__openSimTestClient?: unknown}).__openSimTestClient;
  delete (window as unknown as {__openSimTestPorts?: unknown}).__openSimTestPorts;
  frameQueue = [];
  document.body.innerHTML = '';
  vi.restoreAllMocks();
+});
+
+test('disposing a browser host releases input before the next host starts',async()=>{
+ const first=await boot();
+ (window as unknown as {__openSimTestClient?:{dispose?:()=>void}}).__openSimTestClient?.dispose?.();
+ const second=await boot();
+ await key(document,'2');await second.client.idle();
+ expect(second.client.view().tool).toBe('road');
+ expect(first.client.view().tool).toBe('explore');
+});
+
+test('disposing during pending startup prevents input and observer reinstatement',async()=>{
+ const saves=createMemoryStore();
+ let release!:()=>void;
+ const pending=new Promise<void>(resolve=>{release=resolve;});
+ const read=saves.read.bind(saves);
+ saves.read=async slot=>{await pending;return read(slot);};
+ let observe:ReturnType<typeof vi.spyOn>|undefined;
+ await boot({saves,beforeReady(handle){
+  observe=vi.spyOn(ResizeObserver.prototype,'observe');
+  handle.dispose();release();
+ }});
+ const event=new window.KeyboardEvent('keydown',{key:'2',bubbles:true,cancelable:true});
+ window.dispatchEvent(event);
+ expect(event.defaultPrevented).toBe(false);
+ expect(observe).not.toHaveBeenCalled();
+});
+
+test('hover updates the cost without rebuilding the full HUD',async()=>{
+ const h=await boot();flushFrames(3);
+ const update=vi.spyOn(h.hud,'update');
+ await h.client.do({do:'hover',cell:h.landCell()});flushFrames(1);
+ expect(update).not.toHaveBeenCalled();
 });
 
 // ----------------------------------------------------------------------------------------------------------------

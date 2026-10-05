@@ -56,6 +56,7 @@ export type HudInfo = {
 export type Hud = {
  update(info:HudInfo):void;
  setMode(mode:LayoutMode):void;
+ reflow():void;
  // Which management screen is open, or null for the city alone. Opened from the dock, closed by its own button.
  openSheet(sheet:string|null):void;
  sheet():string|null;
@@ -251,6 +252,10 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
  const observer=typeof ResizeObserver==='function'?new ResizeObserver(measure):null;
  if(observer){if(dock)observer.observe(dock);if(top)observer.observe(top);}
  measure();
+ const reflow=()=>{
+  for(const panel of panels){const position=placed[panel.id]??stored[panel.id];if(mode.floating&&position)place(panel,position.x,position.y);}
+  measure();
+ };
  const setMode=(next:LayoutMode)=>{
   mode=next;
   root.classList.toggle('touch',next.touch);
@@ -268,6 +273,7 @@ export function createHud(root:HTMLElement,callbacks:HudCallbacks):Hud {
  };
  return {
   setMode,
+  reflow,
   openSheet,
   sheet:()=>open,
   update(info){

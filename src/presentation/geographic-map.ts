@@ -3,7 +3,7 @@ import type {Camera,Point,Viewport} from './camera';
 import {cellSpace,TILE_W,centerOn} from './camera';
 
 export type GeographicFeature={layer:string;kind:string;bridge:boolean;type:number;geometry:Point[][];name?:string;height?:number};
-export type GeographicTile={z:number;x:number;y:number;features:GeographicFeature[]};
+export type GeographicTile={z:number;x:number;y:number;features:GeographicFeature[];fallback?:boolean};
 export type GeographicTileId={z:number;x:number;y:number;worldX:number};
 export type GeographicScene={tiles:readonly GeographicTile[];revision:number;loading:boolean;error:boolean};
 export const GLOBE_ZOOM=.000014;
@@ -56,4 +56,43 @@ export function mapScale(camera:Camera,viewport:Viewport):{label:string;metres:n
  const metres=(value>=5?5:value>=2?2:1)*power;
  return{label:metres>=1000?`${metres/1000} km`:`${metres} m`,metres,pixels:metres/metresPerPixel,
  mode:camera.zoom<GLOBE_ZOOM?'Planeta':camera.zoom<.0003?'Continente':camera.zoom<.003?'Região':camera.zoom<.08?'Cidade':'Bairro'};
+}
+
+// A provisional parent contributes only the demanded child rectangle. Clip in world
+// coordinates before rotation, so adjacent detail and fallback share exact edges.
+export function clipGeographicTile(parent:GeographicTile,child:Pick<GeographicTileId,'z'|'x'|'y'>):GeographicTile {
+ const side=WORLD/2**child.z,minX=child.x*side,minY=child.y*side,maxX=minX+side,maxY=minY+side;
+ const inside=(p:Point)=>p.x>=minX&&p.x<=maxX&&p.y>=minY&&p.y<=maxY;
+ const polygon=(ring:Point[])=>{
+  let out=ring;
+  for(const [axis,edge,sign] of [['x',minX,1],['x',maxX,-1],['y',minY,1],['y',maxY,-1]] as const){
+   const input=out;out=[];
+   for(let i=0;i<input.length;i++){
+    const a=input[(i+input.length-1)%input.length]!,b=input[i]!,ai=(a[axis]-edge)*sign>=0,bi=(b[axis]-edge)*sign>=0;
+    if(ai!==bi){const t=(edge-a[axis])/(b[axis]-a[axis]);out.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});}
+    if(bi)out.push(b);
+   }
+  }
+  if(out.length>=3&&(out[0]!.x!==out.at(-1)!.x||out[0]!.y!==out.at(-1)!.y))out.push({...out[0]!});
+  return out;
+ };
+ const line=(ring:Point[])=>{
+  const out:Point[][]=[];
+  for(let i=1;i<ring.length;i++){
+   const a=ring[i-1]!,b=ring[i]!,dx=b.x-a.x,dy=b.y-a.y;let start=0,end=1,valid=true;
+   for(const [p,q] of [[-dx,a.x-minX],[dx,maxX-a.x],[-dy,a.y-minY],[dy,maxY-a.y]]){
+    if(p===0){if(q!<0)valid=false;continue;}
+    const t=q!/p!;if(p!<0)start=Math.max(start,t);else end=Math.min(end,t);
+   }
+   if(!valid||start>end)continue;
+   const from={x:a.x+dx*start,y:a.y+dy*start},to={x:a.x+dx*end,y:a.y+dy*end},last=out.at(-1);
+   if(last&&last.at(-1)!.x===from.x&&last.at(-1)!.y===from.y)last.push(to);else out.push([from,to]);
+  }
+  return out;
+ };
+ const features=parent.features.flatMap(feature=>{
+  const geometry=feature.type===3?feature.geometry.map(polygon).filter(r=>r.length>=4):feature.type===2?feature.geometry.flatMap(line):feature.geometry.map(r=>r.filter(inside)).filter(r=>r.length);
+  return geometry.length?[{...feature,geometry}]:[];
+ });
+ return {...child,features,fallback:true};
 }

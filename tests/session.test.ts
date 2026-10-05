@@ -124,7 +124,7 @@ test('a failed write reports the error and keeps the progress in memory',async()
 });
 test('a store that throws synchronously still cannot reject save',async()=>{
  const inner=createMemoryStore();
- const saves:SaveStore={read:slot=>inner.read(slot),write:(slot: string,data:SavedGame)=>{throw new Error('Sem transação');}};
+ const saves:SaveStore={read:slot=>inner.read(slot),write:(_slot: string,_data:SavedGame)=>{throw new Error('Sem transação');}};
  const {s}=await boot(saves);
  await s.save(view('Vancouver'));
  expect(s.getSaveStatus()).toEqual({status:'error',message:'Sem transação',blocked:false});

@@ -381,3 +381,34 @@ test('a stationary pan pointer after resize does not replay its prior movement',
  const before=h.camera;h.canvas.width=640;h.canvas.height=400;h.finger('pointermove',1,240,200);
  expect(h.camera).toEqual(before);h.finger('pointercancel',1,240,200,window);h.detach();
 });
+
+test('modified, composing and consumed keys leave the map alone',()=>{
+ const h=harness('explore');
+ for(const init of [{ctrlKey:true},{metaKey:true},{altKey:true},{isComposing:true}])h.key('e',window,init);
+ const consumed=new KeyboardEvent('keydown',{key:'e',bubbles:true,cancelable:true});consumed.preventDefault();window.dispatchEvent(consumed);
+ staysHome(h.camera);h.detach();
+});
+test('Space on a button and blur cannot leave a build gesture armed',()=>{
+ const h=harness('road'),button=document.createElement('button');document.body.append(button);
+ h.key(' ',button);h.fire('pointerdown',{clientX:160,clientY:100,button:0});h.fire('pointerup',{clientX:160,clientY:100},window);
+ expect(h.commits).toHaveLength(1);
+ h.key(' ');window.dispatchEvent(new Event('blur'));h.fire('pointerdown',{clientX:160,clientY:100,button:0});
+ window.dispatchEvent(new Event('blur'));h.fire('pointerup',{clientX:160,clientY:100},window);
+ expect(h.commits).toHaveLength(1);h.detach();
+});
+test('tap tolerance measures CSS pixels at double backing scale',()=>{
+ const h=harness('explore');h.canvas.getBoundingClientRect=()=>({left:0,top:0,width:160,height:100} as DOMRect);
+ h.finger('pointerdown',1,50,50);h.finger('pointermove',1,55,50);h.finger('pointerup',1,55,50,window);
+ expect(h.taps).toHaveLength(1);h.detach();
+});
+test('focused map arrows move a cell cursor and Enter builds before inspection',()=>{
+ const h=harness('road');h.canvas.tabIndex=0;h.canvas.focus();
+ h.key('ArrowRight',h.canvas);h.key('Enter',h.canvas);
+ expect(h.commits).toHaveLength(1);expect(h.order).toEqual(['commit','tap']);expect(h.commits[0]).toEqual(h.taps);
+ staysHome(h.camera);h.detach();
+});
+
+test('a release outside tap slop without intermediate moves is not inspection',()=>{
+ const h=harness('explore');h.finger('pointerdown',1,50,50);h.finger('pointerup',1,70,50,window);
+ expect(h.taps).toEqual([]);h.detach();
+});

@@ -254,7 +254,7 @@ test('only this project signal event type is a signal: a foreign namespace is re
  expect(opened.server.events(opened.roomId).some(event => event.type === 'com.example.opensim.signal')).toBe(false);
 });
 
-function publishInjectedBody(opened: Lab, account: MatrixAccount, binding: RoomBinding, signal: SignedSignal): void {
+function publishInjectedBody(opened: Lab, account: MatrixAccount, _binding: RoomBinding, signal: SignedSignal): void {
  const envelope = signalEnvelope(signal);
  if (!envelope.ok) throw new Error(envelope.error.message);
  // The wrapper is the one the room will accept (its actor is the sender); only the body names another account.

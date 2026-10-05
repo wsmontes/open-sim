@@ -1,6 +1,7 @@
 import type {CellCoord} from '../../core/model';
 import {BORROW_MAX,SERVICES_MAX,SERVICES_MIN,TAX_MAX,TAX_MIN} from '../../core/model';
 import type {Intent} from '../../client/intents';
+import {isIntent} from '../../client/intents';
 import {beginStroke,extendStroke} from '../../presentation/strokes';
 import {strokeShapeOf} from '../../presentation/tools';
 import type {SelectedTool} from '../../presentation/tools';
@@ -71,7 +72,7 @@ export function parseCommand(line: string, origin: CellCoord): Parsed {
  const trimmed = line.trim();
  if (!trimmed || trimmed.startsWith('#')) return {intents: []};
  if (/^json\s/i.test(trimmed)) {
-  try { return {intents: [JSON.parse(trimmed.slice(4)) as Intent]}; } catch { return {error: 'O texto depois de "json" não é JSON'}; }
+  try { const intent:unknown=JSON.parse(trimmed.slice(4));return isIntent(intent)?{intents:[intent]}:{error:'Intenção JSON inválida'}; } catch { return {error: 'O texto depois de "json" não é JSON'}; }
  }
  // Coordinates may be written "2,3" or "2, 3": glue the pair back before splitting on spaces.
  const words = trimmed.replace(/(-?\d+)\s*,\s*(-?\d+)/g, '$1,$2').split(/\s+/);

@@ -34,3 +34,43 @@ test('offline preparation uses the configured overview resolution',async()=>{
  await maps.prepareRegion({bounds:{west:-123.13,east:-123.12,south:49.28,north:49.29},levels:['overview'],maxBytes:100},()=>{});
  expect(urls.length).toBeGreaterThan(0);expect(urls.every(url=>url.includes('/10/'))).toBe(true);
 });
+test('pausing region download aborts its network request',async()=>{
+ const abort=new AbortController();let started!:()=>void,networkAborted=false;
+ const ready=new Promise<void>(resolve=>{started=resolve;});
+ const maps=createOsmSource({fetcher:async(_url,init)=>{started();return new Promise((_resolve,reject)=>init?.signal?.addEventListener('abort',()=>{networkAborted=true;reject(new Error('abort'));}));}});
+ const pending=maps.prepareRegion({bounds:{west:0,east:0,south:0,north:0},levels:['detail'],maxBytes:100},()=>{},abort.signal);
+ await ready;abort.abort();await pending;expect(networkAborted).toBe(true);
+});
+test('region preparation and normal map loading reuse the same source-scoped raw tile',async()=>{
+ const {createMemoryTileCache}=await import('../src/adapters/osm/tile-cache');let requests=0;
+ const maps=createOsmSource({cache:createMemoryTileCache(),fetcher:async()=>{requests++;return new Response(new Uint8Array([8,0]));}});
+ const prepared=await maps.prepareRegion({bounds:{west:-180,east:-180,south:85.05112878,north:85.05112878},levels:['detail'],maxBytes:100},()=>{});
+ expect(prepared.complete).toBe(true);await maps.loadChunk('0:0');expect(requests).toBe(1);
+});
+test('destroy cancels cache waits and prevents late cache misses starting fetch',async()=>{
+ let release!:(value:null)=>void,requests=0;
+ const maps=createOsmSource({cache:{get:()=>new Promise(resolve=>{release=resolve;}),put:async()=>{}},fetcher:async()=>{requests++;return new Response(new Uint8Array());}});
+ const pending=maps.loadChunk('0:0');await Promise.resolve();await Promise.resolve();maps.destroy();
+ release(null);await expect(pending).rejects.toThrow();expect(requests).toBe(0);
+ await expect(maps.loadChunk('0:0')).rejects.toThrow();expect(requests).toBe(0);
+});
+test('destroy aborts active requests and never starts queued fetches or persists late bytes',async()=>{
+ let requests=0,aborted=0,writes=0;const releases:Array<(response:Response)=>void>=[];
+ const maps=createOsmSource({cache:{get:async()=>null,put:async()=>{writes++;}},fetcher:async(_url,init)=>{requests++;init?.signal?.addEventListener('abort',()=>{aborted++;});return new Promise(resolve=>{releases.push(resolve);});}});
+ const pending=Array.from({length:6},(_,i)=>maps.loadChunk(`${i*8}:0`).then(()=> 'loaded',()=> 'canceled'));
+ for(let i=0;i<30&&requests<4;i++)await Promise.resolve();expect(requests).toBe(4);maps.destroy();
+ for(const release of releases)release(new Response(new Uint8Array()));
+ expect(await Promise.all(pending)).toEqual(Array(6).fill('canceled'));expect(aborted).toBe(4);expect(requests).toBe(4);expect(writes).toBe(0);
+});
+test('destroy interrupts normalized cache waits before decode begins',async()=>{
+ let release!:(value:null)=>void,requests=0;
+ const maps=createOsmSource({chunks:{get:()=>new Promise(resolve=>{release=resolve;}),put:async()=>{}},fetcher:async()=>{requests++;return new Response(new Uint8Array());}});
+ const pending=maps.loadChunk('0:0');maps.destroy();release(null);await expect(pending).rejects.toThrow();expect(requests).toBe(0);
+});
+test('destroy cancels region cache wait without a fetch or late progress',async()=>{
+ let requests=0,progress=0;
+ const maps=createOsmSource({cache:{get:()=>new Promise(()=>{}),put:async()=>{}},fetcher:async()=>{requests++;return new Response(new Uint8Array());}});
+ const pending=maps.prepareRegion({bounds:{west:0,east:0,south:0,north:0},levels:['detail'],maxBytes:100},()=>{progress++;});maps.destroy();
+ expect((await pending).stopReason).toBe('paused');expect(requests).toBe(0);expect(progress).toBe(0);
+ await expect(maps.prepareRegion({bounds:{west:0,east:0,south:0,north:0},levels:['detail'],maxBytes:100},()=>{})).rejects.toThrow();
+});

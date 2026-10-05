@@ -156,7 +156,7 @@ test('applying a real update recalculates the capacity and the balance of the re
  const shared=createGame(WORLD_ID,1,blank('0:0'));
  const other={terrain:'land',building:'commercial',stage:1,origin:'player'} as Cell;
  const edited={...shared,chunks:{...shared.chunks,'0:0':{...shared.chunks['0:0']!,edits:{[PLAIN]:other}}},money:777,tick:12};
- const {head,point}=await open(worlds,edited);
+ const {point}=await open(worlds,edited);
  const grown={...blank('0:0'),source:'fixture-c'} as BaseChunk;
  const cells=[...grown.cells];
  cells[200]={terrain:'land',building:'power',stage:1,origin:'imported'};
@@ -291,7 +291,7 @@ test('undoing a power plant that already paid income charges the current price o
 test('an undo of something the commit does not record as an intention is refused instead of guessed',async()=>{
  const worlds=device();
  const shared=createGame(WORLD_ID,1,blank('0:0'));
- const {head,point}=await open(worlds,shared);
+ const {head}=await open(worlds,shared);
  const parked=built(shared,{type:'build',tool:'park',cells:[{x:2,y:2}]});
  // a version recorded by a client that wrote a sentence instead of the operation it accepted
  const label=await worlds.commitPrepared(head,{origins:[],target:head,selection:[],operations:[],bases:[],cost:30,moneyAfter:parked.money,tick:parked.tick,requires:[],state:parked,records:['Parque em 1 célula(s)']});
