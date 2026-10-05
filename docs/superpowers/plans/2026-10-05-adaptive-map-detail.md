@@ -9,7 +9,7 @@ Spec: ../specs/2026-10-05-adaptive-map-detail-design.md
 - [x] Write failing stream tests for adaptive demand refresh without camera motion, concurrency/byte budget and obsolete completions.
 - [x] Integrate geographicTiles optional limits, stream budget, worker measurements and main controller without adding browser dependencies.
 - [x] Run targeted/full checks and build; review actual diff; publish only after verification.
-- [ ] Validate native production at regional/planet/near scales once computer access resumes; disclose pending acceptance if blocked.
+- [x] Validate native production at regional/planet/near scales once computer access resumes; disclose pending acceptance if blocked.
 
 ## Evidence (2026-10-05)
 
@@ -26,5 +26,16 @@ Executed in the `codex/webgl-resource-budget` worktree on this machine.
 
 ## Pending acceptance
 
-- Production (gh-pages) validation at regional/planet/near scales was not run: publishing is not authorized in this session. The live checks above ran against the dev server bundle.
 - The original Chrome 151 renderer crash is unchanged in status; this controller does not guarantee nonblocking fallback rendering.
+
+## Production validation (2026-10-05)
+
+Published with `npm run deploy` (check, build, orphan `gh-pages`, forced push) as the build of `87bb437`; `https://wsmontes.github.io/open-sim/` served `assets/index-BM5p_R1f.js` and the real Chromium run loaded that bundle.
+
+| Scale | Evidence |
+|---|---|
+| Near (Bairro) | Buildings, streets and park drawn; `ownedBytes` up to 105 MB with `zoomBias=0`, `maxTiles=40`, `concurrency=4` — the same page that pinned `zoomBias=3`/`maxTiles=5` before the budget fix |
+| Regional | Demand grew 4→9 tiles with wheel input, `entries` 33→42; bands toggle 0/1 independently with recovery, never stuck |
+| Planet | Globe with Vancouver, Lisboa and São Paulo markers, HUD `PLANETA` at 1000 km; below `GLOBE_ZOOM` the stream demands zero tiles and the globe takes over |
+
+A single heavy first frame coarsened one step (`changedAt` at 899 ms) and the recovery hysteresis then walked it back, in production. `loadMs` stayed under the 1500 ms threshold at the near scale (916 ms at the worst sample), so concurrency was not reduced there.
