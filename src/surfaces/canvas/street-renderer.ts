@@ -94,6 +94,8 @@ const inFrame=(view:WorldView,p:Point)=>p.x>0&&p.x<view.viewport.width&&p.y>65&&
 // tree of the row gives way to a lamp, which is where the light of a street comes from.
 export function drawPlanting(ctx:CanvasRenderingContext2D,view:WorldView,roads:readonly {feature:GeographicFeature;shift:number}[],box:PlantingBox){
  const scale=TILE_W*view.camera.zoom;
+ // Cull individual planting below a four-pixel lot, before allocating a regional lattice.
+ if(scale<4)return;
  const segments:Segment[]=[];
  for(const {feature,shift} of roads){
   if(!plantable(feature))continue;
@@ -116,6 +118,8 @@ export function drawPlanting(ctx:CanvasRenderingContext2D,view:WorldView,roads:r
 // a district costs one path and its own stations.
 export function drawParkPlanting(ctx:CanvasRenderingContext2D,view:WorldView,feature:GeographicFeature,shift:number,box:PlantingBox){
  const scale=TILE_W*view.camera.zoom;
+ // Cull individual planting below a four-pixel lot, before allocating a regional lattice.
+ if(scale<4)return;
  const b=polygonBounds(feature);
  const minX=Math.max(box.minX,b.minX+shift),maxX=Math.min(box.maxX,b.maxX+shift),minY=Math.max(box.minY,b.minY),maxY=Math.min(box.maxY,b.maxY);
  if(minX>maxX||minY>maxY)return;

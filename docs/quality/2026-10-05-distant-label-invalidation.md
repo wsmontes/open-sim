@@ -1,4 +1,4 @@
-# Distant view: stable map labels
+# Distant view: retained labels and bounded regional detail
 
 User reported increasing slowdown when zooming out after the resource refactor. Inspection found that at camera.zoom<.06, map labels were emitted as an unversioned full-viewport dynamic command. The compositor correctly treats unversioned commands as changed each frame, so this forced full scene invalidation even when labels and camera did not change. More visible buildings made that unnecessary replay expensive.
 
@@ -7,3 +7,17 @@ The fix gives labels stable identity/version per prepared view and separates the
 Actual-render regression was observed failing (second unchanged view repainted ground) before the fix, then passing. Preview feedback remains live. Targeted24 render/cache/compositor tests passed. Full149file suite:1,025passed/5skipped; typecheck/build passed, lint zeroerrors with10existing warnings. Independent reviewer found no issues and additionally exercised hover appearance/removal, label removal and camera invalidation.
 
 Browser observations are provisional and not a controlled FPS comparison: oldbuild at500m scale reported worker18.6ms/mainp956.7ms; reloaded patch15.7ms/mainp958.7ms, different cache warmness. Isolated localhost patch at200m scale reported worker10.4ms/mainp951.9ms. The old127.0.0.1 session stopped responding at broader region zoom; process sample showed one renderer main thread busy with an unsymbolized JavaScript stack. Do not infer that the label fix resolves that separate stall or claim a measured FPS uplift from these observations. Broader-scale native validation continues before final acceptance.
+
+
+## Regional stall investigation and correction
+
+The label-only production patch remained insufficient: native Chrome154 on this Mac reproduced stalls around20km on both127.0.0.1 and isolated localhost. Renderers used roughly0.9–2.1GB and occupied the main thread; DevTools paused the fallback in path/polygon drawing. The scene worker had disappeared after its15second deadline. Do not attribute all elapsed time to that sampled function: the paused stack is a sample, not a full profile.
+
+Two further problems were isolated in code and regression tests:
+
+- Terrain support subdivided every contour and road at20m regardless of screen scale, including flat ocean contours and scenes with no terrain. It now retains20m near sampling and increases spacing with metres per buffer pixel. Explicit constant-elevation contours retain original vertices directly because projection is affine; roads retain intermediate visibility checks. RED tests produced8,193contour points/4,097road commands, then GREEN bounded them below900/450 at distant fixture scale.
+- Road and park planting had no distant-detail gate. The planting lattice caps its world spacing at48cells while the viewport keeps expanding, and roadside bins register segments every4cells. This creates millions of stations/registrations in broad views. Both rendering entry points now return before geometry/index/lattice allocation when a lot is smaller than4buffer pixels, matching the player-park threshold. Near planting is unchanged; this is distant LOD, not a universal budget for pathological near geometry. A regression observed RED geometry access before the guard, then GREEN no geometry/paint access over a100,000cell regional viewport.
+
+A terrain-only native build still stalled at50km; only the combined terrain and planting fixes passed the broad test. Native fresh-origin testing with the combined build covered rapid zoom-out,20km at3×,100km with rotation and night mode, planet, then return to50m in day mode. At20km worker0.6ms/mainp950.6ms; at100km worker0.4ms/mainp950.3ms; returning50m worker7.2ms/mainp952.8ms. The worker remained available/static-ready with zero queued work after settling. Screenshots showed complete coastlines, labels and terrain rather than a frozen loading overlay. These are settled observations, not a controlled FPS comparison with the old build, and do not prove every hardware/region is crash-free.
+
+Independent read-only review found no important issues, checked fixed-plane projection and near sampling across latitudes/rotations, and confirmed the planting guard preserves the exactscale4 boundary. Full final check:149files,1,029passed/5skipped, typecheck passed, lint zeroerrors/10existing warnings. Production build passed. Deployment verification is recorded below after publication.
