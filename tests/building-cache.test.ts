@@ -1,10 +1,11 @@
 import {it,expect,vi,afterEach} from 'vitest';
 import {renderGeographicWorld} from '../src/surfaces/canvas/geographic-renderer';
+import {sceneRasterCache} from '../src/surfaces/canvas/scene-cache';
 import {drawBuilding} from '../src/surfaces/canvas/architecture-renderer';
 import {createGame} from '../src/core/commands';
 import {blank} from './fixtures/world';
 import type {WorldView} from '../src/surfaces/canvas/canvas-renderer';
-afterEach(()=>vi.unstubAllGlobals());
+afterEach(()=>{sceneRasterCache.clear();vi.unstubAllGlobals();});
 it('reuses a bounded building bitmap while its drawing inputs stay unchanged',()=>{
  let painted=0,images=0;
  const context=new Proxy({},{get:(_t,key)=>key==='drawImage'?()=>images++:()=>painted++,set:()=>true}) as CanvasRenderingContext2D;

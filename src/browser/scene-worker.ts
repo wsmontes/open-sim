@@ -1,3 +1,4 @@
+import {buildingRaster} from '../surfaces/canvas/building-raster';
 import {createVisualTileDecoder} from './visual-tile-decoder';
 import type {SceneWorkerRequest,SceneWorkerResult} from './scene-worker-protocol';
 import type {WorldView} from '../surfaces/canvas/canvas-renderer';
@@ -22,5 +23,5 @@ scope.onmessage=event=>{
  const bitmap=surface.transferToImageBitmap();
  // Keep the retained composition after transferring ownership of the published pixels.
  context.drawImage(bitmap,0,0);
- const stats=sceneRasterCache.stats();scope.postMessage({ticket:request.ticket,key:request.key,staticReady:true,staticOnly:preparing,bitmap,cache:{bytes:stats.bytes,entries:stats.entries},workMs:performance.now()-start},[bitmap]);
+ const stats=sceneRasterCache.stats();scope.postMessage({ticket:request.ticket,key:request.key,staticReady:true,staticOnly:preparing,bitmap,cache:{bytes:stats.bytes,entries:stats.entries,rasterContexts:buildingRaster.stats().contexts},workMs:performance.now()-start},[bitmap]);
 };

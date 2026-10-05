@@ -5,4 +5,4 @@ import type {TerrainTile} from '../presentation/terrain-model';
 import type {RenderPolicy} from '../presentation/render-policy';
 export type ScenePatch={state?:GameState;geography?:GeographicScene|null;terrain?:{tiles:readonly TerrainTile[];revision:number};seed:number;playerPower?:ReadonlyMap<string,boolean>;chunks?:WorldView['chunks']};
 export type SceneWorkerRequest={ticket:number;key:string;scene?:ScenePatch;camera:WorldView['camera'];viewport:WorldView['viewport'];pixelRatio?:number;light?:WorldView['light'];motion:number;mobility?:WorldView['mobility'];signals?:WorldView['signals'];vessels?:WorldView['vessels'];aircraft?:WorldView['aircraft'];policy:RenderPolicy};
-export type SceneWorkerResult={ticket:number;key:string;staticReady:boolean;staticOnly?:boolean;bitmap:ImageBitmap;cache:{bytes:number;entries:number};workMs:number};
+export type SceneWorkerResult={ticket:number;key:string;staticReady:boolean;staticOnly?:boolean;bitmap:ImageBitmap;cache:{bytes:number;entries:number;rasterContexts?:number};workMs:number};
