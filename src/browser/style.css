@@ -295,3 +295,11 @@ textarea:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
 .mobility-controls input[type=datetime-local]{width:100%;flex:1 1 220px;font-size:12px}
 .source-rows dd{min-width:0;overflow-wrap:anywhere}
 .source-rows a{color:inherit}
+
+/* Loading speaks without taking camera input or covering the existing city. */
+#scene-loading{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);max-width:calc(100% - 40px);padding:16px 22px;border:1px solid var(--edge);border-radius:14px;background:rgba(247,242,231,.95);box-shadow:var(--shadow);text-align:center;pointer-events:none;font-size:15px}
+#scene-loading[data-mode="update"]{top:calc(68px + var(--safe-top));transform:translateX(-50%);padding:7px 12px;font-size:12px;box-shadow:none}
+#scene-loading button{display:block;margin:10px auto 0}
+#scene-loading:not([data-error="true"]) span::before{content:"";display:inline-block;width:12px;height:12px;margin-right:8px;border:2px solid #c8cec2;border-top-color:var(--accent);border-radius:50%;vertical-align:-1px;animation:scene-loading-spin 1s linear infinite}
+@keyframes scene-loading-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){#scene-loading span::before{animation:none}}

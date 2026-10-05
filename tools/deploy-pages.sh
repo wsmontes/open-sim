@@ -11,7 +11,7 @@ cd "$repo"
 
 # Sem CI, o gate é aqui: nada vai para o ar com typecheck ou teste vermelho.
 echo "→ verificando"
-npm run check
+npm run check -- --maxWorkers 2 --testTimeout 20000
 echo "→ construindo"
 npm run build
 

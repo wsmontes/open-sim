@@ -13,3 +13,27 @@ it('terminates an unresponsive render worker instead of leaving the surface pend
 it('invalidates fallback maps when loaded chunks change and clears geographic mode explicitly',()=>{const sent:SceneWorkerRequest[]=[],worker={onmessage:null as ((e:{data:SceneWorkerResult})=>void)|null,onerror:null,postMessage(r:SceneWorkerRequest){sent.push(r);},terminate(){}};const c=createSceneWorkerClient(()=>worker as unknown as Worker);c.submit(view);worker.onmessage!({data:result(sent[0])});const local={...view,geography:undefined};c.submit(local);expect(sent[1].scene?.geography).toBeNull();worker.onmessage!({data:result(sent[1])});const loaded={...local,chunks:new Map([['0:0',{status:'ready' as const,level:'detail' as const,base:blank('0:0')} ]])};expect(c.ready(loaded)).toBe(false);c.submit(loaded);expect(sent[2].scene?.chunks).toBe(loaded.chunks);c.dispose();});
 
 it('requests frozen actors after publishing the first static image even while paused',()=>{const sent:SceneWorkerRequest[]=[],worker={onmessage:null as ((e:{data:SceneWorkerResult})=>void)|null,onerror:null,postMessage(r:SceneWorkerRequest){sent.push(r);},terminate(){}};const c=createSceneWorkerClient(()=>worker as unknown as Worker);c.submit(view);worker.onmessage!({data:{...result(sent[0]),staticOnly:true}});expect(c.ready(view)).toBe(true);expect(sent).toHaveLength(2);expect(sent[1].motion).toBe(view.motion);expect(sent[1].scene).toBeUndefined();worker.onmessage!({data:result(sent[1])});expect(sent).toHaveLength(2);c.dispose();});
+it('sends only changed tile bytes and keeps loading-only revisions statically ready',()=>{
+ const sent:SceneWorkerRequest[]=[],worker={onmessage:null as ((e:{data:SceneWorkerResult})=>void)|null,onerror:null,postMessage(r:SceneWorkerRequest){sent.push(r);},terminate(){}};
+ const c=createSceneWorkerClient(()=>worker as unknown as Worker),a={z:14,x:1,y:1,features:[],encoded:new Uint8Array([1]),encodedRevision:'a'},b={...a,x:2,encodedRevision:'b'};
+ const first={...view,geography:{revision:1,loading:true,error:false,tiles:[a]}};c.submit(first);worker.onmessage!({data:result(sent[0])});
+ const loaded={...first,geography:{...first.geography,revision:2,loading:false,tiles:[a]}};
+ expect(c.ready(loaded)).toBe(true);c.submit(loaded);expect(sent[1].scene?.geography?.tiles).toEqual([]);worker.onmessage!({data:result(sent[1])});
+ c.submit({...loaded,geography:{...loaded.geography,revision:3,tiles:[a,b]}});expect(sent[2].scene?.geography?.tiles).toEqual([b]);expect(sent[2].scene?.geography?.keys).toEqual(['14:1:1','14:2:1']);c.dispose();
+});
+
+it('does not mistake a hidden suspended tab for a failed worker',()=>{
+ vi.useFakeTimers();const visibility=Object.assign(new EventTarget(),{hidden:false});vi.stubGlobal('document',visibility);
+ const requests:SceneWorkerRequest[]=[],worker={postMessage(request:SceneWorkerRequest){requests.push(request);},terminate:vi.fn(),onmessage:null as ((e:{data:SceneWorkerResult})=>void)|null,onerror:null};
+ const failed=vi.fn(),c=createSceneWorkerClient(()=>worker as unknown as Worker,failed);
+ try{
+  c.submit(view);vi.advanceTimersByTime(1000);visibility.hidden=true;visibility.dispatchEvent(new Event('visibilitychange'));
+  vi.advanceTimersByTime(60000);expect(c.available()).toBe(true);expect(failed).not.toHaveBeenCalled();
+  visibility.hidden=false;visibility.dispatchEvent(new Event('visibilitychange'));vi.advanceTimersByTime(1000);
+  expect(c.available()).toBe(true);worker.onmessage!({data:result(requests[0])});
+  vi.advanceTimersByTime(16000);expect(failed).not.toHaveBeenCalled();
+  c.submit(view);visibility.hidden=true;visibility.dispatchEvent(new Event('visibilitychange'));vi.advanceTimersByTime(60000);
+  visibility.hidden=false;visibility.dispatchEvent(new Event('visibilitychange'));vi.advanceTimersByTime(14999);expect(c.available()).toBe(true);
+  vi.advanceTimersByTime(1);expect(failed).toHaveBeenCalledOnce();expect(c.status().failure).toBe('timeout');
+ }finally{c.dispose();vi.unstubAllGlobals();vi.useRealTimers();}
+});

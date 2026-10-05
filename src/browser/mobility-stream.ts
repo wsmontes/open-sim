@@ -23,7 +23,7 @@ export function createMobilityStream(load:(z:number,x:number,y:number)=>Promise<
   controller,
   update(camera:Camera,viewport:Viewport){
    const center=cellSpace({x:viewport.width/2,y:viewport.height/2},camera),zoom=Math.max(.2,camera.zoom),ratio=camera.zoom/zoom;
-   const corners=[[-viewport.width,-viewport.height],[viewport.width*2,-viewport.height],[-viewport.width,viewport.height*2],[viewport.width*2,viewport.height*2]].map(([x,y])=>cellSpace({x:viewport.width/2+(x-viewport.width/2)*ratio,y:viewport.height/2+(y-viewport.height/2)*ratio},camera));
+   const corners=[[-viewport.width*.25,-viewport.height*.25],[viewport.width*1.25,-viewport.height*.25],[-viewport.width*.25,viewport.height*1.25],[viewport.width*1.25,viewport.height*1.25]].map(([x,y])=>cellSpace({x:viewport.width/2+(x-viewport.width/2)*ratio,y:viewport.height/2+(y-viewport.height/2)*ratio},camera));
    const minX=Math.min(...corners.map(p=>p.x)),maxX=Math.max(...corners.map(p=>p.x)),minY=Math.min(...corners.map(p=>p.y)),maxY=Math.max(...corners.map(p=>p.y)),next:{z:number;x:number;y:number}[]=[],n=2**14,side=WORLD/n;
    if(camera.zoom>=.02)for(let y=Math.max(0,Math.floor(minY/side));y<=Math.min(n-1,Math.floor(maxY/side));y++)for(let x=Math.floor(minX/side);x<=Math.floor(maxX/side);x++)next.push({z:14,x:((x%n)+n)%n,y});
    next.sort((a,b)=>Math.hypot((a.x+.5)*side-center.x,(a.y+.5)*side-center.y)-Math.hypot((b.x+.5)*side-center.x,(b.y+.5)*side-center.y));

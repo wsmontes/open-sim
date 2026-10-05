@@ -37,11 +37,11 @@ function bucket(tileX:number,tileY:number,cellsPerSide:number,features:readonly 
  return byChunk;
 }
 
-export function decodeVisualTile(bytes:Uint8Array,zoom:number,tileX:number,tileY:number):GeographicTile{
+export function decodeVisualTile(bytes:Uint8Array,zoom:number,tileX:number,tileY:number,layers:ReadonlySet<string>=LAYERS):GeographicTile{
  const decoded=new VectorTile(new PbfReader(bytes)),features:MapFeature[]=[];
  const side=cellsPerTile(zoom),originX=tileX*side,originY=tileY*side;
  for(const [name,layer] of Object.entries(decoded.layers)){
-  if(!LAYERS.has(name))continue;
+  if(!layers.has(name))continue;
   for(let index=0;index<layer.length;index++){
    const raw=layer.feature(index);
    if(raw.type!==1&&raw.type!==2&&raw.type!==3)continue;

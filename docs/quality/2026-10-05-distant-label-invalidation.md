@@ -1,0 +1,35 @@
+# Distant view: retained labels and bounded regional detail
+
+User reported increasing slowdown when zooming out after the resource refactor. Inspection found that at camera.zoom<.06, map labels were emitted as an unversioned full-viewport dynamic command. The compositor correctly treats unversioned commands as changed each frame, so this forced full scene invalidation even when labels and camera did not change. More visible buildings made that unnecessary replay expensive.
+
+The fix gives labels stable identity/version per prepared view and separates them from preview/hover overlays. Labels remain above geometry; dirty regions still repaint affected text. Interaction overlays remain independent and can appear/disappear without removing labels. No building geometry, detail, source coverage or near-zoom code was removed.
+
+Actual-render regression was observed failing (second unchanged view repainted ground) before the fix, then passing. Preview feedback remains live. Targeted24 render/cache/compositor tests passed. Full149file suite:1,025passed/5skipped; typecheck/build passed, lint zeroerrors with10existing warnings. Independent reviewer found no issues and additionally exercised hover appearance/removal, label removal and camera invalidation.
+
+Browser observations are provisional and not a controlled FPS comparison: oldbuild at500m scale reported worker18.6ms/mainp956.7ms; reloaded patch15.7ms/mainp958.7ms, different cache warmness. Isolated localhost patch at200m scale reported worker10.4ms/mainp951.9ms. The old127.0.0.1 session stopped responding at broader region zoom; process sample showed one renderer main thread busy with an unsymbolized JavaScript stack. Do not infer that the label fix resolves that separate stall or claim a measured FPS uplift from these observations. Broader-scale native validation continues before final acceptance.
+
+
+## Regional stall investigation and correction
+
+The label-only production patch remained insufficient: native Chrome154 on this Mac reproduced stalls around20km on both127.0.0.1 and isolated localhost. Renderers used roughly0.9–2.1GB and occupied the main thread; DevTools paused the fallback in path/polygon drawing. The scene worker had disappeared after its15second deadline. Do not attribute all elapsed time to that sampled function: the paused stack is a sample, not a full profile.
+
+Two further problems were isolated in code and regression tests:
+
+- Terrain support subdivided every contour and road at20m regardless of screen scale, including flat ocean contours and scenes with no terrain. It now retains20m near sampling and increases spacing with metres per buffer pixel. Explicit constant-elevation contours retain original vertices directly because projection is affine; roads retain intermediate visibility checks. RED tests produced8,193contour points/4,097road commands, then GREEN bounded them below900/450 at distant fixture scale.
+- Road and park planting had no distant-detail gate. The planting lattice caps its world spacing at48cells while the viewport keeps expanding, and roadside bins register segments every4cells. This creates millions of stations/registrations in broad views. Both rendering entry points now return before geometry/index/lattice allocation when a lot is smaller than4buffer pixels, matching the player-park threshold. Near planting is unchanged; this is distant LOD, not a universal budget for pathological near geometry. A regression observed RED geometry access before the guard, then GREEN no geometry/paint access over a100,000cell regional viewport.
+
+A terrain-only native build still stalled at50km; only the combined terrain and planting fixes passed the broad test. Native fresh-origin testing with the combined build covered rapid zoom-out,20km at3×,100km with rotation and night mode, planet, then return to50m in day mode. At20km worker0.6ms/mainp950.6ms; at100km worker0.4ms/mainp950.3ms; returning50m worker7.2ms/mainp952.8ms. The worker remained available/static-ready with zero queued work after settling. Screenshots showed complete coastlines, labels and terrain rather than a frozen loading overlay. These are settled observations, not a controlled FPS comparison with the old build, and do not prove every hardware/region is crash-free.
+
+Independent read-only review found no important issues, checked fixed-plane projection and near sampling across latitudes/rotations, and confirmed the planting guard preserves the exactscale4 boundary. Full final check:149files,1,029passed/5skipped, typecheck passed, lint zeroerrors/10existing warnings. Production build passed. Deployment verification is recorded below after publication.
+
+
+## Publication and hidden-tab deadline
+
+Commit db86b4e was published to Pages (deployment 0d4a35e52c1034d876a65fabfac6f51718375245, built 2026-10-05T14:07:47Z). Canonical HTML and downloaded main/scene-worker assets matched local build hashes. Production loaded the new index-B6QE07gl.js. A subsequent 20km production test timed out during browser inspection; final foreground stability has not been established. A local preview worker also became unavailable after switching tabs, but its original failure reason was not recorded. These observations do not establish a shared cause.
+
+A separate reproducible defect was found in worker supervision: the 15-second wall-clock deadline continued while the document was hidden, although Chrome may suspend background work. A fake-clock regression failed before the fix after 60 seconds hidden. The client now cancels its deadline while hidden and starts a fresh 15-second deadline when visible; a genuinely stalled visible worker still fails exactly at that deadline. Completion cancels the timer and disposal removes the visibility listener. Debug status includes the failure reason. The regression covers both successful completion after returning and expiration at 14,999+1 milliseconds. Independent review found no important issues. Full verification: 149 test files, 1,030 passed/5 skipped; typecheck passed, lint zero errors/10 existing warnings, production build passed.
+
+The Mac locked during final production inspection and automatic unlock failed. Native foreground production testing, restoration of the paused near camera, and cleanup of test tabs remain pending manual unlock. The local near-preview.jpg screenshot records a successful local view; production-regional.jpg is diagnostic evidence from an unsettled frame, not evidence of a passed production test. Acceptance remains incomplete until foreground production zoom tests finish.
+
+
+Final publication: source commit 96c2dd6, Pages commit 06ecf9c79c466243a22fe015df74e325105d94ab, built 2026-10-05T14:19:09Z. The canonical URL served index-BHUEqNVD.js and its bytes matched the local build (SHA256 aa3606844a271840e70a1600f6c70cccf6ca81682262c860dbe6bd8ab1f54122). Deployment reran the full gate: 149 files passed, 1,030 tests passed/5 skipped, typecheck/build passed, 10 existing lint warnings. Native browser access subsequently became unavailable; foreground production acceptance remains pending.

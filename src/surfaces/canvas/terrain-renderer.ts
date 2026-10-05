@@ -1,7 +1,7 @@
 import {sceneRasterCache} from './scene-cache';
 import type {WorldView} from './canvas-renderer';
 import {toGeo} from '../../core/coordinates';
-import {project,TILE_H,type Point,type Camera} from '../../presentation/camera';
+import {project,TILE_H,TILE_W,type Point,type Camera} from '../../presentation/camera';
 import {geographicFocus} from '../../presentation/geographic-map';
 import {createSurfaceSupport,metresPerCellAt} from '../../presentation/terrain-surface';
 import {projectElevated,trianglesForTile,pickTerrain,terrainDepth,type TerrainTriangle} from '../../presentation/terrain-projection';
@@ -52,11 +52,13 @@ export function visibleSurfacePoint(view:WorldView,point:Point,elevationM?:numbe
  const height=elevationM??view.terrain.sample(toGeo(point))?.elevationM;if(height===undefined)return true;
  return known.depth.visible(projectSurface(view,point,height),terrainDepth(point,height,view.camera,m),4/(TILE_H*view.camera.zoom));
 }
+// Keep the near view's 20 m support sampling; distant segments use roughly pixel-sized support spacing.
+const surfaceSpacing=(view:WorldView)=>Math.max(20,terrainMetres(view)/(TILE_W*view.camera.zoom));
 export function terrainRoadPath(ctx:CanvasRenderingContext2D,view:WorldView,points:readonly Point[],elevationM?:number):void{
  let cache=paths.get(view.camera);if(!cache||cache.tiles!==view.terrain?.tiles||cache.width!==view.viewport.width||cache.height!==view.viewport.height){cache={tiles:view.terrain?.tiles,width:view.viewport.width,height:view.viewport.height,lines:new WeakMap()};paths.set(view.camera,cache);}
  let line=cache.lines.get(points);
  if(!line||line.height!==elevationM){
-  const readings=view.terrain?createSurfaceSupport(view.terrain.sample).line(points):points.map(point=>({point,elevationM:null}));
+  const readings=view.terrain?.tiles.length?createSurfaceSupport(view.terrain.sample).line(points,surfaceSpacing(view)):points.map(point=>({point,elevationM:null}));
   line={height:elevationM,commands:readings.map(reading=>{const height=elevationM??reading.elevationM??undefined;return {screen:projectSurface(view,reading.point,height),visible:visibleSurfacePoint(view,reading.point,height)};})};cache.lines.set(points,line);
  }
  let connected=false;
@@ -90,8 +92,10 @@ export function pickSurface(view:WorldView,screen:Point):Point|null{
  const hit=pickTerrain(screen,visibleTerrain(view),view.camera,terrainMetres(view));return hit?.point??null;
 }
 export function surfaceLine(view:WorldView,points:readonly Point[],elevationM?:number):Point[]{
- if(!view.terrain)return points.map(p=>project(p,view.camera));
- return createSurfaceSupport(view.terrain.sample).line(points).map(p=>projectSurface(view,p.point,elevationM??p.elevationM??undefined));
+ // A fixed ocean/deck plane is affine: extra points cannot change its contour.
+ if(elevationM!==undefined)return points.map(p=>projectSurface(view,p,elevationM));
+ if(!view.terrain?.tiles.length)return points.map(p=>project(p,view.camera));
+ return createSurfaceSupport(view.terrain.sample).line(points,surfaceSpacing(view)).map(p=>projectSurface(view,p.point,elevationM??p.elevationM??undefined));
 }
 export function foundationElevation(view:WorldView,points:readonly Point[]):number|undefined{
  return view.terrain?createSurfaceSupport(view.terrain.sample).foundation(points)??undefined:undefined;

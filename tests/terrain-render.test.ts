@@ -2,7 +2,7 @@ import {it,expect} from 'vitest';
 import {projectElevated,verticalPixelsPerMetre} from '../src/presentation/terrain-projection';
 import {createTerrainSurface,terrainPoint,metresPerCellAt,createSurfaceSupport} from '../src/presentation/terrain-surface';
 import type {TerrainTile} from '../src/presentation/terrain-model';
-import {visibleTerrain,projectSurface,pickSurface} from '../src/surfaces/canvas/terrain-renderer';
+import {visibleTerrain,projectSurface,pickSurface,surfaceLine,terrainRoadPath} from '../src/surfaces/canvas/terrain-renderer';
 import type {WorldView} from '../src/surfaces/canvas/canvas-renderer';
 import {createGame} from '../src/core/commands';
 import {blank} from './fixtures/world';
@@ -26,3 +26,25 @@ it('mesh fills municipal no-data with available regional ground',()=>{const miss
 it('terrain rasters share the byte budget and release their pixels on eviction',async()=>{const {vi}=await import('vitest'),{drawTerrain}=await import('../src/surfaces/canvas/terrain-renderer'),{sceneRasterCache}=await import('../src/surfaces/canvas/scene-cache');const allocated:{width:number;height:number}[]=[];const context=new Proxy({},{get:()=>()=>{},set:()=>true});class Raster{constructor(public width:number,public height:number){allocated.push(this);}getContext(){return context;}}vi.stubGlobal('OffscreenCanvas',Raster);sceneRasterCache.clear();try{drawTerrain(context as CanvasRenderingContext2D,{...view,camera:{...view.camera}});expect(sceneRasterCache.stats().bytes).toBe(view.viewport.width*view.viewport.height*4);sceneRasterCache.clear();expect(allocated[0].width).toBe(0);drawTerrain(context as CanvasRenderingContext2D,{...view,camera:{...view.camera}});expect(sceneRasterCache.stats().entries).toBe(1);}finally{sceneRasterCache.clear();vi.unstubAllGlobals();}});
 
 it('releases terrain pixels when the adaptive budget cannot retain them',async()=>{const {vi}=await import('vitest'),{drawTerrain}=await import('../src/surfaces/canvas/terrain-renderer'),{sceneRasterCache}=await import('../src/surfaces/canvas/scene-cache');const allocated:{width:number;height:number}[]=[];const context=new Proxy({},{get:()=>()=>{},set:()=>true});class Raster{constructor(public width:number,public height:number){allocated.push(this);}getContext(){return context;}}vi.stubGlobal('OffscreenCanvas',Raster);sceneRasterCache.clear();sceneRasterCache.setLimit(0);try{drawTerrain(context as CanvasRenderingContext2D,{...view,camera:{...view.camera}});expect(sceneRasterCache.stats().bytes).toBe(0);expect(allocated.every(r=>r.width===0&&r.height===0)).toBe(true);}finally{sceneRasterCache.clear();sceneRasterCache.setLimit(128*1024*1024);vi.unstubAllGlobals();}});
+
+it('distant contours sample by visible scale while retaining their vertices',()=>{
+ const points=[terrainPoint(0,0),terrainPoint(1,0),terrainPoint(1,1)];
+ const v={...view,camera:centerOn(origin,{...camera,zoom:.001},viewport)};
+ const line=surfaceLine(v,points);
+ expect(line.length).toBeLessThan(900);
+ expect(line[0]).toEqual(projectSurface(v,points[0]));
+ expect(line.at(-1)).toEqual(projectSurface(v,points.at(-1)!));
+ const close=[terrainPoint(0,.0005),terrainPoint(.001,.0005)];
+ expect(surfaceLine(view,close)).toHaveLength(createSurfaceSupport(surface.sample).line(close).length);
+});
+it('flat decks and absent terrain do not subdivide straight map segments',()=>{
+ const points=[terrainPoint(0,0),terrainPoint(1,0)];
+ expect(surfaceLine(view,points,0)).toHaveLength(2);
+ expect(surfaceLine({...view,terrain:{tiles:[],sample:()=>null,revision:0}},points)).toHaveLength(2);
+});
+it('distant road projection shares the contour sampling budget',()=>{
+ let commands=0;const ctx={moveTo(){commands++;},lineTo(){commands++;}} as unknown as CanvasRenderingContext2D;
+ const v={...view,camera:centerOn(origin,{...camera,zoom:.001},viewport)};
+ terrainRoadPath(ctx,v,[terrainPoint(0,0),terrainPoint(1,0)]);
+ expect(commands).toBeLessThan(450);
+});

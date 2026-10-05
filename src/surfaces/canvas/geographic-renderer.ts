@@ -201,7 +201,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  let targetStatics=staticCommands.get(prepared);if(!targetStatics){targetStatics=new WeakMap();staticCommands.set(prepared,targetStatics);}let statics=targetStatics.get(ctx);
  if(!statics){statics=buildings.map(b=>({bounds:buildingScreenBounds(view,b.footprint,b.shift,b.kind,b.stage,b.base),depth:b.depth,draw:()=>{drawBuilding(ctx,view,b.footprint,b.shift,b.kind,b.stage,0,b.powered??true,true,b.base);if(b.powered===false&&scale>=7){const p=projectSurface(view,{x:(b.footprint.minX+b.footprint.maxX)/2,y:(b.footprint.minY+b.footprint.maxY)/2});ctx.fillStyle='rgba(242,178,86,.95)';ctx.font=`bold ${Math.max(10,scale*.3)}px system-ui`;ctx.fillText('!',p.x,p.y-scale*.6);}}})).filter(c=>c.bounds.x+c.bounds.width>=0&&c.bounds.y+c.bounds.height>=0&&c.bounds.x<=viewport.width&&c.bounds.y<=viewport.height);targetStatics.set(ctx,statics);}
  let compositor=compositors.get(ctx);if(!compositor){compositor=createSceneCompositor();compositors.set(ctx,compositor);}
- const drawOverlays=()=>{
+ const drawLabels=()=>{
  if(camera.zoom<.06){
   ctx.font=`${(camera.zoom<.003?12:11)*(view.pixelRatio??1)}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
   const occupied:Array<{x:number;y:number;width:number}>=[];
@@ -210,6 +210,8 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   }
   ctx.textAlign='start';
  }
+ };
+ const drawOverlays=()=>{
  if(view.tool!=='explore'){
   // A box preview of a whole district is a tint, not a forest of volumes: the ghost is worth its cost on the strokes a
   // player actually places, and the tint already says what is selected.
@@ -226,8 +228,9 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  const dynamic:SceneCommand[]=[...aviationCommands.aircraft.map(a=>a.grounded?a:{...a,layer:1}),...aviationCommands.shadows,...vesselDrawCommands(ctx,view),...mobilityDrawCommands(ctx,view)];
  if(hasWater)for(const [i,glint] of glints.entries())dynamic.push({id:`water:${i}`,version:waterPhase,depth:-Infinity,bounds:glint.bounds,draw(){}});
  const overlayCells=[...view.preview,...(view.hover?[view.hover]:[])],points=overlayCells.map(p=>projectSurface(view,p)),margin=Math.max(12,scale*2);
- if(labels.length&&camera.zoom<.06)dynamic.push({layer:2,depth:Infinity,bounds:{x:0,y:0,width:viewport.width,height:viewport.height},draw:drawOverlays});
- else if(points.length){const x=Math.min(...points.map(p=>p.x))-margin,y=Math.min(...points.map(p=>p.y))-margin*3;dynamic.push({layer:2,depth:Infinity,bounds:{x,y,width:Math.max(...points.map(p=>p.x))+margin-x,height:Math.max(...points.map(p=>p.y))+margin-y},draw:drawOverlays});}
+ // Labels are unchanged within a prepared view; they must not dirty the whole city every animation frame.
+ if(labels.length&&camera.zoom<.06)dynamic.push({id:'map-labels',version:prepared.key,layer:2,depth:Infinity,bounds:{x:0,y:0,width:viewport.width,height:viewport.height},draw:drawLabels});
+ if(points.length){const x=Math.min(...points.map(p=>p.x))-margin,y=Math.min(...points.map(p=>p.y))-margin*3;dynamic.push({layer:2,depth:Infinity,bounds:{x,y,width:Math.max(...points.map(p=>p.x))+margin-x,height:Math.max(...points.map(p=>p.y))+margin-y},draw:drawOverlays});}
  // Recorder and older browsers without raster surfaces use a complete deterministic replay.
  compositor.compose(ctx,typeof OffscreenCanvas==='undefined'?{}:prepared,viewport.width,viewport.height,drawGround,statics,dynamic);
  if(groundCanvas&&!retainedGround){groundCanvas.width=0;groundCanvas.height=0;}

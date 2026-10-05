@@ -1,13 +1,24 @@
 import type {GeographicTile} from './geographic-map';
 import {tileKey} from './geographic-map';
 import type {MobilityNetwork} from './mobility-model';
-import {buildGeographicNetwork,buildGeographicNetworkAsync} from './mobility-network';
+import {buildGeographicNetwork,buildGeographicNetworkAsync,NetworkBudgetExceeded,type NetworkConstructionBudget} from './mobility-network';
 import {prepareMobilityRuntime} from './mobility-runtime';
 export type NetworkRequest={ticket:number;revision:string;tiles:readonly GeographicTile[];maxEdges:number};
 export type NetworkResult={ticket:number;network:MobilityNetwork;limited:boolean;acceptedTileKeys:readonly string[]};
+const edgeLimit=(value:number)=>Number.isFinite(value)?Math.max(0,Math.floor(value)):0;
+const budgetFor=(maxEdges:number):NetworkConstructionBudget=>({maxEdges,maxSegments:maxEdges,maxComparisons:Math.max(4096,maxEdges*32)});
+function selectWithinBudget(tiles:readonly GeographicTile[],maxEdges:number){
+ const accepted:GeographicTile[]=[];let estimated=0;
+ for(const tile of tiles){let edges=0;
+  for(const feature of tile.features)if(feature.layer==='streets'&&feature.type===2)for(const path of feature.geometry){edges+=Math.max(0,path.length-1)*(feature.oneway===1||feature.oneway===-1?1:2);if(estimated+edges>maxEdges)break;}
+  if(estimated+edges>maxEdges)break;estimated+=edges;accepted.push(tile);
+ }
+ return accepted;
+}
 export function buildNetworkJob(request:NetworkRequest):NetworkResult{
- const limit=Math.max(0,Math.floor(request.maxEdges));let accepted=[...request.tiles],network=buildGeographicNetwork(accepted.flatMap(t=>t.features),request.revision);
- while(network.edges.size>limit&&accepted.length){accepted=accepted.slice(0,Math.max(0,accepted.length-Math.max(1,Math.ceil(accepted.length*.2))));network=buildGeographicNetwork(accepted.flatMap(t=>t.features),request.revision);}
+ const limit=edgeLimit(request.maxEdges),budget=budgetFor(limit);let accepted=limit?selectWithinBudget(request.tiles,limit):[];
+ let network:MobilityNetwork;
+ for(;;){try{network=buildGeographicNetwork(accepted.flatMap(t=>t.features),request.revision,budget);break;}catch(error){if(!(error instanceof NetworkBudgetExceeded)||!accepted.length)throw error;accepted=accepted.slice(0,-1);}}
  return {ticket:request.ticket,network:{...network,runtime:prepareMobilityRuntime(network)},limited:accepted.length<request.tiles.length,acceptedTileKeys:accepted.map(tileKey)};
 }
 export function createNetworkJobQueue(build:(request:NetworkRequest)=>Promise<NetworkResult>,publish:(result:NetworkResult)=>void){
@@ -19,8 +30,8 @@ export function createNetworkJobQueue(build:(request:NetworkRequest)=>Promise<Ne
 // Unsupported-worker hosts prepare smaller complete tile regions, yielding between bounded chunks.
 export async function buildNetworkJobAsync(request:NetworkRequest,cancelled:()=>boolean=()=>false):Promise<NetworkResult>{
  let vertices=0;const tiles=request.tiles.filter(t=>{const size=t.features.reduce((n,f)=>n+f.geometry.reduce((n,r)=>n+r.length,0),0);if(vertices+size>6000)return false;vertices+=size;return true;}).slice(0,4);
- const limit=Math.min(20000,Math.max(0,Math.floor(request.maxEdges)));let accepted=tiles,network=await buildGeographicNetworkAsync(accepted.flatMap(t=>t.features),request.revision,cancelled);
- while(network.edges.size>limit&&accepted.length){accepted=accepted.slice(0,-1);network=await buildGeographicNetworkAsync(accepted.flatMap(t=>t.features),request.revision,cancelled);}
+ const limit=Math.min(20000,edgeLimit(request.maxEdges)),budget=budgetFor(limit);let accepted=limit?selectWithinBudget(tiles,limit):[],network:MobilityNetwork;
+ for(;;){try{network=await buildGeographicNetworkAsync(accepted.flatMap(t=>t.features),request.revision,cancelled,budget);break;}catch(error){if(!(error instanceof NetworkBudgetExceeded)||!accepted.length)throw error;accepted=accepted.slice(0,-1);}}
  await new Promise<void>(resolve=>(globalThis as unknown as {setTimeout(callback:()=>void,ms:number):unknown}).setTimeout(resolve,0));if(cancelled())throw new Error('Mobility preparation cancelled');
  return {ticket:request.ticket,network:{...network,runtime:prepareMobilityRuntime(network)},limited:accepted.length<request.tiles.length,acceptedTileKeys:accepted.map(tileKey)};
 }

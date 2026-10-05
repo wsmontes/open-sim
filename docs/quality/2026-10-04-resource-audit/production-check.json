@@ -1,0 +1,79 @@
+{
+  "sourceCommit": "54138a18e003a1159c7456cd0c6e94a75036739e",
+  "pagesCommit": "76b977b3973b482656900fb004b4d010401075af",
+  "verifiedAt": "2026-10-05T04:25:26.667Z",
+  "url": "https://wsmontes.github.io/open-sim/",
+  "loading": true,
+  "assets": [
+    {
+      "file": "index.html",
+      "status": 200,
+      "bytes": 13369,
+      "sha256": "0d653b7157b4fc0cd7f9cbd0f51ec6033614d97c1731e2f415a33db520c6ca97",
+      "matchesBuild": true
+    },
+    {
+      "file": "assets/index-D1ez1Ko1.css",
+      "status": 200,
+      "bytes": 19813,
+      "sha256": "899274bba072e9860a2377810d2392060b4f92ebd8e35992f5a29cf8bf592acb",
+      "matchesBuild": true
+    },
+    {
+      "file": "assets/index-DL8zB5uH.js",
+      "status": 200,
+      "bytes": 679578,
+      "sha256": "d463b08f80ba2d829379abf5ee95bc002e64255ea343b20c46e59ece39402e8e",
+      "matchesBuild": true
+    },
+    {
+      "file": "assets/map-worker-BOL0pbx-.js",
+      "status": 200,
+      "bytes": 15236,
+      "sha256": "2f223f70ed24612231ba2991bb676e0f56c7dddd5a23c649d9fdeaa285511d09",
+      "matchesBuild": true
+    },
+    {
+      "file": "assets/mobility-worker-Yq23KPl1.js",
+      "status": 200,
+      "bytes": 25566,
+      "sha256": "c1f4a1bbd4f84df7d00c343475286e2e0813030e3d769923368828a66de53530",
+      "matchesBuild": true
+    },
+    {
+      "file": "assets/regional-activity-BfUJ0auR.js",
+      "status": 200,
+      "bytes": 105928,
+      "sha256": "67ae5950ae75021026ad8e0750da037e4927bfd555b1ea1f3672e46837bddeb5",
+      "matchesBuild": true
+    },
+    {
+      "file": "assets/scene-worker-CSCUWfPH.js",
+      "status": 200,
+      "bytes": 239532,
+      "sha256": "dff8722e2d16207c7bec09439d94f9c5924b584eb2379a2411d5a0b574b8a338",
+      "matchesBuild": true
+    },
+    {
+      "file": "assets/vancouver-schools-B_YmVvub.js",
+      "status": 200,
+      "bytes": 35411,
+      "sha256": "797c21ebdc1f487a16c7c6a9d5de38528ae5906151e83156bc8f55b46b4e5513",
+      "matchesBuild": true
+    },
+    {
+      "file": "assets/vancouver-signals-D3naZpiG.js",
+      "status": 200,
+      "bytes": 402008,
+      "sha256": "e97dcf09c09f3feea8915b95bcf381fcfed40b352fb3c082a25aff5bda583a95",
+      "matchesBuild": true
+    },
+    {
+      "file": "assets/vancouver-transit-mobility-C54g3shl.js",
+      "status": 200,
+      "bytes": 78563,
+      "sha256": "6940729f18e6ae5ff90b5597293b835b729a34013defa75514520d135d34e51e",
+      "matchesBuild": true
+    }
+  ]
+}
