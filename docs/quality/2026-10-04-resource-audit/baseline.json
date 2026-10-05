@@ -1,0 +1,87 @@
+{
+  "baselineCommit": "00df96b",
+  "runtime": "Node 26.8.1 on this Mac",
+  "purpose": "read-only architectural probe; not browser FPS or total memory",
+  "scene": {
+    "lat": 49.276,
+    "lon": -123.124,
+    "zoom": 14
+  },
+  "tiles": [
+    {
+      "x": 2588,
+      "y": 5607,
+      "encodedBytes": 240447,
+      "features": 3511,
+      "vertices": 29605,
+      "streetFeatures": 1782,
+      "streetVertices": 7357,
+      "fullDecodeMedianMs": 10.737042,
+      "roadDecodeMedianMs": 5.176
+    },
+    {
+      "x": 2589,
+      "y": 5607,
+      "encodedBytes": 212470,
+      "features": 3228,
+      "vertices": 29707,
+      "streetFeatures": 1536,
+      "streetVertices": 6670,
+      "fullDecodeMedianMs": 11.197709,
+      "roadDecodeMedianMs": 5.131583
+    },
+    {
+      "x": 2588,
+      "y": 5608,
+      "encodedBytes": 223661,
+      "features": 3007,
+      "vertices": 37147,
+      "streetFeatures": 1516,
+      "streetVertices": 6223,
+      "fullDecodeMedianMs": 5.64625,
+      "roadDecodeMedianMs": 2.795083
+    },
+    {
+      "x": 2589,
+      "y": 5608,
+      "encodedBytes": 250493,
+      "features": 3101,
+      "vertices": 41879,
+      "streetFeatures": 1504,
+      "streetVertices": 5632,
+      "fullDecodeMedianMs": 5.665959,
+      "roadDecodeMedianMs": 3.139125
+    }
+  ],
+  "roadGeometryComparison": "JSON-equal to full decode filtered to streets/type2 for all four tiles",
+  "pairedDecodeIterations": 8,
+  "networkJobs": [
+    {
+      "maxEdges": 140000,
+      "buildMs": 386.181791,
+      "nodes": 26706,
+      "edges": 62792,
+      "acceptedTiles": 4
+    },
+    {
+      "maxEdges": 20000,
+      "buildMs": 919.488583,
+      "nodes": 7816,
+      "edges": 17397,
+      "acceptedTiles": 1
+    }
+  ],
+  "limitations": [
+    "Sequential paired microbenchmark; JIT/GC/order can affect timing.",
+    "Network measured once per budget; not medians.",
+    "No assertion that original native crash is solved."
+  ],
+  "networkCopyProbe": {
+    "runtime": "Node structuredClone, not browser message timing",
+    "nodes": 26706,
+    "edges": 62792,
+    "buildMs": 371.271041,
+    "cloneMs": 271.387584,
+    "runs": 1
+  }
+}
