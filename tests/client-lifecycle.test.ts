@@ -33,6 +33,18 @@ test('raw terminal JSON refuses malformed intents',()=>{
   expect(parseCommand(line,{x:0,y:0})).toHaveProperty('error');
 });
 
+test('the municipal calibration intent survives the portable gate on both surfaces',async()=>{
+ const calibration={version:1 as const,territoryId:'Q24639',fiscalYear:2021,annualOperatingCad:1_500_000_000,population:662248,gameUnitsPerCad:.01,source:{dataset:'Statistics Canada, Census 2021',url:'https://www12.statcan.gc.ca/census-recensement/2021/',retrievedAt:'2026-10-03T00:00:00Z',observedYear:2021,method:'reported' as const,territoryId:'Q24639'}};
+ expect(parseCommand(`json ${JSON.stringify({do:'municipal-calibration',calibration})}`,{x:0,y:0})).not.toHaveProperty('error');
+ expect(parseCommand('json {"do":"municipal-calibration","calibration":null}',{x:0,y:0})).not.toHaveProperty('error');
+ expect(parseCommand('json {"do":"municipal-calibration","calibration":{"version":1}}',{x:0,y:0})).toHaveProperty('error');
+ const {client}=await createPlayHost({start:'0:0'}).open();
+ await client.start();await client.idle();
+ expect(await client.do({do:'municipal-calibration',calibration})).toMatchObject({ok:true});
+ expect(await client.do({do:'municipal-calibration',calibration:null})).toMatchObject({ok:true});
+ client.stop();
+});
+
 test('JSON quotes refuse actions that cannot be executed by that surface',async()=>{
  const {client}=await createPlayHost({start:'0:0'}).open();
  await client.start();await client.idle();

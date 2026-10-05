@@ -1,4 +1,4 @@
-import type {MunicipalCalibration} from '../core/municipal-calibration';
+import {validCalibration,type MunicipalCalibration} from '../core/municipal-calibration';
 import type {CellCoord} from '../core/model';
 import type {Speed} from '../presentation/clock';
 import type {Camera} from '../presentation/camera';
@@ -104,6 +104,7 @@ export function isIntent(value:unknown):value is Intent {
   case 'stroke':return cells(v.cells);
   case 'commit':return optional(v.cells,cells);
   case 'speed':return v.speed===0||v.speed===1||v.speed===2||v.speed===3;
+  case 'municipal-calibration':return (v.calibration===null||validCalibration(v.calibration))&&Object.keys(v).every(key=>key==='do'||key==='calibration');
   case 'policy':return Object.keys(v).every(key=>['do','tax','services','borrow'].includes(key))&&['tax','services','borrow'].every(key=>optional(v[key],finite));
   case 'viewport':return finite(v.width)&&v.width>0&&finite(v.height)&&v.height>0&&optional(v.quiet,x=>typeof x==='boolean');
   case 'pan':return finite(v.dx)&&finite(v.dy);
