@@ -1,0 +1,9 @@
+# Distant view: stable map labels
+
+User reported increasing slowdown when zooming out after the resource refactor. Inspection found that at camera.zoom<.06, map labels were emitted as an unversioned full-viewport dynamic command. The compositor correctly treats unversioned commands as changed each frame, so this forced full scene invalidation even when labels and camera did not change. More visible buildings made that unnecessary replay expensive.
+
+The fix gives labels stable identity/version per prepared view and separates them from preview/hover overlays. Labels remain above geometry; dirty regions still repaint affected text. Interaction overlays remain independent and can appear/disappear without removing labels. No building geometry, detail, source coverage or near-zoom code was removed.
+
+Actual-render regression was observed failing (second unchanged view repainted ground) before the fix, then passing. Preview feedback remains live. Targeted24 render/cache/compositor tests passed. Full149file suite:1,025passed/5skipped; typecheck/build passed, lint zeroerrors with10existing warnings. Independent reviewer found no issues and additionally exercised hover appearance/removal, label removal and camera invalidation.
+
+Browser observations are provisional and not a controlled FPS comparison: oldbuild at500m scale reported worker18.6ms/mainp956.7ms; reloaded patch15.7ms/mainp958.7ms, different cache warmness. Isolated localhost patch at200m scale reported worker10.4ms/mainp951.9ms. The old127.0.0.1 session stopped responding at broader region zoom; process sample showed one renderer main thread busy with an unsymbolized JavaScript stack. Do not infer that the label fix resolves that separate stall or claim a measured FPS uplift from these observations. Broader-scale native validation continues before final acceptance.
