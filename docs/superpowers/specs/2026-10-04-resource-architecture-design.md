@@ -2,7 +2,7 @@
 
 ## Intenção
 
-Pedido de 4/10: revisar a raiz do programa e refatorar o consumo de recursos. O jogo deve abrir com feedback, manter controles fluidos durante preparação e operar com folga. Preservar saves, profundidade/oclusão, geografia real, economia e funcionalidades existentes. Não trocar funcionalidades por uma redução indiscriminada de qualidade. Publicação não faz parte desta etapa.
+Pedido de 4/10: revisar a raiz do programa e refatorar o consumo de recursos. O jogo deve abrir com feedback, manter controles fluidos durante preparação e operar com folga. Preservar saves, profundidade/oclusão, geografia real, economia e funcionalidades existentes. Não trocar funcionalidades por uma redução indiscriminada de qualidade. A publicação e os testes em produção foram autorizados posteriormente pelo usuário, na mesma sessão.
 
 ## Diagnóstico confirmado
 

@@ -1,0 +1,10 @@
+{"tile":"14/2588/5607","encodedBytes":240447,"decodeMs":10.261250000000018,"all":{"features":3511,"vertices":29605},"streets":{"features":1782,"vertices":7357}}
+{"tile":"14/2589/5607","encodedBytes":212470,"decodeMs":10.253457999999966,"all":{"features":3228,"vertices":29707},"streets":{"features":1536,"vertices":6670}}
+{"tile":"14/2588/5608","encodedBytes":223661,"decodeMs":6.499665999999991,"all":{"features":3007,"vertices":37147},"streets":{"features":1516,"vertices":6223}}
+{"tile":"14/2589/5608","encodedBytes":250493,"decodeMs":8.022582999999997,"all":{"features":3101,"vertices":41879},"streets":{"features":1504,"vertices":5632}}
+{"name":"original","maxEdges":140000,"nodes":26706,"edges":62792,"accepted":4}
+{"name":"refactor","maxEdges":140000,"nodes":26706,"edges":62792,"accepted":4}
+{"maxEdges":140000,"timings":{"original":[276.019958,322.15662499999985,366.6393330000001,366.4694159999999],"refactor":[291.61074999999994,339.924,387.5810839999999,431.80274999999983]}}
+{"name":"original","maxEdges":20000,"nodes":7816,"edges":17397,"accepted":1}
+{"name":"refactor","maxEdges":20000,"nodes":7816,"edges":17397,"accepted":1}
+{"maxEdges":20000,"timings":{"original":[788.3406670000004,648.2764999999999,599.2344999999996,604.9685840000002],"refactor":[165.92470900000035,158.21091700000034,135.0314159999998,144.03970900000058]}}

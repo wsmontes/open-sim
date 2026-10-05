@@ -1,4 +1,6 @@
-# Native raster resource budget
+# Native raster resource budget — historical containment probe
+
+This records the intermediate 256-canvas mitigation, not the final deployed architecture. The final implementation retains up to 2,048 immutable images under a byte budget, produced by one reusable context; hosts without snapshot support retain at most 256 canvases. See [final evidence](2026-10-04-resource-architecture-result.md).
 
 Production baseline: `00df96b` (bundle filenames verified against the published application). Change is isolated on `codex/webgl-resource-budget`.
 
