@@ -1,7 +1,6 @@
 /// <reference types="vite/client" />
 import {createSceneLoading} from './scene-loading';
-import {createFrameMerge} from '../presentation/frame-merge';
-import type {VesselFrame} from '../presentation/maritime-engine';
+import {createRegionalMobility,createRegionalResource} from './regional-mobility';
 import {createSceneSurface} from './scene-surface';
 import {sameSceneFrame} from '../surfaces/canvas/scene-frame';
 import {renderPolicy,renderPixelRatio} from '../presentation/render-policy';
@@ -13,17 +12,7 @@ import {municipalCalibrationPreview} from '../presentation/words';
 import {containsLocalArea} from '../presentation/municipal-coverage';
 import vancouverLocalAreas from '../adapters/reality/data/vancouver-local-areas.json';
 import {createMobilityPanel} from '../surfaces/canvas/mobility-panel';
-import type {TransitContent} from '../core/transit-data';
-import {createAviationEngine} from '../presentation/aviation';
-import {readAirportCapture} from '../adapters/reality/airports';
-import cyvrCapture from '../adapters/reality/data/cyvr.json';
 import {createFerryClock} from '../client/ferry-clock';
-import {scheduledFerryFrames} from '../presentation/ferry-schedule';
-import {readFerrySchedule} from '../adapters/reality/bc-ferries';
-import bcFerryCapture from '../adapters/reality/data/bc-ferries.json';
-import {createMaritimeEngine} from '../presentation/maritime-engine';
-import {readMaritimeCapture} from '../adapters/reality/maritime';
-import vancouverMaritimeCapture from '../adapters/reality/data/vancouver-maritime.json';
 import {createGeographicStream} from './geographic-stream';
 import {createTerrainStream} from './terrain-stream';
 import {createMobilityStream} from './mobility-stream';
@@ -67,9 +56,6 @@ import {emptyComposition} from '../presentation/world-composition-model';
 import {chunkId,toCell,toGeo,coordAt} from '../core/coordinates';
 import {effectiveCells} from '../core/world';
 import {createMobilityController} from '../client/mobility-controller';
-import {parseVancouverSchools} from '../adapters/reality/vancouver-schools';
-import type {SchoolSite} from '../core/traffic-data';
-import type {TrafficSignalSite} from '../core/traffic-data';
 import {quoteAction} from '../core/quote';
 import type {Camera} from '../presentation/camera';
 import {normalizeAngle,project,settleZoom,zoomTo,MIN_ZOOM,centerOn,ROTATE_STEP} from '../presentation/camera';
@@ -404,36 +390,11 @@ const devicePolicy=renderPolicy((navigator as Navigator&{deviceMemory?:number}).
 const mobilityStream=geography?createMobilityStream(loadSceneTile,SEED,()=>invalidateFrame(),devicePolicy.dynamicAgents):null;
 const mobility=mobilityStream?.controller??createMobilityController({seed:SEED,now:()=>new Date().toISOString(),onChange:()=>{},capacity:devicePolicy.dynamicAgents});
 let mobilityEnabled=true;
-const maritime=geography?createMaritimeEngine(readMaritimeCapture(vancouverMaritimeCapture),SEED,devicePolicy.vessels):null;
-maritime?.setScenario(new Date().toISOString());
-const aviation=geography?createAviationEngine(readAirportCapture(cyvrCapture),SEED,devicePolicy.aircraft):null;
-const marineCapture=readMaritimeCapture(vancouverMaritimeCapture),ferrySchedule=readFerrySchedule(bcFerryCapture,marineCapture.routes),ferryClock=createFerryClock(()=>new Date().toISOString());
-// The transit, signal and school captures are Vancouver's, and the mobility network is built from whatever the camera is
-// looking at: without this gate, panning to Lisboa would fill Lisbon's streets with Vancouver's buses and its corners
-// with Vancouver's signals. Coverage is the same local-planning guard the facts use, so a city and its traffic agree on
-// where the city ends, and leaving it tears the captures down instead of leaving them behind.
-let mobilityCity:null|'vancouver'=null,mobilityCaptures:{transit:TransitContent;signals:readonly TrafficSignalSite[];schools:readonly SchoolSite[]}|null=null;
-const syncMobilityCity=(inCoverage:boolean)=>{
- if(!geography)return;
- const wanted=inCoverage?'vancouver':null;
- if(wanted===mobilityCity)return;
- mobilityCity=wanted;
- if(!wanted){mobility.setCity(null);invalidateFrame();return;}
- mobility.setCity('CA-BC');
- // setCity tears the streets down, and the stream only speaks when its tile selection changes: hand it back what it
- // already has, or the city would come back empty and stay empty until the camera moved.
- mobilityStream?.republish();
- const apply=()=>{if(mobilityCity!=='vancouver'||!mobilityCaptures)return;mobility.setTransit(mobilityCaptures.transit);mobility.setSignalSites(mobilityCaptures.signals);mobility.setCivicSites(mobilityCaptures.schools);invalidateFrame();};
- if(mobilityCaptures){apply();return;}
- void Promise.all([
-  import('../adapters/reality/data/vancouver-transit-mobility.json'),
-  import('../adapters/reality/data/vancouver-signals.json'),
-  import('../adapters/reality/data/vancouver-schools.json'),
- ]).then(([transit,signals,schools])=>{
-  mobilityCaptures={transit:transit.default as TransitContent,signals:signals.default as readonly TrafficSignalSite[],schools:parseVancouverSchools(schools.default)};
-  apply();
- });
-};
+const ferryClock=createFerryClock(()=>new Date().toISOString());
+let firstPicture=false;
+const regionalMobility=createRegionalMobility({controller:mobility,republish:()=>mobilityStream?.republish(),changed:()=>invalidateFrame()});
+const regionalActivity=createRegionalResource(async()=>{const module=await import('./regional-activity');return ()=>module.createRegionalActivity(SEED,devicePolicy.vessels,devicePolicy.aircraft);},()=>invalidateFrame());
+const syncMobilityCity=(inCoverage:boolean)=>{if(geography)regionalMobility.update(inCoverage,firstPicture);};
 const mobilityPanelRoot=hudRoot.querySelector<HTMLElement>('#panel-source [data-panel-body]');
 // The clock in the panel is Vancouver's, and so is the route list under it: the panel says what city these controls
 // describe, and stops claiming Vancouver where the coverage does not reach.
@@ -675,6 +636,7 @@ function onPlace(name: string) {
 function onRetryMap() {
  geography?.retry();
  mobilityStream?.retry();
+ regionalMobility.retry();regionalActivity.retry();
  if (active) {
   tell({do: 'retryMap'});
   return;
@@ -779,7 +741,6 @@ window.screen?.orientation?.addEventListener?.('change', viewportSettled);
 let motion = 0;
 let motionMs=0,renderMs=0;
 const cameraUpdates=createCameraUpdateGate();
-const mergeVessels=createFrameMerge<VesselFrame>();
 const sceneSurface=createSceneSurface(ctx,()=>invalidateFrame(),(navigator as Navigator&{deviceMemory?:number}).deviceMemory);
 const perfSamples=createPerformanceSamples(),framePhases:Record<string,number>={};
 let framePresented=false;
@@ -815,13 +776,12 @@ const draw = (now: number, seconds: number) => {
  const staticReady=sceneSurface.ready({...hand,state:hand.state!,geography:geography?.scene(),terrain:terrain.scene(),seed:SEED,motion,preview:hand.preview.cells,previewAffordable:hand.preview.affordable,light:cityLight,pixelRatio:deviceScale()});
  ferryClock.setPaused(hand.speed===0||!mobilityEnabled);
  const civilInstant=ferryClock.instant();
- maritime?.setScenario(civilInstant);
  // The frame already owns this clock update; it must not invalidate itself.
  mobility.setScenario(civilInstant,true);
- const ferryFrames=geography?scheduledFerryFrames(ferrySchedule,marineCapture.routes,civilInstant):[];
- maritime?.setReservedCapacity(ferryFrames.length);
- maritime?.advance(motionSeconds(seconds,mobilityEnabled&&staticReady?hand.speed:0));
- aviation?.advance(motionSeconds(seconds,mobilityEnabled&&staticReady?hand.speed:0));
+ const civilFocus=geographicFocus(camera,hand.viewport);
+ const regionalWanted=!!geography&&camera.zoom>=GLOBE_ZOOM&&civilFocus.lat>=48&&civilFocus.lat<=55&&civilFocus.lon>=-132&&civilFocus.lon<=-121;
+ regionalActivity.update(regionalWanted,firstPicture&&staticReady);
+ regionalActivity.value()?.advance(motionSeconds(seconds,mobilityEnabled&&staticReady?hand.speed:0),civilInstant);
  const motionStart=performance.now();mobility.advance(motionSeconds(seconds,mobilityEnabled&&staticReady?hand.speed:0));motionMs=performance.now()-motionStart;
  phase('simulation',simulationStart);
  if(geography){
@@ -840,8 +800,8 @@ const draw = (now: number, seconds: number) => {
   terrain:terrain.scene(),
   mobility:mobility.frame(),
   signals:mobility.signals(),
-  vessels:maritime?mergeVessels(ferryFrames,maritime.frame()):undefined,
-  aircraft:aviation?.frame(),
+  vessels:regionalActivity.value()?.vessels(),
+  aircraft:regionalActivity.value()?.aircraft(),
   pixelRatio:deviceScale(),
   camera,
   viewport: {width, height},
@@ -865,7 +825,7 @@ const draw = (now: number, seconds: number) => {
  }
  const visualScene=geography?.scene(),surfaceStatus=sceneSurface.status();
  sceneLoading.update({sessionReady:true,pictureReady:surfaceStatus.pictureReady,mapLoading:visualScene?.loading??false,preparing:!staticReady,error:startupFailed||(visualScene?.error??false)});
- if(surfaceStatus.pictureReady)perfMark('first-scene');
+ if(surfaceStatus.pictureReady){perfMark('first-scene');if(!firstPicture){firstPicture=true;syncMobilityCity(containsLocalArea(vancouverLocalAreas.areas,civilFocus));regionalActivity.update(regionalWanted,staticReady);}}
  return {moving:moving||sceneSurface.pending(), ambient: hand.speed !== 0&&staticReady,presented:framePresented};
 };
 let lastView: WorldView | null = null;
@@ -991,7 +951,7 @@ async function start() {
   updateHud();
   if(document.hidden)frames.stop();else invalidateFrame();
  });
- window.addEventListener('pagehide', event => {saveNow();frames.stop();if(viewportTimer!==undefined){clearTimeout(viewportTimer);viewportTimer=undefined;}if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}if(!event.persisted){if(debugTimer!==undefined)clearInterval(debugTimer);mobilityStream?.dispose();terrain.dispose();geography?.dispose();if('destroy' in maps)(maps as OsmSource).destroy();maritime?.dispose();aviation?.dispose();sceneSurface.dispose();sceneRasterCache.clear();}});
+ window.addEventListener('pagehide', event => {saveNow();frames.stop();if(viewportTimer!==undefined){clearTimeout(viewportTimer);viewportTimer=undefined;}if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}if(!event.persisted){if(debugTimer!==undefined)clearInterval(debugTimer);mobilityStream?.dispose();terrain.dispose();geography?.dispose();if('destroy' in maps)(maps as OsmSource).destroy();regionalMobility.dispose();regionalActivity.dispose();sceneSurface.dispose();sceneRasterCache.clear();}});
  window.addEventListener('pageshow',()=>{if(!document.hidden)invalidateFrame();});
  // First paint is the restored local state. Merely queueing network/storage work in the same task can still delay the
  // browser's actual paint on a phone, so background work starts only after one rendered frame has returned to the UA.
