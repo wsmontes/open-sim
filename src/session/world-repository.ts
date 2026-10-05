@@ -146,7 +146,7 @@ export function createWorldRepository({storage,codec,hasher,memo=true}:{storage:
  async function stored(objects:readonly WorldObject[]):Promise<WorldResult<StoredObject[]>> {
   const kept:StoredObject[]=[];
   for(const object of objects){
-   const addressedObject=await objectOf(object.value);
+   const bytes=codec.encode(object.value),addressedObject={bytes,ref:await hasher.ref(bytes)};
    if(!sameRef(addressedObject.ref,object.ref))return failed('HASH_MISMATCH',`Objeto ${object.ref.hash.slice(0,12)}… não corresponde ao conteúdo`);
    if(addressedObject.ref.bytes>MAX_OBJECT_BYTES)return failed('LIMIT',`Objeto de ${addressedObject.ref.bytes} bytes excede o limite de ${MAX_OBJECT_BYTES}`);
    kept.push(addressedObject);

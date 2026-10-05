@@ -70,15 +70,18 @@ export const GLIDE_PER_SECOND = 9;
 // One step of a camera move. The approach is exponential, so the move is quick at first and gentle at the end, and it
 // never overshoots: `fraction` is how much of the remaining distance to close this frame. Rotation takes the short way
 // round, so turning from just east of north to just west of it is a couple of degrees and not most of a circle.
-export function approach(from:Camera,to:Camera,fraction:number):Camera {
+export function approach(from:Camera,to:Camera,fraction:number,viewport?:Viewport):Camera {
  const k=Math.max(0,Math.min(1,fraction));
  const turn=normalizeAngle(to.rotation-from.rotation);
- return {
+ const blended={
   x:from.x+(to.x-from.x)*k,
   y:from.y+(to.y-from.y)*k,
   zoom:from.zoom+(to.zoom-from.zoom)*k,
   rotation:normalizeAngle(from.rotation+turn*k),
  };
+ if(!viewport)return blended;
+ const screen={x:viewport.width/2,y:viewport.height/2},a=cellSpace(screen,from),b=cellSpace(screen,to);
+ return centerOn({x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k},blended,viewport);
 }
 // A move is finished when the camera is close enough that another frame would not be seen: the thresholds are in
 // screen pixels, a fraction of zoom, and radians.

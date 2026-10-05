@@ -2,7 +2,7 @@
 import {expect,test} from 'vitest';
 import type {CellCoord} from '../src/core/model';
 import type {Camera} from '../src/presentation/camera';
-import {cellSpace,project} from '../src/presentation/camera';
+import {cellSpace,project,pick} from '../src/presentation/camera';
 import type {SelectedTool} from '../src/surfaces/canvas/hud';
 import {attachInput} from '../src/surfaces/canvas/input';
 import type {InputContext} from '../src/surfaces/canvas/input';
@@ -381,3 +381,5 @@ test('a stationary pan pointer after resize does not replay its prior movement',
  const before=h.camera;h.canvas.width=640;h.canvas.height=400;h.finger('pointermove',1,240,200);
  expect(h.camera).toEqual(before);h.finger('pointercancel',1,240,200,window);h.detach();
 });
+
+test('CSS resize invalidates the pointer rectangle before the backing buffer changes',()=>{const h=harness('explore');let width=320;h.canvas.getBoundingClientRect=()=>({left:0,top:0,width,height:200}) as DOMRect;h.fire('pointermove',{clientX:160,clientY:100});expect(h.hovers.at(-1)).toEqual(pick({x:160,y:100},h.camera));width=640;window.dispatchEvent(new Event('resize'));h.fire('pointermove',{clientX:160,clientY:100});expect(h.hovers.at(-1)).toEqual(pick({x:80,y:100},h.camera));expect(h.canvas.width).toBe(320);h.detach();});

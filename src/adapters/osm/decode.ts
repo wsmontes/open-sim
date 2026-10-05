@@ -3,6 +3,13 @@ import {PbfReader} from 'pbf';
 import {CHUNK,WORLD} from '../../core/coordinates';
 import type {MapFeature} from './normalize';
 import type {GeographicTile} from '../../presentation/geographic-map';
+export function readMobilityAttributes(properties:Record<string,unknown>,zoom:number,id?:number){
+ const direction=properties.oneway,reverse=properties.oneway_reverse===true;
+ const oneway:-1|0|1|undefined=reverse?-1:direction===true||direction===1||direction==='yes'?1:direction===-1||direction==='-1'?-1:direction===false||direction===0||direction==='no'?0:zoom>=14?0:undefined;
+ const rawLevel=properties.layer??properties.level,level=rawLevel!==undefined&&Number.isFinite(Number(rawLevel))?Number(rawLevel):undefined;
+ const identity=properties.osm_id??id;
+ return {oneway,level,sourceId:identity!==undefined?`osm/${String(identity)}`:undefined,tunnel:typeof properties.tunnel==='boolean'?properties.tunnel:undefined};
+}
 
 const LAYERS=new Set(['land','sites','ocean','water_polygons','water_lines','buildings','streets','street_polygons','place_labels','street_labels','boundaries']);
 const cellsPerTile=(zoom:number)=>WORLD/2**zoom;
@@ -38,10 +45,11 @@ export function decodeVisualTile(bytes:Uint8Array,zoom:number,tileX:number,tileY
   for(let index=0;index<layer.length;index++){
    const raw=layer.feature(index);
    if(raw.type!==1&&raw.type!==2&&raw.type!==3)continue;
-   if(name==='streets'&&(raw.properties.tunnel===true||raw.properties.rail===true))continue;
+   if(name==='streets'&&raw.properties.rail===true)continue;
    features.push({
     layer:name,kind:String(raw.properties.kind??''),bridge:raw.properties.bridge===true,type:raw.type,
     name:String(raw.properties.name??''),height:Number(raw.properties.height??0)||undefined,
+    ...(name==='streets'?readMobilityAttributes(raw.properties,zoom,raw.id):{}),
     geometry:raw.loadGeometry().map(ring=>ring.map(point=>({x:originX+point.x/raw.extent*side,y:originY+point.y/raw.extent*side}))),
    });
   }
@@ -50,5 +58,5 @@ export function decodeVisualTile(bytes:Uint8Array,zoom:number,tileX:number,tileY
 }
 export function decodeTile(bytes:Uint8Array,zoom:number,tileX:number,tileY:number):DecodedTile{
  const visual=decodeVisualTile(bytes,zoom,tileX,tileY);
- return{byChunk:bucket(tileX,tileY,cellsPerTile(zoom),visual.features.filter(f=>f.type!==1&&!f.layer.endsWith('labels')&&f.layer!=='boundaries'))};
+ return{byChunk:bucket(tileX,tileY,cellsPerTile(zoom),visual.features.filter(f=>!f.tunnel&&f.type!==1&&!f.layer.endsWith('labels')&&f.layer!=='boundaries'))};
 }

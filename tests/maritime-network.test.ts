@@ -1,0 +1,12 @@
+import {it,expect} from 'vitest';
+import {buildMaritimeNetwork} from '../src/presentation/maritime-network';
+import {WORLD} from '../src/core/coordinates';
+import type {MaritimeCapture,MarineRoute} from '../src/core/maritime-data';
+const source={dataset:'synthetic-fixture',url:'https://example.test',territoryId:'CA-BC',retrievedAt:'2026-10-03T00:00:00Z',method:'reported' as const};
+const point=(lon:number)=>({lat:0,lon}),terminals=[{id:'waterfront',name:'Waterfront fixture',operator:'TransLink',position:point(0),berths:['waterfront:1'],source,allowedKinds:['seabus' as const]},{id:'lonsdale',name:'Lonsdale fixture',operator:'TransLink',position:point(.01),berths:['lonsdale:1'],source,allowedKinds:['seabus' as const]}];
+const route:MarineRoute={id:'seabus',operator:'TransLink',terminalIds:['waterfront','lonsdale'],path:[point(0),point(.01)],allowed:['seabus'],method:'reported',source,verified:true};
+const capture=(r:MarineRoute=route):MaritimeCapture=>({terminals,routes:[r],cruiseCalls:[]});
+it('connects Waterfront and Lonsdale through the verified SeaBus corridor',()=>{expect(buildMaritimeNetwork(capture(),[]).routes.get('seabus')!.terminalIds).toEqual(['waterfront','lonsdale']);});
+it('rejects a segment crossing land even when both endpoints are water',()=>{const x=(.005+180)/360*WORLD,y=WORLD/2,land={layer:'land',kind:'land',type:3,bridge:false,geometry:[[{x:x-10,y:y-20},{x:x+10,y:y-20},{x:x+10,y:y+20},{x:x-10,y:y+20},{x:x-10,y:y-20}]]};expect(buildMaritimeNetwork(capture(),[land]).routes.has('seabus')).toBe(false);});
+it('never activates unverified corridors',()=>{expect(buildMaritimeNetwork(capture({...route,verified:false}),[]).routes.size).toBe(0);});
+it('does not send cargo into a passenger cruise berth or call unknown depth safe',()=>{const r={...route,allowed:['cargo' as const]};expect(buildMaritimeNetwork(capture(r),[]).routes.size).toBe(0);const cargo={...capture(r),terminals:terminals.map(t=>({...t,allowedKinds:['cargo' as const]}))};expect(buildMaritimeNetwork(cargo,[]).routes.size).toBe(0);});

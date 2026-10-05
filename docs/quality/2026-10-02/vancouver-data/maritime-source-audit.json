@@ -1,0 +1,25 @@
+{
+  "retrievedAt": "2026-10-03",
+  "sha256": {
+    "cruise-2026.pdf": "bd2e88274894f213e14d9839b0924d6418b5db64d812193a6bcacc80560e688c",
+    "pac201-202608.pdf": "c10e934f73d8dfc4edcbbe0aec66056eb1f36c9bdeef0dfefdbfb221c52bb818",
+    "aquabus-route.osm": "37c1ee0680e48130bfe79dc842c7c55ad52017548af8d87c6f09bc862b791b52",
+    "coal-harbour.osm": "43d46198c6c1e04c3dc3961348c6e61657eb0982eb6d46c41cea7a9ad22c99c5",
+    "centerm.osm": "a10b4935a713020f826be8799def8aeeeb6d357cf3ab4a4e85917173e6b6799c",
+    "jericho.osm": "fa014d4004f81858b0c8ef653e03b085508a7e7ce603aaf32b2599abe29549b8",
+    "marine-coastline.json": "15fccd6d2f6265531ec80d6fdfcfc496169a8cba2520cfb7abdd6533469c3f7e"
+  },
+  "captureSha256": "d613e71b20d450825c472175c2a2cc67219cd8e22b4446e516813aae5b8c9553",
+  "calendarVersion": "1.12 \u00b7 April 24 2026",
+  "calendarCheckedPage": 10,
+  "nauticalEdition": "CHS PAC201 August2026",
+  "nauticalCheckedPages": [
+    97,
+    100
+  ],
+  "routeValidation": "36 actual OSM z14 tiles; all12 center paths accepted; not an AIS capture",
+  "cruiseCallScope": "Only October3\u20134 2026; three published calls, not a full annual timetable",
+  "cruiseTimesPublished": false,
+  "berthCenters": "Derived offsets from mapped quay geometry; not official ship positions",
+  "bcFerries": "Capture and dated official schedule remain Task19"
+}

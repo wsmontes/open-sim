@@ -8,17 +8,27 @@ export const PROTOCOL_VERSION = 1;
 // Object keys sorted, no whitespace, trailing newline: the same text for the same value in any runtime. This is the
 // serialization the portable contract is defined on, so it lives here and the save format builds on it.
 //
-// The walk is memoized per container identity. The core is immutable by construction: every state is rewritten by
-// spread, a frozen region keeps the same `base` object across versions, and a saved world shares its untouched
-// subtrees with the next one. Identity is therefore a valid content key, and the serialized fragment of a subtree is
-// emitted once and reused inside every later document that shares it — the bytes are the same bytes, in the same
-// sorted order, so the world hash, the replay and the published links do not move. `setMemoEnabled(false)` restores
-// the cache-free walk byte for byte; tests and `tools/bench-commit.ts` use it as the oracle.
+// The walk reuses deeply frozen JSON data subtrees by identity. Mutable values and accessors are read afresh,
+// preserving the public serializer's ownership and content contract. Reused text keeps the same sorted bytes.
+// `setMemoEnabled(false)` restores the cache-free walk; tests and tools compare its bytes with the cached path.
 let memoOn = true;
 export const setMemoEnabled = (on: boolean): void => {memoOn = on;};
+// Only deeply frozen JSON is identity-cached. Mutable values retain fresh serialization and validation without changing caller ownership.
+const immutableJson=new WeakSet<object>();
+function isImmutableJson(value:object):boolean{
+ const visiting=new WeakSet<object>();let nodes=0;
+ const check=(container:object,depth:number):boolean=>{
+  if(++nodes>8192||depth>16)return false;if(immutableJson.has(container))return true;
+  if(visiting.has(container)||!Object.isFrozen(container)||Array.isArray(container)&&container.length>8192)return false;
+  visiting.add(container);
+  for(const key of Object.keys(container)){if(++nodes>8192)return false;const descriptor=Object.getOwnPropertyDescriptor(container,key);if(!descriptor||!('value' in descriptor))return false;const child=descriptor.value;if(child!==null&&typeof child==='object'&&!check(child,depth+1))return false;}
+  visiting.delete(container);immutableJson.add(container);return true;
+ };
+ return check(value,0);
+}
 const canonicalCache = new WeakMap<object,string>();
 function memoized(container: object, build: () => string): string {
- if (!memoOn) return build();
+ if (!memoOn||!isImmutableJson(container)) return build();
  const hit = canonicalCache.get(container);
  if (hit !== undefined) return hit;
  const text = build();
@@ -72,7 +82,7 @@ function checkShape(value: unknown, label: string, depth: number, counter: {node
   throw new Error(`${label} inválido`);
  }
  const container = value as object;
- if (memoOn) {
+ if (memoOn&&isImmutableJson(container)) {
   const hit = shapeCache.get(container);
   if (hit) {
    counter.nodes += hit.nodes;
@@ -98,7 +108,7 @@ function checkShape(value: unknown, label: string, depth: number, counter: {node
    if (below + 1 > deepest) deepest = below + 1;
   }
  }
- if (memoOn) shapeCache.set(container, {nodes: counter.nodes - start, depth: deepest});
+ if (memoOn&&isImmutableJson(container)) shapeCache.set(container, {nodes: counter.nodes - start, depth: deepest});
  return deepest;
 }
 function countNode(counter: {nodes: number}, depth: number, label: string): void {

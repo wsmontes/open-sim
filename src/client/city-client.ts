@@ -25,6 +25,7 @@ import {debounce} from './time';
 import type {TimePort} from './time';
 import type {CityFacts,FactsPort} from './facts';
 import {PLACES,goToCoord,placeByName} from './facts';
+import {createFactsController} from './facts-controller';
 import {createVersions} from './versions';
 import type {VersionsController} from './versions';
 import {createSessionController} from './session';
@@ -361,11 +362,14 @@ export function createCityClient(config: CityClientConfig): CityClient {
  const showFacts = (next: CityFacts | null, publish: boolean, at?: {lat: number; lon: number}) => { cityFacts = next; factsAt = next ? at ?? null : null; if(!next)pendingCensus=null; if (publish && next) { pendingCensus = next; flushCensus(); } };
  // Only the newest lookup may change the facts or publish a census: a slow answer about the previous city must not
  // overwrite the one the player just went to.
- let lookups = 0;
+ let lookupPosition: {lat:number;lon:number}|null=null;
+ const factsController=facts?createFactsController(facts,found=>{
+  if(found&&lookupPosition){showFacts(found,true,lookupPosition);changed();}
+ }):null;
  const lookUp = (lat: number, lon: number, name?: string) => {
-  if (!facts) return;
-  const ticket = (lookups += 1);
-  void track((name ? facts.named(name) : Promise.resolve(null)).then(live => live ?? facts.near(lat, lon)).then(found => { if (found && ticket === lookups) { showFacts(found, true, {lat, lon}); changed(); } }, () => undefined));
+  if (!factsController) return;
+  lookupPosition={lat,lon};
+  void track(factsController.lookup(lat,lon,name));
  };
  // The reminder that the game is a neighbourhood inside the real place: shown only once the census is in the world, so
  // the sentence never claims the simulation accounts for the real millions before the figure has been published.
@@ -373,8 +377,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
   if (!state || !cityFacts?.population) return '';
   const built = state.components['city.census'];
   if (!built || !Object.keys(built).length) return '';
-  const simPopulation = statsOf(state).population;
-  return `Sua cidade reúne ${simPopulation.toLocaleString('pt-BR')} moradores simulados; a cidade real tem ${cityFacts.population.toLocaleString('pt-BR')} — o que você constrói é um bairro dentro dela.`;
+  return 'As estatísticas reais descrevem o município. Na partida, você administra os lotes e serviços do bairro construído.';
  };
 
  // Loading streams from the viewport centre outwards (src/session/map-streaming.ts): every visible region as an
@@ -553,6 +556,10 @@ export function createCityClient(config: CityClientConfig): CityClient {
     if (!action || !cells.length) { refreshPreview(); changed(); return {ok: false, message: tool === 'explore' ? 'Escolha uma ferramenta antes de construir' : 'Nenhuma célula escolhida'}; }
     return submit(action, cells);
    }
+   case 'municipal-calibration': {
+    const receipt=await router.submitAction({type:'municipal-calibration',calibration:intent.calibration});
+    const refused=router.refusal();notice=refused?refused.reason:'';changed();config.afterAction?.(receipt);return {ok:!refused,message:notice};
+   }
    case 'policy': {
     const {do: _ignored, ...policy} = intent;
     const receipt = await router.submitAction({type: 'policy', ...policy});
@@ -599,7 +606,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
    // One frame of the camera gliding toward its target. The approach is exponential, so it never overshoots; the
    // tiles it is heading for are asked for as it goes (debounced), and on arrival it snaps to the exact target.
    if (!glide) return false;
-   camera = approach(camera, glide, 1 - Math.exp(-GLIDE_PER_SECOND * Math.max(0, seconds)));
+   camera = approach(camera, glide, 1 - Math.exp(-GLIDE_PER_SECOND * Math.max(0, seconds)), viewport);
    if (arrived(camera, glide)) { camera = glide; glide = null; scheduleSave(); }
    scheduleLoad();
    changed();
@@ -637,6 +644,6 @@ export function createCityClient(config: CityClientConfig): CityClient {
   versions,
   session,
   async syncSession() { if (router.mode() !== 'local' && router.refresh) { await track(router.refresh()); refreshPreview(); changed(); } },
-  stop() { clock.stop(); unsubscribe(); listeners.clear(); },
+  stop() { factsController?.dispose(); clock.stop(); unsubscribe(); listeners.clear(); },
  };
 }

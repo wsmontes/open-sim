@@ -1,4 +1,6 @@
 export type Speed = 0|1|2|3;
+// Presentation movement shares pause/speed with the partida, with bounded catch-up after hidden tabs.
+export const motionSeconds=(elapsed:number,speed:Speed):number=>Number.isFinite(elapsed)&&elapsed>0?Math.min(.25,elapsed*speed):0;
 // Only one participant orders a session: the host, or the player alone. A replica applies the ticks it receives as
 // commits, so a clock that fired here would invent a second authority over the same branch (spec §7.5).
 export type ClockRole = 'local'|'host'|'replica';

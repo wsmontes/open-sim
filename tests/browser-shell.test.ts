@@ -353,6 +353,8 @@ test('canvas hover shows the cost preview, a road drag spends the previewed cost
  canvas.dispatchEvent(pointer('pointerdown', {...pts[0]!, button: 0, pointerId: 1}));
  for (const pt of pts.slice(1)) canvas.dispatchEvent(pointer('pointermove', {...pt, pointerId: 1}));
  await h.client.idle();
+ flushFrames(1);
+ expect(el(h.doc, '#cost-preview').textContent).toBe(h.client.view().preview.message);
  const quoted = h.client.view().preview.cost ?? 0;
  expect(quoted).toBeGreaterThan(0);
  window.dispatchEvent(pointer('pointerup', {...pts[pts.length - 1]!, button: 0, pointerId: 1}));

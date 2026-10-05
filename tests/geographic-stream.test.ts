@@ -31,3 +31,4 @@ test('cached parent placeholders cannot overlap ready detail tiles after a parti
  const tiles=stream.scene().tiles;expect(stream.scene().error).toBe(true);
  for(const a of tiles)for(const b of tiles)if(a.z<b.z){const factor=2**(b.z-a.z);expect(a.x===Math.floor(b.x/factor)&&a.y===Math.floor(b.y/factor)).toBe(false);}
 });
+test('disposal releases retained tiles and ignores delayed loader publications',async()=>{let resolve!:(value:GeographicTile)=>void,changes=0;const stream=createGeographicStream(()=>new Promise(r=>resolve=r),()=>changes++);stream.update({x:0,y:0,zoom:.0001,rotation:0},{width:100,height:100});const before=changes;stream.dispose();resolve({z:0,x:0,y:0,features:[]});await new Promise(r=>setTimeout(r,0));expect(changes).toBe(before);expect(stream.scene().tiles).toHaveLength(0);});

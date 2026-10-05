@@ -142,14 +142,21 @@ export function createSourceInspector(root:HTMLElement):SourceInspectorPanel{
  const notes=make('ul','source-notes');
  body.append(message,subtitle,ledger,notes);
  panel.append(head,body);
- root.append(panel);
+ (root.querySelector('#hud-sheets')??root).append(panel);
  return {
   update(info){
    message.textContent=info.message;
    message.hidden=!info.message;
    subtitle.textContent=info.title;
    ledger.replaceChildren();
-   for(const row of info.rows)ledger.append(make('dt',undefined,row.label),make('dd',undefined,row.value));
+   for(const row of info.rows){
+    const value=make('dd');let offset=0;
+    for(const match of row.value.matchAll(/https?:\/\/[^\s]+/g)){
+     value.append(doc.createTextNode(row.value.slice(offset,match.index)));
+     const link=doc.createElement('a');link.textContent=match[0];link.href=match[0];link.target='_blank';link.rel='noopener';value.append(link);offset=match.index!+match[0].length;
+    }
+    value.append(doc.createTextNode(row.value.slice(offset)));ledger.append(make('dt',undefined,row.label),value);
+   }
    notes.replaceChildren();
    for(const note of info.notes)notes.append(make('li',undefined,note));
   },

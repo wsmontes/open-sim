@@ -49,6 +49,7 @@ function actionOf(operation:ChangeOperation):Action|null{
  if(intent.kind==='build')return {type:'build',tool:intent.tool,cells};
  if(intent.kind==='demolish')return {type:'demolish',cells};
  if(intent.kind==='component')return {type:'component',key:intent.key,entity:intent.entity,value:operation.after[0]??null};
+ if(intent.kind==='municipal-calibration')return {type:'municipal-calibration',calibration:intent.calibration};
  if(intent.kind==='policy')return {type:'policy',...(intent.tax!==undefined?{tax:intent.tax}:{}),...(intent.services!==undefined?{services:intent.services}:{}),...(intent.borrow!==undefined?{borrow:intent.borrow}:{})};
  return null;
 }

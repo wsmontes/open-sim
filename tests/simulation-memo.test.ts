@@ -29,7 +29,7 @@ function grid(lots:number):GameState {
   for(let i=0;i<lots;i+=1)base.cells[64+i]={terrain:'land',building:i%2?'commercial':'residential',stage:1,origin:'player'};
   chunks[id]=adopt(base);
  }
- return {formatVersion:1,rulesVersion:4,worldId:'memo',seed:3,revision:0,tick:0,money:200000,chunks,actors:{},components:{}};
+ return {formatVersion:1,rulesVersion:5,worldId:'memo',seed:3,revision:0,tick:0,money:200000,chunks,actors:{},components:{}};
 }
 const TOOLS:Tool[]=['road','avenue','highway','residential','commercial','industrial','park','power'];
 

@@ -30,7 +30,7 @@ function makeCity(chunks:number):GameState {
   }
   built[id]=adopt(base);
  }
- return {formatVersion:1,rulesVersion:4,worldId:'bench',seed:1,revision:0,tick:10,money:1_000_000,chunks:built,actors:{},components:{'city.economy':{policy:{tax:9,services:100,debt:0,months:0,valves:{residential:-200,commercial:-200,industrial:-200}}}}};
+ return {formatVersion:1,rulesVersion:5,worldId:'bench',seed:1,revision:0,tick:10,money:1_000_000,chunks:built,actors:{},components:{'city.economy':{policy:{tax:9,services:100,debt:0,months:0,valves:{residential:-200,commercial:-200,industrial:-200}}}}};
 }
 const run=(step:(s:GameState)=>GameState,initial:GameState,ticks:number):GameState=>{let s=initial;for(let i=0;i<ticks;i+=1)s=step(s);return s;};
 function msPerTick(step:(s:GameState)=>GameState,initial:GameState):number {

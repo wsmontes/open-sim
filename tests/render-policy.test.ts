@@ -1,0 +1,4 @@
+import {expect,it} from 'vitest';
+import {renderPolicy} from '../src/presentation/render-policy';
+it('reserves surfaces before admitting cache or secondary animation resources',()=>{const low=renderPolicy(2,1280,720),high=renderPolicy(8,1280,720);expect(low.totalRasterBytes).toBe(32*1024*1024);expect(low.workerRasterBytes+1280*720*4*5).toBe(low.totalRasterBytes);expect(high.dynamicAgents).toBeGreaterThan(low.dynamicAgents);expect(low.waterHz).toBeLessThan(high.waterHz);expect(renderPolicy(2,10000,10000).workerRasterBytes).toBe(0);});
+it('bounds high-DPI buffers before they consume the static-scene budget',async()=>{const {renderPixelRatio}=await import('../src/presentation/render-policy');const ratio=renderPixelRatio(2,2,1280,720),large=renderPixelRatio(2,8,3840,2160);expect(ratio).toBeLessThan(2);expect(3840*2160*large*large*4*5).toBeLessThanOrEqual(128*1024*1024*.61);expect(renderPixelRatio(2,8,1280,720)).toBe(2);});

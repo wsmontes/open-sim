@@ -1,0 +1,161 @@
+{
+  "simulatedSeconds": 4000,
+  "maxFleet": 12,
+  "berthCollision": false,
+  "pauseStable": true,
+  "operations": [
+    {
+      "id": "marine:1:cruise-first-narrows:cruise:2026-10-03:Koningsdam",
+      "phases": [
+        "departing",
+        "sailing",
+        "approach",
+        "berthed"
+      ],
+      "visitedBerths": [
+        "canada-place:west"
+      ]
+    },
+    {
+      "id": "marine:1:seabus:322385:seabus:simulated",
+      "phases": [
+        "berthed",
+        "departing",
+        "sailing",
+        "approach"
+      ],
+      "visitedBerths": [
+        "waterfront:seabus",
+        "lonsdale:seabus"
+      ]
+    },
+    {
+      "id": "marine:1:seabus:322386:seabus:simulated",
+      "phases": [
+        "berthed",
+        "departing",
+        "sailing",
+        "approach"
+      ],
+      "visitedBerths": [
+        "lonsdale:seabus",
+        "waterfront:seabus"
+      ]
+    },
+    {
+      "id": "marine:1:aquabus:37079397:aquabus:simulated",
+      "phases": [
+        "berthed",
+        "departing",
+        "sailing",
+        "approach"
+      ],
+      "visitedBerths": [
+        "aquabus:638861821:dock",
+        "aquabus:3456666797:dock"
+      ]
+    },
+    {
+      "id": "marine:1:aquabus:37079398:aquabus:simulated",
+      "phases": [
+        "berthed",
+        "departing",
+        "sailing",
+        "approach"
+      ],
+      "visitedBerths": [
+        "aquabus:3456666797:dock",
+        "aquabus:3456659790:dock"
+      ]
+    },
+    {
+      "id": "marine:1:aquabus:37083929:aquabus:simulated",
+      "phases": [
+        "berthed",
+        "departing",
+        "sailing",
+        "approach"
+      ],
+      "visitedBerths": [
+        "aquabus:3456659790:dock",
+        "aquabus:3456696411:dock"
+      ]
+    },
+    {
+      "id": "marine:1:aquabus:37079400:aquabus:simulated",
+      "phases": [
+        "berthed",
+        "departing",
+        "sailing",
+        "approach"
+      ],
+      "visitedBerths": [
+        "aquabus:3456696411:dock",
+        "aquabus:3456702076:dock"
+      ]
+    },
+    {
+      "id": "marine:1:aquabus:37079402:aquabus:simulated",
+      "phases": [
+        "berthed",
+        "departing",
+        "sailing",
+        "approach"
+      ],
+      "visitedBerths": [
+        "aquabus:3456702076:dock",
+        "aquabus:1356857891:dock"
+      ]
+    },
+    {
+      "id": "marine:1:aquabus:37079407:aquabus:simulated",
+      "phases": [
+        "berthed",
+        "departing",
+        "sailing",
+        "approach"
+      ],
+      "visitedBerths": [
+        "aquabus:1356857891:dock",
+        "aquabus:431234884:dock"
+      ]
+    },
+    {
+      "id": "marine:1:aquabus:37079410:aquabus:simulated",
+      "phases": [
+        "berthed",
+        "departing",
+        "sailing",
+        "approach"
+      ],
+      "visitedBerths": [
+        "aquabus:431234884:dock",
+        "aquabus:431234943:dock"
+      ]
+    },
+    {
+      "id": "marine:1:jericho-outing:sailboat:simulated",
+      "phases": [
+        "berthed",
+        "departing",
+        "sailing",
+        "approach"
+      ],
+      "visitedBerths": [
+        "jericho:simulated-mooring"
+      ]
+    },
+    {
+      "id": "marine:1:cargo-centerm:cargo:simulated",
+      "phases": [
+        "departing",
+        "sailing",
+        "approach",
+        "berthed"
+      ],
+      "visitedBerths": [
+        "centerm:5-6"
+      ]
+    }
+  ]
+}

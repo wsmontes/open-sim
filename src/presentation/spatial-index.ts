@@ -1,3 +1,13 @@
+export type Bounds={minX:number;minY:number;maxX:number;maxY:number};
+export const overlaps=(a:Bounds,b:Bounds)=>a.maxX>=b.minX&&a.minX<=b.maxX&&a.maxY>=b.minY&&a.minY<=b.maxY;
+export function createSpatialIndex<T>(entries:readonly {bounds:Bounds;value:T}[],bucketSize:number){
+ if(!Number.isFinite(bucketSize)||bucketSize<=0)throw new Error('Invalid bucket size');
+ const buckets=new Map<string,number[]>(),wide:number[]=[];
+ const range=(b:Bounds)=>({x0:Math.floor(b.minX/bucketSize),x1:Math.floor(b.maxX/bucketSize),y0:Math.floor(b.minY/bucketSize),y1:Math.floor(b.maxY/bucketSize)});
+ entries.forEach(({bounds},i)=>{const {x0,x1,y0,y1}=range(bounds);if(![x0,x1,y0,y1].every(Number.isFinite)||(x1-x0+1)*(y1-y0+1)>4096){wide.push(i);return;}for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const key=`${x}:${y}`,list=buckets.get(key)??[];list.push(i);buckets.set(key,list);}});
+ return {query(bounds:Bounds):readonly T[]{const {x0,x1,y0,y1}=range(bounds);if(![x0,x1,y0,y1].every(Number.isFinite))return [];if((x1-x0+1)*(y1-y0+1)>4096)return entries.filter(e=>overlaps(e.bounds,bounds)).map(e=>e.value);const candidates=new Set(wide);for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)for(const i of buckets.get(`${x}:${y}`)??[])candidates.add(i);return [...candidates].sort((a,b)=>a-b).filter(i=>overlaps(entries[i].bounds,bounds)).map(i=>entries[i].value);}};
+}
+
 // Spatial index for the frame path. The measured bottleneck of the geographic renderer is not polygon
 // maths: it is two nested loops that scan a whole list per item, per frame, allocating as they go
 // (`remainingFootprints` scans every edit for every footprint; the planting veto scans every footprint
@@ -58,18 +68,19 @@ function buildFromBoxes(boxes: readonly Box[], requestedCell: number): BoxIndex 
     const extent = Math.max(maxX - minX, maxY - minY);
     cell = Math.max((span / boxes.length) * 2, extent / Math.max(1, Math.sqrt(boxes.length)), 1e-6);
   }
-  cell = Math.max(1e-6, cell);
+  if(!Number.isFinite(maxX-minX)||!Number.isFinite(maxY-minY))throw new Error('Invalid index bounds');
+  cell = Math.max(1e-6, cell,Math.max(maxX-minX,maxY-minY)/511);
   // A box is registered in every bin it overlaps, which is what makes the query exact. Pathological
   // inputs would blow that up, so the cell grows until the registration count stays bounded. Bounded
   // loop on purpose: malformed input must yield a usable index, never a hang.
   for (let guard = 0; guard < 64; guard++) {
     let registrations = 0;
     for (const box of boxes) {
-      const sideX = Math.max(1, Math.ceil((box.maxX - box.minX) / cell));
-      const sideY = Math.max(1, Math.ceil((box.maxY - box.minY) / cell));
+      const sideX = Math.max(1, Math.floor((box.maxX-minX)/cell)-Math.floor((box.minX-minX)/cell)+1);
+      const sideY = Math.max(1, Math.floor((box.maxY-minY)/cell)-Math.floor((box.minY-minY)/cell)+1);
       registrations += sideX * sideY;
     }
-    if (registrations <= boxes.length * 4) break;
+    if (registrations <= boxes.length * 4 && (Math.ceil((maxX-minX)/cell)+1)*(Math.ceil((maxY-minY)/cell)+1)<=262144) break;
     cell *= 2;
   }
   const cols = Math.max(1, Math.ceil((maxX - minX) / cell) + 1);

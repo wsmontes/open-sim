@@ -1,12 +1,15 @@
-// A frozen copy of the simulation core as it stood before the per-chunk memo (commit d2f2776), used by
-// tests/simulation-memo.test.ts as the reference the memoised tick must agree with, and by tools/bench-tick.ts as
-// the "before" measurement. It is a fixture: nothing imports it in production, and it must keep behaving exactly like
-// the release it was cut from.
-import type {Action,BaseChunk,Cell,CellCoord,CityStats,Command,CommandResult,Demand,GameState,ManagedChunk,MonthlyLedger,RoadClass,Tool} from '../../src/core/model';
-import {BORROW_MAX,COST,FORMAT_VERSION,RULES_VERSION,ROAD_CLASS,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN,isRoadTool,roadClassOf} from '../../src/core/model';
-import {adopt,cellEconomy,effectiveCells,getCell,occupied,placement} from '../../src/core/world';
+// Independent reference: simulation and commands before memoization, from051f550 (rules5 including municipal calibration).
+import {validCalibration} from '../../src/core/municipal-calibration';
+import type {Action,BaseChunk,Command,CommandResult} from '../../src/core/model';
+import {BORROW_MAX,COST,FORMAT_VERSION,RULES_VERSION,isRoadTool} from '../../src/core/model';
+import {adopt,placement} from '../../src/core/world';
 import {assertJsonSafe,cloneJson,isComponentKey,isEntityId} from '../../src/core/protocol';
-import {CHUNK,WORLD,cellIndex,chunkId,coordAt,validCell,wrapX} from '../../src/core/coordinates';
+import {cellIndex,chunkId,validCell} from '../../src/core/coordinates';
+import {calibrationOf,calibratedMonthlyExpense} from '../../src/core/municipal-calibration';
+import type {Cell,CellCoord,CityStats,Demand,GameState,ManagedChunk,MonthlyLedger,RoadClass,Tool} from '../../src/core/model';
+import {ROAD_CLASS,SERVICES_DEFAULT,SERVICES_MAX,SERVICES_MIN,TAX_DEFAULT,TAX_MAX,TAX_MIN,roadClassOf} from '../../src/core/model';
+import {cellEconomy,effectiveCells,getCell,occupied} from '../../src/core/world';
+import {CHUNK,WORLD,coordAt,wrapX} from '../../src/core/coordinates';
 
 // --- the shape of the city's economy ---------------------------------------------------------------------------
 // Three demands the player can move, one tax rate, land value that follows what was built and where, a monthly
@@ -180,7 +183,8 @@ const TRANSFER_SHARE=0.2,CAPITAL_PER_CELL=0.4,PARK_UPKEEP=0.6,PER_CAPITA=18,TAX_
 export function monthlyBudget(s:GameState,policy=policyOf(s),a:Aggregate=aggregate(s)):MonthlyLedger {
  const taxRevenue=(a.population*a.landValueAverage/120)*policy.tax*TAX_PER_POINT;
  const revenue=whole(taxRevenue*(1+TRANSFER_SHARE));
- const serviceCost=a.population*PER_CAPITA*(policy.services/100);
+ const calibration=calibrationOf(s);
+ const serviceCost=(calibration?calibratedMonthlyExpense(a.population,calibration):a.population*PER_CAPITA)*(policy.services/100);
  const upkeep=a.roadCells*CAPITAL_PER_CELL+a.parkCells*PARK_UPKEEP;
  const debtService=whole(policy.debt*interestRateFor(s,policy.debt,a)/100/12);
  const expense=whole(serviceCost+upkeep+debtService);
@@ -210,6 +214,7 @@ function economyWith(s:GameState,a:Aggregate):CityStats['economy'] {
  const rating=ratingFor(s,policy.debt,a);
  return {
   taxPercent:policy.tax,
+  ...(calibrationOf(s)?{calibration:calibrationOf(s)!}:{}),
   servicesPercent:policy.services,
   serviceLevel:serviceLevelOf(policy.services),
   demand:{...policy.valves},
@@ -418,9 +423,8 @@ export function referenceStepSimulation(state:GameState):GameState {
  return next;
 }
 
-// --- the command layer, frozen with the core (was src/core/commands.ts) ----------------------------------------
 export function referenceCreateGame(worldId:string,seed:number,initial:BaseChunk):GameState {
- return {formatVersion:FORMAT_VERSION as 1,rulesVersion:RULES_VERSION as 4,worldId,seed,revision:0,tick:0,money:20000,chunks:{[initial.id]:adopt(initial)},actors:{},components:{}};
+ return {formatVersion:FORMAT_VERSION as 1,rulesVersion:RULES_VERSION as 5,worldId,seed,revision:0,tick:0,money:20000,chunks:{[initial.id]:adopt(initial)},actors:{},components:{}};
 }
 export function referenceApplyCommand(state:GameState,c:Command,available:readonly BaseChunk[]):CommandResult {
  const reject=(reason:string):CommandResult=>({state,status:'rejected',reason});
@@ -429,7 +433,7 @@ export function referenceApplyCommand(state:GameState,c:Command,available:readon
  if(c.sequence<=last)return{state,status:'duplicate'};
  if(c.sequence!==last+1||c.expectedRevision!==state.revision)return reject('A partida mudou. Tente novamente.');
  const a:Action=c.action;
- if(!a||!['build','demolish','tick','component','policy'].includes(a.type))return reject('Ação inválida');
+ if(!a||!['build','demolish','tick','component','policy','municipal-calibration'].includes(a.type))return reject('Ação inválida');
  let next:GameState={...state,chunks:{...state.chunks},actors:{...state.actors}};
  if(a.type==='tick')return {status:'applied',state:{...referenceStepSimulation(state),revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
  if(a.type==='component'){
@@ -441,6 +445,13 @@ export function referenceApplyCommand(state:GameState,c:Command,available:readon
   next={...next,components:{...next.components,[a.key]:namespace}};
   return {status:'applied',state:{...next,revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
  }
+ if(a.type==='municipal-calibration'){
+  if(a.calibration!==null&&!validCalibration(a.calibration))return reject('Calibração municipal inválida');
+  try{assertJsonSafe(a.calibration,'Calibração municipal');}catch{return reject('Calibração municipal inválida');}
+  const entry={...state.components['city.economy']};
+  if(a.calibration===null)delete entry.calibration;else entry.calibration=cloneJson(a.calibration);
+  return {status:'applied',state:{...next,components:{...state.components,'city.economy':entry},revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
+ }
  if(a.type==='policy'){
   const policy=policyOf(state);
   const tax=a.tax===undefined?policy.tax:Math.round(a.tax);
@@ -450,6 +461,8 @@ export function referenceApplyCommand(state:GameState,c:Command,available:readon
   if(!Number.isFinite(services)||services<SERVICES_MIN||services>SERVICES_MAX)return reject('Serviços fora do intervalo');
   if(!Number.isFinite(borrow)||borrow<0||borrow>BORROW_MAX||Math.round(borrow)!==borrow)return reject('Empréstimo inválido');
   if(tax===policy.tax&&services===policy.services&&borrow===0)return reject('Nada a mudar');
+  // A loan is money now against money later: the balance rises with the debt, and the month that follows charges the
+  // interest on it. Both are written in one step, so two clients replaying these commands agree on both.
   const changed=withPolicy({...next,money:next.money+borrow},{...policy,tax,services,debt:policy.debt+borrow});
   return {status:'applied',state:{...changed,revision:state.revision+1,actors:{...state.actors,[c.actorId]:c.sequence}}};
  }

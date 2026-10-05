@@ -85,3 +85,16 @@ test('fps statistics decay while an idle renderer sleeps',()=>{
  now=1200;
  expect(scheduler.stats().fps).toBe(0);
 });
+
+test('unpresented updates do not count toward visual fps and suspension resets origin',()=>{
+ const pending:Array<(at:number)=>void>=[],samples:Array<{intervalMs:number;presented:boolean}>=[];let now=0,shown=false,visible=true;
+ const scheduler=createFrameScheduler({draw:()=>({moving:false,ambient:false,presented:shown}),request:cb=>{pending.push(cb);return pending.length;},cancel:()=>{},now:()=>now,visible:()=>visible,onSample:s=>samples.push(s)});
+ const run=(at:number)=>{scheduler.invalidate();now=at;pending.shift()!(at);};
+ run(10);expect(scheduler.stats().drawn).toBe(0);expect(scheduler.stats().fps).toBe(0);
+ shown=true;run(20);expect(samples.at(-1)?.intervalMs).toBe(0);expect(scheduler.stats().drawn).toBe(1);
+ run(40);expect(samples.at(-1)?.intervalMs).toBe(20);
+ visible=false;run(100);visible=true;run(10_000);expect(samples.at(-1)?.intervalMs).toBe(0);
+ scheduler.stop();run(20_000);expect(samples.at(-1)?.intervalMs).toBe(0);
+});
+
+test('ambient cadence subtracts rendering time from its wait',()=>{let now=0,wait=0,frame!:(at:number)=>void;const s=createFrameScheduler({draw(){now+=20;return {moving:false,ambient:true};},now:()=>now,request(cb){frame=cb;return 1;},cancel(){},delay(_cb,ms){wait=ms;return 1;},clearDelay(){}});s.invalidate();frame(16);expect(wait).toBeCloseTo(1000/30-20);s.stop();});

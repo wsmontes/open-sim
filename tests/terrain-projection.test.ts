@@ -1,0 +1,10 @@
+import {it,expect} from 'vitest';
+import {projectElevated,pickTerrain,verticalPixelsPerMetre} from '../src/presentation/terrain-projection';
+import type {TerrainTriangle} from '../src/presentation/terrain-projection';
+import {project} from '../src/presentation/camera';
+const camera={x:100,y:100,zoom:1,rotation:0};const triangle:TerrainTriangle={points:[{x:0,y:0},{x:2,y:0},{x:0,y:2}],heightsM:[0,10,20]};
+it('zero height matches existing projection',()=>expect(projectElevated({x:1,y:2},0,camera,10)).toEqual(project({x:1,y:2},camera)));
+it('round trips elevated terrain with rotation',()=>{for(const rotation of [0,.7,1.5]){const c={...camera,rotation};const point={x:.5,y:.5};const result=pickTerrain(projectElevated(point,7.5,c,10),[triangle],c,10);expect(result?.point.x).toBeCloseTo(.5,4);expect(result?.point.y).toBeCloseTo(.5,4);expect(result?.elevationM).toBeCloseTo(7.5,4);}});
+it('does not pick occluded triangle even when it appears later',()=>{const flat={...triangle,heightsM:[0,0,0] as const};const h=64/verticalPixelsPerMetre(camera,10);const raised:TerrainTriangle={points:triangle.points.map(p=>({x:p.x+2,y:p.y+2})) as unknown as TerrainTriangle['points'],heightsM:[h,h,h]};const screen=project({x:.5,y:.5},camera);expect(pickTerrain(screen,[raised,flat],camera,10)?.elevationM).toBeCloseTo(h);});
+it('returns no pick outside terrain',()=>expect(pickTerrain({x:-5000,y:-5000},[triangle],camera,10)).toBeNull());
+it('mesh LOD retains holes instead of bridging across them',async()=>{const {trianglesForTile}=await import('../src/presentation/terrain-projection');const t={id:'test',size:3,bounds:{west:0,east:1,south:0,north:1},spacingM:30,heightsM:new Float32Array(9),valid:new Uint8Array(9).fill(1),kind:'dtm' as const,sourceId:'test',verticalDatum:'test'};expect(trianglesForTile(t,2)).toHaveLength(2);t.valid[4]=0;expect(trianglesForTile(t,2)).toHaveLength(0);});

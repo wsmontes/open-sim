@@ -1,0 +1,20 @@
+import officialCapture from '../src/adapters/reality/data/vancouver-maritime.json';
+import {readMaritimeCapture} from '../src/adapters/reality/maritime';
+import {it,expect} from 'vitest';
+import {createMaritimeEngine} from '../src/presentation/maritime-engine';
+import type {MaritimeCapture,MarineRoute} from '../src/core/maritime-data';
+const source={dataset:'synthetic fixture',url:'https://example.test',territoryId:'CA-BC',retrievedAt:'2026-10-03T00:00:00Z',method:'reported' as const};
+const terminals=[{id:'a',name:'A fixture',operator:'Aquabus',position:{lat:0,lon:0},berths:['a:1'],allowedKinds:['aquabus' as const],source},{id:'b',name:'B fixture',operator:'Aquabus',position:{lat:0,lon:.002},berths:['b:1'],allowedKinds:['aquabus' as const],source}];
+const route:MarineRoute={id:'fixture-route',operator:'Aquabus',terminalIds:['a','b'],path:[terminals[0].position,terminals[1].position],allowed:['aquabus'],method:'derived',source,verified:true};
+const capture:MaritimeCapture={terminals,routes:[route],cruiseCalls:[]};
+const advance=(e:ReturnType<typeof createMaritimeEngine>,seconds:number)=>{for(let i=0;i<seconds*30;i++)e.advance(1/30);};
+it('moves continuously along connected water and stops at the dock',()=>{const e=createMaritimeEngine(capture,1),start=e.frame()[0];expect(start.phase).toBe('berthed');advance(e,35);const moved=e.frame()[0];expect(moved.position.lon).toBeGreaterThan(0);expect(moved.position.lon).toBeLessThan(.002);expect(Math.abs(moved.position.lat)).toBeLessThanOrEqual(3/111000);advance(e,150);expect(e.frame()[0].id).toBe(start.id);});
+it('reserves a berth so simultaneous arrivals never overlap',()=>{const e=createMaritimeEngine({...capture,routes:[route,{...route,id:'other',terminalIds:['b','a'],path:[...route.path].reverse()}]},1);for(let i=0;i<6000;i++){e.advance(1/30);const berthed=e.frame().filter(v=>v.phase==='berthed');expect(new Set(berthed.map(v=>v.berthId)).size).toBe(berthed.length);}});
+it('pause freezes positions and disposal removes the fleet',()=>{const e=createMaritimeEngine(capture,2);advance(e,40);const before=e.frame();e.advance(0);e.advance(NaN);expect(e.frame()).toEqual(before);e.dispose();e.advance(1);expect(e.frame()).toEqual([]);});
+it('never freely spawns BC Ferries or unverified routes',()=>{const e=createMaritimeEngine({...capture,routes:[{...route,id:'bc',allowed:['bc-ferry']},{...route,id:'unknown',verified:false}]},1);expect(e.frame()).toEqual([]);});
+it('labels velocities and identities simulated and keeps passengers stopped at a berth',()=>{const e=createMaritimeEngine(capture,1);const a=e.frame()[0];expect(a.method).toBe('simulated');expect(a.speedMps).toBe(0);advance(e,20);expect(e.frame()[0].position).toEqual(a.position);});
+
+it('does not send a cruise call to a route for a different berth',()=>{const s={...source,observedYear:2026};const cruise:MarineRoute={...route,allowed:['cruise'],berthId:'b:west',navigation:{leastDepthM:15,verifiedForLargeShips:true,source}};const e=createMaritimeEngine({terminals:[{...terminals[0],allowedKinds:['cruise']},{...terminals[1],berths:['b:west','b:east'],allowedKinds:['cruise']}],routes:[cruise],cruiseCalls:[{id:'east-call',vesselName:'Fixture',company:'Fixture',terminalId:'b',berthId:'b:east',arrival:'2026-10-03T00:00:00-07:00',departure:'2026-10-04T00:00:00-07:00',source:s}]},1);expect(e.frame()).toEqual([]);});
+
+it('keeps each published cruise berth tied to its physical route endpoint',()=>{const c=readMaritimeCapture(officialCapture);for(const call of c.cruiseCalls){const r=c.routes.find(r=>r.berthId===call.berthId);expect(r).toBeDefined();const t=c.terminals.find(t=>t.id===call.terminalId)!;expect(r!.path.at(-1)).toEqual(t.berthPositions![call.berthId!]);}});
+it('reuses immutable fleet snapshots when neither scenario nor simulation changed',()=>{const e=createMaritimeEngine(capture,1),first=e.frame();expect(e.frame()).toBe(first);e.setScenario('2026-10-03T12:00:00Z');expect(e.frame()).toBe(first);e.advance(0);expect(e.frame()).toBe(first);e.advance(1/120);expect(e.frame()).toBe(first);e.advance(1/30);expect(e.frame()).not.toBe(first);e.dispose();expect(e.frame()).toHaveLength(0);});

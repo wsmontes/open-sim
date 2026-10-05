@@ -1,4 +1,10 @@
+import type {AircraftFrame} from '../../presentation/aviation';
+import type {VesselFrame} from '../../presentation/maritime-engine';
 import {lightContext} from './city-light';
+import {drawCellMobility,drawVisibleMobility} from './mobility-draw';
+import type {MobilityFrameAgent,TrafficSignalFrame} from '../../presentation/mobility-model';
+import type {TerrainTile} from '../../presentation/terrain-model';
+import type {TerrainReading} from '../../presentation/terrain-surface';
 import {renderGeographicWorld} from './geographic-renderer';
 import type {GeographicScene} from '../../presentation/geographic-map';
 import {GLOBE_ZOOM} from '../../presentation/geographic-map';
@@ -11,9 +17,15 @@ import type {ChunkStatus} from '../../session/ports';
 import type {SelectedTool} from '../../presentation/tools';
 import type {Camera,Viewport} from '../../presentation/camera';
 import {TILE_H,TILE_W,cellSpace,isCoarse} from '../../presentation/camera';
-export type WorldView = {
+export type WorldView = {quality?:import('../../presentation/render-policy').RenderPolicy;
+ playerPower?:ReadonlyMap<string,boolean>;
  light?:'day'|'night';
  geography?:GeographicScene;
+ terrain?:{tiles:readonly TerrainTile[];sample:(geo:{lat:number;lon:number})=>TerrainReading|null;revision:number};
+ mobility?:readonly MobilityFrameAgent[];
+ signals?:readonly TrafficSignalFrame[];
+ vessels?:readonly VesselFrame[];
+ aircraft?:readonly AircraftFrame[];
  pixelRatio?:number;
  camera:Camera;
  viewport:Viewport;
@@ -24,10 +36,6 @@ export type WorldView = {
  preview:readonly CellCoord[];
  previewAffordable:boolean;
  seed:number;
- // True while a gesture is moving the camera. The furniture of the city — the planting, the street life, the painted
- // junctions — is the most expensive and the least important part of a frame that is going to be replaced in sixteen
- // milliseconds anyway, so it is left out while the map is being dragged and comes back when it stops.
- moving?:boolean;
  // The animation clock, in seconds of wall time scaled by the game speed: it advances while the city runs and stops
  // when the city is paused, which is the whole of the traffic's motion. Nothing about it is stored or shared.
  motion:number;
@@ -208,12 +216,13 @@ function drawCell(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord){
     const nb=lookup(view,{x:wrapX(cx+x),y:ny});stage=Math.max(stage,nb?.stage??0);social||=nb?.building==='commercial'||nb?.building==='park';
    }
    const life=lifeAt({x:cx,y:cy,stage,social,road:kind},view.motion);
-   if(life){
+   if(life&&!view.mobility){
     const t=life.along-.5,side=life.lane*.08,lx=cx+(life.cross?side:t),ly=cy+(life.cross?t:side);
     const px=projXOf(lx,ly),py=projYOf(lx,ly);
     ctx.fillStyle=life.colour;ctx.fillRect(px-scale*.06,py-scale*.06,scale*.12,scale*.08);
    }
   }
+  if(view.mobility)drawCellMobility(ctx,view,coord);
  }
  if(cell.building)building(ctx,view,coord,cell,v);
  else if(cell.terrain==='green'&&scale>=14)tree(ctx,projXOf(cx,cy),projYOf(cx,cy),scale,v);
@@ -277,6 +286,7 @@ export function render(ctx:CanvasRenderingContext2D,view:WorldView):void{
   const coord={x:0,y:0};
   for(let k=0;k<count;k++){const i=ORDER[k]!;coord.x=CELLX[i]!;coord.y=CELLY[i]!;drawCell(ctx,view,coord);}
  }
+ if(isCoarse(camera))drawVisibleMobility(ctx,view);
  if(view.tool!=='explore')for(const cell of view.preview)marker(ctx,view,cell,view.previewAffordable);
  if(view.hover)marker(ctx,view,view.hover,true);
 }

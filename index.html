@@ -68,6 +68,11 @@
 <input type="range" id="economy-services" min="50" max="150" step="5" value="100" aria-label="Nível dos serviços">
 </label>
 <button type="button" id="economy-borrow" title="Emprestar 10.000: entra no caixa agora e a dívida cobra juros todo mês">Emprestar 10.000</button>
+<p id="economy-municipal-preview" class="panel-hint">Referência municipal indisponível para este lugar.</p>
+<p id="economy-calibration" class="panel-hint">Referência municipal desativada.</p>
+<p class="panel-hint">Conversão de despesas: 0,01 unidades do jogo por CAD. Usa operação anual por habitante; capital permanece informativo.</p>
+<button type="button" id="economy-calibrate" disabled>Usar orçamento municipal nas despesas</button>
+<button type="button" id="economy-calibration-off">Desativar referência municipal</button>
 <p id="economy-crisis" class="panel-hint" role="alert" hidden></p>
 </div>
 </section>
@@ -85,6 +90,7 @@
 <div><dt>Densidade</dt><dd id="city-density">—</dd></div>
 <div><dt>Produto municipal</dt><dd id="city-gdp">—</dd></div>
 </dl>
+<div id="city-demographics" class="panel-hint"></div>
 <p id="city-scale" hidden></p>
 <p id="city-source" class="panel-hint"></p>
 <div id="hud-places" role="group" aria-label="Lugares">

@@ -106,13 +106,13 @@ function chunks(value: unknown): Record<string,ManagedChunk> {
 // same shape under them, so an older save is stamped with what the rules mean today and starts behaving like every
 // other city — the same way a game update migrates what a player had. An unknown *future* version is refused rather
 // than guessed at, and a branch written under other rules stays refused by the sessions that would have to share it.
-const OPENABLE_RULES: readonly number[] = [1, 3, RULES_VERSION];
+const OPENABLE_RULES: readonly number[] = [1, 3, 4, RULES_VERSION];
 function gameState(value: unknown): GameState {
  if (!isPlainObject(value)) throw new Error('Estado inválido');
  if (value.formatVersion !== 1) throw new Error('Versão de formato desconhecida');
  if (typeof value.rulesVersion !== 'number' || !OPENABLE_RULES.includes(value.rulesVersion)) throw new Error('Versão de regras desconhecida');
  if (typeof value.worldId !== 'string' || !value.worldId.length || value.worldId.length > 80) throw new Error('Mundo inválido');
- return {...extras(value,['formatVersion','rulesVersion','worldId','seed','revision','tick','money','chunks','actors','components']), formatVersion:FORMAT_VERSION as 1, rulesVersion:RULES_VERSION as 4, worldId:value.worldId, seed:safeInteger(value.seed,'Semente'), revision:safeCount(value.revision,'Revisão'), tick:safeCount(value.tick,'Relógio'), money:safeCount(value.money,'Saldo'), chunks:chunks(value.chunks), actors:actors(value.actors), components:components(value.components ?? {})};
+ return {...extras(value,['formatVersion','rulesVersion','worldId','seed','revision','tick','money','chunks','actors','components']), formatVersion:FORMAT_VERSION as 1, rulesVersion:RULES_VERSION as 5, worldId:value.worldId, seed:safeInteger(value.seed,'Semente'), revision:safeCount(value.revision,'Revisão'), tick:safeCount(value.tick,'Relógio'), money:safeCount(value.money,'Saldo'), chunks:chunks(value.chunks), actors:actors(value.actors), components:components(value.components ?? {})};
 }
 function viewState(value: unknown): ViewState {
  if (!isPlainObject(value)) throw new Error('Visão inválida');

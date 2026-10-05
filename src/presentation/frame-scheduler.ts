@@ -1,4 +1,4 @@
-export type FrameNeed={moving:boolean;ambient:boolean};
+export type FrameNeed={moving:boolean;ambient:boolean;presented?:boolean};
 export type FrameStats={frames:number;drawn:number;frameMs:number;p50:number;p95:number;fps:number;drawing:boolean};
 
 // A timer id is whatever the host's clock hands back; the scheduler only ever passes it straight back to clear it, so
@@ -31,6 +31,7 @@ export function createFrameScheduler(options:{
  visible?:()=>boolean;
  now?:()=>number;
  ambientFps?:number;
+ onSample?:(sample:{at:number;intervalMs:number;workMs:number;presented:boolean})=>void;
 }){
  const request: Raf=options.request??(callback=>platform.requestAnimationFrame!(callback));
  const cancel: CancelRaf=options.cancel??(id=>platform.cancelAnimationFrame!(id));
@@ -40,24 +41,28 @@ export function createFrameScheduler(options:{
  const now=options.now??(()=>platform.performance?platform.performance.now():Date.now());
  const ambientMs=1000/(options.ambientFps??30),samples=new Array<number>(120).fill(0),recent:number[]=[];
  let raf:number|null=null,timer:TimerId|null=null,last=0,need:FrameNeed={moving:false,ambient:false};
+ let lastPresented:number|null=null,workMs=0;
  let sampleCount=0,sampleAt=0,frames=0,drawn=0,mean=0;
 
  const percentile=(sorted:readonly number[],part:number)=>sorted.length?sorted[Math.min(sorted.length-1,Math.max(0,Math.ceil(part*sorted.length)-1))]!:0;
  const schedule=()=>{
   if(raf!==null||timer!==null)return;
   if(need.moving){raf=request(frame);return;}
-  if(need.ambient)timer=delay(()=>{timer=null;if(raf===null)raf=request(frame);},ambientMs);
+  if(need.ambient)timer=delay(()=>{timer=null;if(raf===null)raf=request(frame);},Math.max(0,ambientMs-workMs));
  };
  const frame=(at:number)=>{
   raf=null;frames+=1;
-  if(!visible()){need={moving:false,ambient:false};return;}
+  if(!visible()){need={moving:false,ambient:false};last=0;lastPresented=null;recent.length=0;return;}
   const seconds=last?Math.min(.25,(at-last)/1000):0,start=now();
   need=options.draw(at,seconds);
-  const elapsed=Math.max(0,now()-start);
+  const elapsed=Math.max(0,now()-start);workMs=elapsed;
   mean=mean?mean*.9+elapsed*.1:elapsed;
   samples[sampleAt]=elapsed;sampleAt=(sampleAt+1)%samples.length;sampleCount=Math.min(samples.length,sampleCount+1);
-  recent.push(at);while(recent.length&&at-recent[0]!>1000)recent.shift();
-  drawn+=1;last=at;schedule();
+  const presented=need.presented!==false,intervalMs=presented&&lastPresented!==null?at-lastPresented:0;
+  if(presented){recent.push(at);lastPresented=at;drawn+=1;}
+  options.onSample?.({at,intervalMs,workMs:elapsed,presented});
+  while(recent.length&&at-recent[0]!>1000)recent.shift();
+  last=at;schedule();
  };
  return{
   invalidate(){
@@ -68,7 +73,7 @@ export function createFrameScheduler(options:{
   stop(){
    if(raf!==null)cancel(raf);
    if(timer!==null)clearDelay(timer);
-   raf=null;timer=null;last=0;need={moving:false,ambient:false};
+   raf=null;timer=null;last=0;lastPresented=null;recent.length=0;need={moving:false,ambient:false};
   },
   running:()=>raf!==null||timer!==null,
   stats():FrameStats{

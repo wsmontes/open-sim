@@ -16,6 +16,7 @@ export type WikidataOptions = {
  timeoutMs?: number;
  // Wikidata asks callers to identify themselves; a build with no user agent is a build that gets throttled.
  userAgent?: string;
+ retrievedAt?: () => string;
 };
 const ENDPOINT='https://query.wikidata.org/sparql';
 const DATASET='Wikidata';
@@ -33,30 +34,30 @@ const MIN_GAP_MS=120;
 // settlement — and its subclasses, which is what a city, a town and a municipality are — the adapter would report the
 // population of an event, or of nothing at all. It is also what makes a municipal code meaningful, since only a place
 // has one.
-const namedQuery=(name:string,language:string)=>`SELECT ?city ?cityLabel ?countryLabel ?pop ?date ?area ?municipalCode WHERE {
+const namedQuery=(name:string,language:string)=>`SELECT ?city ?cityLabel ?countryLabel ?countryCode ?pop ?date ?rank ?area ?municipalCode WHERE {
   SERVICE wikibase:mwapi {
     bd:serviceParam wikibase:api "EntitySearch" ; wikibase:endpoint "www.wikidata.org" ;
                     mwapi:search ${JSON.stringify(name)} ; mwapi:language ${JSON.stringify(language)} .
     ?city wikibase:apiOutputItem mwapi:item .
   }
   ?city wdt:P31/wdt:P279* wd:Q486972 .
-  OPTIONAL { ?city p:P1082 ?statement . ?statement ps:P1082 ?pop . OPTIONAL { ?statement pq:P585 ?date } }
+  OPTIONAL { ?city p:P1082 ?statement . ?statement ps:P1082 ?pop ; wikibase:rank ?rank . FILTER(?rank != wikibase:DeprecatedRank) OPTIONAL { ?statement pq:P585 ?date } }
   OPTIONAL { ?city wdt:P2046 ?area }
-  OPTIONAL { ?city wdt:P17 ?country }
+  OPTIONAL { ?city wdt:P17 ?country . OPTIONAL { ?country wdt:P297 ?countryCode } }
   OPTIONAL { ?city wdt:P1585 ?municipalCode }
   SERVICE wikibase:label { bd:serviceParam wikibase:language ${JSON.stringify(`${language},en`)} . }
 } LIMIT 300`;
 // Around a point, nearest first: the city the player is standing in, not the biggest one in the country.
-const nearQuery=(lat:number,lon:number,radiusKm:number)=>`SELECT ?city ?cityLabel ?countryLabel ?pop ?date ?area ?municipalCode ?distance WHERE {
+const nearQuery=(lat:number,lon:number,radiusKm:number)=>`SELECT ?city ?cityLabel ?countryLabel ?countryCode ?pop ?date ?rank ?area ?municipalCode ?distance WHERE {
   SERVICE wikibase:around {
     ?city wdt:P625 ?location .
     bd:serviceParam wikibase:center "Point(${lon} ${lat})"^^geo:wktLiteral ; wikibase:radius ${JSON.stringify(String(radiusKm))} .
   }
   ?city wdt:P31/wdt:P279* wd:Q486972 .
   ?city wdt:P1082 ?anyPop .
-  OPTIONAL { ?city p:P1082 ?statement . ?statement ps:P1082 ?pop . OPTIONAL { ?statement pq:P585 ?date } }
+  OPTIONAL { ?city p:P1082 ?statement . ?statement ps:P1082 ?pop ; wikibase:rank ?rank . FILTER(?rank != wikibase:DeprecatedRank) OPTIONAL { ?statement pq:P585 ?date } }
   OPTIONAL { ?city wdt:P2046 ?area }
-  OPTIONAL { ?city wdt:P17 ?country }
+  OPTIONAL { ?city wdt:P17 ?country . OPTIONAL { ?country wdt:P297 ?countryCode } }
   OPTIONAL { ?city wdt:P1585 ?municipalCode }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "pt,en" . }
 } ORDER BY ?distance LIMIT 60`;
@@ -75,7 +76,7 @@ const yearOf=(value:string|undefined):number|null=>{
 type Binding=Record<string,{value:string}>;
 // Several rows describe one city: every dated census and every area statement. The newest census wins, and a row set
 // with no census at all still names the city — without a population.
-function factsFrom(bindings:readonly Binding[]):CityFacts|null {
+function factsFrom(bindings:readonly Binding[],retrievedAt:string):CityFacts|null {
  const byCity=new Map<string,CityFacts & {bestYear:number;distanceKm:number}>();
  for(const row of bindings){
   const uri=row['city']?.value;
@@ -83,7 +84,8 @@ function factsFrom(bindings:readonly Binding[]):CityFacts|null {
   const id=entityId(uri);
   const label=row['cityLabel']?.value??id;
   const country=row['countryLabel']?.value;
-  const population=plainNumber(row['pop']?.value);
+  const parsedPopulation=plainNumber(row['pop']?.value);
+  const population=row['rank']?.value?.endsWith('DeprecatedRank')||parsedPopulation===null||!Number.isSafeInteger(parsedPopulation)||parsedPopulation<0?null:parsedPopulation;
   const year=yearOf(row['date']?.value);
   const area=plainNumber(row['area']?.value);
   // A statistics code is only useful if it has the shape the statistics office uses: anything else is ignored rather
@@ -105,6 +107,8 @@ function factsFrom(bindings:readonly Binding[]):CityFacts|null {
   if(area!==null)current.areaKm2=area;
   if(municipalCode&&!current.municipalCode)current.municipalCode=municipalCode;
   if(country&&!current.country)current.country=country;
+  const countryCode=row['countryCode']?.value;
+  if(countryCode&&/^[A-Z]{2}$/.test(countryCode))current.countryCode=countryCode;
   byCity.set(id,current);
  }
  // Nearest wins outright when the query carried a distance — the row order of a federation service is not a promise.
@@ -113,6 +117,13 @@ function factsFrom(bindings:readonly Binding[]):CityFacts|null {
  const chosen=entries.find(entry=>Number.isFinite(entry.distanceKm))?entries.reduce((best,entry)=>entry.distanceKm<best.distanceKm?entry:best):entries[0];
  if(!chosen)return null;
  const {bestYear:_bestYear,distanceKm:_distance,...facts}=chosen;
+ if(facts.population!==undefined||facts.areaKm2!==undefined){
+  const source={...facts.source,territoryId:facts.id,retrievedAt,method:'reported' as const};
+  facts.measures={
+   ...(facts.population===undefined?{}:{population:{value:facts.population,unit:'people' as const,source:{...source,observedYear:facts.populationYear}}}),
+   ...(facts.areaKm2===undefined?{}:{areaKm2:{value:facts.areaKm2,unit:'km2' as const,source}}),
+  };
+ }
  return facts;
 }
 
@@ -145,7 +156,7 @@ export function createWikidataDirectory(options:WikidataOptions={}):CityDirector
     const body:unknown=await response.json();
     const bindings=(body as {results?:{bindings?:Binding[]}}|null)?.results?.bindings;
     if(!Array.isArray(bindings))return null;
-    return factsFrom(bindings);
+    return factsFrom(bindings,(options.retrievedAt??(()=>new Date().toISOString()))());
    }catch{return null;}finally{clearTimeout(timer);}
   };
   const queued=chain.then(run,run);

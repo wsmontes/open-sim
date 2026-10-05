@@ -1,20 +1,27 @@
+import {sceneRasterCache} from './scene-cache';
+import type {ScreenBounds} from './scene-compositor';
 import type {Building} from '../../core/model';
 import type {WorldView} from './canvas-renderer';
-import {project,TILE_W,TILE_H,type Point} from '../../presentation/camera';
+import {TILE_W,TILE_H,type Point} from '../../presentation/camera';
 import {architectureOf,regionOf,type Footprint} from '../../presentation/city-art';
 import {geographicFocus} from '../../presentation/geographic-map';
+import {projectSurface,foundationElevation,terrainMetres,clipTerrainVolume} from './terrain-renderer';
+import {verticalPixelsPerMetre} from '../../presentation/terrain-projection';
+import {lightContext} from './city-light';
 function path(ctx:CanvasRenderingContext2D,rings:readonly Point[][],offsetX=0,offsetY=0){
  ctx.beginPath();for(const ring of rings){if(!ring.length)continue;ctx.moveTo(ring[0].x+offsetX,ring[0].y+offsetY);for(let i=1;i<ring.length;i++)ctx.lineTo(ring[i].x+offsetX,ring[i].y+offsetY);ctx.closePath();}
 }
-const projectRing=(view:WorldView,ring:Point[],shift:number)=>ring.map(p=>project({x:p.x+shift-.5,y:p.y-.5},view.camera));
+const projectRing=(view:WorldView,ring:Point[],shift:number,base?:number)=>ring.map(p=>projectSurface(view,{x:p.x+shift-.5,y:p.y-.5},base));
+const baseOf=(view:WorldView,footprint:Footprint,shift:number)=>foundationElevation(view,footprint.rings.flatMap(r=>r.map(p=>({x:p.x+shift-.5,y:p.y-.5}))));
+const heightOf=(view:WorldView,floors:number,base?:number)=>base!==undefined?floors*3*verticalPixelsPerMetre(view.camera,terrainMetres(view)):TILE_H*view.camera.zoom*(.55+floors*.72);
 // One sun for the whole frame: the shadow is the footprint pushed by the height of what stands on it, in one fixed
 // direction, so a tall building leans on its neighbours and on the street and nothing casts a shadow twice.
 const drawShadow=(ctx:CanvasRenderingContext2D,rings:readonly Point[][],height:number)=>{path(ctx,rings,height*.36,height*.18);ctx.fillStyle='rgba(42,51,44,.19)';ctx.fill('evenodd');};
 // The preview is the building itself, not a coloured square: before spending anything the player sees the volume the
 // tool is about to place, in the zone's own colour, on the lot it will occupy.
 export function drawGhost(ctx:CanvasRenderingContext2D,view:WorldView,footprint:Footprint,affordable:boolean){
- const rings=footprint.rings.map(r=>projectRing(view,r,0)),outer=rings[0];
- const height=Math.max(2,TILE_H*view.camera.zoom*(.55+.72));
+ const base=baseOf(view,footprint,0),rings=footprint.rings.map(r=>projectRing(view,r,0,base)),outer=rings[0];
+ const height=Math.max(2,heightOf(view,1,base));
  const face=affordable?'rgba(214,236,201,.55)':'rgba(238,196,188,.55)',side=affordable?'rgba(178,210,172,.55)':'rgba(216,168,160,.55)';
  for(let i=1;i<outer.length;i++){
   const a=outer[i-1],b=outer[i];if(b.x>=a.x)continue;
@@ -23,20 +30,59 @@ export function drawGhost(ctx:CanvasRenderingContext2D,view:WorldView,footprint:
  path(ctx,rings,0,-height);ctx.fillStyle=affordable?'rgba(152,198,144,.75)':'rgba(210,140,130,.75)';ctx.fill('evenodd');
  ctx.strokeStyle=affordable?'#f5e4a2':'#f3b1a0';ctx.lineWidth=1.2;ctx.stroke();
 }
-export function drawBuilding(ctx:CanvasRenderingContext2D,view:WorldView,footprint:Footprint,shift:number,kind?:Building,stage?:number,lift=0,powered=true,shadow=true){
+type BuildingBitmap={cameraX:number;cameraY:number;cameraKey:string;tiles:object|undefined;width:number;height:number;key:string;canvas:OffscreenCanvas;x:number;y:number;bytes:number};
+const bitmapIds=new WeakMap<Footprint,string>();let nextBitmapId=0,bitmapHits=0,bitmapMisses=0;
+const bitmapId=(footprint:Footprint)=>{let id=bitmapIds.get(footprint);if(!id){id=`building:${++nextBitmapId}`;bitmapIds.set(footprint,id);}return id;};
+export const buildingCacheStats=()=>({...sceneRasterCache.stats(),hits:bitmapHits,misses:bitmapMisses});
+export function buildingScreenBounds(view:WorldView,footprint:Footprint,shift:number,kind?:Building,stage?:number,base?:number):ScreenBounds{
+ const rings=footprint.rings.flatMap(r=>projectRing(view,r,shift,base)),floors=architectureOf(footprint,kind,stage,regionOf(geographicFocus(view.camera,view.viewport))).floors,height=heightOf(view,floors,base),margin=TILE_W*view.camera.zoom*.7+15;
+ const x=Math.floor(Math.min(...rings.map(p=>p.x))-margin),y=Math.floor(Math.min(...rings.map(p=>p.y))-height-margin);return {x,y,width:Math.ceil(Math.max(...rings.map(p=>p.x))+height*.4+margin-x),height:Math.ceil(Math.max(...rings.map(p=>p.y))+height*.2+margin-y)};
+}
+export function drawBuilding(ctx:CanvasRenderingContext2D,view:WorldView,footprint:Footprint,shift:number,kind?:Building,stage?:number,lift=0,powered=true,shadow=true,baseOverride?:number){
+ const base=baseOverride??baseOf(view,footprint,shift);
+ if(typeof OffscreenCanvas!=='undefined'){
+  const key=[view.light,kind,stage,lift,powered,shadow,base,shift].join(':'),cameraKey=[view.camera.zoom,view.camera.rotation].join(':'),known=sceneRasterCache.get(bitmapId(footprint)) as BuildingBitmap|undefined;
+  const reusablePan=known&&(known.cameraX===view.camera.x&&known.cameraY===view.camera.y||known.x>=0&&known.y>=0&&known.x+known.canvas.width<=known.width&&known.y+known.canvas.height<=known.height);
+  if(reusablePan&&known?.cameraKey===cameraKey&&known.tiles===view.terrain?.tiles&&known.width===view.viewport.width&&known.height===view.viewport.height&&known.key===key){bitmapHits++;ctx.drawImage(known.canvas,known.x+view.camera.x-known.cameraX,known.y+view.camera.y-known.cameraY);return;}bitmapMisses++;
+  const rings=footprint.rings.flatMap(r=>projectRing(view,r,shift,base)),floors=architectureOf(footprint,kind,stage,regionOf(geographicFocus(view.camera,view.viewport))).floors,height=heightOf(view,floors,base)+lift,margin=TILE_W*view.camera.zoom*.7+3;
+  const x=Math.floor(Math.min(...rings.map(p=>p.x))-margin),y=Math.floor(Math.min(...rings.map(p=>p.y))-height-margin),width=Math.ceil(Math.max(...rings.map(p=>p.x))+height*.4+margin-x),heightPixels=Math.ceil(Math.max(...rings.map(p=>p.y))+height*.2+margin-y);
+  if(x+width<0||y+heightPixels<0||x>view.viewport.width||y>view.viewport.height)return;
+  if(width>0&&heightPixels>0&&width*heightPixels<=262144){
+   const canvas=new OffscreenCanvas(width,heightPixels),context=canvas.getContext('2d');
+   if(context){
+    context.translate(-x,-y);drawOccludedBuilding(lightContext(context as unknown as CanvasRenderingContext2D,view.light??'day'),view,footprint,shift,kind,stage,lift,powered,shadow,base);
+    const bytes=width*heightPixels*4;const entry:BuildingBitmap={cameraX:view.camera.x,cameraY:view.camera.y,cameraKey,tiles:view.terrain?.tiles,width:view.viewport.width,height:view.viewport.height,key,canvas,x,y,bytes};
+    if(!sceneRasterCache.set(bitmapId(footprint),entry,bytes)){canvas.width=0;canvas.height=0;}else {ctx.drawImage(canvas,x,y);return;}
+
+   }
+  }
+ }
+ drawOccludedBuilding(ctx,view,footprint,shift,kind,stage,lift,powered,shadow,base);
+}
+function drawOccludedBuilding(ctx:CanvasRenderingContext2D,view:WorldView,footprint:Footprint,shift:number,kind:Building|undefined,stage:number|undefined,lift:number,powered:boolean,shadow:boolean,base:number|undefined){
+ if(base===undefined){drawSupportedBuilding(ctx,view,footprint,shift,kind,stage,lift,powered,shadow,base);return;}
+ const floors=architectureOf(footprint,kind,stage,regionOf(geographicFocus(view.camera,view.viewport))).floors;
+ ctx.save();clipTerrainVolume(ctx,view,footprint.rings[0].map(p=>({x:p.x+shift-.5,y:p.y-.5})),base,floors*3+lift/verticalPixelsPerMetre(view.camera,terrainMetres(view)));
+ drawSupportedBuilding(ctx,view,footprint,shift,kind,stage,lift,powered,shadow,base);ctx.restore();
+}
+function drawSupportedBuilding(ctx:CanvasRenderingContext2D,view:WorldView,footprint:Footprint,shift:number,kind?:Building,stage?:number,lift=0,powered=true,shadow=true,baseOverride?:number){
  const scale=TILE_W*view.camera.zoom,area=footprint.area,seed=footprint.seed;
  const style=architectureOf(footprint,kind,stage,regionOf(geographicFocus(view.camera,view.viewport))),usage=style.usage,floors=style.floors;
- const height=Math.max(.7,TILE_H*view.camera.zoom*(.55+style.floors*.72));
+ const base=baseOverride??baseOf(view,footprint,shift),height=Math.max(.7,heightOf(view,style.floors,base));
  if(kind===undefined&&stage===undefined&&style.glass&&floors>6&&area>20){
   // A tower on a podium is still one building: the shadow belongs to the tall part and is cast once, by the tallest
   // thing on the lot. Drawn per part it would double the darkening and shorten the shadow to the podium's height.
   const centre={x:(footprint.minX+footprint.maxX)/2,y:(footprint.minY+footprint.maxY)/2},factor=.50+(seed%3)*.08;
   const tower={...footprint,rings:footprint.rings.map(r=>r.map(p=>({x:centre.x+(p.x-centre.x)*factor,y:centre.y+(p.y-centre.y)*factor}))),area:area*factor*factor};
-  if(shadow)drawShadow(ctx,tower.rings.map(r=>projectRing(view,r,shift)),height);
-  drawBuilding(ctx,view,footprint,shift,usage,3,0,powered,false);
-  drawBuilding(ctx,view,tower,shift,usage,floors-3,TILE_H*view.camera.zoom*(.55+3*.72),powered,false);return;
+  if(shadow)drawShadow(ctx,tower.rings.map(r=>projectRing(view,r,shift,base)),height);
+  drawSupportedBuilding(ctx,view,footprint,shift,usage,3,0,powered,false,base);
+  drawSupportedBuilding(ctx,view,tower,shift,usage,floors-3,heightOf(view,3,base),powered,false,base);return;
  }
- const rings=footprint.rings.map(r=>projectRing(view,r,shift).map(p=>({x:p.x,y:p.y-lift}))),outer=rings[0];
+ const rings=footprint.rings.map(r=>projectRing(view,r,shift,base).map(p=>({x:p.x,y:p.y-lift}))),outer=rings[0];
+ if(base!==undefined&&lift===0){
+  const ground=footprint.rings[0].map(p=>projectSurface(view,{x:p.x+shift-.5,y:p.y-.5}));
+  ctx.fillStyle='#958b79';for(let i=1;i<outer.length;i++)if(outer[i].x<outer[i-1].x){path(ctx,[[ground[i-1],ground[i],outer[i],outer[i-1]]]);ctx.fill();}
+ }
  if(style.archetype==='construction'){
   path(ctx,rings);ctx.fillStyle='#b8a48a';ctx.fill('evenodd');ctx.strokeStyle='#e5ca79';ctx.lineWidth=Math.max(1,scale*.05);ctx.setLineDash([Math.max(2,scale*.12),Math.max(2,scale*.08)]);ctx.stroke();ctx.setLineDash([]);
   ctx.save();path(ctx,rings);ctx.clip('evenodd');

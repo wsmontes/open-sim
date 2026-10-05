@@ -1,0 +1,42 @@
+[
+  {
+    "territoryId": "Q24639",
+    "csd": "5915022",
+    "municipality": "Vancouver",
+    "type": "C",
+    "region": "MVRD",
+    "year": 2024,
+    "status": "actual",
+    "currency": "CAD",
+    "schedule": "401",
+    "value": 3164278000,
+    "source": {
+      "dataset": "BC LGDE \u00b7 Schedule 401 2024",
+      "url": "https://www2.gov.bc.ca/assets/gov/british-columbians-our-governments/local-governments/finance/local-government-statistics/schedule401_2024.xlsx",
+      "license": "BC government copyright; factual municipal totals",
+      "retrievedAt": "2026-10-03T06:10:40.734247+00:00",
+      "reference": "Sheet1!N151",
+      "sha256": "5757dc0d70378808faaaf5ee5d7ee28394df1f11583924a8f510953a6227ff7a"
+    }
+  },
+  {
+    "territoryId": "Q24639",
+    "csd": "5915022",
+    "municipality": "Vancouver",
+    "type": "C",
+    "region": "MVRD",
+    "year": 2024,
+    "status": "actual",
+    "currency": "CAD",
+    "schedule": "402",
+    "value": 2303644000,
+    "source": {
+      "dataset": "BC LGDE \u00b7 Schedule 402 2024",
+      "url": "https://www2.gov.bc.ca/assets/gov/british-columbians-our-governments/local-governments/finance/local-government-statistics/schedule402_2024.xlsx",
+      "license": "BC government copyright; factual municipal totals",
+      "retrievedAt": "2026-10-03T06:10:40.758535+00:00",
+      "reference": "Sheet1!R151",
+      "sha256": "8ed51bd104bedac8b4abe97b824b70549482a44b5b0c70f3b59afe3558fb02f1"
+    }
+  }
+]

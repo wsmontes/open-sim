@@ -1,5 +1,38 @@
 /// <reference types="vite/client" />
+import {createFrameMerge} from '../presentation/frame-merge';
+import type {VesselFrame} from '../presentation/maritime-engine';
+import {createSceneSurface} from './scene-surface';
+import {sameSceneFrame} from '../surfaces/canvas/scene-frame';
+import {renderPolicy,renderPixelRatio} from '../presentation/render-policy';
+import {sceneRasterCache} from '../surfaces/canvas/scene-cache';
+import {createSemanticUpdateGate} from '../presentation/semantic-update-gate';
+import {createCameraUpdateGate} from '../presentation/camera-update-gate';
+import {createPerformanceSamples} from '../presentation/performance-samples';
+import {municipalCalibrationPreview} from '../presentation/words';
+import {containsLocalArea} from '../presentation/municipal-coverage';
+import vancouverLocalAreas from '../adapters/reality/data/vancouver-local-areas.json';
+import {createMobilityPanel} from '../surfaces/canvas/mobility-panel';
+import type {TransitContent} from '../core/transit-data';
+import {createAviationEngine} from '../presentation/aviation';
+import {readAirportCapture} from '../adapters/reality/airports';
+import cyvrCapture from '../adapters/reality/data/cyvr.json';
+import {createFerryClock} from '../client/ferry-clock';
+import {scheduledFerryFrames} from '../presentation/ferry-schedule';
+import {readFerrySchedule} from '../adapters/reality/bc-ferries';
+import bcFerryCapture from '../adapters/reality/data/bc-ferries.json';
+import {createMaritimeEngine} from '../presentation/maritime-engine';
+import {readMaritimeCapture} from '../adapters/reality/maritime';
+import vancouverMaritimeCapture from '../adapters/reality/data/vancouver-maritime.json';
 import {createGeographicStream} from './geographic-stream';
+import {createTerrainStream} from './terrain-stream';
+import {createMobilityStream} from './mobility-stream';
+import {motionSeconds} from '../presentation/clock';
+import {createSurfaceSupport} from '../presentation/terrain-surface';
+import {createTerrainSource} from '../adapters/map/terrain-source';
+import terrainManifest from '../adapters/map/data/vancouver-terrain/manifest.json';
+import type {TerrainManifest} from '../presentation/terrain-model';
+import {pickSurface,} from '../surfaces/canvas/terrain-renderer';
+import {buildingCacheStats} from '../surfaces/canvas/architecture-renderer';
 import {geographicFocus,mapScale,GLOBE_ZOOM} from '../presentation/geographic-map';
 import {attachOfflineRegion} from './offline-controller';
 import {viewpointOf} from '../presentation/viewpoint';
@@ -8,6 +41,12 @@ import type {OsmSource} from '../adapters/osm/provider';
 import {createIndexedDbTileCache} from '../adapters/osm/tile-cache';
 import {createIndexedDbChunkCache} from '../adapters/osm/chunk-cache';
 import {createWikidataDirectory} from '../adapters/reality/wikidata';
+import financeCapture from '../adapters/reality/data/vancouver-finance-2026.json';
+import {readVancouverFinance,enrichVancouverFacts} from '../adapters/reality/vancouver';
+import demographicCapture from '../adapters/reality/data/vancouver-demography.json';
+import {readStatCanCapture,mergeDemographics} from '../adapters/reality/statcan';
+import {readBcStatsCapture} from '../adapters/reality/bc-stats';
+import {demographicLines} from '../presentation/demographics';
 import {createIbgeDirectory} from '../adapters/reality/ibge';
 import {createIndexedDbStore} from '../adapters/storage/indexed-db';
 import {createIndexedDbWorldStorage} from '../adapters/storage/world-indexed-db';
@@ -24,12 +63,16 @@ import {createMultiplayerPanel} from '../surfaces/canvas/multiplayer-panel';
 import {createWorldHistory,downloadBundle,readBundleFile} from '../surfaces/canvas/world-history';
 import {createWorldComposition} from '../surfaces/canvas/world-composition';
 import {emptyComposition} from '../presentation/world-composition-model';
-import {chunkId,toCell} from '../core/coordinates';
+import {chunkId,toCell,toGeo,coordAt} from '../core/coordinates';
+import {effectiveCells} from '../core/world';
+import {createMobilityController} from '../client/mobility-controller';
+import {parseVancouverSchools} from '../adapters/reality/vancouver-schools';
+import type {SchoolSite} from '../core/traffic-data';
+import type {TrafficSignalSite} from '../core/traffic-data';
 import {quoteAction} from '../core/quote';
 import type {Camera} from '../presentation/camera';
 import {normalizeAngle,project,settleZoom,zoomTo,MIN_ZOOM,centerOn,ROTATE_STEP} from '../presentation/camera';
 import type {WorldView} from '../surfaces/canvas/canvas-renderer';
-import {drawsStreetLife,render} from '../surfaces/canvas/canvas-renderer';
 import {createFrameScheduler} from '../presentation/frame-scheduler';
 import type {Speed} from '../presentation/clock';
 import {createHud} from '../surfaces/canvas/hud';
@@ -43,6 +86,7 @@ import {createCityClient} from '../client/city-client';
 import {actionLabel} from '../client/versions';
 import type {CityFacts, FactsPort} from '../client/facts';
 import {PLACES} from '../client/facts';
+import {CITY_IDENTITIES,SOURCE_CATALOG,selectSources} from '../client/source-selection';
 import {systemTime} from '../adapters/time/system';
 import type {MapSource} from '../session/ports';
 import type {SaveStore} from '../session/ports';
@@ -113,10 +157,19 @@ const cityDirectory = createWikidataDirectory();
 const municipalDirectory = createIbgeDirectory();
 const mergeMunicipal = async (found: CityFacts | null): Promise<CityFacts | null> => {
  if (!found) return null;
+ const identity = CITY_IDENTITIES[found.id];
+ if(identity)found={...found,identity,countryCode:identity.countryCode};
+ if(identity?.qid==='Q24639'){found=mergeDemographics(found,[...readStatCanCapture(demographicCapture.statcan,identity),...readBcStatsCapture(demographicCapture.bcStats,identity)]);found=enrichVancouverFacts(found,readVancouverFinance(financeCapture));}
+ if (identity && !selectSources(identity,SOURCE_CATALOG).some(source=>source.id==='ibge')) return found;
  const municipal = found.municipalCode ? await municipalDirectory.byMunicipalCode(found.municipalCode) : null;
  if (!municipal) return found;
+ const measureSource={...municipal.source,territoryId:found.id,retrievedAt:new Date().toISOString(),method:'reported' as const};
  return {
   ...found,
+  measures:{...found.measures,
+   ...(municipal.population===undefined?{}:{population:{value:municipal.population,unit:'people' as const,source:{...measureSource,observedYear:municipal.populationYear}}}),
+   ...(municipal.areaKm2===undefined?{}:{areaKm2:{value:municipal.areaKm2,unit:'km2' as const,source:measureSource}}),
+  },
   ...(municipal.population !== undefined
    ? {population: municipal.population, populationYear: municipal.populationYear}
    : {}),
@@ -139,6 +192,7 @@ const facts: FactsPort = testPorts?.facts ?? {
   return mergeMunicipal(await cityDirectory.near(lat, lon, 25));
  },
 };
+let displayedCityFacts:CityFacts|null=null;
 let sourcePanel: ReturnType<typeof createSourceInspector> | null = null;
 const rowOf = (element: HTMLElement | null, value: string | null) => {
  if (!element) return;
@@ -150,6 +204,8 @@ const rowOf = (element: HTMLElement | null, value: string | null) => {
 // real city is and whether the scale sentence may be shown, the DOM only writes it where the player reads it.
 const renderFacts = (cityFacts: CityFacts | null, scale: string) => {
  if (cityFactsEl) cityFactsEl.hidden = !cityFacts;
+ const demographicsEl=document.getElementById('city-demographics');
+ if(demographicsEl){demographicsEl.replaceChildren();for(const line of cityFacts?demographicLines(cityFacts):[]){const p=document.createElement('p');p.textContent=line;demographicsEl.append(p);}}
  rowOf(
   cityPopulationEl,
   cityFacts?.population !== undefined
@@ -170,9 +226,10 @@ const renderFacts = (cityFacts: CityFacts | null, scale: string) => {
    ? `R$ ${(cityFacts.gdpThousandsBrl / 1_000_000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} bi${cityFacts.gdpYear ? ` · ${cityFacts.gdpYear}` : ''}`
    : null,
  );
+ const displayedPopulationSource=cityFacts?.measures?.population?.source??cityFacts?.source;
  if (citySourceEl)
-  citySourceEl.textContent = cityFacts
-   ? `${cityFacts.source.dataset} · ${cityFacts.source.license} · ${cityFacts.source.url}`
+  citySourceEl.textContent = displayedPopulationSource
+   ? `${displayedPopulationSource.dataset} · ${displayedPopulationSource.license??'licença não declarada'} · ${displayedPopulationSource.url}`
    : '';
  if (cityScaleEl) {
   cityScaleEl.hidden = !scale;
@@ -184,9 +241,11 @@ const renderFacts = (cityFacts: CityFacts | null, scale: string) => {
    {label: 'Termos do mapa', value: 'ODbL · © OpenStreetMap contributors'},
   ];
   if (cityFacts) {
-   rows.push({label: 'Demografia', value: cityFacts.source.dataset});
-   rows.push({label: 'Termos da demografia', value: cityFacts.source.license});
-   rows.push({label: 'Endereço da demografia', value: cityFacts.source.url});
+   const populationSource=cityFacts.measures?.population?.source??cityFacts.source;
+   rows.push({label: 'População · fonte e ano', value: `${populationSource.dataset} · ${cityFacts.populationYear??'ano não informado'}`});
+   rows.push({label: 'Termos da demografia', value: populationSource.license??'não declarados'});
+   rows.push({label: 'Endereço da demografia', value: populationSource.url});
+   if(cityFacts.finance)rows.push({label:'Orçamento aprovado',value:`${cityFacts.finance.fiscalYear} · CAD · ${cityFacts.finance.operating.source.url}`});
   }
   sourcePanel.update({
    title: cityFacts ? `Fontes · ${cityFacts.label}` : 'Fontes desta cidade',
@@ -334,7 +393,52 @@ const hud = createHud(hudRoot, {
 // client.step, the canvas and the panels.
 let active = false;
 let invalidateFrame = () => {};
-const geography = 'loadVisualTile' in maps ? createGeographicStream((z,x,y)=>(maps as OsmSource).loadVisualTile(z,x,y),()=>invalidateFrame()) : null;
+const loadSceneTile=(z:number,x:number,y:number)=>typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined'&&'loadEncodedTile' in maps?(maps as OsmSource).loadEncodedTile(z,x,y):(maps as OsmSource).loadVisualTile(z,x,y);
+const geography = 'loadVisualTile' in maps ? createGeographicStream(loadSceneTile,()=>invalidateFrame()) : null;
+const terrainSource=createTerrainSource(async(url,signal)=>{const response=await fetch(url,{signal});if(!response.ok)throw new Error('Terrain unavailable');return new Uint8Array(await response.arrayBuffer());},terrainManifest as TerrainManifest);
+const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame());
+const devicePolicy=renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.width,canvas.height);
+const mobilityStream=geography?createMobilityStream(loadSceneTile,SEED,()=>invalidateFrame(),devicePolicy.dynamicAgents):null;
+const mobility=mobilityStream?.controller??createMobilityController({seed:SEED,now:()=>new Date().toISOString(),onChange:()=>{},capacity:devicePolicy.dynamicAgents});
+let mobilityEnabled=true;
+const maritime=geography?createMaritimeEngine(readMaritimeCapture(vancouverMaritimeCapture),SEED,devicePolicy.vessels):null;
+maritime?.setScenario(new Date().toISOString());
+const aviation=geography?createAviationEngine(readAirportCapture(cyvrCapture),SEED,devicePolicy.aircraft):null;
+const marineCapture=readMaritimeCapture(vancouverMaritimeCapture),ferrySchedule=readFerrySchedule(bcFerryCapture,marineCapture.routes),ferryClock=createFerryClock(()=>new Date().toISOString());
+// The transit, signal and school captures are Vancouver's, and the mobility network is built from whatever the camera is
+// looking at: without this gate, panning to Lisboa would fill Lisbon's streets with Vancouver's buses and its corners
+// with Vancouver's signals. Coverage is the same local-planning guard the facts use, so a city and its traffic agree on
+// where the city ends, and leaving it tears the captures down instead of leaving them behind.
+let mobilityCity:null|'vancouver'=null,mobilityCaptures:{transit:TransitContent;signals:readonly TrafficSignalSite[];schools:readonly SchoolSite[]}|null=null;
+const syncMobilityCity=(inCoverage:boolean)=>{
+ if(!geography)return;
+ const wanted=inCoverage?'vancouver':null;
+ if(wanted===mobilityCity)return;
+ mobilityCity=wanted;
+ if(!wanted){mobility.setCity(null);invalidateFrame();return;}
+ mobility.setCity('CA-BC');
+ // setCity tears the streets down, and the stream only speaks when its tile selection changes: hand it back what it
+ // already has, or the city would come back empty and stay empty until the camera moved.
+ mobilityStream?.republish();
+ const apply=()=>{if(mobilityCity!=='vancouver'||!mobilityCaptures)return;mobility.setTransit(mobilityCaptures.transit);mobility.setSignalSites(mobilityCaptures.signals);mobility.setCivicSites(mobilityCaptures.schools);invalidateFrame();};
+ if(mobilityCaptures){apply();return;}
+ void Promise.all([
+  import('../adapters/reality/data/vancouver-transit-mobility.json'),
+  import('../adapters/reality/data/vancouver-signals.json'),
+  import('../adapters/reality/data/vancouver-schools.json'),
+ ]).then(([transit,signals,schools])=>{
+  mobilityCaptures={transit:transit.default as TransitContent,signals:signals.default as readonly TrafficSignalSite[],schools:parseVancouverSchools(schools.default)};
+  apply();
+ });
+};
+const mobilityPanelRoot=hudRoot.querySelector<HTMLElement>('#panel-source [data-panel-body]');
+// The clock in the panel is Vancouver's, and so is the route list under it: the panel says what city these controls
+// describe, and stops claiming Vancouver where the coverage does not reach.
+const mobilityPanel=mobilityPanelRoot?createMobilityPanel(mobilityPanelRoot,{onMovement:enabled=>{mobilityEnabled=enabled;lastView=null;invalidateFrame();},onScenario:instant=>{ferryClock.setScenario(instant);if(instant)mobility.setScenario(instant);lastView=null;invalidateFrame();}}):null;
+mobility.setSurface((point,edge)=>{
+ const surface=terrain.scene();if(edge.bridge)return createSurfaceSupport(surface.sample).foundation(edge.path)??surface.sample(toGeo(point))?.elevationM??null;
+ return surface.sample(toGeo(point))?.elevationM??null;
+});
 // The view reads the live branch through `head`, so it is created once the game's own state exists: a session view
 // that ran before those declarations would read a name that is not initialized yet.
 const sessions = createGameSessionView({
@@ -475,12 +579,36 @@ const formatBytes = (bytes: number) => {
  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 // The preview and the cost are the client's; the browser only writes them where the player reads them.
-// What follows the camera: the scale bar, the bearing readout, the map mode and the layout classes. Kept
-// apart from `updateHud` on purpose — a drag changes the camera sixty times a second, and rebuilding the
-// whole HUD (the numbers, the facts, the cache stats, the session panel) is not what a camera move means.
-const updateMapHud = () => {
- const view=client.view();
+const hudUpdateGate=createSemanticUpdateGate(200);let hudCriticalStamp='',hudTrailingTimer:ReturnType<typeof setTimeout>|undefined;
+const hudModels=new WeakMap<object,string>();const hudModel=(value:object|null)=>{if(!value)return '';let key=hudModels.get(value);if(key===undefined){key=JSON.stringify(value);hudModels.set(value,key);}return key;};
+const updateHud = () => {
+ const handForHud=client.view(),critical=[handForHud.state?.revision,handForHud.speed,handForHud.tool,handForHud.place,handForHud.notice,JSON.stringify(handForHud.save),handForHud.map.message,handForHud.facts?.id,handForHud.preview.affordable,handForHud.preview.cost,handForHud.preview.message,hudModel(handForHud.history),JSON.stringify(handForHud.branches),hudModel(handForHud.scenarios),JSON.stringify(sessions.describe())].join(':');
+ const hudKey=[critical,handForHud.camera.x,handForHud.camera.y,handForHud.camera.zoom,handForHud.camera.rotation,handForHud.viewport.width,handForHud.viewport.height,geography?.scene().revision].join(':');
+ const hudNow=performance.now();
+ if(!hudUpdateGate.shouldUpdate(hudKey,hudNow,critical!==hudCriticalStamp)){const retry=hudUpdateGate.retryAfter(hudKey,hudNow);if(retry!==null&&hudTrailingTimer===undefined)hudTrailingTimer=setTimeout(()=>{hudTrailingTimer=undefined;updateHud();},retry);return;}
+ if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}hudCriticalStamp=critical;
+ const hudStart=performance.now();
+ // The device's own save report is the personal session's; the session view reads it, and a live session's own
+ // durable confirmation is what then speaks for the branch (the client's view already follows that rule).
+ sessions.setPersistence(session.getSaveStatus());
+ const view = client.view();
  const focus=geographicFocus(view.camera,view.viewport),scale=mapScale(view.camera,view.viewport);
+ const nearby=Object.values(PLACES).find(p=>Math.hypot((p.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),p.lat-focus.lat)<.15);
+ // A lookup belongs to its requested location. Moving elsewhere hides it until new facts arrive.
+ const anchored=view.factsAt && Math.hypot((view.factsAt.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),view.factsAt.lat-focus.lat)<.01?view.facts:null;
+ let visibleFacts=geography?(view.camera.zoom<GLOBE_ZOOM?null:anchored??nearby?.facts??null):view.facts;
+ if(geography&&visibleFacts?.id==='Q24639'&&!containsLocalArea(vancouverLocalAreas.areas,focus))visibleFacts=null;
+ // The same coverage decides what the streets carry: the Vancouver captures apply inside it and are torn down outside.
+ const inVancouverCoverage=geography?containsLocalArea(vancouverLocalAreas.areas,focus):false;
+ syncMobilityCity(inVancouverCoverage);
+ mobilityPanel?.setCoverage(inVancouverCoverage);
+ if(visibleFacts?.id==='Q24639'){const identity=CITY_IDENTITIES.Q24639;visibleFacts=enrichVancouverFacts(mergeDemographics({...visibleFacts,identity,countryCode:'CA'},[...readStatCanCapture(demographicCapture.statcan,identity),...readBcStatsCapture(demographicCapture.bcStats,identity)]),readVancouverFinance(financeCapture));}
+ displayedCityFacts=visibleFacts;
+ const municipalPreview=hudRoot.querySelector<HTMLElement>('#economy-municipal-preview');if(municipalPreview)municipalPreview.textContent=municipalCalibrationPreview(visibleFacts);
+ const calibration=view.stats.economy.calibration;
+ const calibrationText=hudRoot.querySelector<HTMLElement>('#economy-calibration');if(calibrationText)calibrationText.textContent=calibration?`Referência ativa: ${calibration.territoryId} · ${calibration.fiscalYear} · ${calibration.gameUnitsPerCad} unidades/CAD`:'Referência municipal desativada.';
+ const calibrationButton=hudRoot.querySelector<HTMLButtonElement>('#economy-calibrate');if(calibrationButton)calibrationButton.disabled=!visibleFacts?.finance||!visibleFacts.population;
+ const where=geography?(view.camera.zoom<GLOBE_ZOOM?'Terra':visibleFacts?.label??`${focus.lat.toFixed(3)}°, ${focus.lon.toFixed(3)}°`):view.place;
  const scaleLabel=hudRoot.querySelector<HTMLElement>('#map-scale-label'),scaleBar=hudRoot.querySelector<HTMLElement>('#map-scale-bar'),mapMode=hudRoot.querySelector<HTMLElement>('#map-mode');
  if(scaleLabel)scaleLabel.textContent=scale.label;
  if(scaleBar)scaleBar.style.width=`${Math.round(scale.pixels/deviceScale())}px`;
@@ -488,19 +616,6 @@ const updateMapHud = () => {
  const coordinates=hudRoot.querySelector<HTMLElement>('#map-coordinates');if(coordinates)coordinates.textContent=`${Math.abs(focus.lat).toFixed(3)}° ${focus.lat>=0?'N':'S'} · ${Math.abs(focus.lon).toFixed(3)}° ${focus.lon>=0?'L':'O'}`;
  hudRoot.classList.toggle('world-view',view.camera.zoom<.035);
  hudRoot.classList.toggle('planet-view',view.camera.zoom<GLOBE_ZOOM);
-};
-const updateHud = () => {
- // The device's own save report is the personal session's; the session view reads it, and a live session's own
- // durable confirmation is what then speaks for the branch (the client's view already follows that rule).
- sessions.setPersistence(session.getSaveStatus());
- const view = client.view();
- const focus=geographicFocus(view.camera,view.viewport);
- const nearby=Object.values(PLACES).find(p=>Math.hypot((p.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),p.lat-focus.lat)<.15);
- // A lookup belongs to its requested location. Moving elsewhere hides it until new facts arrive.
- const anchored=view.factsAt && Math.hypot((view.factsAt.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),view.factsAt.lat-focus.lat)<.01?view.facts:null;
- const visibleFacts=geography?(view.camera.zoom<GLOBE_ZOOM?null:anchored??nearby?.facts??null):view.facts;
- const where=geography?(view.camera.zoom<GLOBE_ZOOM?'Terra':visibleFacts?.label??`${focus.lat.toFixed(3)}°, ${focus.lon.toFixed(3)}°`):view.place;
- updateMapHud();
  const visual=geography?.scene();
  const mapMessage=geography?(visual?.error?'Parte do mapa não carregou. Tente novamente.':visual?.loading?'Carregando mapa…':''):view.map.message;
  if (costEl) costEl.textContent = view.preview.message;
@@ -527,11 +642,12 @@ const updateHud = () => {
   if (view.branches) history.branches(view.branches.ids, view.branches.selected);
  }
  if (view.scenarios) scenarios.update(view.scenarios);
+ if(PERF_DEBUG)framePhases.hud=performance.now()-hudStart;
 };
 const saveNow = () => client.saveNow();
 // The buffer is the CSS size times this, and the zoom ladder is built from it: a tile has to be a whole number of
 // device pixels for a one pixel line to stay one pixel wide. The client is given this so it snaps zoom the same way.
-const deviceScale = () => BUFFER_SCALE * Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+const deviceScale = () => BUFFER_SCALE * renderPixelRatio(window.devicePixelRatio||1,(navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.clientWidth||window.innerWidth,canvas.clientHeight||window.innerHeight);
 // Direct pointer manipulation lands at once and cancels any glide in flight (the hand wins over the animation). The
 // surface already measured the exact camera; the client stores it and loads the regions it uncovered.
 const setCamera = (next: Camera, options: {snap?: boolean} = {}) => {
@@ -555,6 +671,7 @@ function onPlace(name: string) {
 }
 function onRetryMap() {
  geography?.retry();
+ mobilityStream?.retry();
  if (active) {
   tell({do: 'retryMap'});
   return;
@@ -590,6 +707,11 @@ function onRegion(chunkId: string): void {
 function onPolicy(policy: {tax?: number; services?: number; borrow?: number}): void {
  tell({do: 'policy', ...policy});
 }
+hudRoot.querySelector('#economy-calibrate')?.addEventListener('click',()=>{
+ const f=displayedCityFacts;if(!f?.finance||!f.population)return;const budget=f.finance;
+ tell({do:'municipal-calibration',calibration:{version:1,territoryId:budget.territoryId,fiscalYear:budget.fiscalYear,annualOperatingCad:budget.operating.value,population:f.population,gameUnitsPerCad:.01,source:budget.operating.source}});
+});
+hudRoot.querySelector('#economy-calibration-off')?.addEventListener('click',()=>tell({do:'municipal-calibration',calibration:null}));
 function onOverview() {
  if(geography){const v=client.view();tell({do:'camera',camera:zoomTo(v.camera,v.viewport,.025),settle:true});}else tell({do: 'overview'});
 }
@@ -652,13 +774,19 @@ window.screen?.orientation?.addEventListener?.('change', viewportSettled);
 // The traffic's clock: wall time scaled by the game speed, so the streets move while the city runs, move twice as
 // fast at 2x and stand still while it is paused. It is presentation only — no tick reads it, no command carries it.
 let motion = 0;
+let motionMs=0,renderMs=0;
+const cameraUpdates=createCameraUpdateGate();
+const mergeVessels=createFrameMerge<VesselFrame>();
+const sceneSurface=createSceneSurface(ctx,()=>invalidateFrame(),(navigator as Navigator&{deviceMemory?:number}).deviceMemory);
+const perfSamples=createPerformanceSamples(),framePhases:Record<string,number>={};
+let framePresented=false;
+const phase=(name:string,start:number)=>{if(PERF_DEBUG)framePhases[name]=performance.now()-start;};
 // The card the player opened describes one cell. The moment the city slides under it, it is answering about a place
 // that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
 let hudCameraStamp='';
-// False while a gesture is moving the camera, so the full HUD is rebuilt once when it stops.
-let hudSettled=true;
 let cardCamera: {x: number; y: number; zoom: number} | null = null;
 const draw = (now: number, seconds: number) => {
+ framePresented=false;for(const key of Object.keys(framePhases))delete framePhases[key];
  // Nothing to draw until the city exists: a plain haze instead of a frame over a session that has not opened.
  if (!client.view().state) {
   ctx.fillStyle = '#7c8794';
@@ -672,24 +800,44 @@ const draw = (now: number, seconds: number) => {
  const camera = hand.camera;
 
  const {width, height} = hand.viewport;
- geography?.update(camera,hand.viewport);
+ const streamStart=performance.now();
+ if(cameraUpdates.changed(camera,hand.viewport)){if(geography)syncMobilityCity(containsLocalArea(vancouverLocalAreas.areas,geographicFocus(camera,hand.viewport)));geography?.update(camera,hand.viewport);terrain.update(camera,hand.viewport);mobilityStream?.update(camera,hand.viewport);}
+ phase('streams',streamStart);
+ if(!geography){
+  const cells=[...hand.chunks].flatMap(([id,status])=>{const managed=hand.state?.chunks[id],base=status.status==='ready'?status.base:null;const available=managed?effectiveCells(managed):base?.cells;return available?available.flatMap((cell,i)=>cell.road?[{coord:coordAt(id,i),cell}]:[]):[];});
+  mobility.setCells(cells,`${hand.state?.revision}:${[...hand.chunks.keys()].join('|')}`);mobility.setDemand({vehicles:50,pedestrians:24,truckShare:.08,hour:12});
+ }
+ const simulationStart=performance.now();
+ const staticReady=sceneSurface.ready({...hand,state:hand.state!,geography:geography?.scene(),terrain:terrain.scene(),seed:SEED,motion,preview:hand.preview.cells,previewAffordable:hand.preview.affordable,light:cityLight,pixelRatio:deviceScale()});
+ ferryClock.setPaused(hand.speed===0||!mobilityEnabled);
+ const civilInstant=ferryClock.instant();
+ maritime?.setScenario(civilInstant);
+ // The frame already owns this clock update; it must not invalidate itself.
+ mobility.setScenario(civilInstant,true);
+ const ferryFrames=geography?scheduledFerryFrames(ferrySchedule,marineCapture.routes,civilInstant):[];
+ maritime?.setReservedCapacity(ferryFrames.length);
+ maritime?.advance(motionSeconds(seconds,mobilityEnabled&&staticReady?hand.speed:0));
+ aviation?.advance(motionSeconds(seconds,mobilityEnabled&&staticReady?hand.speed:0));
+ const motionStart=performance.now();mobility.advance(motionSeconds(seconds,mobilityEnabled&&staticReady?hand.speed:0));motionMs=performance.now()-motionStart;
+ phase('simulation',simulationStart);
  if(geography){
   const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
-  if(stamp!==hudCameraStamp){
-   hudCameraStamp=stamp;
-   // A pan changes the camera every frame. The readouts that follow the camera update; the rest of the HUD
-   // waits until the gesture stops, which is the only moment its numbers can have changed.
-   if(moving){hudSettled=false;updateMapHud();}else{hudSettled=true;updateHud();}
-  }else if(!hudSettled&&!moving){hudSettled=true;updateHud();}
+  if(stamp!==hudCameraStamp){hudCameraStamp=stamp;updateHud();}
  }
  if (cardCamera && (cardCamera.x !== camera.x || cardCamera.y !== camera.y || cardCamera.zoom !== camera.zoom))
   inspector.show(null);
  cardCamera = {x: camera.x, y: camera.y, zoom: camera.zoom};
- if (hand.speed !== 0) motion += seconds * hand.speed;
+ if (hand.speed !== 0&&mobilityEnabled&&staticReady) motion += seconds * hand.speed;
+ const snapshotStart=performance.now();
  const view: WorldView = {
   light:cityLight,
-  moving,
+  quality:renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,width,height),
   geography: geography?.scene(),
+  terrain:terrain.scene(),
+  mobility:mobility.frame(),
+  signals:mobility.signals(),
+  vessels:maritime?mergeVessels(ferryFrames,maritime.frame()):undefined,
+  aircraft:aviation?.frame(),
   pixelRatio:deviceScale(),
   camera,
   viewport: {width, height},
@@ -705,34 +853,22 @@ const draw = (now: number, seconds: number) => {
  // While the city runs, the ambient clock asks for a frame thirty times a second, but the picture only changes when
  // something it is drawn from changes: the moving traffic, where streets show it, or a tick, a tile or the camera. An
  // identical frame is not drawn again — the canvas still holds it.
- if (!sameFrame(lastView, view)) {
-  render(ctx, view);
+ phase('snapshots',snapshotStart);renderMs=0;
+ if (!sameFrame(lastView, view)||sceneSurface.pending()) {
+  const renderStart=performance.now();framePresented=sceneSurface.draw(view,now);renderMs=performance.now()-renderStart;
+  phase('render',renderStart);
   lastView = view;
  }
- return {moving, ambient: hand.speed !== 0};
+ return {moving:moving||sceneSurface.pending(), ambient: hand.speed !== 0&&staticReady,presented:framePresented};
 };
 let lastView: WorldView | null = null;
-const sameFrame = (a: WorldView | null, b: WorldView): boolean =>
- !!a &&
- a.light === b.light &&
- a.geography?.revision === b.geography?.revision &&
- a.camera.x === b.camera.x &&
- a.camera.y === b.camera.y &&
- a.camera.zoom === b.camera.zoom &&
- a.camera.rotation === b.camera.rotation &&
- a.viewport.width === b.viewport.width &&
- a.viewport.height === b.viewport.height &&
- a.state === b.state &&
- a.chunks === b.chunks &&
- a.tool === b.tool &&
- a.preview === b.preview &&
- a.previewAffordable === b.previewAffordable &&
- a.hover?.x === b.hover?.x &&
- a.hover?.y === b.hover?.y &&
- (a.motion === b.motion || (b.geography?b.camera.zoom<.2:!drawsStreetLife(b.camera)));
-const frames = createFrameScheduler({draw});
+const sameFrame=sameSceneFrame;
+const frames = createFrameScheduler({draw,ambientFps:renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.width,canvas.height).dynamicFps,onSample:sample=>{if(PERF_DEBUG)perfSamples.record({...sample,phases:framePhases});}});
 invalidateFrame = frames.invalidate;
+let debugTimer:number|undefined;
 if (PERF_DEBUG) {
+ const diagnostics=document.createElement('pre');diagnostics.id='open-sim-frame-stats';diagnostics.hidden=true;document.body.append(diagnostics);
+ debugTimer=window.setInterval(()=>{if(document.hidden)return;const agents=lastView?.mobility??[];diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),samples:perfSamples.snapshot(),buildings:buildingCacheStats(),renderer:sceneSurface.status(),terrain:terrain.status(),mobility:{agents:agents.length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,agents.filter(agent=>agent.kind===kind).length])),networkJob:mobilityStream?.status(),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size}});},1000);
  const debugWindow = window as unknown as {
   openSimFrames?: () => ReturnType<typeof frames.stats>;
   openSimDebug?: () => unknown;
@@ -781,11 +917,13 @@ async function start() {
  session.subscribe(redraw);
  client.subscribe(redraw);
  new ResizeObserver(viewportSettled).observe(canvas);
+ window.addEventListener('resize', () => resize());
  // The canvas surface: a gesture becomes the same intentions a typed command or a playthrough produces.
  attachInput(
   canvas,
   {
    geographic: !!geography,
+   pick:(point,camera)=>{const hit=lastView?pickSurface({...lastView,camera,terrain:terrain.scene()},point):null;return hit?{x:Math.round(hit.x),y:Math.round(hit.y)}:null;},
    camera: () => client.view().camera,
    zoomScale: deviceScale,
    tool: () => client.view().camera.zoom<.035?'explore':client.view().tool,
@@ -842,9 +980,10 @@ async function start() {
   // A browser in a background tab is not a promise: while the host is hidden the session reports itself as paused.
   sessions.setHostVisible(!document.hidden);
   updateHud();
-  if (!document.hidden) invalidateFrame();
+  if(document.hidden)frames.stop();else invalidateFrame();
  });
- window.addEventListener('pagehide', () => saveNow());
+ window.addEventListener('pagehide', event => {saveNow();frames.stop();if(viewportTimer!==undefined){clearTimeout(viewportTimer);viewportTimer=undefined;}if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}if(!event.persisted){if(debugTimer!==undefined)clearInterval(debugTimer);mobilityStream?.dispose();terrain.dispose();geography?.dispose();if('destroy' in maps)(maps as OsmSource).destroy();maritime?.dispose();aviation?.dispose();sceneSurface.dispose();sceneRasterCache.clear();}});
+ window.addEventListener('pageshow',()=>{if(!document.hidden)invalidateFrame();});
  // First paint is the restored local state. Merely queueing network/storage work in the same task can still delay the
  // browser's actual paint on a phone, so background work starts only after one rendered frame has returned to the UA.
  updateHud();

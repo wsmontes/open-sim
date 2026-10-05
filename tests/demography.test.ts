@@ -1,6 +1,6 @@
 import {expect,test} from 'vitest';
 import {createPlayHost} from '../tools/play-host';
-import {headerLines,prefeituraLines} from '../src/surfaces/text/render';
+import {headerLines,prefeituraLines,factsLines} from '../src/surfaces/text/render';
 
 test('the text header distinguishes the real municipality from simulated residents',async()=>{
  const {client}=await createPlayHost().open();
@@ -38,4 +38,11 @@ test('a successful coordinate lookup retains its geographic anchor',async()=>{
  expect(client.view().facts).toEqual(real);
  expect(client.view()).toHaveProperty('factsAt',{lat:48,lon:-122});
  client.stop();
+});
+
+
+test('text_surface_preserves_fact_source',async()=>{
+ const {client}=await createPlayHost().open();await client.start();await client.do({do:'place',name:'Vancouver'});await client.idle();
+ const facts=client.view().facts!;const lines=factsLines({...client.view(),facts:{...facts,measures:{population:{value:662248,unit:'people',source:{dataset:'Official census fixture',url:'https://example.test/census',territoryId:'2021A00055915022',observedYear:2021,retrievedAt:'2026-10-03T00:00:00Z',method:'reported'}}}}}).join('\n');
+ expect(lines).toContain('Official census fixture');expect(lines).toContain('https://example.test/census');expect(lines).toContain('2021A00055915022');client.stop();
 });

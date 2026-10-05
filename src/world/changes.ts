@@ -1,3 +1,5 @@
+import {validCalibration} from '../core/municipal-calibration';
+import type {MunicipalCalibration} from '../core/municipal-calibration';
 // Intentions, differences and proposals (docs/superpowers/specs/2026-09-29-federated-world-design.md §5.2–§5.3). Pure:
 // the caller supplies the world and the command, nothing here reads the environment. A ChangeSet is what somebody has
 // to review before an operation lands in another version: per operation an id, the intention, the fields read and
@@ -33,6 +35,7 @@ export type ChangeIntent=
  | {kind:'demolish'}
  | {kind:'tick'}
  | {kind:'component';key:string;entity:string}
+ | {kind:'municipal-calibration';calibration:MunicipalCalibration|null}
  | {kind:'policy';tax?:number;services?:number;borrow?:number}
  | {kind:'opaque';note:string};
 export type Precondition=
@@ -151,6 +154,12 @@ export function describeChange(before:GameState,command:Command,after:GameState,
     places:[],reads:[field],writes:[field],requires:[],basedOn:[],dependsOn:[],
     before:[was],after:[now],
    });
+  }
+ }else if(action.type==='municipal-calibration'){
+  const was=componentValue(before,'city.economy','calibration'),now=componentValue(after,'city.economy','calibration');
+  if(!sameJson(was,now)){
+   const field:ChangeField={scope:'component',key:'city.economy',entity:'calibration'};
+   operations.push({id:`municipal-calibration@${after.revision}`,intent:{kind:'municipal-calibration',calibration:action.calibration},places:[],reads:[field],writes:[field],requires:[],basedOn:[],dependsOn:[],before:[was],after:[now]});
   }
  }else if(action.type==='policy'){
   const field:ChangeField={scope:'component',key:'city.economy',entity:'policy'};
@@ -298,7 +307,7 @@ export function changeSetValue(set:ChangeSet):JsonValue{
  if(set.author!==undefined)value['author']=set.author;
  return value;
 }
-const INTENT_KINDS:readonly string[]=['build','demolish','tick','component','policy','opaque'];
+const INTENT_KINDS:readonly string[]=['build','demolish','tick','component','policy','municipal-calibration','opaque'];
 const BUILD_TOOLS=new Set<Tool>((Object.keys(COST) as Array<Tool|'demolish'>).filter((tool):tool is Tool=>tool!=='demolish'));
 function placeFrom(value:JsonValue):WorldResult<CellPlace>{
  if(!jsonRecord(value))return failed('MALFORMED','Célula sem endereço');
@@ -340,6 +349,10 @@ function baseReferenceFrom(value:JsonValue):WorldResult<BaseReference>{
 function intentFrom(value:JsonValue):WorldResult<ChangeIntent>{
  if(!jsonRecord(value)||typeof value['kind']!=='string'||!INTENT_KINDS.includes(value['kind']))return failed('MALFORMED','Intenção desconhecida');
  if(value['kind']==='build'){const tool=value['tool'];return typeof tool==='string'&&BUILD_TOOLS.has(tool as Tool)?ok({kind:'build',tool:tool as Tool}):failed('MALFORMED','Ferramenta de construção desconhecida');}
+ if(value['kind']==='municipal-calibration'){
+  const calibration=value['calibration'];
+  return calibration===null||validCalibration(calibration)?ok({kind:'municipal-calibration',calibration}):failed('MALFORMED','Calibração municipal inválida');
+ }
  if(value['kind']==='policy'){
   const tax=value['tax'],services=value['services'],borrow=value['borrow'];
   if(tax===undefined&&services===undefined&&borrow===undefined)return failed('MALFORMED','Política sem alteração');

@@ -1,0 +1,29 @@
+{
+  "retrievedAt": "2026-10-03T20:30:00Z",
+  "schools": {
+    "provider": "VSB",
+    "source": "https://www.vsb.bc.ca/school-directory-and-map",
+    "publishedLocations": 108,
+    "captureSha256": "5cf981177565c2be42ae2acda4bc404c071f5b01b80d86c6df01f91350840d02",
+    "coordinatePrecision": "Provider Pos strings retained, some rounded to three decimal degrees; not verified entrances"
+  },
+  "signals": {
+    "provider": "City of Vancouver",
+    "source": "https://opendata.vancouver.ca/explore/dataset/traffic-signals/",
+    "publishedPositions": 966,
+    "captureSha256": "ceefdf70f940024ab1172978d3bf9424ea7192d74fd909555386522a1969d0b5",
+    "livePhases": false
+  },
+  "scenario": {
+    "schoolWindows": "Weekdays 07:30\u201309:00 and 14:30\u201316:30 America/Vancouver; assumptions, not a school calendar",
+    "schoolDwellSeconds": 20,
+    "schoolLengthM": 9,
+    "policeCap": 2,
+    "schoolCap": 6,
+    "studentAddresses": false,
+    "nativeRoutes": [
+      "Elsie Roy Elementary",
+      "King George Secondary"
+    ]
+  }
+}

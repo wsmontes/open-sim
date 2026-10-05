@@ -1,0 +1,1514 @@
+[
+  {
+    "id": "vsb:5",
+    "name": "Seymour Elementary",
+    "lat": 49.279,
+    "lon": -123.081,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:9",
+    "name": "Bayview Elementary",
+    "lat": 49.26658,
+    "lon": -123.18193,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:10",
+    "name": "Britannia Elementary",
+    "lat": 49.2743,
+    "lon": -123.071,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:11",
+    "name": "Britannia Secondary",
+    "lat": 49.2764,
+    "lon": -123.072,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:14",
+    "name": "Cook Elementary",
+    "lat": 49.22,
+    "lon": -123.036,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:16",
+    "name": "Carnarvon Elementary",
+    "lat": 49.2565,
+    "lon": -123.174,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:17",
+    "name": "Champlain Heights Annex",
+    "lat": 49.2142,
+    "lon": -123.03,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:18",
+    "name": "Champlain Heights Elementary",
+    "lat": 49.2206,
+    "lon": -123.027,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:19",
+    "name": "Dickens Annex",
+    "lat": 49.2503,
+    "lon": -123.082,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:20",
+    "name": "Dickens Elementary",
+    "lat": 49.255489,
+    "lon": -123.083006,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:22",
+    "name": "Maquinna Elementary",
+    "lat": 49.26848,
+    "lon": -123.05004,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:28",
+    "name": "Collingwood Neighbourhood School",
+    "lat": 49.2362,
+    "lon": -123.033,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:31",
+    "name": "Livingstone Elementary",
+    "lat": 49.2505,
+    "lon": -123.098,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:32",
+    "name": "Lloyd George Elementary",
+    "lat": 49.21051,
+    "lon": -123.13545,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:33",
+    "name": "Oppenheimer Elementary",
+    "lat": 49.213,
+    "lon": -123.058,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:34",
+    "name": "David Thompson Secondary",
+    "lat": 49.2201,
+    "lon": -123.071,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:38",
+    "name": "Lord Elementary",
+    "lat": 49.2796,
+    "lon": -123.039,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:39",
+    "name": "Jamieson Elementary",
+    "lat": 49.227266,
+    "lon": -123.121005,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:40",
+    "name": "Weir Elementary",
+    "lat": 49.2301,
+    "lon": -123.046,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:41",
+    "name": "MacCorkindale Elementary",
+    "lat": 49.2281,
+    "lon": -123.03,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:42",
+    "name": "McKechnie Elementary",
+    "lat": 49.2176,
+    "lon": -123.153,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:44",
+    "name": "Jules Quesnel Elementary",
+    "lat": 49.2595,
+    "lon": -123.194,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:45",
+    "name": "Cavell Elementary",
+    "lat": 49.2528,
+    "lon": -123.117,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:47",
+    "name": "Elsie Roy Elementary",
+    "lat": 49.2724,
+    "lon": -123.122,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:48",
+    "name": "Carr Elementary",
+    "lat": 49.2497,
+    "lon": -123.127,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:49",
+    "name": "Hamber Secondary",
+    "lat": 49.24102,
+    "lon": -123.126452,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:51",
+    "name": "False Creek Elementary",
+    "lat": 49.2677,
+    "lon": -123.127,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:53",
+    "name": "Nightingale Elementary",
+    "lat": 49.2603,
+    "lon": -123.095,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:58",
+    "name": "Gathering Place Education Ctr",
+    "lat": 49.277695,
+    "lon": -123.123758,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:59",
+    "name": "Brock Elementary",
+    "lat": 49.2416,
+    "lon": -123.101,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:60",
+    "name": "Gordon Elementary",
+    "lat": 49.266476,
+    "lon": -123.169453,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:61",
+    "name": "Wolfe Elementary",
+    "lat": 49.24761,
+    "lon": -123.10544,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:62",
+    "name": "Cunningham Elementary",
+    "lat": 49.2372,
+    "lon": -123.058,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:63",
+    "name": "Gladstone Secondary",
+    "lat": 49.2479,
+    "lon": -123.061,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:64",
+    "name": "Bruce Elementary",
+    "lat": 49.2422,
+    "lon": -123.026,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:65",
+    "name": "\u00bfuuqinak\u2019uuh Grandview Elementary",
+    "lat": 49.2664,
+    "lon": -123.074,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:68",
+    "name": "Hastings Elementary",
+    "lat": 49.2822,
+    "lon": -123.051,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:69",
+    "name": "Hudson Elementary",
+    "lat": 49.272153,
+    "lon": -123.150219,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:73",
+    "name": "Sexsmith Elementary",
+    "lat": 49.21819,
+    "lon": -123.111273,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:75",
+    "name": "Henderson Elementary",
+    "lat": 49.222,
+    "lon": -123.096,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:76",
+    "name": "Norquay Elementary",
+    "lat": 49.2422,
+    "lon": -123.052,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:78",
+    "name": "John Oliver Secondary",
+    "lat": 49.2328,
+    "lon": -123.094,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:79",
+    "name": "Kerrisdale Annex",
+    "lat": 49.262367,
+    "lon": -123.163332,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:80",
+    "name": "Kerrisdale Elementary",
+    "lat": 49.235828,
+    "lon": -123.173806,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:81",
+    "name": "Killarney Secondary",
+    "lat": 49.225805,
+    "lon": -123.044148,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:82",
+    "name": "King George Secondary",
+    "lat": 49.289989,
+    "lon": -123.137,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:83",
+    "name": "Kitsilano Secondary",
+    "lat": 49.262367,
+    "lon": -123.163332,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:84",
+    "name": "Secord Elementary",
+    "lat": 49.2621,
+    "lon": -123.062,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:89",
+    "name": "L'Ecole Bilingue Elementary",
+    "lat": 49.2587,
+    "lon": -123.131,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:90",
+    "name": "Beaconsfield Elementary",
+    "lat": 49.2519,
+    "lon": -123.052,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:91",
+    "name": "Byng Secondary",
+    "lat": 49.2582,
+    "lon": -123.192,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:92",
+    "name": "Kitchener Elementary",
+    "lat": 49.250138,
+    "lon": -123.18194,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:93",
+    "name": "Nelson Elementary",
+    "lat": 49.2725297,
+    "lon": -123.0602827,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:95",
+    "name": "Roberts Elementary",
+    "lat": 49.2875,
+    "lon": -123.138,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:96",
+    "name": "Selkirk Annex",
+    "lat": 49.245376,
+    "lon": -123.071737,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:97",
+    "name": "Selkirk Elementary",
+    "lat": 49.2502,
+    "lon": -123.069,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:98",
+    "name": "Strathcona Elementary",
+    "lat": 49.2801,
+    "lon": -123.092,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:99",
+    "name": "Tennyson Elementary",
+    "lat": 49.26214,
+    "lon": -123.1506,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:100",
+    "name": "Magee Secondary",
+    "lat": 49.2284,
+    "lon": -123.152,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:103",
+    "name": "Maple Grove Elementary",
+    "lat": 49.2308,
+    "lon": -123.14959,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:106",
+    "name": "Mount Pleasant Elementary",
+    "lat": 49.2646,
+    "lon": -123.095,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:107",
+    "name": "Nootka Elementary",
+    "lat": 49.2542,
+    "lon": -123.042,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:108",
+    "name": "Norma Rose Point School",
+    "lat": 49.261885,
+    "lon": -123.232287,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:113",
+    "name": "Trudeau Elementary",
+    "lat": 49.2143,
+    "lon": -123.096,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:116",
+    "name": "st\u0259yw\u0259te:n\u0313 Point Grey Secondary",
+    "lat": 49.2375,
+    "lon": -123.155,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:118",
+    "name": "Prince of Wales Secondary",
+    "lat": 49.246,
+    "lon": -123.158,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:122",
+    "name": "Queen Alexandra Elementary",
+    "lat": 49.2622,
+    "lon": -123.077,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:124",
+    "name": "Queen Elizabeth Elementary",
+    "lat": 49.257946,
+    "lon": -123.197368,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:125",
+    "name": "Queen Mary Elementary",
+    "lat": 49.2688,
+    "lon": -123.206,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:126",
+    "name": "Queen Victoria Annex",
+    "lat": 49.2677,
+    "lon": -123.067,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:127",
+    "name": "Quilchena Elementary",
+    "lat": 49.2384,
+    "lon": -123.152,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:128",
+    "name": "Renfrew Elementary",
+    "lat": 49.2507,
+    "lon": -123.033,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:133",
+    "name": "Shaughnessy Elementary",
+    "lat": 49.2481,
+    "lon": -123.145,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:134",
+    "name": "Fraser Elementary",
+    "lat": 49.2575,
+    "lon": -123.107,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:135",
+    "name": "Mackenzie Elementary",
+    "lat": 49.2345,
+    "lon": -123.086,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:136",
+    "name": "Kingsford-Smith Elementary",
+    "lat": 49.221,
+    "lon": -123.055,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:137",
+    "name": "Tupper Secondary",
+    "lat": 49.2494,
+    "lon": -123.096,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:139",
+    "name": "Douglas Annex",
+    "lat": 49.2149,
+    "lon": -123.074,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:140",
+    "name": "Douglas Elementary",
+    "lat": 49.2167,
+    "lon": -123.064,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:141",
+    "name": "Franklin Elementary",
+    "lat": 49.2825,
+    "lon": -123.028,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:142",
+    "name": "w\u0259k\u0313\u02b7an\u0313\u0259s t\u0259 syaq\u02b7\u0259m Elementary",
+    "lat": 49.2721,
+    "lon": -123.0403,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:143",
+    "name": "McBride Annex",
+    "lat": 49.2421,
+    "lon": -123.086,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:144",
+    "name": "McBride Elementary",
+    "lat": 49.2444,
+    "lon": -123.078,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:145",
+    "name": "Fleming Elementary",
+    "lat": 49.2257635,
+    "lon": -123.0788691,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:146",
+    "name": "Grenfell Elementary",
+    "lat": 49.23,
+    "lon": -123.08,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:148",
+    "name": "Laurier Elementary",
+    "lat": 49.2186,
+    "lon": -123.126,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:149",
+    "name": "\u03c7pey\u0313 Elementary",
+    "lat": 49.2812,
+    "lon": -123.065,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:150",
+    "name": "Osler Elementary",
+    "lat": 49.2315,
+    "lon": -123.133,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:151",
+    "name": "Van Horne Elementary",
+    "lat": 49.2316,
+    "lon": -123.106,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:152",
+    "name": "Churchill Secondary",
+    "lat": 49.2208,
+    "lon": -123.125211,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:153",
+    "name": "South Hill Education Centre",
+    "lat": 49.230023,
+    "lon": -123.090575,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:154",
+    "name": "Southlands Elementary",
+    "lat": 49.2381,
+    "lon": -123.197,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:159",
+    "name": "Tecumseh Annex",
+    "lat": 49.237,
+    "lon": -123.073,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:160",
+    "name": "Tecumseh Elementary",
+    "lat": 49.2324,
+    "lon": -123.068,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:162",
+    "name": "Templeton Secondary",
+    "lat": 49.278,
+    "lon": -123.06,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:163",
+    "name": "\u0161x\u02b7\u0259x\u02b7a\u0294\u0259s Thunderbird Elementary",
+    "lat": 49.2638,
+    "lon": -123.031,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:164",
+    "name": "Tillicum Annex",
+    "lat": 49.2866,
+    "lon": -123.056,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:166",
+    "name": "Trafalgar Elementary",
+    "lat": 49.2494,
+    "lon": -123.165,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:167",
+    "name": "Tyee Elementary",
+    "lat": 49.2532,
+    "lon": -123.073,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:168",
+    "name": "University Hill Elementary",
+    "lat": 49.2726,
+    "lon": -123.235,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:169",
+    "name": "University Hill Secondary",
+    "lat": 49.25101,
+    "lon": -123.234903,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:170",
+    "name": "Vancouver Learn Network Elem",
+    "lat": 49.275572,
+    "lon": -123.050007,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:173",
+    "name": "Vancouver Technical Secondary",
+    "lat": 49.2619,
+    "lon": -123.052,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:175",
+    "name": "Moberly Elementary",
+    "lat": 49.2163,
+    "lon": -123.085,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:176",
+    "name": "Waverley Elementary",
+    "lat": 49.2283,
+    "lon": -123.055,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:178",
+    "name": "Windermere Secondary",
+    "lat": 49.2464,
+    "lon": -123.037,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:210",
+    "name": "\u0161x\u02b7w\u0259q\u0313\u02b7\u0259\u03b8\u0259t Crosstown Elementary",
+    "lat": 49.277829,
+    "lon": -123.103695,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  },
+  {
+    "id": "vsb:258",
+    "name": "c\u0259w\u0313as Ch\u2019elxw\u00e17elch Skwul\u00e1w\u0313txw Seaside Elementary",
+    "lat": 49.290497,
+    "lon": -123.126168,
+    "source": {
+      "dataset": "VSB school directory and map",
+      "url": "https://www.vsb.bc.ca/school-directory-and-map",
+      "territoryId": "BC-SD39",
+      "retrievedAt": "2026-10-03T20:30:00Z",
+      "method": "reported",
+      "reference": "Published jsonSchoolQuickInfo Pos; no geocoding"
+    }
+  }
+]

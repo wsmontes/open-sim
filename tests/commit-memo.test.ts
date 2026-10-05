@@ -72,7 +72,7 @@ test('the memoized snapshot text and hash are byte-identical to a cache-free com
 
 test('canonicalJson reuses the serialized fragment of a shared subtree',()=>{
  let walked=0;
- const shared={a:1,b:[1,2,{c:3}]};
+ const shared=Object.freeze({a:1,b:Object.freeze([1,2,Object.freeze({c:3})])});
  const counted=new Proxy(shared,{ownKeys(target){walked+=1;return Reflect.ownKeys(target);},get(target,key,receiver){walked+=1;return Reflect.get(target,key,receiver);}});
  const first=canonicalJson({left:counted,note:'one'});
  const afterFirst=walked;
@@ -86,7 +86,7 @@ test('canonicalJson reuses the serialized fragment of a shared subtree',()=>{
 
 test('assertJsonSafe reuses a validated subtree and still counts it against the ceilings',()=>{
  let walked=0;
- const shared={a:1,b:{c:2}};
+ const shared=Object.freeze({a:1,b:Object.freeze({c:2})});
  const counted=new Proxy(shared,{ownKeys(target){walked+=1;return Reflect.ownKeys(target);},getPrototypeOf(target){walked+=1;return Reflect.getPrototypeOf(target);},get(target,key,receiver){walked+=1;return Reflect.get(target,key,receiver);}});
  assertJsonSafe({left:counted},'Documento');
  const afterFirst=walked;
@@ -94,12 +94,12 @@ test('assertJsonSafe reuses a validated subtree and still counts it against the 
  expect(afterFirst).toBeGreaterThan(0);
  expect(walked-afterFirst).toBe(0);
  // Reuse still charges the subtree's nodes: two memoized halves over the 8192-node ceiling have to be refused.
- const half=Array.from({length:5000},(_,index)=>index);
+ const half=Object.freeze(Array.from({length:5000},(_,index)=>index));
  assertJsonSafe({half},'Metade');
  expect(()=>assertJsonSafe({left:half,right:half},'Documento')).toThrow(/grande demais/);
  expect(()=>assertJsonSafe([half,half],'Documento')).toThrow(/grande demais/);
  // And its depth: a subtree that fits at one depth is refused when a memoized parent carries it one level deeper.
- const chain=(levels:number):unknown=>{let nested:unknown=1;for(let level=0;level<levels;level+=1)nested=[nested];return nested;};
+ const chain=(levels:number):unknown=>{let nested:unknown=1;for(let level=0;level<levels;level+=1)nested=Object.freeze([nested]);return nested;};
  const leaf=chain(4);
  assertJsonSafe(leaf,'Folha');
  let nested:unknown=leaf;
@@ -108,12 +108,14 @@ test('assertJsonSafe reuses a validated subtree and still counts it against the 
  expect(()=>assertJsonSafe([nested],'Fundo')).toThrow(/profundo demais/);
 });
 
-test('the memo lies if a value is mutated in place — the invariant the core keeps',()=>{
+test('mutable JSON is re-read and never frozen by serialization or validation',()=>{
  // The documented hazard, pinned so nobody mistakes the memo for a content hash of a mutable object.
  const value={a:1};
  const before=canonicalJson(value);
  value.a=2;
- expect(canonicalJson(value)).toBe(before);
+ expect(canonicalJson(value)).not.toBe(before);
+ expect(Object.isFrozen(value)).toBe(false);
+ const unsafe:{a:unknown}={a:1};assertJsonSafe(unsafe,'Payload');unsafe.a=Infinity;expect(()=>assertJsonSafe(unsafe,'Payload')).toThrow();
  expect(canonicalJson({a:2})).toBe('{"a":2}\n');
 });
 test('the core never mutates a frozen state, which is what makes identity a content key',()=>{
@@ -238,3 +240,4 @@ test('a repeated delivery does not re-address the world it already addressed',as
  expect(second.ok).toBe(true);
  expect(counter.cityStates).toBe(afterFirst);
 });
+test('frozen accessors remain dynamic and frozen deep input still hits the validation limit',()=>{let n=1;const value=Object.freeze({get x(){return n;}});expect(canonicalJson(value)).toBe('{"x":1}\n');assertJsonSafe(value,'Payload');n=2;expect(canonicalJson(value)).toBe('{"x":2}\n');n=NaN;expect(()=>assertJsonSafe(value,'Payload')).toThrow(/inválido/);let deep:unknown=0;for(let i=0;i<15000;i++)deep=Object.freeze([deep]);expect(()=>assertJsonSafe(deep,'Payload')).toThrow(/profundo demais/);});

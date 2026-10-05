@@ -35,6 +35,7 @@ export const netText = (net: number): string => `${net > 0 ? '+' : ''}${grouped(
 
 export function economyPanel(economy: CityEconomy): readonly (readonly [string, string])[] {
  return [
+  ...(economy.calibration?[["Referência municipal",`${economy.calibration.territoryId} · ${economy.calibration.fiscalYear} · ${economy.calibration.gameUnitsPerCad} unidades/CAD`] as const]:[]),
   ['Imposto', `${economy.taxPercent}%`],
   ['Serviços', `${economy.servicesPercent}%`],
   ['Receita/mês', grouped(economy.monthly.revenue)],
@@ -47,4 +48,9 @@ export function economyPanel(economy: CityEconomy): readonly (readonly [string, 
   ['Demanda (R/C/I)', `${economy.demand.residential} / ${economy.demand.commercial} / ${economy.demand.industrial}`],
   ['Valor da terra', grouped(economy.landValueAverage)],
  ];
+}
+
+export function municipalCalibrationPreview(facts:import('../core/municipal-facts').CityFacts|null):string{
+ const budget=facts?.finance;if(!budget||!facts?.population)return 'Referência municipal indisponível para este lugar.';
+ return `${facts.label} · orçamento operacional aprovado ${budget.fiscalYear}: CAD ${grouped(budget.operating.value)} por ano · população ${grouped(facts.population)} (${facts.populationYear??'ano não informado'}) · conversão 0,01 unidades/CAD · fonte: ${budget.operating.source.url}`;
 }

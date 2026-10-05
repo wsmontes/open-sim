@@ -28,8 +28,10 @@ test('a blocked open is reported in words and forgotten, so the next call tries 
  const pending=connect();
  fake.requests[0]!.onblocked!();
  await expect(pending).rejects.toThrow('O armazenamento local está bloqueado por outra aba do jogo');
- void connect();
+ const retry=connect();
  expect(fake.requests).toHaveLength(2);
+ fake.requests[1]!.onsuccess!();
+ await expect(retry).resolves.toBe(fake.requests[1]!.result);
 });
 
 test('an open that never answers fails at the deadline, and a late success closes the connection it no longer needs',async()=>{

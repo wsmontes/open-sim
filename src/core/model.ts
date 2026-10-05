@@ -1,3 +1,4 @@
+import type {MunicipalCalibration} from './municipal-calibration';
 export type CellCoord = { x: number; y: number };
 export type Building = 'residential' | 'commercial' | 'industrial' | 'park' | 'power';
 // Roads are not one thing. A street is where the city lives, an avenue is where it is taller and busier, and a
@@ -35,9 +36,9 @@ export type Components = Record<string, Record<string, unknown>>;
 // earns and spends, and growth follows demand, since version 2; a lot grows only where a plant reaches it through the
 // grid, since version 4.
 export const FORMAT_VERSION = 1;
-export const RULES_VERSION = 4;
+export const RULES_VERSION = 5;
 export type VersionedState = { formatVersion: number; rulesVersion: number };
-export type GameState = { formatVersion: 1; rulesVersion: 4; worldId: string; seed: number; revision: number; tick: number; money: number; chunks: Record<string, ManagedChunk>; actors: Record<string, number>; components: Components };
+export type GameState = { formatVersion: 1; rulesVersion: 5; worldId: string; seed: number; revision: number; tick: number; money: number; chunks: Record<string, ManagedChunk>; actors: Record<string, number>; components: Components };
 export type Action =
  | { type: 'build'; tool: Tool; cells: CellCoord[] }
  | { type: 'demolish'; cells: CellCoord[] }
@@ -46,6 +47,7 @@ export type Action =
  // The city's own levers. They cost nothing to move and they are the only way a player touches the books without
  // knowing the shape of the state: a loan is money *and* debt, and the range is checked here rather than clamped
  // quietly later. Like any other decision it travels as a command, with a revision and an author behind it.
+ | {type:'municipal-calibration';calibration:MunicipalCalibration|null}
  | { type: 'policy'; tax?: number; services?: number; borrow?: number };
 export type Command = { version: 1; worldId: string; actorId: string; sequence: number; expectedRevision: number; action: Action };
 export type CommandResult = { state: GameState; status: 'applied' | 'duplicate' | 'rejected'; reason?: string };
@@ -58,6 +60,7 @@ export type MonthlyLedger = {revenue: number; expense: number; net: number};
 // consequence of something the player did — the rule the whole model is written under.
 export type CityEconomy = {
  taxPercent: number;
+ calibration?:MunicipalCalibration;
  // What the slider says (the budget, 50–150% of the standard) and what it buys (the level the model uses, ~0.25–2.25).
  servicesPercent: number;
  serviceLevel: number;

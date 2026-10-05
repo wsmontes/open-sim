@@ -34,3 +34,4 @@ test('offline preparation uses the configured overview resolution',async()=>{
  await maps.prepareRegion({bounds:{west:-123.13,east:-123.12,south:49.28,north:49.29},levels:['overview'],maxBytes:100},()=>{});
  expect(urls.length).toBeGreaterThan(0);expect(urls.every(url=>url.includes('/10/'))).toBe(true);
 });
+test('shares compact visual tile bytes without decoding them on the caller thread',async()=>{let requests=0;const maps=createOsmSource({fetcher:async()=>{requests++;return new Response(new Uint8Array([8,0]));}});const [a,b]=await Promise.all([maps.loadEncodedTile(14,1,2),maps.loadEncodedTile(14,1,2)]);expect(a).toBe(b);expect(a.features).toEqual([]);expect(a.encoded).toEqual(new Uint8Array([8,0]));expect(await maps.loadEncodedTile(14,1,2)).toBe(a);expect(requests).toBe(1);maps.destroy();});

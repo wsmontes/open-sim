@@ -19,7 +19,7 @@ test('a city is reported with the population the source states, the year it stat
  const calls:string[]=[];
  const directory=createWikidataDirectory({fetcher:async(input)=>{calls.push(String(input));return response(sparql([{qid:'Q174',label:'São Paulo',pop:11_904_961,year:2025,area:1521.11,country:'Brasil'}]));}});
  const facts=await directory.named('São Paulo','pt');
- expect(facts).toEqual({
+ expect(facts).toMatchObject({
   id:'Q174',label:'São Paulo',country:'Brasil',population:11_904_961,populationYear:2025,areaKm2:1521.11,
   source:{dataset:'Wikidata',url:'https://www.wikidata.org/wiki/Q174',license:'CC0'},
  });
@@ -122,4 +122,25 @@ test('both queries ask the service for a place, and for the code that joins the 
   expect(query).toContain('wdt:P31/wdt:P279* wd:Q486972');
   expect(query).toContain('wdt:P1585');
  }
+});
+
+test('newest non deprecated population retains its individual provenance',async()=>{
+ const body=sparql([{qid:'Q24639',label:'Vancouver',pop:662248,year:2021,country:'Canadá'},{qid:'Q24639',label:'Vancouver',pop:999999,year:2025,country:'Canadá'}]);
+ body.results.bindings[1]!['rank']={value:'http://wikiba.se/ontology#DeprecatedRank'};
+ const directory=createWikidataDirectory({fetcher:async()=>response(body)});
+ const facts=await directory.named('Vancouver','pt');
+ expect(facts?.population).toBe(662248);
+ expect(facts?.measures?.population).toMatchObject({value:662248,unit:'people',source:{territoryId:'Q24639',observedYear:2021,dataset:'Wikidata',method:'reported'}});
+ expect(facts?.country).toBe('Canadá');
+});
+test('country code is preserved independently of the translated country name',async()=>{
+ const body=sparql([{qid:'Q24639',label:'Vancouver',pop:662248,year:2021,country:'Canadá'}]);
+ body.results.bindings[0]!['countryCode']={value:'CA'};
+ const facts=await createWikidataDirectory({fetcher:async()=>response(body)}).named('Vancouver','pt');
+ expect(facts?.countryCode).toBe('CA');
+});
+test('financial measures never replace the census attribution',async()=>{
+ const facts=await createWikidataDirectory({fetcher:async()=>response(sparql([{qid:'Q24639',label:'Vancouver',pop:662248,year:2021}]))}).named('Vancouver','pt');
+ expect(facts?.measures?.population?.source.dataset).toBe('Wikidata');
+ expect(facts?.finance).toBeUndefined();
 });

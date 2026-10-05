@@ -1,0 +1,223 @@
+{
+  "id": "CYVR",
+  "iata": "YVR",
+  "name": "Vancouver International Airport",
+  "position": {
+    "lat": 49.193901,
+    "lon": -123.183998
+  },
+  "runways": [
+    {
+      "id": "234512",
+      "airportId": "CYVR",
+      "ends": [
+        {
+          "lat": 49.20500183105469,
+          "lon": -123.20099639892578
+        },
+        {
+          "lat": 49.200599670410156,
+          "lon": -123.16000366210938
+        }
+      ],
+      "endNames": [
+        "08L",
+        "26R"
+      ],
+      "lengthM": 3029.712,
+      "closed": false,
+      "elevationM": 3.5456791361787072,
+      "verticalDatum": "CGVD2013",
+      "elevationMethod": "derived",
+      "terrainSourceIds": [
+        "regional"
+      ],
+      "reported": {
+        "lengthFt": 9940,
+        "endElevationsFt": [
+          13,
+          9
+        ],
+        "headingsTrue": [
+          100,
+          280
+        ],
+        "displacedThresholdsFt": [
+          null,
+          null
+        ]
+      }
+    },
+    {
+      "id": "234511",
+      "airportId": "CYVR",
+      "ends": [
+        {
+          "lat": 49.190101623535156,
+          "lon": -123.20800018310547
+        },
+        {
+          "lat": 49.18439865112305,
+          "lon": -123.16100311279297
+        }
+      ],
+      "endNames": [
+        "08R",
+        "26L"
+      ],
+      "lengthM": 3505.2000000000003,
+      "closed": false,
+      "elevationM": 2.9210018424798947,
+      "verticalDatum": "CGVD2013",
+      "elevationMethod": "derived",
+      "terrainSourceIds": [
+        "regional"
+      ],
+      "reported": {
+        "lengthFt": 11500,
+        "endElevationsFt": [
+          9,
+          6
+        ],
+        "headingsTrue": [
+          100.3,
+          280.3
+        ],
+        "displacedThresholdsFt": [
+          697,
+          null
+        ]
+      }
+    },
+    {
+      "id": "234513",
+      "airportId": "CYVR",
+      "ends": [
+        {
+          "lat": 49.19990158081055,
+          "lon": -123.20099639892578
+        },
+        {
+          "lat": 49.184200286865234,
+          "lon": -123.18199920654297
+        }
+      ],
+      "endNames": [
+        "13",
+        "31"
+      ],
+      "lengthM": 2225.04,
+      "closed": false,
+      "elevationM": 2.302436429338822,
+      "verticalDatum": "CGVD2013",
+      "elevationMethod": "derived",
+      "terrainSourceIds": [
+        "regional"
+      ],
+      "reported": {
+        "lengthFt": 7300,
+        "endElevationsFt": [
+          8,
+          7
+        ],
+        "headingsTrue": [
+          142,
+          322
+        ],
+        "displacedThresholdsFt": [
+          null,
+          null
+        ]
+      }
+    },
+    {
+      "id": "234510",
+      "airportId": "CYVR",
+      "ends": [
+        {
+          "lat": 49.18579864501953,
+          "lon": -123.2020034790039
+        },
+        {
+          "lat": 49.184200286865234,
+          "lon": -123.18800354003906
+        }
+      ],
+      "endNames": [
+        "XX",
+        "26A"
+      ],
+      "lengthM": 1066.8,
+      "closed": true,
+      "elevationM": 2.682235742207389,
+      "verticalDatum": "CGVD2013",
+      "elevationMethod": "derived",
+      "terrainSourceIds": [
+        "regional"
+      ],
+      "reported": {
+        "lengthFt": 3500,
+        "endElevationsFt": [
+          8,
+          8
+        ],
+        "headingsTrue": [
+          99.8,
+          279.8
+        ],
+        "displacedThresholdsFt": [
+          null,
+          null
+        ]
+      }
+    }
+  ],
+  "airlines": [
+    {
+      "code": "AC",
+      "name": "Air Canada",
+      "colours": [
+        "#eeeee8",
+        "#cc3436",
+        "#242f35"
+      ],
+      "sourceUrl": "https://www.yvr.ca/en/passengers/flights/airlines-and-destinations",
+      "representation": "stylized"
+    },
+    {
+      "code": "WS",
+      "name": "WestJet",
+      "colours": [
+        "#eeeee8",
+        "#398e93",
+        "#244565"
+      ],
+      "sourceUrl": "https://www.yvr.ca/en/passengers/flights/airlines-and-destinations",
+      "representation": "stylized"
+    }
+  ],
+  "sources": [
+    {
+      "dataset": "OurAirports airports.csv / runways.csv — CYVR selected rows",
+      "url": "https://ourairports.com/data/",
+      "retrievedAt": "2026-10-03T21:46:40.437Z",
+      "license": "Public domain"
+    },
+    {
+      "dataset": "YVR official airline catalogue and runway identifiers",
+      "url": "https://www.yvr.ca/en/passengers/flights/airlines-and-destinations",
+      "retrievedAt": "2026-10-03T21:46:40.438Z"
+    },
+    {
+      "dataset": "YVR published runway layout",
+      "url": "https://www.yvr.ca/-/media/yvr/documents/airside-vehicles/2025-airside-traffic-directives_new-v2.pdf",
+      "retrievedAt": "2026-10-03T21:46:40.438Z"
+    },
+    {
+      "dataset": "Scene runway support derived from captured CGVD2013 DTM samples; not a survey or conversion of OurAirports MSL",
+      "url": "https://canelevation-dem.s3.ca-central-1.amazonaws.com/mrdem-30/mrdem-30-dtm.tif",
+      "retrievedAt": "2026-10-03T21:46:40.438Z",
+      "license": "Open Government Licence Canada"
+    }
+  ]
+}
