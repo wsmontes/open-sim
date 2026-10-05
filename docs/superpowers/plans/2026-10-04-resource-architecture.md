@@ -86,4 +86,5 @@
 - [x] Run full `npm run typecheck`, `npm run lint`, `npx vitest run --maxWorkers 2 --testTimeout 20000`, `npm run build`; Expected: all PASS (existing bundle warning documented if remains).
 - [x] Compare cold/warm first scene, dense navigation, static animation, pause, repeated journeys and forced GPU fallback. Record limitations honestly.
 - [x] Commit, independent whole-branch review; fix substantive findings with regressions; full checks green.
-- [ ] Publish via existing Pages flow, preserving recovery reference; verify live bundle and real Chrome functionality. Expected: new source commit deployed and playable.
+- [x] Publish via existing Pages flow, preserving recovery reference; verify live bundle byte-for-byte. Source54138a1/Pages76b977b, all assets200 and equal.
+- [ ] Verify the deployed app visually in real Chrome; blocked by macOS lock requiring manual unlock. Local production build tested, production HTTP verified.

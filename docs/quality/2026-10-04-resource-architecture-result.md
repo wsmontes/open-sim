@@ -31,7 +31,7 @@ The final sample FPS was[5,20,17,18,15,21,19,18,20,18,19,21,17,20,16]. This impr
 
 Cold new preview origin after loading UI change: first usable scene568.2ms, map843.1ms. Warm reload567.8ms; final reload731.4ms. Deferred regional chunks requested after first scene (example671ms). Loading visibly changed Preparing→hidden. Native screenshot inspection confirmed dense city, depth, controls, night and rotation.
 
-Seven5-second samples across Vancouver→Victoria→Vancouver→Lisboa→Vancouver→Victoria→Vancouver: cache <=78,585,256bytes, <=2,048entries and1 raster context; zero recorded JS errors. Sampled JS heaps[116,171,86,84,89,78,176]MiB show GC variability, not established native-memory stability. Warm reload restored camera and saved state. Zoom/rotation, pause and forced GPU fallback verification are recorded with the deployment check below.
+Seven5-second samples across Vancouver→Victoria→Vancouver→Lisboa→Vancouver→Victoria→Vancouver: cache <=78,585,256bytes, <=2,048entries and1 raster context; zero recorded JS errors. Sampled JS heaps[116,171,86,84,89,78,176]MiB show GC variability, not established native-memory stability. Warm reload restored camera and saved state. Twenty alternating zoom changes with rotation were queued in the final build; macOS locked before the completion output could be read. Pause/surface recovery regressions pass, and the previous containment-stage native test verified forced GPU fallback. A fresh final-build forced-loss test could not execute once locked.
 
 Paired final road benchmark (`resource-audit/network-final.jsonl`) at20k edges accepted the same1tile/17,397edge graph: original599–788ms, refactor135–166ms. At140k original276–367ms/refactor292–432ms, same4tile graph; there is some guard overhead at the full budget. Timings are Node construction/runtime preparation, not browser FPS or message transport.
 
@@ -46,4 +46,8 @@ Fresh independent reviewer examined00df96b..8b152fa, then39abfc3 andabd5b80. Two
 
 ## Publication
 
-Pending final gate and live verification. Previous Pages commit9363995916cb1303f0ae922223661f1fbc22cedc is preserved before publication for recovery.
+Published source54138a18e003a1159c7456cd0c6e94a75036739e as Pages commit76b977b3973b482656900fb004b4d010401075af via the existing script. Final gate:149test files/1,024passed/5skipped; typecheck and build passed; lint had zero errors and10 existing warnings.
+
+At2026-10-05T04:25:26Z, live HTML plus all9 built assets returned200 and matched local build byte-for-byte/SHA256. Evidence: [production-check.json](2026-10-04-resource-audit/production-check.json). Live app: https://wsmontes.github.io/open-sim/. Previous Pages commit9363995916cb1303f0ae922223661f1fbc22cedc is preserved remotely as tag `codex/pages-before-resource-2026-10-04` for recovery.
+
+Native production visual verification is pending: the CUA tool reported that macOS was locked and automatic unlock failed, twice. The human was asked to unlock while publication/HTTP checks continued. The tested local production build has exactly the same deployed bytes, but HTTP equality does not establish a native production browser smoke test. Do not mark this final visual check complete until the Mac is unlocked and it is actually performed.
