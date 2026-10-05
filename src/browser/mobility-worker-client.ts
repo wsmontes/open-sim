@@ -1,9 +1,9 @@
 import {prepareMobilityFleetAsync,type FleetInput,type FleetRequest,type FleetResult} from '../presentation/mobility-fleet';
 import type {MobilityNetwork,MobilityAgent} from '../presentation/mobility-model';
 import {buildNetworkJobAsync,type NetworkRequest,type NetworkResult} from '../presentation/mobility-network-job';
-import {createVisualTileDecoder} from './visual-tile-decoder';
+import {createVisualTileDecoder,MOBILITY_LAYERS} from './visual-tile-decoder';
 export function createMobilityWorkerClient(factory:()=>Worker=()=>new Worker(new URL('./mobility-worker.ts',import.meta.url),{type:'module'})){
- const decoder=createVisualTileDecoder(8*1024*1024);
+ const decoder=createVisualTileDecoder(8*1024*1024,MOBILITY_LAYERS);
  const fallbackBuild=async(request:NetworkRequest)=>{const tiles=[];for(const tile of request.tiles.slice(0,4)){await new Promise<void>(r=>setTimeout(r,0));if(disposed)throw new Error('Mobility worker disposed');tiles.push(decoder.decode(tile));}const result=await buildNetworkJobAsync({...request,tiles},()=>disposed);return {...result,limited:result.limited||tiles.length<request.tiles.length};};
  let worker:Worker|undefined,fallback=false,disposed=false,fleetSequence=0,lastTransitVersion=-1,fleetActive:{request:FleetRequest;network:MobilityNetwork;resolve:(agents:readonly MobilityAgent[])=>void;reject:(error:Error)=>void}|undefined,fleetPending:typeof fleetActive;
  const transitVersions=new WeakMap<object,number>();let transitSequence=0;
