@@ -6,7 +6,6 @@ import {clampZoom,nextZoomStep,normalizeAngle,pick,rotateTo,zoomTo,ROTATE_STEP} 
 import type {SelectedTool} from './hud';
 export type InputCallbacks = {
  onHover(cell:CellCoord|null):void;
- onCursor?(cell:CellCoord):void;
  onGesture?(active:boolean):void;
  onPreview(cells:readonly CellCoord[]):void;
  onCommit(cells:readonly CellCoord[]):void;
@@ -66,7 +65,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   return geo?toCell(geo.lat,geo.lon):null;
  };
  let cursor:CellCoord|null=null;
- const reportCursor=(cell:CellCoord)=>{cursor=cell;callbacks.onHover(cell);callbacks.onCursor?.(cell);const status=canvas.ownerDocument.getElementById('map-cursor-status');if(status)status.textContent=`Célula ${cell.x}, ${cell.y}. Enter: inspecionar ou aplicar ferramenta. I: inspecionar.`;};
+ const reportCursor=(cell:CellCoord)=>{cursor=cell;callbacks.onHover(cell);const status=canvas.ownerDocument.getElementById('map-cursor-status');if(status)status.textContent=`Célula ${cell.x}, ${cell.y}. Enter: inspecionar ou aplicar ferramenta. I: inspecionar.`;};
  let stroke:StrokeState|null=null,pan:{point:Point;camera:Camera}|null=null,rotate:{point:Point;camera:Camera}|null=null,space=false;
  // Where the finger went down and whether it has wandered since. A finger that lands and lifts without moving is a
  // selection; one that travels is a drag, a stroke or a gesture, and none of those is a selection.
