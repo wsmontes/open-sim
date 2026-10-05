@@ -12,10 +12,10 @@ export function createSceneWorkerClient(factory:()=>Worker=()=>new Worker(new UR
  let worker:Worker|undefined,disposed=false,active=false,pending:{view:WorldView;policy:RenderPolicy}|undefined,lastSent:WorldView|undefined,lastStateKey='',lastPolicy:RenderPolicy|undefined,latestKey='',readyKey='',ticket=0;
  let deadline:ReturnType<typeof setTimeout>|undefined;
  const clearDeadline=()=>{if(deadline!==undefined){clearTimeout(deadline);deadline=undefined;}};
- const stats={bytes:0,entries:0,workMs:0};
+ const stats={bytes:0,entries:0,workMs:0,geometryBytes:0,geometryPressure:false};
  const visibility=typeof document==='undefined'?undefined:document;
  let failure:string|undefined;
- const fail=(reason='worker-error')=>{failure=reason;clearDeadline();worker?.terminate();worker=undefined;active=false;pending=undefined;readyKey='';if(!disposed)failed();};
+ const fail=(reason='worker-error')=>{failure=reason;clearDeadline();worker?.terminate();worker=undefined;active=false;pending=undefined;lastSent=undefined;lastPolicy=undefined;lastStateKey='';readyKey='';if(!disposed)failed();};
  // Background tabs may be suspended by the browser; wall time there is not render work.
  const armDeadline=()=>{clearDeadline();if(!visibility?.hidden)deadline=setTimeout(()=>{if(!visibility?.hidden)fail('timeout');},15000);};
  const onVisibility=()=>{if(active)armDeadline();};
@@ -29,7 +29,7 @@ export function createSceneWorkerClient(factory:()=>Worker=()=>new Worker(new UR
  };
  try{worker=factory();worker.onmessage=event=>{const result=event.data as SceneWorkerResult;
   if(disposed||!worker){result.bitmap.close();return;}
-  clearDeadline();active=false;if(result.key===latestKey){readyKey=result.staticReady?result.key:'';Object.assign(stats,result.cache,{workMs:result.workMs});publish(result,lastSent!);}else result.bitmap.close();
+  clearDeadline();active=false;if(result.key===latestKey){readyKey=result.staticReady?result.key:'';Object.assign(stats,result.cache,{workMs:result.workMs,geometryBytes:result.geometryBytes??0,geometryPressure:result.geometryPressure??false});publish(result,lastSent!);}else result.bitmap.close();
   if(pending){const next=pending;pending=undefined;dispatch(next.view,next.policy);}else if(result.staticOnly&&result.key===latestKey&&lastSent)dispatch(lastSent,lastPolicy!);
  };worker.onerror=event=>fail(event?.message??'worker-error');}catch(error){worker=undefined;failure=error instanceof Error?error.message:'worker-unavailable';}
  return {

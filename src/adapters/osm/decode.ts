@@ -1,3 +1,4 @@
+import {geometrySpans,budgetedGeometry,type GeometryBudget} from './budgeted-geometry';
 import {VectorTile} from '@mapbox/vector-tile';
 import {PbfReader} from 'pbf';
 import {CHUNK,WORLD} from '../../core/coordinates';
@@ -37,24 +38,27 @@ function bucket(tileX:number,tileY:number,cellsPerSide:number,features:readonly 
  return byChunk;
 }
 
-export function decodeVisualTile(bytes:Uint8Array,zoom:number,tileX:number,tileY:number,layers:ReadonlySet<string>=LAYERS):GeographicTile{
+export function decodeVisualTile(bytes:Uint8Array,zoom:number,tileX:number,tileY:number,layers:ReadonlySet<string>=LAYERS,budget?:GeometryBudget):GeographicTile{
  const decoded=new VectorTile(new PbfReader(bytes)),features:MapFeature[]=[];
- const side=cellsPerTile(zoom),originX=tileX*side,originY=tileY*side;
+ const side=cellsPerTile(zoom),originX=tileX*side,originY=tileY*side,spans=budget?geometrySpans(bytes):undefined;let points=0,limited=false;
  for(const [name,layer] of Object.entries(decoded.layers)){
   if(!layers.has(name))continue;
   for(let index=0;index<layer.length;index++){
+   if(budget&&features.length>=(budget.maxFeatures??Infinity)){limited=true;break;}
    const raw=layer.feature(index);
    if(raw.type!==1&&raw.type!==2&&raw.type!==3)continue;
    if(name==='streets'&&raw.properties.rail===true)continue;
+   const geometry=budget?budgetedGeometry(bytes,spans?.get(name)?.[index],originX,originY,side/raw.extent,{...budget,maxPoints:Math.max(0,budget.maxPoints-points)}):raw.loadGeometry().map(ring=>ring.map(point=>({x:originX+point.x/raw.extent*side,y:originY+point.y/raw.extent*side})));
+   if(!geometry){limited=true;continue;}points+=geometry.reduce((sum,ring)=>sum+ring.length,0);
    features.push({
     layer:name,kind:String(raw.properties.kind??''),bridge:raw.properties.bridge===true,type:raw.type,
     name:String(raw.properties.name??''),height:Number(raw.properties.height??0)||undefined,
     ...(name==='streets'?readMobilityAttributes(raw.properties,zoom,raw.id):{}),
-    geometry:raw.loadGeometry().map(ring=>ring.map(point=>({x:originX+point.x/raw.extent*side,y:originY+point.y/raw.extent*side}))),
+    geometry,
    });
   }
  }
- return{z:zoom,x:tileX,y:tileY,features};
+ return{z:zoom,x:tileX,y:tileY,features,...(limited?{limited:true}:{})};
 }
 export function decodeTile(bytes:Uint8Array,zoom:number,tileX:number,tileY:number):DecodedTile{
  const visual=decodeVisualTile(bytes,zoom,tileX,tileY);

@@ -48,6 +48,23 @@ test('obsolete in-flight map responses do not refill the owned cache',async()=>{
 });
 test('byte pressure evicts unneeded cached regions instead of relying on tile count',async()=>{
  const stream=createGeographicStream(async(z,x,y)=>({z,x,y,features:[],encoded:new Uint8Array(2048)}),()=>{},()=>({zoomBias:0,maxTiles:4,concurrency:1,cacheBytes:1000}));
- stream.update(camera,viewport);await stream.idle();expect(stream.status().bytes).toBeGreaterThan(1000);
+ stream.update(camera,viewport);await stream.idle();expect(stream.status().bytes).toBeLessThanOrEqual(1000);
  stream.update({...camera,zoom:.000003},viewport);await stream.idle();expect(stream.status().bytes).toBe(0);
 });
+
+test('visible oversized tiles are rejected once and reported as pressure, not network failure',async()=>{
+ let loads=0,pressure=0;const stream=createGeographicStream(async(z,x,y)=>{loads++;return {z,x,y,features:[],encoded:new Uint8Array(2048)};},()=>{},()=>({zoomBias:0,maxTiles:4,concurrency:1,cacheBytes:1000}),undefined,()=>pressure++);
+ stream.update(camera,viewport);await stream.idle();const count=loads;stream.update(camera,viewport);await stream.idle();
+ expect(stream.status().bytes).toBeLessThanOrEqual(1000);expect(loads).toBe(count);expect(pressure).toBeGreaterThan(0);expect(stream.scene().error).toBe(false);expect(stream.scene().loading).toBe(false);expect(stream.scene().limited).toBe(true);
+});
+test('same-camera budget shrink reconciles demanded retained tiles',async()=>{
+ let cacheBytes=100000;const stream=createGeographicStream(async(z,x,y)=>({z,x,y,features:[],encoded:new Uint8Array(2048)}),()=>{},()=>({zoomBias:0,maxTiles:4,concurrency:1,cacheBytes}));
+ stream.update(camera,viewport);await stream.idle();expect(stream.status().bytes).toBeGreaterThan(1000);cacheBytes=1000;stream.update(camera,viewport);await stream.idle();expect(stream.status().bytes).toBeLessThanOrEqual(cacheBytes);
+});
+
+ test('near source-floor coverage truncation remains explicitly limited after loading completes',async()=>{
+ const v={width:1772,height:1568},at=centerOn(toCell(49.283,-123.121),{x:0,y:0,zoom:.06,rotation:Math.PI/4},v);
+ let maxTiles=4;const stream=createGeographicStream(async(z,x,y)=>({z,x,y,features:[]}),()=>{},()=>({zoomBias:4,minimumZoom:14,maxTiles,concurrency:1,cacheBytes:100000}));
+ stream.update(at,v);await stream.idle();expect(stream.scene().tiles).toHaveLength(4);expect(stream.scene().loading).toBe(false);expect(stream.scene().limited).toBe(true);expect(stream.scene().error).toBe(false);
+ maxTiles=40;stream.update(at,v);await stream.idle();expect(stream.scene().limited).toBe(false);expect(stream.scene().tiles.length).toBeGreaterThan(4);
+ });

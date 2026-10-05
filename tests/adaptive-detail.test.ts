@@ -28,3 +28,6 @@ test('the revision marks demand changes so a stream need not be polled every fra
  c.render(.001,5,0,0);c.render(.001,5,0,1000);expect(c.revision).toBe(start);
  c.render(.001,900,0,2000);expect(c.revision).toBeGreaterThan(start);
 });
+test('near-view overload preserves building-source zoom while bounding demand',()=>{
+ const c=createAdaptiveDetail(2);c.render(.35,900,0,0);expect(c.demand(.35).minimumZoom).toBe(14);expect(c.demand(.001).minimumZoom).toBe(0);
+});

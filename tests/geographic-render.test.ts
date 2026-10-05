@@ -1,4 +1,5 @@
 import {expect,test} from 'vitest';
+import {preparedSceneStats} from '../src/surfaces/canvas/geographic-renderer';
 import {render} from '../src/surfaces/canvas/canvas-renderer';
 import {createGame} from '../src/core/commands';
 import {blank} from './fixtures/world';
@@ -132,4 +133,9 @@ test('a mapped park is planted from the same lattice as the streets',()=>{
  expect(rec.ellipses).toBeGreaterThan(20);
  const streets=recorder();render(streets.context,view);
  expect(rec.ellipses).toBeGreaterThan(streets.ellipses);
+});
+
+test('entering planet view releases prepared regional geometry and terrain references',()=>{
+ const rec=recorder();render(rec.context,view);expect(preparedSceneStats().retainedTileSets).toBe(1);
+ render(rec.context,{...view,camera:{...view.camera,zoom:.000003},geography:{tiles:[],revision:2,loading:false,error:false}});expect(preparedSceneStats().retainedTileSets).toBe(0);
 });

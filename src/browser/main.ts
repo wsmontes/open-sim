@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import {loadBrowserTile} from './visual-tile-loader';
 import {createSceneLoading} from './scene-loading';
 import {createRegionalMobility,createRegionalResource} from './regional-mobility';
 import {createSceneSurface} from './scene-surface';
@@ -383,10 +384,10 @@ const hud = createHud(hudRoot, {
 // client.step, the canvas and the panels.
 let active = false;
 let invalidateFrame = () => {};
-const loadSceneTile=(z:number,x:number,y:number)=>typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined'&&'loadEncodedTile' in maps?(maps as OsmSource).loadEncodedTile(z,x,y):(maps as OsmSource).loadVisualTile(z,x,y);
+const loadSceneTile=(z:number,x:number,y:number)=>loadBrowserTile(maps as OsmSource,z,x,y);
 const adaptiveDetail=createAdaptiveDetail((navigator as Navigator&{deviceMemory?:number}).deviceMemory);
 let detailZoom=.01,detailRevision=-1;
-const geography = 'loadVisualTile' in maps ? createGeographicStream(loadSceneTile,()=>invalidateFrame(),()=>adaptiveDetail.demand(detailZoom),(ms,ok)=>adaptiveDetail.load(ms,ok)) : null;
+const geography = 'loadVisualTile' in maps ? createGeographicStream(loadSceneTile,()=>invalidateFrame(),()=>adaptiveDetail.demand(detailZoom),(ms,ok)=>adaptiveDetail.load(ms,ok),()=>adaptiveDetail.pressure(detailZoom,performance.now())) : null;
 const terrainSource=createTerrainSource(async(url,signal)=>{const response=await fetch(url,{signal});if(!response.ok)throw new Error('Terrain unavailable');return new Uint8Array(await response.arrayBuffer());},terrainManifest as TerrainManifest);
 const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame());
 const devicePolicy=renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.width,canvas.height);
@@ -637,6 +638,7 @@ function onPlace(name: string) {
  if(geography){const target=PLACES[name],v=client.view();if(target)tell({do:'camera',camera:centerOn(toCell(target.lat,target.lon),{...v.camera,zoom:.35},v.viewport),place:name,settle:true});}
 }
 function onRetryMap() {
+ sceneSurface.retry();
  geography?.retry();
  mobilityStream?.retry();
  regionalMobility.retry();regionalActivity.retry();
@@ -744,7 +746,7 @@ window.screen?.orientation?.addEventListener?.('change', viewportSettled);
 let motion = 0;
 let motionMs=0,renderMs=0;
 const cameraUpdates=createCameraUpdateGate();
-const sceneSurface=createSceneSurface(ctx,()=>invalidateFrame(),(navigator as Navigator&{deviceMemory?:number}).deviceMemory,(view,workMs,ownedBytes)=>adaptiveDetail.render(view.camera.zoom,workMs,ownedBytes,performance.now()));
+const sceneSurface=createSceneSurface(ctx,()=>invalidateFrame(),(navigator as Navigator&{deviceMemory?:number}).deviceMemory,(view,workMs,ownedBytes,pressure)=>{adaptiveDetail.render(view.camera.zoom,workMs,ownedBytes,performance.now());if(pressure)adaptiveDetail.pressure(view.camera.zoom,performance.now());});
 const perfSamples=createPerformanceSamples(),framePhases:Record<string,number>={};
 let framePresented=false;
 const phase=(name:string,start:number)=>{if(PERF_DEBUG)framePhases[name]=performance.now()-start;};
@@ -831,7 +833,7 @@ const draw = (now: number, seconds: number) => {
   lastView = view;
  }
  const visualScene=geography?.scene(),surfaceStatus=sceneSurface.status();
- sceneLoading.update({sessionReady:true,pictureReady:surfaceStatus.pictureReady,mapLoading:visualScene?.loading??false,preparing:!staticReady,error:startupFailed||(visualScene?.error??false)||regionalMobility.status().error||(regionalWanted&&regionalActivity.status().error)});
+ sceneLoading.update({sessionReady:true,pictureReady:surfaceStatus.pictureReady,mapLoading:visualScene?.loading??false,preparing:!staticReady,limited:(visualScene?.limited??false)||surfaceStatus.geometryPressure,recovering:surfaceStatus.recovering,error:!!geography&&surfaceStatus.recoveryNeeded||startupFailed||(visualScene?.error??false)||regionalMobility.status().error||(regionalWanted&&regionalActivity.status().error)});
  if(surfaceStatus.pictureReady){perfMark('first-scene');if(!firstPicture){firstPicture=true;syncMobilityCity(containsLocalArea(vancouverLocalAreas.areas,civilFocus));regionalActivity.update(regionalWanted,staticReady);}}
  return {moving:moving||sceneSurface.pending(), ambient: hand.speed !== 0&&staticReady,presented:framePresented};
 };

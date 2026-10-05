@@ -139,10 +139,11 @@ export function drawInteractionOverlay(ctx:CanvasRenderingContext2D,view:WorldVi
  if(view.hover&&scale>=1.12){rectCell(ctx,view,view.hover,'rgba(255,244,191,.15)');ctx.strokeStyle='#f5e4a2';ctx.lineWidth=1;ctx.stroke();}
 }
 export function resetGeographicComposition(ctx:CanvasRenderingContext2D){compositors.get(lightContext(ctx,'day'))?.clear();compositors.get(lightContext(ctx,'night'))?.clear();}
+export function releaseGeographicGeometry(ctx:CanvasRenderingContext2D){resetGeographicComposition(ctx);scenePreparer.clear();groundBitmap=undefined;sceneRasterCache.delete('geographic-ground');}
 export const preparedSceneStats=()=>scenePreparer.stats();
 let groundBitmap:{key:string;tiles:object|undefined;terrain:object|undefined;canvas:OffscreenCanvas}|undefined;
 export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldView){
- if(view.camera.zoom<GLOBE_ZOOM){compositors.get(lightContext(ctx,view.light??'day'))?.clear();drawGlobe(ctx,view);return;}
+ if(view.camera.zoom<GLOBE_ZOOM){releaseGeographicGeometry(ctx);drawGlobe(ctx,view);return;}
  ctx=lightContext(ctx,view.light??'day');
  const {camera,viewport}=view,scale=TILE_W*camera.zoom;
  ctx.imageSmoothingEnabled=true;ctx.lineJoin='round';ctx.lineCap='round';

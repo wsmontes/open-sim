@@ -35,3 +35,14 @@ test('offline preparation uses the configured overview resolution',async()=>{
  expect(urls.length).toBeGreaterThan(0);expect(urls.every(url=>url.includes('/10/'))).toBe(true);
 });
 test('shares compact visual tile bytes without decoding them on the caller thread',async()=>{let requests=0;const maps=createOsmSource({fetcher:async()=>{requests++;return new Response(new Uint8Array([8,0]));}});const [a,b]=await Promise.all([maps.loadEncodedTile(14,1,2),maps.loadEncodedTile(14,1,2)]);expect(a).toBe(b);expect(a.features).toEqual([]);expect(a.encoded).toEqual(new Uint8Array([8,0]));expect(await maps.loadEncodedTile(14,1,2)).toBe(a);expect(requests).toBe(1);maps.destroy();});
+test('fulfilled encoded tiles have a byte cap, independent of pending deduplication',async()=>{
+ let calls=0;const maps=createOsmSource({visualCacheBytes:6,fetcher:async()=>{calls++;return new Response(new Uint8Array(4));}});
+ const a=await maps.loadEncodedTile(14,1,1);await maps.loadEncodedTile(14,2,1);expect(maps.encodedStats().bytes).toBeLessThanOrEqual(6);
+ const b=await maps.loadEncodedTile(14,1,1);expect(b).not.toBe(a);expect(calls).toBe(3);maps.destroy();
+});
+test('destroy aborts active fetches and no delayed result repopulates the provider',async()=>{
+ let signal:AbortSignal|undefined,finish!:(response:Response)=>void;
+ const maps=createOsmSource({fetcher:async(_input,init)=>{signal=init?.signal as AbortSignal;return new Promise(resolve=>finish=resolve);}});
+ const waiting=maps.loadEncodedTile(14,1,1);await new Promise(resolve=>setTimeout(resolve,0));maps.destroy();expect(signal?.aborted).toBe(true);
+ finish(new Response(new Uint8Array(4)));await expect(waiting).rejects.toThrow('disposed');expect(maps.encodedStats().bytes).toBe(0);
+});

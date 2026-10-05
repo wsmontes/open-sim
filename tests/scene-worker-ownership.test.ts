@@ -1,0 +1,23 @@
+import {afterEach,expect,it,vi} from 'vitest';
+import {createGame} from '../src/core/commands';
+import {blank} from './fixtures/world';
+import {renderPolicy} from '../src/presentation/render-policy';
+import type {SceneWorkerRequest,SceneWorkerResult} from '../src/browser/scene-worker-protocol';
+const hooks=vi.hoisted(()=>({renders:[] as unknown[]}));
+vi.mock('../src/surfaces/canvas/canvas-renderer',()=>({render:(_ctx:unknown,view:unknown)=>hooks.renders.push(view)}));
+vi.mock('../src/surfaces/canvas/geographic-renderer',()=>({resetGeographicComposition(){},releaseGeographicGeometry(){}}));
+vi.mock('../src/adapters/osm/decode',()=>({decodeVisualTile:(_bytes:Uint8Array,z:number,x:number,y:number)=>({z,x,y,features:[{layer:'water',kind:'water',bridge:false,type:3,geometry:[[{x:0,y:0},{x:1,y:1}]]}]})}));
+afterEach(()=>{vi.unstubAllGlobals();vi.resetModules();hooks.renders=[];});
+it('counts selected decoded geometry once and releases departed decoded data',async()=>{
+ const results:SceneWorkerResult[]=[];
+ vi.stubGlobal('onmessage',null);vi.stubGlobal('postMessage',(result:SceneWorkerResult)=>results.push(result));
+ vi.stubGlobal('OffscreenCanvas',class{getContext(){return {drawImage(){}};}transferToImageBitmap(){return {width:100,height:100,close(){}};}});
+ await import('../src/browser/scene-worker');
+ const send=globalThis.onmessage as unknown as (event:{data:SceneWorkerRequest})=>void;
+ const base={ticket:1,key:'one',camera:{x:0,y:0,zoom:.001,rotation:0},viewport:{width:100,height:100},motion:0,policy:renderPolicy(2,100,100)};
+ const tile={z:10,x:1,y:1,features:[],encoded:new Uint8Array(2),encodedRevision:'a'};
+ send({data:{...base,scene:{seed:1,state:createGame('test',1,blank('0:0')),geography:{tiles:[tile],keys:['10:1:1'],revision:1,loading:false,error:false}}}});
+ expect(results[0].geometryBytes).toBe(224+64);
+ send({data:{...base,key:'two',ticket:2,scene:{seed:1,geography:{tiles:[],keys:[],revision:2,loading:false,error:false}}}});
+ expect(results[1].geometryBytes).toBe(0);
+});

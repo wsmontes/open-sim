@@ -13,3 +13,8 @@ it('accounts for owned decoded geometry and drops bytes when selection changes',
  geo.apply({tiles:[a],keys:['10:1:1'],revision:1,loading:false,error:false});expect(geo.stats().bytes).toBeGreaterThanOrEqual(64);
  geo.apply({tiles:[],keys:[],revision:2,loading:false,error:false});expect(geo.stats().bytes).toBe(0);
 });
+it('admits decoded tiles within a hard selection budget and remembers rejected deltas',()=>{
+ const geo=createSceneGeography(t=>t,()=>300),a={z:10,x:1,y:1,features:[{layer:'water',kind:'water',bridge:false,type:3,geometry:[[{x:0,y:0},{x:1,y:1}]]}]},b={...a,x:2};
+ const patch={tiles:[a,b],keys:['10:1:1','10:2:1'],revision:1,loading:false,error:false};const first=geo.apply(patch);expect(first.tiles).toHaveLength(1);expect(first.limited).toBe(true);expect(geo.stats().bytes).toBeLessThanOrEqual(300);
+ expect(geo.apply({...patch,tiles:[],revision:2}).tiles).toBe(first.tiles);geo.clear();expect(geo.stats().bytes).toBe(0);
+});
