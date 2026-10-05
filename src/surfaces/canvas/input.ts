@@ -1,11 +1,13 @@
 import {GLOBE_ZOOM,dragGlobe,globeCoord,geographicFocus,planetRadius} from '../../presentation/geographic-map';
-import {toCell} from '../../core/coordinates';
+import {WORLD,wrapX,toCell} from '../../core/coordinates';
 import type {CellCoord} from '../../core/model';
 import type {Camera,Point} from '../../presentation/camera';
 import {clampZoom,nextZoomStep,normalizeAngle,pick,rotateTo,zoomTo,ROTATE_STEP} from '../../presentation/camera';
 import type {SelectedTool} from './hud';
 export type InputCallbacks = {
  onHover(cell:CellCoord|null):void;
+ onCursor?(cell:CellCoord):void;
+ onGesture?(active:boolean):void;
  onPreview(cells:readonly CellCoord[]):void;
  onCommit(cells:readonly CellCoord[]):void;
  // `snap` is for input that arrives in steps — a wheel notch, a button — where landing on a crisp zoom costs nothing.
@@ -54,7 +56,7 @@ export type {StrokeShape,StrokeState} from '../../presentation/strokes';
 import {beginStroke,extendStroke} from '../../presentation/strokes';
 import type {StrokeShape,StrokeState} from '../../presentation/strokes';
 // The player is typing in a field: no key may reach the map (holding space in the latitude box used to arm panning).
-const isTyping=(target:EventTarget|null):boolean=>target instanceof HTMLElement&&(target.isContentEditable||target.tagName==='INPUT'||target.tagName==='TEXTAREA'||target.tagName==='SELECT');
+const isTyping=(target:EventTarget|null):boolean=>target instanceof HTMLElement&&(target.isContentEditable||target.tagName==='INPUT'||target.tagName==='TEXTAREA'||target.tagName==='SELECT'||target.closest('button,a[href],[role=button]')!==null);
 export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callbacks:InputCallbacks):()=>void {
  const viewport=()=>({width:canvas.width,height:canvas.height});
  const planetary=(camera:Camera)=>context.geographic&&camera.zoom<GLOBE_ZOOM;
@@ -63,6 +65,8 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   const v=viewport(),geo=globeCoord({x:point.x-v.width/2,y:point.y-v.height/2},geographicFocus(camera,v),planetRadius(camera.zoom,v));
   return geo?toCell(geo.lat,geo.lon):null;
  };
+ let cursor:CellCoord|null=null;
+ const reportCursor=(cell:CellCoord)=>{cursor=cell;callbacks.onHover(cell);callbacks.onCursor?.(cell);const status=canvas.ownerDocument.getElementById('map-cursor-status');if(status)status.textContent=`Célula ${cell.x}, ${cell.y}. Enter: inspecionar ou aplicar ferramenta. I: inspecionar.`;};
  let stroke:StrokeState|null=null,pan:{point:Point;camera:Camera}|null=null,rotate:{point:Point;camera:Camera}|null=null,space=false;
  // Where the finger went down and whether it has wandered since. A finger that lands and lifts without moving is a
  // selection; one that travels is a drag, a stroke or a gesture, and none of those is a selection.
@@ -117,7 +121,9 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   try{canvas.releasePointerCapture(event.pointerId);}catch{/* Releasing a pointer the canvas never captured is a no-op the spec allows to throw. */}
  };
  const TAP_SLOP=6;
+ const outsideTapSlop=(point:Point,origin:Point)=>Math.hypot((point.x-origin.x)/(rectOf().width?canvas.width/rectOf().width:1),(point.y-origin.y)/(rectOf().height?canvas.height/rectOf().height:1))>TAP_SLOP;
  const onPointerDown=(event:PointerEvent)=>{
+  callbacks.onGesture?.(true);
   const camera=context.camera(),point=pointInBuffer(event);
   fingers.set(event.pointerId,point);
   if(fingers.size===1)touch={id:event.pointerId,point,moved:false};
@@ -150,7 +156,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
    buffer={width:canvas.width,height:canvas.height};
   }
   const point=pointInBuffer(event);
-  if(touch&&touch.id===event.pointerId&&!touch.moved&&Math.hypot(point.x-touch.point.x,point.y-touch.point.y)>TAP_SLOP)touch.moved=true;
+  if(touch&&touch.id===event.pointerId&&!touch.moved&&outsideTapSlop(point,touch.point))touch.moved=true;
   if(fingers.has(event.pointerId))fingers.set(event.pointerId,point);
   if(pinch&&fingers.size>=2){
    const distance=spread(),mid=midpoint(),angle=bearing(),radius=distance/2;
@@ -173,7 +179,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   callbacks.onPreview(stroke.cells);
  };
  const onPointerUp=(event:PointerEvent)=>{
-  const tapped=touch&&touch.id===event.pointerId&&!touch.moved;
+  const tapped=touch&&touch.id===event.pointerId&&!touch.moved&&!outsideTapSlop(pointInBuffer(event),touch.point);
   const at=tapped?pointInBuffer(event):null;
   fingers.delete(event.pointerId);
   if(touch&&touch.id===event.pointerId)touch=null;
@@ -185,7 +191,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
    if(touch)touch.moved=true;
    release(event);return;
   }
-  pan=null;rotate=null;release(event);
+  pan=null;rotate=null;release(event);callbacks.onGesture?.(false);
   // The stroke is applied first when there is one: a tap that lays a street is a selection *and* a build, and the card
   // the player gets has to describe the cell as it ended up rather than as it was.
   if(stroke){
@@ -197,7 +203,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  };
  const onPointerCancel=(event:PointerEvent)=>{
   fingers.clear();touch=null;pinch=null;pan=null;rotate=null;stroke=null;
-  release(event);callbacks.onPreview([]);callbacks.onCancel();
+  release(event);callbacks.onGesture?.(false);callbacks.onPreview([]);callbacks.onCancel();
  };
  const onPointerLeave=()=>callbacks.onHover(null);
  const onContextMenu=(event:Event)=>event.preventDefault();
@@ -229,8 +235,20 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   callbacks.onCamera(planetary(camera)?dragGlobe(camera,viewport(),point,{x:point.x-dx*scaleX,y:point.y-dy*scaleY}):{x:camera.x-dx*scaleX,y:camera.y-dy*scaleY,zoom:camera.zoom,rotation:normalizeAngle(camera.rotation)});
  };
  const onKeyDown=(event:KeyboardEvent)=>{
-  if(isTyping(event.target))return;
-  if(event.key===' '){space=true;return;}
+  if(event.defaultPrevented||event.isComposing||event.ctrlKey||event.metaKey||event.altKey||isTyping(event.target))return;
+  if(event.target===canvas&&document.activeElement===canvas){
+   const direction=event.key.startsWith('Arrow')?PAN_KEYS[event.key]:null;
+   if(direction||event.key==='Enter'||event.key==='i'||event.key==='I'){
+    event.preventDefault();
+    const cell=cursor??pickPoint({x:canvas.width/2,y:canvas.height/2},context.camera());
+    if(!cell)return;
+    if(direction){reportCursor({x:wrapX(cell.x+direction.x),y:Math.max(0,Math.min(WORLD-1,cell.y+direction.y))});return;}
+    reportCursor(cell);
+    if(event.key==='Enter'&&context.tool()!=='explore')callbacks.onCommit([cell]);
+    callbacks.onTap(cell);return;
+   }
+  }
+  if(event.key===' '){event.preventDefault();space=true;return;}
   if(event.key==='q'||event.key==='Q'||event.key==='e'||event.key==='E'){
    const camera=context.camera(),step=event.key==='q'||event.key==='Q'?-ROTATE_STEP:ROTATE_STEP;
    return callbacks.onCamera(rotateTo(camera,{width:canvas.width,height:canvas.height},camera.rotation+step));
@@ -252,6 +270,11 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   if(stroke){stroke=null;callbacks.onPreview([]);}
   callbacks.onCancel();
  };
+ const onBlur=()=>{
+  space=false;for(const id of fingers.keys()){try{canvas.releasePointerCapture?.(id);}catch{}}
+  fingers.clear();touch=null;pinch=null;pan=null;rotate=null;stroke=null;
+  callbacks.onGesture?.(false);callbacks.onPreview([]);callbacks.onCancel();
+ };
  const onKeyUp=(event:KeyboardEvent)=>{if(event.key===' ')space=false;};
  canvas.addEventListener('pointerdown',onPointerDown);
  canvas.addEventListener('pointermove',onPointerMove);
@@ -262,6 +285,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
  window.addEventListener('pointercancel',onPointerCancel);
  window.addEventListener('keydown',onKeyDown);
  window.addEventListener('keyup',onKeyUp);
+ window.addEventListener('blur',onBlur);
  // A scroll moves the canvas under the pointer without touching its backing size.
  window.addEventListener('resize',forgetRect);
  window.visualViewport?.addEventListener('resize',forgetRect);
@@ -278,6 +302,7 @@ export function attachInput(canvas:HTMLCanvasElement,context:InputContext,callba
   window.removeEventListener('keyup',onKeyUp);
   window.removeEventListener('resize',forgetRect);
   window.visualViewport?.removeEventListener('resize',forgetRect);
+  window.removeEventListener('blur',onBlur);
   window.removeEventListener('scroll',forgetRect,{capture:true});
  };
 }

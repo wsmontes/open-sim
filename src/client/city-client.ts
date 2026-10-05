@@ -20,6 +20,7 @@ import {createTickClock} from '../presentation/clock';
 import type {ClockRole,Speed} from '../presentation/clock';
 import type {SelectedTool} from '../presentation/tools';
 import {toCell,toGeo} from '../core/coordinates';
+import {isIntent} from './intents';
 import type {Intent,IntentResult} from './intents';
 import {debounce} from './time';
 import type {TimePort} from './time';
@@ -66,6 +67,8 @@ export type CityClientConfig = {
  // A surface that animates the camera (the canvas) sets this and drives `step(seconds)` each frame; a surface that
  // does not (text, tests) leaves it off and every camera move lands at once.
  animated?: boolean;
+ // Hosts may yield between scenario batches to keep their event loop responsive.
+ yield?: () => Promise<void>;
  // The device-pixel scale the zoom ladder is built from, so a snapped zoom is a tile of a whole number of pixels and
  // a one-pixel line stays one pixel wide. The browser injects its own; text and tests use 1.
  zoomScale?: () => number;
@@ -182,7 +185,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
  const attribution = config.attribution ?? {text: '', url: ''};
  const listeners = new Set<() => void>();
  const work = new Set<Promise<unknown>>();
- let ready = false, tool: SelectedTool = 'explore', speed: Speed = 0, place = config.place ?? '';
+ let ready = false, stopped = false, tool: SelectedTool = 'explore', speed: Speed = 0, place = config.place ?? '';
  let camera: Camera = config.camera ?? DEFAULT_CAMERA, hover: CellCoord | null = null, stroke: readonly CellCoord[] | null = null;
  let preview: ClientPreview = NO_PREVIEW, notice = '', card: {cell: CellCoord; reading: CellReading} | null = null;
  let revision = -1, cached: ClientView | null = null, statsState: GameState | null = null, stats = EMPTY_STATS;
@@ -201,7 +204,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
   void promise.finally(() => work.delete(promise)).catch(() => undefined);
   return promise;
  };
- const changed = () => { cached = null; for (const listener of [...listeners]) listener(); };
+ const changed = () => { if (stopped) return; cached = null; for (const listener of [...listeners]) listener(); };
  const stateOf = (): GameState | null => {
   if (router.mode() !== 'local') return router.state();
   try { return local.getState(); } catch { return null; }
@@ -251,7 +254,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
  };
  // The personal save never claims the work of a session: while a session owns the branch, its own durable
  // confirmation is what says the device has the version.
- const saveNow = () => { if (ready && router.mode() === 'local') void track(local.save(viewState())); };
+ const saveNow = () => { if (!stopped && ready && router.mode() === 'local') void track(local.save(viewState())); };
  const scheduleSave = debounce(time, SAVE_DEBOUNCE_MS, saveNow);
  const clock = createTickClock(() => { void track(router.tick()); }, (ms, fn) => time.every(ms, fn));
  // While a session owns the branch, the summary line follows the session's durable state instead of the personal save.
@@ -267,6 +270,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
  // A region that is only loaded as an approximation refuses construction; answering with its detail is what makes the
  // next attempt work instead of leaving the player without an explanation.
  const loadDetailFor = (cells: readonly CellCoord[]) => {
+  if(stopped)return;
   const ids = [...new Set(cells.map(chunkId))].filter(id => { const status = local.getChunk(id); return !status || status.status !== 'ready' || status.level !== 'detail'; });
   if (ids.length) void track(local.loadVisible(ids).then(() => { refreshPreview(); changed(); }, () => undefined));
  };
@@ -292,6 +296,8 @@ export function createCityClient(config: CityClientConfig): CityClient {
   return bases;
  };
  const versions: VersionsController | null = config.versions ? createVersions({
+  yield: config.yield,
+  cancelled: () => stopped,
   repository: config.versions.repository,
   codec: config.versions.codec,
   hasher: config.versions.hasher,
@@ -354,7 +360,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
  const slugOf = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'cidade';
  const flushCensus = () => {
   const next = pendingCensus;
-  if (!next || !stateOf()) return;
+  if (stopped || !next || !stateOf()) return;
   pendingCensus = null;
   void track(router.submitAction({type: 'component', key: 'city.census', entity: slugOf(next.label), value: {population: next.population ?? null, year: next.populationYear ?? null, country: next.country ?? null, dataset: next.source.dataset, url: next.source.url}})
    .then(receipt => { if ((receipt as {code?: string}).code === 'NOT_FOUND') pendingCensus ??= next; }, () => { pendingCensus ??= next; }));
@@ -367,7 +373,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
   if(found&&lookupPosition){showFacts(found,true,lookupPosition);changed();}
  }):null;
  const lookUp = (lat: number, lon: number, name?: string) => {
-  if (!factsController) return;
+  if (stopped || !factsController) return;
   lookupPosition={lat,lon};
   void track(factsController.lookup(lat,lon,name));
  };
@@ -388,12 +394,13 @@ export function createCityClient(config: CityClientConfig): CityClient {
  const stream = createMapStreaming({
   concurrency: 4,
   available: (id, level) => { const status = local.getChunk(id); return status?.status === 'ready' && (status.level === 'detail' || level === 'overview'); },
-  load: async (ids, level) => { await local.loadVisible(ids, level); refreshPreview(); changed(); },
-  onError: () => { streamFailed = true; loadMessage = mapFailureText(); router.setSourceError?.(loadMessage); changed(); },
+  load: async (ids, level) => { if (stopped) return; await local.loadVisible(ids, level); if (!stopped) {refreshPreview(); changed();} },
+  onError: () => { if (stopped) return; streamFailed = true; loadMessage = mapFailureText(); router.setSourceError?.(loadMessage); changed(); },
  });
  let cancelNearby: () => void = () => {};
  const NEARBY_DELAY_MS = 800, NEARBY_CENTRES = 12;
  const loadVisible = async (): Promise<void> => {
+  if (stopped) return;
   const visible = visibleChunks(camera, viewport);
   if(camera.zoom<.035){cancelNearby();requested.clear();local.retainVisible([]);stream.updateDemand({visible:[],detail:[],nearby:[]});loadMessage='';changed();return;}
   local.retainVisible(visible);
@@ -418,6 +425,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
    stream.updateDemand({...demand, nearby: [...nearby]});
   });
   await stream.idle();
+  if (stopped) return;
   if (!streamFailed) { loadMessage = ''; router.setSourceError?.(null); }
   refreshPreview();
   changed();
@@ -430,6 +438,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
 
  async function submit(action: Action, cells: readonly CellCoord[]): Promise<IntentResult> {
   const receipt = await router.submitAction(action);
+  if(stopped)return {ok:false,message:'Cliente encerrado'};
   const refused = router.refusal();
   if (refused) {
    // A refusal keeps the player's selection and shows the fresh numbers instead of throwing the work away.
@@ -543,8 +552,8 @@ export function createCityClient(config: CityClientConfig): CityClient {
    case 'tick': {
     // Whole logical ticks, through the same door the clock uses. Bounded by the caller; the client loops the router,
     // never the host, so the "no session.dispatch loop in the host" rule holds for every surface.
-    const count = Number.isSafeInteger(intent.count) && intent.count > 0 ? intent.count : 0;
-    for (let i = 0; i < count; i += 1) await router.tick();
+    const count = intent.count;
+    for (let i = 0; i < count && !stopped; i += 1) await router.tick();
     refreshPreview();
     changed();
     return {ok: true, message: ''};
@@ -563,6 +572,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
    case 'policy': {
     const {do: _ignored, ...policy} = intent;
     const receipt = await router.submitAction({type: 'policy', ...policy});
+    if(stopped)return {ok:false,message:'Cliente encerrado'};
     const refused = router.refusal();
     notice = refused ? refused.reason : '';
     changed();
@@ -577,7 +587,9 @@ export function createCityClient(config: CityClientConfig): CityClient {
 
  return {
   async start() {
+   if (stopped) return;
    await track(local.initialize(config.initialChunk));
+   if (stopped) return;
    adoptRestored();
    revision = local.getState().revision;
    ready = true;
@@ -601,11 +613,11 @@ export function createCityClient(config: CityClientConfig): CityClient {
    // A host that wants its history ready at once (terminal, tests) materializes it here; the browser defers it.
    if (config.openVersionsOnStart && versions) await versions.open();
   },
-  do: intent => track(perform(intent)),
+  do: intent => stopped ? Promise.resolve({ok:false,message:'Cliente encerrado'}) : !isIntent(intent) ? Promise.resolve({ok:false,message:'Intenção inválida'}) : track(perform(intent)),
   step(seconds) {
    // One frame of the camera gliding toward its target. The approach is exponential, so it never overshoots; the
    // tiles it is heading for are asked for as it goes (debounced), and on arrival it snaps to the exact target.
-   if (!glide) return false;
+   if (stopped || !glide) return false;
    camera = approach(camera, glide, 1 - Math.exp(-GLIDE_PER_SECOND * Math.max(0, seconds)), viewport);
    if (arrived(camera, glide)) { camera = glide; glide = null; scheduleSave(); }
    scheduleLoad();
@@ -643,7 +655,7 @@ export function createCityClient(config: CityClientConfig): CityClient {
   refresh() { refreshPreview(); changed(); },
   versions,
   session,
-  async syncSession() { if (router.mode() !== 'local' && router.refresh) { await track(router.refresh()); refreshPreview(); changed(); } },
-  stop() { factsController?.dispose(); clock.stop(); unsubscribe(); listeners.clear(); },
+  async syncSession() { if(stopped)return; if (router.mode() !== 'local' && router.refresh) { await track(router.refresh()); if(stopped)return; refreshPreview(); changed(); } },
+  stop() { stopped = true; factsController?.dispose(); scheduleSave.cancel(); scheduleLoad.cancel(); cancelNearby(); stream.destroy(); clock.stop(); unsubscribe(); listeners.clear(); },
  };
 }

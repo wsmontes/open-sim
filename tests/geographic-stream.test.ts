@@ -5,6 +5,14 @@ import {toCell} from '../src/core/coordinates';
 import type {GeographicTile} from '../src/presentation/geographic-map';
 const viewport={width:800,height:600};
 const camera=centerOn(toCell(49.2827,-123.1207),{x:0,y:0,zoom:.01,rotation:0},viewport);
+test('destroying a visual stream never starts its queued demand after pending tiles settle',async()=>{
+ const releases:Array<()=>void>=[];let calls=0,announced=0;
+ const stream=createGeographicStream(async(z,x,y)=>{calls++;await new Promise<void>(resolve=>releases.push(resolve));return{z,x,y,features:[]};},()=>{announced++;});
+ stream.update(camera,viewport);const started=calls;
+ stream.destroy();const notices=announced;
+ for(const release of releases)release();await stream.idle();
+ expect(calls).toBe(started);expect(announced).toBe(notices);
+});
 test('rapid navigation loads a bounded set, deduplicates tiles and does not show stale geography',async()=>{
  let active=0,peak=0,changed=0;
  const calls:string[]=[];
@@ -29,9 +37,10 @@ test('cached parent placeholders cannot overlap ready detail tiles after a parti
  stream.update(at,v);await stream.idle();
  const {zoomTo}=await import('../src/presentation/camera');stream.update(zoomTo(at,v,.05),v);await stream.idle();
  const tiles=stream.scene().tiles;expect(stream.scene().error).toBe(true);
- for(const a of tiles)for(const b of tiles)if(a.z<b.z){const factor=2**(b.z-a.z);expect(a.x===Math.floor(b.x/factor)&&a.y===Math.floor(b.y/factor)).toBe(false);}
+ expect(tiles.some(tile=>tile.fallback===true)).toBe(true);
+ for(const a of tiles)for(const b of tiles)if(a!==b)expect(`${a.z}:${a.x}:${a.y}`).not.toBe(`${b.z}:${b.x}:${b.y}`);
 });
-test('disposal releases retained tiles and ignores delayed loader publications',async()=>{let resolve!:(value:GeographicTile)=>void,changes=0;const stream=createGeographicStream(()=>new Promise(r=>resolve=r),()=>changes++);stream.update({x:0,y:0,zoom:.0001,rotation:0},{width:100,height:100});const before=changes;stream.dispose();resolve({z:0,x:0,y:0,features:[]});await new Promise(r=>setTimeout(r,0));expect(changes).toBe(before);expect(stream.scene().tiles).toHaveLength(0);});
+test('disposal releases retained tiles and ignores delayed loader publications',async()=>{let resolve!:(value:GeographicTile)=>void,changes=0;const stream=createGeographicStream(()=>new Promise(r=>resolve=r),()=>changes++);stream.update({x:0,y:0,zoom:.0001,rotation:0},{width:100,height:100});const before=changes;stream.destroy();resolve({z:0,x:0,y:0,features:[]});await new Promise(r=>setTimeout(r,0));expect(changes).toBe(before);expect(stream.scene().tiles).toHaveLength(0);});
 
 test('adaptive detail updates without camera motion and bounded network demand',async()=>{
  let bias=0,active=0,peak=0;

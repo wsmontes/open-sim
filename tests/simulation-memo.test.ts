@@ -33,6 +33,14 @@ function grid(lots:number):GameState {
 }
 const TOOLS:Tool[]=['road','avenue','highway','residential','commercial','industrial','park','power'];
 
+test('derived memo evicts old coordinates and recomputes identical results when revisited',()=>{
+ resetSimulationMemo();
+ const first=createGame('first',1,blank('0:0')),before=summarize(first);
+ for(let x=1;x<=1100;x++)summarize(createGame('other',1,blank(`${x}:0`)));
+ expect((memoStats as typeof memoStats&{entries:number}).entries).toBeLessThanOrEqual(1024);
+ expect(summarize(first)).toEqual(before);
+});
+
 // (a) Nothing edited: the derived values are the ones from the first tick, and the memo served every one of them.
 test('a tick of an unedited city recomputes nothing',()=>{
  resetSimulationMemo();

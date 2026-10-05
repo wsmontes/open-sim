@@ -212,6 +212,36 @@ test('each port stands alone, so a runtime without a peer can still build them',
  await expect(transport.send(BOB,messageOf('control',1024))).rejects.toMatchObject({error:{code:'NOT_FOUND'}});
 });
 
+test('concurrent invitations share one connection and wait for its channels',async()=>{
+ const network=fakeNetwork();
+ const ana=joinAs({actor:ANA,keys:ANA_KEYS,bindings:{[BOB]:BOB_KEYS.publicKey},network});
+ const ready=ana.peers.opened(BOB);let opened=false;void ready.then(()=>{opened=true;});
+ const results=await Promise.all([ana.peers.invite(BOB),ana.peers.invite(BOB)]);
+ expect(results.every(result=>result.ok)).toBe(true);
+ expect(network.peers).toHaveLength(1);
+ expect(opened).toBe(false);
+ for(const label of network.peers[0]!.labels())network.peers[0]!.channel(label)!.open();
+ await ready;expect(opened).toBe(true);
+ ana.peers.close();
+});
+
+test('a reconnect waits for new channels after both a successful and a failed link',async()=>{
+ const {ana,bob}=await pair();
+ ana.peers.close(BOB);bob.peers.close(ANA);
+ await ana.peers.invite(BOB);
+ let status='pending';
+ void ana.peers.opened(BOB).then(()=>{status='open';},()=>{status='failed';});
+ await Promise.resolve();await Promise.resolve();
+ expect(status).toBe('pending');
+ ana.peers.close(BOB);
+ await ana.peers.invite(BOB);
+ status='pending';
+ void ana.peers.opened(BOB).then(()=>{status='open';},()=>{status='failed';});
+ await Promise.resolve();await Promise.resolve();
+ expect(status).toBe('pending');
+ ana.peers.close(BOB);bob.peers.close(ANA);
+});
+
 test('two peers open their channels through an offer copied by hand and exchange every class of message',async()=>{
  const {ana,bob,network}=await pair();
  // One peer connection for two participants and two ports: the object port rides the same link as the messages.
@@ -258,7 +288,7 @@ test('control traffic waits for the buffer to drain while a disposable frame is 
 });
 
 test('a frame with invalid bytes, or one from another session or epoch, never reaches a listener',async()=>{
- const {ana,bob,network}=await pair();
+ const {bob,network}=await pair();
  const received:WireMessage[]=[];
  const stop=bob.transport.subscribe((_peer,message)=>received.push(message));
  const channel=network.peers[1].channel('control')!;

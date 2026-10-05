@@ -11,7 +11,9 @@
 </head>
 <body>
 <main id="app">
-<canvas id="game" width="600" height="400" aria-label="Cidade isométrica"></canvas>
+<canvas id="game" width="600" height="400" tabindex="0" aria-label="Cidade isométrica" aria-describedby="map-keyboard-help map-cursor-status"></canvas>
+<p id="map-keyboard-help" class="sr-only">Mapa: setas movem o cursor por células. Enter inspeciona ou aplica a ferramenta selecionada. I inspeciona. 1 a 0 selecionam ferramentas. WASD move a câmera; Q e E giram. Escape cancela.</p>
+<p id="map-cursor-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 <!-- The interface has three levels and only the first one is always on screen. What the player watches lives in the bar
      at the top; what the player touched appears beside the touch; and everything the player manages is opened on
      purpose, one screen at a time, over a city that keeps being visible. -->
@@ -113,6 +115,7 @@
 <div class="offline-actions"><button id="offline-prepare" type="button">Guardar região offline</button><button id="offline-stop" type="button" hidden>Pausar</button></div>
 <span id="tile-cache" class="panel-hint" role="status" title="Mapa guardado neste dispositivo"></span>
 <p id="offline-status" class="panel-hint" role="status" aria-live="polite"></p>
+<p id="storage-status" class="panel-hint" role="status"></p>
 </div>
 </div>
 </section>

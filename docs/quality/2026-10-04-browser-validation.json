@@ -1,0 +1,64 @@
+{
+  "performance": {
+    "cold": {
+      "script": 0,
+      "session-ready": 221.1,
+      "first-frame": 223.3,
+      "background-start": 228.9,
+      "history-ready": 239
+    },
+    "coldMap": {
+      "script": 0,
+      "session-ready": 221.1,
+      "first-frame": 223.3,
+      "background-start": 228.9,
+      "history-ready": 239,
+      "map-visible-ready": 2343.1
+    },
+    "warm": {
+      "script": 0,
+      "session-ready": 14.7,
+      "first-frame": 15.7
+    },
+    "warmMap": {
+      "script": 0,
+      "session-ready": 14.7,
+      "first-frame": 15.7,
+      "background-start": 19.7,
+      "history-ready": 31.3,
+      "map-visible-ready": 652.5
+    }
+  },
+  "offline": {
+    "cached": [
+      {
+        "name": "open-sim-shell-0b5e644c978a1de8",
+        "urls": [
+          "http://127.0.0.1:4177/",
+          "http://127.0.0.1:4177/assets/index-BjpZpQig.js",
+          "http://127.0.0.1:4177/assets/index-DLTDoGKy.css",
+          "http://127.0.0.1:4177/assets/map-worker-CLLMTTfY.js"
+        ]
+      }
+    ],
+    "offline": {
+      "script": 0,
+      "session-ready": 10.1,
+      "first-frame": 10.9,
+      "background-start": 13.1,
+      "map-visible-ready": 19,
+      "history-ready": 31.7
+    },
+    "controlled": true,
+    "cursor": "Célula 662692, 1435382. Enter: inspecionar ou aplicar ferramenta. I: inspecionar."
+  },
+  "environment": {
+    "browser": "Chrome headless local",
+    "viewport": {
+      "width": 390,
+      "height": 844,
+      "deviceScaleFactor": 2
+    },
+    "limitations": "Medições locais; rede remota variável; sem equivalência a celulares reais."
+  }
+}

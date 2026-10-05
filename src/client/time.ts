@@ -18,13 +18,14 @@ export function isoOf(time: TimePort): string {
 
 // One pending run per window: a burst of calls coalesces into a single run that reads the newest state when it fires,
 // so a periodic tick arriving every `wait` ms can never starve the save it keeps asking for.
-export function debounce(time: TimePort, wait: number, task: () => void): () => void {
- let armed = false;
- return () => {
-  if (armed) return;
-  armed = true;
-  time.after(wait, () => { armed = false; task(); });
+export type Debounced = (() => void) & {cancel(): void};
+export function debounce(time: TimePort, wait: number, task: () => void): Debounced {
+ let cancel: Cancel | null = null;
+ const schedule = () => {
+  if (cancel) return;
+  cancel = time.after(wait, () => { cancel = null; task(); });
  };
+ return Object.assign(schedule, {cancel() { cancel?.(); cancel = null; }});
 }
 
 export type ManualTime = TimePort & {

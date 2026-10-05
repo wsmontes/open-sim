@@ -1,3 +1,4 @@
+import {boundedDb} from '../storage/bounded-db';
 // The tile cache is what makes a revisit free. It keeps the *raw* vector bytes the map service sent, not the decoded
 // features and not the normalized regions: one zoom-14 tile covers 64 regions, so the shared unit is the tile, and the
 // decoded form (which is far bigger) stays in memory only while it is being used.
@@ -65,34 +66,15 @@ export function createMemoryTileCache(options:TileCacheOptions={}):InspectableTi
  };
 }
 
-const DB_NAME='open-sim-tiles',STORE='tiles',VERSION=1;
+const DB_NAME='open-sim-tiles',STORE='tiles';
 type StoredTile={bytes:ArrayBuffer;storedAt:number};
 // The device cache. Everything it does can fail — private mode, a quota the browser refuses, a database another tab
 // upgraded — and every failure is reported as a miss so the map keeps loading from the network.
 export function createIndexedDbTileCache(options:TileCacheOptions={}):InspectableTileCache {
  const maxAgeMs=options.maxAgeMs??DEFAULTS.maxAgeMs,maxBytes=options.maxBytes??DEFAULTS.maxBytes,now=options.now??Date.now;
- let opening:Promise<IDBDatabase|null>|null=null;
  let knownBytes:number|null=null,measuring:Promise<number>|null=null,pruneTimer:ReturnType<typeof setTimeout>|null=null,mutation=0;
- const open=():Promise<IDBDatabase|null>=>{
-  if(opening)return opening;
-  opening=new Promise<IDBDatabase|null>(resolve=>{
-   const factory=globalThis.indexedDB;
-   if(!factory){resolve(null);return;}
-   let request:IDBOpenDBRequest;
-   try{request=factory.open(DB_NAME,VERSION);}catch{resolve(null);return;}
-   request.onupgradeneeded=()=>{
-    const db=request.result;
-    if(!db.objectStoreNames.contains(STORE)){
-     const store=db.createObjectStore(STORE,{keyPath:'key'});
-     store.createIndex('storedAt','storedAt');
-    }
-   };
-   request.onsuccess=()=>resolve(request.result);
-   request.onerror=()=>resolve(null);
-   request.onblocked=()=>resolve(null);
-  });
-  return opening;
- };
+ const connect=globalThis.indexedDB?boundedDb({name:DB_NAME,stores:[STORE],factory:globalThis.indexedDB,subject:'O cache de mapas',upgrade:db=>{if(!db.objectStoreNames.contains(STORE)){const store=db.createObjectStore(STORE,{keyPath:'key'});store.createIndex('storedAt','storedAt');}}}):null;
+ const open=async():Promise<IDBDatabase|null>=>connect?connect().catch(()=>null):null;
  const withStore=async <T>(mode:IDBTransactionMode,work:(store:IDBObjectStore)=>IDBRequest<T>):Promise<T|null>=>{
   const db=await open();
   if(!db)return null;

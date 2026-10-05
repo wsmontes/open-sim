@@ -35,7 +35,7 @@ export function fakeHomeserver(options: {serverName?: string; secret?: string} =
  type User = {userId: string; token: string; password: string};
  type Room = {roomId: string; creator: string; joinRule: string; historyVisibility: string; state: Map<string, JsonValue>; members: Map<string, string>; power: Record<string, number>; log: {event: FakeEvent; seq: number}[]};
  const users = new Map<string, User>(), rooms = new Map<string, Room>(), txns = new Map<string, string>();
- let nonce = 0, nextUser = 0, nextRoom = 0, nextEvent = 0, seq = 0, requests = 0, nextBatch = 0;
+ let nonce = 0, nextUser = 0, nextRoom = 0, nextEvent = 0, seq = 0, requests = 0;
  const failures: {matcher: (path: string, method: string) => boolean; status: number; errcode: string; error: string}[] = [];
  const roomIdOf = (index: number) => `!room${index}:${serverName}`;
  const eventOf = (room: Room, sender: string, type: string, content: JsonValue, stateKey?: string): FakeEvent => {
@@ -155,7 +155,6 @@ export function fakeHomeserver(options: {serverName?: string; secret?: string} =
     if (eventType.startsWith('m.') && eventType !== 'm.room.encrypted') return errorOf(400, 'M_BAD_JSON', `Event type ${eventType} is reserved`);
     const event = eventOf(room, user.userId, eventType, payload);
     txns.set(key, event.event_id);
-    nextBatch = seq;
     return response(200, {event_id: event.event_id});
    }
    const singleMatch = /^event\/([^/]+)$/.exec(rest);
@@ -184,7 +183,6 @@ export function fakeHomeserver(options: {serverName?: string; secret?: string} =
    if (room.joinRule === 'invite' && !room.members.has(user.userId)) return errorOf(403, 'M_FORBIDDEN', 'You are not invited to this room');
    membership(room, user.userId, 'join');
    room.members.set(user.userId, 'join');
-   nextBatch = seq;
    return response(200, {room_id: room.roomId});
   }
 
@@ -214,7 +212,6 @@ export function fakeHomeserver(options: {serverName?: string; secret?: string} =
    const room = rooms.get(roomId);
    if (!room) throw new Error(`Sala desconhecida: ${roomId}`);
    const event = eventOf(room, sender, type, content);
-   nextBatch = seq;
    return event.event_id;
   },
   inject: (roomId, event) => {
@@ -225,7 +222,6 @@ export function fakeHomeserver(options: {serverName?: string; secret?: string} =
    // A state event is state: injecting one is how a test changes what a later read observes, exactly like the room
    // changing under the client.
    if (built.state_key !== undefined) room.state.set(`${built.type}\u0000${built.state_key}`, built.content);
-   nextBatch = seq;
    return built.event_id;
   },
   requests: () => requests,

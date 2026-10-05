@@ -1,4 +1,4 @@
-export type FrameNeed={moving:boolean;ambient:boolean;presented?:boolean};
+export type FrameNeed={moving:boolean;ambient:boolean;presented?:boolean;drawn?:boolean};
 export type FrameStats={frames:number;drawn:number;frameMs:number;p50:number;p95:number;fps:number;drawing:boolean};
 
 // A timer id is whatever the host's clock hands back; the scheduler only ever passes it straight back to clear it, so
@@ -10,35 +10,20 @@ type CancelRaf=(id:number)=>void;
 type Delay=(callback:()=>void,ms:number)=>TimerId;
 type ClearDelay=(id:TimerId)=>void;
 
-// The browser globals, read off globalThis rather than named directly: a host without them must inject its own ports,
-// and the type-check needs no DOM/Node lib to see these.
-type Platform={
- requestAnimationFrame?:Raf;
- cancelAnimationFrame?:CancelRaf;
- setTimeout?:(callback:()=>void,ms:number)=>TimerId;
- clearTimeout?:(id:TimerId)=>void;
- performance?:{now():number};
- document?:{hidden:boolean};
-};
-const platform=globalThis as Platform;
-
 export function createFrameScheduler(options:{
  draw:(now:number,seconds:number)=>FrameNeed;
- request?:Raf;
- cancel?:CancelRaf;
+ request:Raf;
+ cancel:CancelRaf;
  delay?:Delay;
  clearDelay?:ClearDelay;
- visible?:()=>boolean;
- now?:()=>number;
+ visible:()=>boolean;
+ now:()=>number;
  ambientFps?:number;
  onSample?:(sample:{at:number;intervalMs:number;workMs:number;presented:boolean})=>void;
 }){
- const request: Raf=options.request??(callback=>platform.requestAnimationFrame!(callback));
- const cancel: CancelRaf=options.cancel??(id=>platform.cancelAnimationFrame!(id));
- const delay: Delay=options.delay??((callback,ms)=>platform.setTimeout!(callback,ms));
- const clearDelay: ClearDelay=options.clearDelay??(id=>platform.clearTimeout!(id));
- const visible=options.visible??(()=>!platform.document||!platform.document.hidden);
- const now=options.now??(()=>platform.performance?platform.performance.now():Date.now());
+ const {request,cancel,visible,now}=options;
+ const delay: Delay=options.delay??(()=>{throw new Error('Ambient animation requires a timer port');});
+ const clearDelay: ClearDelay=options.clearDelay??(()=>{});
  const ambientMs=1000/(options.ambientFps??30),samples=new Array<number>(120).fill(0),recent:number[]=[];
  let raf:number|null=null,timer:TimerId|null=null,last=0,need:FrameNeed={moving:false,ambient:false};
  let lastPresented:number|null=null,ambientDue:number|undefined;
@@ -61,7 +46,8 @@ export function createFrameScheduler(options:{
   mean=mean?mean*.9+elapsed*.1:elapsed;
   samples[sampleAt]=elapsed;sampleAt=(sampleAt+1)%samples.length;sampleCount=Math.min(samples.length,sampleCount+1);
   const presented=need.presented!==false,intervalMs=presented&&lastPresented!==null?at-lastPresented:0;
-  if(presented){recent.push(at);lastPresented=at;drawn+=1;}
+  if(presented){recent.push(at);lastPresented=at;}
+  if(presented&&need.drawn!==false)drawn+=1;
   options.onSample?.({at,intervalMs,workMs:elapsed,presented});
   while(recent.length&&at-recent[0]!>1000)recent.shift();
   last=at;schedule();

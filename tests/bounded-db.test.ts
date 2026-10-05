@@ -55,3 +55,10 @@ test('an open error keeps the cause the browser gave',async()=>{
  fake.requests[0]!.onerror!();
  await expect(pending).rejects.toBe(cause);
 });
+
+test('versionchange closes and forgets the cached connection',async()=>{
+ const fake=fakeFactory(),connect=boundedDb(options(fake.factory));
+ const first=connect();fake.requests[0]!.onsuccess!();const db=await first;
+ db.onversionchange!({} as IDBVersionChangeEvent);const next=connect();
+ expect(fake.requests).toHaveLength(2);fake.requests[1]!.onsuccess!();await next;
+});

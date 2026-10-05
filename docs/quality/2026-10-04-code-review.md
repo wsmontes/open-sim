@@ -1,6 +1,6 @@
 # Revisão do projeto — 4 de outubro de 2026
 
-Revisão transversal do estado atual de `src`, interfaces browser/texto/JSON, persistência, mapa, multiplayer, testes e build. Nenhuma correção de implementação foi aplicada. Prioridades: P1 exige atenção antes de ampliar o uso; P2 é um problema funcional ou de escala; P3 é manutenção. Recomendações de desenho estão separadas dos defeitos. A revisão não constitui prova de ausência de outros bugs nem benchmark em aparelhos reais.
+Revisão transversal do estado atual de `src`, interfaces browser/texto/JSON, persistência, mapa, multiplayer, testes e build. Nenhuma correção de implementação foi aplicada. Este relatório registra o snapshot anterior à implementação; resultados posteriores estão em [implementation-ledger](2026-10-04-implementation-ledger.md). Prioridades: P1 exige atenção antes de ampliar o uso; P2 é um problema funcional ou de escala; P3 é manutenção. Recomendações de desenho estão separadas dos defeitos. A revisão não constitui prova de ausência de outros bugs nem benchmark em aparelhos reais.
 
 ## Evidência executada
 
@@ -143,7 +143,7 @@ Ainda falta uma política integrada de recursos. A busca no código encontrou DP
 
 **SRP:** `browser/main.ts` tem 908 linhas e mistura composição, DOM, câmera, HUD, render loop, off-line e instalação. Extrair composição de ports, lifecycle do host e instalação do shell. `city-client.ts` tem 642 linhas e reúne interação, streaming, fatos, tempo, versões e sessão; extrair controladores por responsabilidade, conservando a fachada usada pelas três superfícies.
 
-**ISP e DIP:** `ActionRouter` combina métodos de ação com `Partial<SessionRouter>`; capacidades opcionais exigem branches em runtime. Separar portas de ação local, sessão cooperativa e persistência. Apresentar composição de capacidades explícita ao client. Modelos de apresentação carregam callbacks (`HistoryInfo.compare`); preferir dados + intents para facilitar serialização/worker e reduzir acoplamento entre modelo e execução.
+**ISP e DIP:** `ActionRouter` combina métodos de ação com `Partial<SessionRouter>`; capacidades opcionais exigem branches em runtime. Separar portas de ação local, sessão cooperativa e persistência. Apresentar composição de capacidades explícita ao client. Correção após conferência: `HistoryInfo.compare` contém dados de comparação, não callbacks; portanto não há defeito nessa propriedade. Preservar modelos com dados + intents para facilitar serialização e reduzir acoplamento.
 
 **Portabilidade real:** `presentation/frame-scheduler.ts:25` lê globalThis com performance/document/RAF/timers e fallback em Date. Compilar sem DOM não torna esse módulo independente da plataforma. Injetar esses ports no host ou mover o scheduler para uma camada de runtime; manter a lógica de decisão pura em presentation.
 

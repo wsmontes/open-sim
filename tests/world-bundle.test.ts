@@ -1,6 +1,12 @@
 import {RULES_VERSION} from '../src/core/model';
 import {expect,test} from 'vitest';
 import {DEFAULT_LIMITS,decodeBundle,decodeUtf8,encodeBundle,parseStrictJson,verifyBundle} from '../src/world/codec';
+
+test('strict JSON refuses reserved keys before assigning them at any depth',()=>{
+ for(const text of ['{"__proto__":{"x":1}}','{"nested":{"__proto__":null}}','[{"constructor":1}]','{"prototype":2}'])
+  expect(parseStrictJson(text)).toMatchObject({ok:false,error:{code:'MALFORMED'}});
+ expect(Object.getPrototypeOf((parseStrictJson('{"ok":2}') as {value:object}).value)).toBe(Object.prototype);
+});
 import type {DecodeLimits} from '../src/world/codec';
 import {canonicalText,createJcsCodec,encodeJcs} from '../src/adapters/codec/jcs';
 import {bytesHasher,sha256Bytes} from '../src/adapters/hash/content';

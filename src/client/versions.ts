@@ -13,7 +13,7 @@ import type {ExtensionDeclaration} from '../core/protocol';
 import type {ContentHasher,WorldCodec} from '../world/ports';
 import type {DatasetTerm,Head,JsonValue,ObjectRef} from '../world/model';
 import {decodeBundle,encodeBundle} from '../world/codec';
-import {compareScenarios,layerWrites,runScenario} from '../world/composition';
+import {compareScenarios,layerWrites,runScenario,runScenarioAsync} from '../world/composition';
 import type {Composition,ScenarioRun} from '../world/composition';
 import {importLegacy} from '../session/world-bundle';
 import type {WorldRepository,WorldVersion} from '../session/world-repository';
@@ -55,6 +55,9 @@ export type VersionsEnv = {
  focus(): CellCoord;
  // Called whenever the history model changed, so the surface can redraw its panel.
  changed(): void;
+ // Optional cooperative scheduler supplied by an interactive host.
+ yield?(): Promise<void>;
+ cancelled?(): boolean;
 };
 
 export type VersionsController = {
@@ -266,13 +269,19 @@ export function createVersions(env: VersionsEnv): VersionsController {
  // snapshot — so a scenario pins exactly the future it ran.
  const commitOf = async (state: GameState): Promise<ObjectRef> => hasher.ref(codec.encode({kind: 'city-state', state: state as unknown as JsonValue}));
 
+ let scenarioGeneration=0;
  const compareFutures = async (): Promise<void> => {
+  const generation=++scenarioGeneration,active=()=>generation===scenarioGeneration&&!env.cancelled?.();
+  if(!active())return;
   const state = env.state();
   if (!state) { scenarios = emptyComposition('Sem cidade aberta para comparar.'); env.changed(); return; }
   const focus = env.focus(), region = chunkId(focus);
   if (!state.chunks[region]) { scenarios = emptyComposition(`O trecho ${region} ainda não é administrado; carregue o mapa e tente de novo.`); env.changed(); return; }
   const block = freeBlock(state, region, focus);
   if (!block) { scenarios = emptyComposition(`Não há cinco células de terra livres no trecho ${region}.`); env.changed(); return; }
+  if(env.yield){scenarios=emptyComposition('Calculando dois futuros…');env.changed();}
+  const progress=new Map<string,number>();
+  const report=(id:string,done:number)=>{if(!active())return;progress.set(id,done);scenarios=emptyComposition(`Calculando dois futuros… ${[...progress.values()].reduce((a,b)=>a+b,0)}/${FUTURE_TICKS*2} ticks`);env.changed();};
   const [street, street2, house, target, plant] = block;
   const project = (tool: Tool): GameState => {
    let next = appliedProject(state, {type: 'build', tool: 'road', cells: [street!, street2!]});
@@ -289,7 +298,8 @@ export function createVersions(env: VersionsEnv): VersionsController {
   // millisecond of difference would make the comparison refuse to explain itself.
   const forkAt = isoOf(env.time);
   const bases = await Promise.all(Object.keys(state.chunks).sort().map(async id => ({id, ref: await hasher.ref(codec.encode({kind: 'base-chunk', base: state.chunks[id]!.base as unknown as JsonValue}))})));
-  const future = async (id: string, tool: Tool, premise: string): Promise<ScenarioRun> => {
+  const future = async (id: string, tool: Tool, premise: string): Promise<ScenarioRun|null> => {
+   if(!active())return null;
    const projected = project(tool);
    const commit = await commitOf(projected);
    const writes = layerWrites(state, projected);
@@ -302,17 +312,25 @@ export function createVersions(env: VersionsEnv): VersionsController {
     temporal: {timeline: `osim:timeline:cenario-${id}`, parent: 'osim:timeline:local', forkAt, rate: 1},
     extensions,
    };
-   const run = runScenario(composition, {states: {[baseCommit.hash]: state, [commit.hash]: projected}}, {id, interval: {fromTick: state.tick, toTick: state.tick + FUTURE_TICKS}, inputs: [], premises: [premise]});
+   if(!active())return null;
+   const objects={states: {[baseCommit.hash]: state, [commit.hash]: projected}};
+   const request={id, interval: {fromTick: state.tick, toTick: state.tick + FUTURE_TICKS}, inputs: [], premises: [premise]};
+   const run = env.yield
+    ? await runScenarioAsync(composition,objects,request,{yield:()=>env.yield!(),cancelled:()=>!active(),progress:done=>report(id,done)})
+    : runScenario(composition,objects,request);
+   if(!run)return null;
    if (!run.ok) throw new Error(run.error.message);
    return run.value;
   };
   try {
    const [parque, industria] = await Promise.all([future('parque', 'park', 'projeto de parque no bloco livre'), future('industria', 'industrial', 'projeto industrial no bloco livre')]);
+   if(!active()||!parque||!industria)return;
    scenarios = describeScenarios(parque, industria, compareScenarios(parque, industria));
   } catch (error) {
+   if(!active())return;
    scenarios = emptyComposition(describeError(error));
   }
-  env.changed();
+  if(active())env.changed();
  };
 
  const regionCell = (id: string): CellCoord => { const origin = chunkOrigin(id); return {x: origin.x + CHUNK / 2, y: origin.y + CHUNK / 2}; };

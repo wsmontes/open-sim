@@ -3,6 +3,8 @@ import type {CellCoord} from '../core/model';
 import type {Speed} from '../presentation/clock';
 import type {Camera} from '../presentation/camera';
 import type {SelectedTool} from '../presentation/tools';
+import {SELECTED_TOOLS} from '../presentation/tools';
+import {isPlainObject} from '../core/guards';
 
 // Everything a player can ask of the city, as data (spec 2026-10-01 §5.2). A surface turns a drag, a key or a typed
 // line into one of these; a recorded playthrough is a list of them. Stage A is the city itself; stage B adds place and
@@ -84,3 +86,41 @@ export type Intent =
  | {do: 'tick'; count: number};
 
 export type IntentResult = {ok: boolean; message: string};
+
+export const MAX_INTENT_TICKS = 10_000;
+const finite=(value:unknown):value is number=>typeof value==='number'&&Number.isFinite(value);
+const cell=(value:unknown)=>isPlainObject(value)&&Number.isSafeInteger(value.x)&&Number.isSafeInteger(value.y);
+const cells=(value:unknown)=>Array.isArray(value)&&value.length<=1024&&value.every(cell);
+const text=(value:unknown)=>typeof value==='string'&&value.length<=65536;
+const optional=(value:unknown,check:(value:unknown)=>boolean)=>value===undefined||check(value);
+
+// Validate the portable input boundary before any surface can mutate the player's hand or the world.
+export function isIntent(value:unknown):value is Intent {
+ if(!isPlainObject(value)||typeof value.do!=='string')return false;
+ const v=value;
+ switch(v.do){
+  case 'tool':return SELECTED_TOOLS.includes(v.tool as SelectedTool);
+  case 'hover':case 'inspect':return v.cell===null||cell(v.cell);
+  case 'stroke':return cells(v.cells);
+  case 'commit':return optional(v.cells,cells);
+  case 'speed':return v.speed===0||v.speed===1||v.speed===2||v.speed===3;
+  case 'policy':return Object.keys(v).every(key=>['do','tax','services','borrow'].includes(key))&&['tax','services','borrow'].every(key=>optional(v[key],finite));
+  case 'viewport':return finite(v.width)&&v.width>0&&finite(v.height)&&v.height>0&&optional(v.quiet,x=>typeof x==='boolean');
+  case 'pan':return finite(v.dx)&&finite(v.dy);
+  case 'zoom':return v.direction===1||v.direction===-1;
+  case 'rotate':return finite(v.radians);
+  case 'place':case 'createVersion':return text(v.name);
+  case 'goTo':return finite(v.lat)&&finite(v.lon);
+  case 'center':return cell(v.cell)&&optional(v.place,text);
+  case 'camera':return isPlainObject(v.camera)&&['x','y','zoom','rotation'].every(key=>finite((v.camera as Record<string,unknown>)[key]))&&(v.camera.zoom as number)>0&&optional(v.place,text)&&optional(v.quiet,x=>typeof x==='boolean')&&optional(v.settle,x=>typeof x==='boolean');
+  case 'selectBranch':return text(v.branchId);
+  case 'compare':return text(v.prefix);
+  case 'import':return v.bytes instanceof Uint8Array&&v.bytes.byteLength<=64*1024*1024;
+  case 'region':return typeof v.chunkId==='string'&&/^\d+:\d+$/.test(v.chunkId);
+  case 'join':return text(v.text);
+  case 'transfer':return text(v.actor);
+  case 'tick':return Number.isSafeInteger(v.count)&&(v.count as number)>=0&&(v.count as number)<=MAX_INTENT_TICKS;
+  case 'cancel':case 'north':case 'overview':case 'retryMap':case 'facts':case 'openWorld':case 'export':case 'compareFutures':case 'openSession':case 'invite':case 'pauseSession':case 'leaveSession':case 'save':case 'overwriteSave':return true;
+  default:return false;
+ }
+}

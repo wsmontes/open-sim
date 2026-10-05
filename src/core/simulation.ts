@@ -101,10 +101,12 @@ function chunkKey(chunks:Record<string,ManagedChunk>,id:string):string {
  return key;
 }
 const chunkMemo=new Map<string,Derived>();
+const DERIVED_MEMO_LIMIT=1024;
 let derivedRecomputations=0,landRecomputations=0,gridRecomputations=0;
 let gridCacheKey:string|undefined,gridCacheValue:Set<number>|undefined;
 // Read-only, for the tests and the bench that have to prove the memo is doing work rather than merely agreeing.
 export const memoStats={
+ get entries(){return chunkMemo.size;},
  get derivedRecomputations(){return derivedRecomputations;},
  get landRecomputations(){return landRecomputations;},
  get gridRecomputations(){return gridRecomputations;},
@@ -118,7 +120,7 @@ function derivedFor(s:GameState,id:string,read:Reader):Derived {
  const chunk=s.chunks[id]!;
  const key=chunkKey(s.chunks,id);
  const cached=chunkMemo.get(id);
- if(cached&&cached.key===key)return cached;
+ if(cached&&cached.key===key){chunkMemo.delete(id);chunkMemo.set(id,cached);return cached;}
  derivedRecomputations+=1;
  const cells=cellsOf(chunk);
  const bonus=new Int16Array(CHUNK*CHUNK),happy=new Uint8Array(CHUNK*CHUNK);
@@ -146,6 +148,7 @@ function derivedFor(s:GameState,id:string,read:Reader):Derived {
  }
  const derived:Derived={key,population,jobs,housing,roadCells,summaryJobs,energySupply:chunk.baseEnergy+powerCount*64,energyUsed,income,happySum,hasConducts,powerCount,bonus,happy,lots:Int32Array.from(lots),occupied:Int32Array.from(occupiedList),landCentre:'',landSum:0};
  chunkMemo.set(id,derived);
+ while(chunkMemo.size>DERIVED_MEMO_LIMIT)chunkMemo.delete(chunkMemo.keys().next().value!);
  return derived;
 }
 // The distance from the middle of the city is the one thing a lot reads that is not local, so the sum is cached against

@@ -57,3 +57,13 @@ test('a retina viewport keeps every visible corner in the bounded tile demand',(
  }
  expect(tiles.length).toBeLessThanOrEqual(40);
 });
+
+test('fallback clips polygons and crossing lines to a missing child area',async()=>{
+ const {clipGeographicTile}=await import('../src/presentation/geographic-map');
+ const {WORLD}=await import('../src/core/coordinates');
+ const parent={z:0,x:0,y:0,features:[{layer:'land',kind:'',bridge:false,type:3,geometry:[[{x:0,y:0},{x:WORLD,y:0},{x:WORLD,y:WORLD},{x:0,y:WORLD},{x:0,y:0}]]},{layer:'streets',kind:'',bridge:false,type:2,geometry:[[{x:0,y:WORLD/4},{x:WORLD,y:WORLD/4}]]}]};
+ const clipped=clipGeographicTile(parent,{z:1,x:0,y:0});
+ expect(clipped.features).toHaveLength(2);
+ for(const f of clipped.features)for(const ring of f.geometry)for(const p of ring){expect(p.x).toBeLessThanOrEqual(WORLD/2);expect(p.y).toBeLessThanOrEqual(WORLD/2);}
+ expect(clipped.features[1].geometry).toEqual([[{x:0,y:WORLD/4},{x:WORLD/2,y:WORLD/4}]]);
+});

@@ -185,7 +185,7 @@ function candidatePayload(candidate: RtcIceCandidate): JsonValue {
  if (candidate.sdpMLineIndex !== undefined && candidate.sdpMLineIndex !== null) value['sdpMLineIndex'] = candidate.sdpMLineIndex;
  return {candidate:value};
 }
-type Link = {peer: string; connection: RtcPeer; channels: Map<string, RtcChannel>; closes: Set<() => void>; closed: boolean; served?: ServedObject};
+type Link = {peer: string; connection: RtcPeer; channels: Map<string, RtcChannel>; closes: Set<() => void>; closed: boolean; readiness: Deferred<void>; served?: ServedObject};
 type Ask = {collect: (object: OsimEnvelope) => void};
 
 export function createWebRtcPeers(config: WebRtcConfig): WebRtcPeers {
@@ -223,9 +223,10 @@ export function createWebRtcPeers(config: WebRtcConfig): WebRtcPeers {
  const drop = (link: Link, reason?: Error) => {
   if (link.closed) return;
   link.closed = true;
-  links.delete(link.peer);
+  if (links.get(link.peer) === link) links.delete(link.peer);
   link.served?.stop();
-  openings.get(link.peer)?.reject(reason ?? new WireRefused({code:'NOT_FOUND', message:`Conexão com ${link.peer} caiu`}));
+  link.readiness.reject(reason ?? new WireRefused({code:'NOT_FOUND', message:`Conexão com ${link.peer} caiu`}));
+  if (openings.get(link.peer) === link.readiness) openings.delete(link.peer);
   for (const notify of [...link.closes]) notify();
  };
  const objectLinkOf = (link: Link): ObjectLink => ({
@@ -433,9 +434,10 @@ export function createWebRtcPeers(config: WebRtcConfig): WebRtcPeers {
   for (const listener of [...listeners]) listener(link.peer, message);
  };
  const attach = (link: Link, channel: RtcChannel, label: string) => {
+  if (link.closed) { channel.close(); return; }
   link.channels.set(label, channel);
   channel.binaryType = 'arraybuffer';
-  const opened = () => { if (CHANNELS.every(one => link.channels.get(one.label)?.readyState === 'open')) opening(link.peer).resolve(undefined); };
+  const opened = () => { if (!link.closed && CHANNELS.every(one => link.channels.get(one.label)?.readyState === 'open')) link.readiness.resolve(undefined); };
   if (label === OBJECT_CHANNEL) {
    // The object channel carries binary segment frames, not session messages: the two ports share the link but never
    // parse each other's traffic. Serving is registered here so a peer that asks for a frozen base gets an answer from
@@ -461,8 +463,12 @@ export function createWebRtcPeers(config: WebRtcConfig): WebRtcPeers {
   });
  };
  const connect = async (peer: string, ice: RtcConfiguration, incoming?: RtcDescription): Promise<WorldResult<void>> => {
+  // ICE credentials may yield while another invitation or incoming offer creates the link.
+  // Recheck at the synchronous creation boundary so both callers use that connection's readiness.
+  const existing = links.get(peer);
+  if (existing && !existing.closed) return ok(undefined);
   const conn = connection(ice);
-  const link: Link = {peer, connection:conn, channels:new Map(), closes:new Set(), closed:false};
+  const link: Link = {peer, connection:conn, channels:new Map(), closes:new Set(), closed:false, readiness:opening(peer)};
   links.set(peer, link);
   opening(peer);
   watch(link);

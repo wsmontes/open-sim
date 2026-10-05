@@ -227,7 +227,7 @@ function drawCell(ctx:CanvasRenderingContext2D,view:WorldView,coord:CellCoord){
  if(cell.building)building(ctx,view,coord,cell,v);
  else if(cell.terrain==='green'&&scale>=14)tree(ctx,projXOf(cx,cy),projYOf(cx,cy),scale,v);
 }
-function marker(ctx:CanvasRenderingContext2D,view:WorldView,cell:CellCoord,valid:boolean){
+function marker(ctx:CanvasRenderingContext2D,_view:WorldView,cell:CellCoord,valid:boolean){
  ctx.fillStyle=valid?'rgba(124,224,110,.25)':'rgba(240,90,80,.3)';ctx.strokeStyle=valid?'#c8ffb8':'#ffc0b8';ctx.lineWidth=1;
  footprintQuad(ctx,cell.x,cell.y,.5,true);
 }

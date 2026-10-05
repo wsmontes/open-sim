@@ -33,7 +33,7 @@ export function boxCells(anchor:CellCoord,corner:CellCoord,limit=MAX_STROKE):Cel
  for(let row=0;row<height;row++)for(let column=0;column<width;column++)cells.push({x:anchor.x+column*stepX,y:anchor.y+row*stepY});
  return cells;
 }
-export const beginStroke=(cell:CellCoord,shape:StrokeShape='line'):StrokeState=>({anchor:{x:cell.x,y:cell.y},cells:[{x:cell.x,y:cell.y}],last:{x:cell.x,y:cell.y}});
+export const beginStroke=(cell:CellCoord,_shape:StrokeShape='line'):StrokeState=>({anchor:{x:cell.x,y:cell.y},cells:[{x:cell.x,y:cell.y}],last:{x:cell.x,y:cell.y}});
 // Appends the freshly crossed cells of the segment, never revisiting a cell already in the stroke. A box is redrawn
 // from its anchor every time instead: a drag that comes back leaves one cell, not a trail of everything it touched.
 export function extendStroke(stroke:StrokeState,cell:CellCoord,shape:StrokeShape='line'):StrokeState {
@@ -43,9 +43,10 @@ export function extendStroke(stroke:StrokeState,cell:CellCoord,shape:StrokeShape
  }
  if(cell.x===stroke.last.x&&cell.y===stroke.last.y)return stroke;
  const cells=stroke.cells.slice();
+ const seen=new Set(cells.map(p=>`${p.x}:${p.y}`));
  for(const p of strokeCells(stroke.last,cell)){
   if(cells.length>=MAX_STROKE)break;
-  if(!cells.some(c=>c.x===p.x&&c.y===p.y))cells.push(p);
+  const key=`${p.x}:${p.y}`;if(!seen.has(key)){seen.add(key);cells.push(p);}
  }
  return {cells,last:{x:cell.x,y:cell.y},anchor:stroke.anchor};
 }

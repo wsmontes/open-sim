@@ -1,3 +1,4 @@
+import {boundedDb} from '../storage/bounded-db';
 import type {BaseChunk} from '../../core/model';
 
 export interface ChunkCache {
@@ -32,18 +33,12 @@ export function createMemoryChunkCache(limit=256):ChunkCache {
  };
 }
 
-const DB='open-sim-normalized-map',STORE='chunks',VERSION=1;
+const DB='open-sim-normalized-map',STORE='chunks';
 type Stored={key:string;chunk:BaseChunk;storedAt:number};
 export function createIndexedDbChunkCache(options:{maxEntries?:number;maxAgeMs?:number;now?:()=>number}={}):ChunkCache {
  const maxEntries=options.maxEntries??256,maxAgeMs=options.maxAgeMs??30*24*60*60*1000,now=options.now??Date.now;
- let opening:Promise<IDBDatabase|null>|null=null;
- const open=()=>opening??=new Promise<IDBDatabase|null>(resolve=>{
-  if(!globalThis.indexedDB){resolve(null);return;}
-  let request:IDBOpenDBRequest;
-  try{request=indexedDB.open(DB,VERSION);}catch{resolve(null);return;}
-  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(STORE)){const store=db.createObjectStore(STORE,{keyPath:'key'});store.createIndex('storedAt','storedAt');}};
-  request.onsuccess=()=>resolve(request.result);request.onerror=()=>resolve(null);request.onblocked=()=>resolve(null);
- });
+ const connect=globalThis.indexedDB?boundedDb({name:DB,stores:[STORE],factory:globalThis.indexedDB,subject:'O cache de mapas',upgrade:db=>{if(!db.objectStoreNames.contains(STORE)){const store=db.createObjectStore(STORE,{keyPath:'key'});store.createIndex('storedAt','storedAt');}}}):null;
+ const open=async():Promise<IDBDatabase|null>=>connect?connect().catch(()=>null):null;
  const withStore=<T>(mode:IDBTransactionMode,work:(store:IDBObjectStore)=>IDBRequest<T>):Promise<T|null>=>open().then(db=>{
   if(!db)return null;
   return new Promise<T|null>(resolve=>{

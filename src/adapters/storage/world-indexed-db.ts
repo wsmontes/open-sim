@@ -56,7 +56,7 @@ export function createIndexedDbWorldStorage(options:{name?:string;factory?:IDBFa
   async commit(transaction):Promise<WorldResult<Head>> {
    for(const object of transaction.objects)if(object.bytes.byteLength!==object.ref.bytes)return failed('MALFORMED','Objeto com tamanho diferente do endereço');
    const db=await connect();
-   return new Promise<WorldResult<Head>>((resolve,reject)=>{
+   return new Promise<WorldResult<Head>>(resolve=>{
     const tx=db.transaction([OBJECTS,HEADS,RECEIPTS],'readwrite');
     const objects=tx.objectStore(OBJECTS),heads=tx.objectStore(HEADS),receipts=tx.objectStore(RECEIPTS);
     const key:IDBValidKey=[transaction.next.worldId,transaction.next.branchId];

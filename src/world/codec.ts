@@ -2,7 +2,7 @@ import type {JsonValue} from '../world/model';
 import type {ContentHasher, WorldCodec} from './ports';
 import {MAX_BUNDLE_BYTES, MAX_DEPTH, MAX_OBJECT_BYTES, WIRE_VERSION, WORLD_PROTOCOL, failed, isRef, ok, sameRef} from '../world/model';
 import type {DatasetTerm, ObjectRef, WorldBundle, WorldDefinition, WorldObject, WorldResult} from '../world/model';
-import {assertClosed,isPlainObject,} from '../core/guards';
+import {assertClosed,isPlainObject,RESERVED_KEYS} from '../core/guards';
 
 // Reading a foreign file must not trust anything: size first, then a strict parse, then the shape, and only then the
 // hashes. A duplicate JSON key is refused rather than silently resolved, because two readers disagreeing about the
@@ -89,6 +89,7 @@ class Reader {
    if (this.text[this.index] !== '"') return failed('MALFORMED', 'Nome de propriedade esperado');
    const key = this.string();
    if (!key.ok) return key;
+   if (RESERVED_KEYS.includes(key.value)) return failed('MALFORMED', `Nome de propriedade reservado: ${key.value}`);
    if (seen.has(key.value)) return failed('MALFORMED', `Nome de propriedade repetido: ${key.value}`);
    seen.add(key.value);
    this.space();

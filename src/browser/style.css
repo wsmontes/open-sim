@@ -303,3 +303,5 @@ textarea:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
 #scene-loading:not([data-error="true"]) span::before{content:"";display:inline-block;width:12px;height:12px;margin-right:8px;border:2px solid #c8cec2;border-top-color:var(--accent);border-radius:50%;vertical-align:-1px;animation:scene-loading-spin 1s linear infinite}
 @keyframes scene-loading-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){#scene-loading span::before{animation:none}}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+#game:focus-visible{outline:3px solid #ffe1a0;outline-offset:-3px}

@@ -278,3 +278,11 @@ test('population credit follows the statistical measure instead of the encyclope
 });
 test('source panel participates in responsive sheet layout',()=>{const root=mount(),panel=createSourceInspector(root);expect(element('panel-source').closest('#hud-sheets')).not.toBeNull();panel.destroy();});
 test('source addresses are clickable without interpreting provider text as markup',()=>{const root=mount(),panel=createSourceInspector(root);panel.update({title:'Fonte',rows:[{label:'Origem',value:'2026 · CAD · https://example.test/source?q=1&year=2026'},{label:'Texto',value:'<img src=x onerror=alert(1)>'}],notes:[],message:''});const link=element('panel-source').querySelector('a');expect(link?.getAttribute('href')).toBe('https://example.test/source?q=1&year=2026');expect(element('panel-source').querySelector('img')).toBeNull();panel.destroy();});
+test('reflow clamps floating panels after resize within the same layout mode',()=>{
+ window.localStorage.setItem('open-sim:panels',JSON.stringify({'economy':{x:700,y:180}}));
+ const hud=createHud(element('hud'),callbacks());hud.setMode(DRESSER);
+ Object.defineProperty(window,'innerWidth',{value:700,configurable:true});
+ hud.reflow();
+ expect(Number.parseFloat(element('panel-economy').style.left)).toBeLessThanOrEqual(384);
+ hud.destroy();
+});

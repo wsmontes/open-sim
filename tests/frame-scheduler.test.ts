@@ -97,9 +97,19 @@ test('unpresented updates do not count toward visual fps and suspension resets o
  scheduler.stop();run(20_000);expect(samples.at(-1)?.intervalMs).toBe(0);
 });
 
-test('ambient cadence subtracts rendering time from its wait',()=>{let now=0,wait=0,frame!:(at:number)=>void;const s=createFrameScheduler({draw(){now+=20;return {moving:false,ambient:true};},now:()=>now,request(cb){frame=cb;return 1;},cancel(){},delay(_cb,ms){wait=ms;return 1;},clearDelay(){}});s.invalidate();frame(16);expect(wait).toBeCloseTo(1000/30-20);s.stop();});
+test('ambient cadence subtracts rendering time from its wait',()=>{let now=0,wait=0,frame!:(at:number)=>void;const s=createFrameScheduler({draw(){now+=20;return {moving:false,ambient:true};},now:()=>now,request(cb){frame=cb;return 1;},cancel(){},visible:()=>true,delay(_cb,ms){wait=ms;return 1;},clearDelay(){}});s.invalidate();frame(16);expect(wait).toBeCloseTo(1000/30-20);s.stop();});
 test('a worker presentation does not restart the ambient interval',()=>{
- let now=0,wait=0,frame!:(at:number)=>void;const s=createFrameScheduler({draw:()=>({moving:false,ambient:true}),now:()=>now,request(cb){frame=cb;return 1;},cancel(){},delay(_cb,ms){wait=ms;return 1;},clearDelay(){}});
+ let now=0,wait=0,frame!:(at:number)=>void;const s=createFrameScheduler({draw:()=>({moving:false,ambient:true}),now:()=>now,request(cb){frame=cb;return 1;},cancel(){},visible:()=>true,delay(_cb,ms){wait=ms;return 1;},clearDelay(){}});
  s.invalidate();frame(0);expect(wait).toBeCloseTo(1000/30);
  now=16;s.invalidate();frame(16);expect(wait).toBeCloseTo(1000/30-16);s.stop();
+});
+
+test('skipped render callbacks do not count as canvas draws',()=>{
+ const frames:Array<(now:number)=>void>=[];
+ const scheduler=createFrameScheduler({
+  draw:()=>({moving:false,ambient:false,drawn:false}),
+  request:cb=>{frames.push(cb);return 1;},cancel:()=>{},visible:()=>true,now:()=>1,
+ });
+ scheduler.invalidate();frames.shift()!(1);
+ expect(scheduler.stats().frames).toBe(1);expect(scheduler.stats().drawn).toBe(0);
 });

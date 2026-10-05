@@ -38,7 +38,6 @@ const codec = createJcsCodec(), hasher = bytesHasher();
 const NOW = '2026-09-29T12:00:00Z';
 const SESSION = {worldId: 'victoria', branchId: 'main', sessionId: 'sessao-1', epoch: 1};
 const at = (seconds: number) => new Date(Date.parse(NOW) + seconds * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
-const head = {worldId: 'victoria', branchId: 'main', commit: {hash: 'aa'.repeat(32), bytes: 64}, generation: 7};
 const world = (components: GameState['components'] = {}): GameState => ({...createGame('victoria', 7, blank('9:9')), components});
 
 // Three operations, two of them touching the same entity: the order of delivery is part of the scenario.

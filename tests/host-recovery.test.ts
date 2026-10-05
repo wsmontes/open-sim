@@ -421,7 +421,6 @@ test('a receipt compacted by a checkpoint asks for reconciliation instead of cha
 
 test('a replica follows the new epoch once, and refuses a competing or an older one',async()=>{
  const s=await ownedBranch();
- const head=s.built;
  const offered=await prepareHandover(s.host,BETO);
  if(!offered.ok)throw new Error(offered.error.message);
  const grant=await epochGrantOf(offered.value);

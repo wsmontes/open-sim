@@ -23,3 +23,20 @@ test('final coverage bytes describe retained assets after eviction',async()=>{
  const result=await prepareRegion(request,{read:key=>cache.get(key),fetch:async()=>new Uint8Array([1,2,3]),write:(key,b)=>cache.put(key,b)},()=>{});
  expect(result.bytes).toBe((await cache.stats()).bytes);expect(result.complete).toBe(false);
 });
+
+test('budget exhaustion is distinct from a resumable pause',async()=>{
+ const result=await prepareRegion({...request,maxBytes:1},{read:async()=>null,fetch:async()=>new Uint8Array(2),write:async()=>{}},()=>{});
+ expect(result.stopReason).toBe('budget');
+});
+test('cancellation interrupts a stalled cache read and skips the final scan',async()=>{
+ const abort=new AbortController();let reads=0;
+ const pending=prepareRegion(request,{read:()=>{reads++;return new Promise(()=>{});},fetch:async()=>new Uint8Array(),write:async()=>{}},()=>{},abort.signal);
+ abort.abort();const result=await Promise.race([pending,new Promise<null>(resolve=>setTimeout(()=>resolve(null),50))]);
+ expect(result?.stopReason).toBe('paused');expect(reads).toBe(1);
+});
+test('a pause during the last verification read is reported as paused',async()=>{
+ const abort=new AbortController();let reads=0,verify!:()=>void;
+ const verifying=new Promise<void>(resolve=>{verify=resolve;});
+ const pending=prepareRegion({...request,bounds:{west:0,east:0,south:0,north:0},levels:['detail']},{read:async()=>{if(++reads===1)return new Uint8Array([1]);verify();return new Promise(()=>{});},fetch:async()=>new Uint8Array([1]),write:async()=>{}},()=>{},abort.signal);
+ await verifying;abort.abort();const result=await pending;expect(result.stopReason).toBe('paused');expect(result.complete).toBe(false);
+});

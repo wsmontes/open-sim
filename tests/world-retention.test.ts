@@ -166,7 +166,7 @@ test('a device that lost an object suspends the collection and the version that 
 });
 
 test('a device over quota is told to export or branch instead of deleting reachable history',async()=>{
- const {storage,worlds,abandoned,inventory,roots}=await scenario();
+ const {storage,abandoned,inventory,roots}=await scenario();
  const used=storage.size();
  // Simulating an IndexedDB quota: the device reports less room than it is using, and the pass frees only loose bytes.
  const tight=planRetention(roots,inventory,{capacity:used-1,used});

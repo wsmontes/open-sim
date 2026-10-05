@@ -24,7 +24,7 @@ export type CityResponse =
  | {ok: false; revision: number; tick: number; error: {code: CityErrorCode; message: string}};
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
-const ACTION_TYPES = ['build', 'demolish', 'policy', 'component', 'tick'];
+const ACTION_TYPES = ['build', 'demolish', 'policy'];
 // A tick is bounded so one request cannot wedge the agent in an unbounded loop (same ceiling the facade had).
 const MAX_ADVANCE = 10000;
 

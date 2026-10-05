@@ -26,6 +26,8 @@ import {pickSurface,} from '../surfaces/canvas/terrain-renderer';
 import {buildingCacheStats} from '../surfaces/canvas/architecture-renderer';
 import {geographicFocus,mapScale,GLOBE_ZOOM} from '../presentation/geographic-map';
 import {attachOfflineRegion} from './offline-controller';
+import {installShell} from './shell';
+import {createLocalResources,showStorageInfo} from './resources';
 import {viewpointOf} from '../presentation/viewpoint';
 import {createOsmSource} from '../adapters/osm/provider';
 import type {OsmSource} from '../adapters/osm/provider';
@@ -47,7 +49,7 @@ import {ed25519Verifier} from '../adapters/crypto/session-keys';
 import {createWebRtcSessionPorts} from '../adapters/session/webrtc';
 import {createSession} from '../session/local-session';
 import {createWorldRepository} from '../session/world-repository';
-import type {BaseChunk, GameState, ViewState} from '../core/model';
+import type {BaseChunk, GameState} from '../core/model';
 import {createKernel} from '../world/kernel';
 import {createGameSessionView} from '../presentation/multiplayer';
 import {createMultiplayerPanel} from '../surfaces/canvas/multiplayer-panel';
@@ -70,7 +72,7 @@ import {layoutFor,type LayoutMode} from '../presentation/layout';
 import type {SelectedTool} from '../surfaces/canvas/hud';
 import {attachInput} from '../surfaces/canvas/input';
 import {strokeShapeOf} from '../presentation/tools';
-import {createCityClient} from '../client/city-client';
+import {createCityClient,type ClientView} from '../client/city-client';
 import {actionLabel} from '../client/versions';
 import type {CityFacts, FactsPort} from '../client/facts';
 import {PLACES} from '../client/facts';
@@ -106,8 +108,6 @@ const WORLD_ID = 'open-sim',
  START = 'Vancouver';
 // The drawing buffer is half the CSS size (times the pixel ratio), which is the game's chunky look.
 const BUFFER_SCALE = 1;
-// How far ahead a project preview simulates the city, in ticks.
-const _PREVIEW_FUTURE_TICKS = 60;
 const PERF_DEBUG = new URLSearchParams(location.search).has('debug'),
  PERF_ZERO = performance.now();
 const PERF_MARKS: Record<string, number> = {script: 0};
@@ -275,6 +275,13 @@ const citySourceEl = hudRoot.querySelector<HTMLElement>('#city-source');
 const cityDensityEl = hudRoot.querySelector<HTMLElement>('#city-density');
 const cityGdpEl = hudRoot.querySelector<HTMLElement>('#city-gdp');
 const tileCacheInfo = hudRoot.querySelector<HTMLElement>('#tile-cache');
+const resources=createLocalResources();
+const initialPreferences=resources.preferences();
+const constrained=initialPreferences.saveData||(initialPreferences.memoryGiB!==null&&initialPreferences.memoryGiB<=2);
+const storageStatus=hudRoot.querySelector<HTMLElement>('#storage-status');
+const refreshStorage=()=>void resources.storage().then(info=>{if(!disposed)showStorageInfo(storageStatus,info);});
+refreshStorage();
+hudRoot.querySelector('#offline-prepare')?.addEventListener('click',()=>{void resources.persist().then(refreshStorage);});
 const placeError = hudRoot.querySelector<HTMLElement>('#place-error');
 const placeForm = hudRoot.querySelector<HTMLFormElement>('#place-form');
 const placeLat = hudRoot.querySelector<HTMLInputElement>('#place-lat');
@@ -282,13 +289,14 @@ const placeLon = hudRoot.querySelector<HTMLInputElement>('#place-lon');
 // The map service sends vector tiles once and the device keeps them: one tile covers 64 regions, so a revisit — this
 // session or the next one — costs no request at all. Under the test seam the whole provider is replaced by a fixture
 // map, so no tile cache is built: the fixture has no bytes to keep.
-const tileCache = testPorts ? null : createIndexedDbTileCache({maxBytes: 256 * 1024 * 1024}),
+const tileCache = testPorts ? null : createIndexedDbTileCache({maxBytes: (constrained?48:128) * 1024 * 1024}),
  chunkCache = testPorts ? null : createIndexedDbChunkCache();
 const maps = testPorts?.maps ?? createOsmSource({cache: tileCache!, chunks: chunkCache!});
 // Saving a region for offline play is a browser act (a download with progress and a stop button); where it is centred
 // is the client's camera. The fixture map has no `prepareRegion`, so the offline control simply is not wired in tests.
+let detachOffline=()=>{};
 if ('prepareRegion' in maps)
- attachOfflineRegion(hudRoot, maps as OsmSource, () => {
+ detachOffline=attachOfflineRegion(hudRoot, maps as OsmSource, () => {
   const view = client.view();
   return viewpointOf(view.camera, view.viewport).center;
  });
@@ -449,7 +457,8 @@ const client = createCityClient({
  initialChunk: chunkId(START_CELL),
  place: START,
  facts,
- animated: true,
+ animated: !initialPreferences.reducedMotion,
+ yield: () => new Promise(resolve => setTimeout(resolve, 0)),
  zoomScale: () => deviceScale(),
  viewport: {width: canvas.width || 1024, height: canvas.height || 640},
  attribution: maps.attribution,
@@ -508,7 +517,6 @@ if (RECORDING) {
 const tell = (intent: Parameters<typeof client.do>[0]) => {
  void client.do(intent);
 };
-const _currentView = (): ViewState => client.viewState();
 // Only detailed regions count: the economy must never quote or adopt a coarse approximation of a place. The regions
 // the client has asked for are read from its view, so the browser no longer keeps its own `requested` set.
 const availableBases = (): BaseChunk[] => {
@@ -532,11 +540,13 @@ const showCacheStats = () => {
  void tileCache
   .stats()
   .then(({tiles, bytes}) => {
+   if(disposed)return;
    tileCacheInfo.textContent = tiles
     ? `Mapa guardado: ${tiles.toLocaleString('pt-BR')} tiles · ${formatBytes(bytes)}`
     : '';
   })
   .catch(() => {
+   if(disposed)return;
    tileCacheInfo.textContent = '';
   });
 };
@@ -548,7 +558,26 @@ const formatBytes = (bytes: number) => {
 // The preview and the cost are the client's; the browser only writes them where the player reads them.
 const hudUpdateGate=createSemanticUpdateGate(200);let hudCriticalStamp='',hudTrailingTimer:ReturnType<typeof setTimeout>|undefined;
 const hudModels=new WeakMap<object,string>();const hudModel=(value:object|null)=>{if(!value)return '';let key=hudModels.get(value);if(key===undefined){key=JSON.stringify(value);hudModels.set(value,key);}return key;};
+// The map chrome follows the camera every frame; the panels below are rebuilt only when their model changed, so a
+// drag does not rewrite what nothing touched.
+const updateMapHud = () => {
+ const view=client.view(),focus=geographicFocus(view.camera,view.viewport),scale=mapScale(view.camera,view.viewport);
+ const scaleLabel=hudRoot.querySelector<HTMLElement>('#map-scale-label'),scaleBar=hudRoot.querySelector<HTMLElement>('#map-scale-bar'),mapMode=hudRoot.querySelector<HTMLElement>('#map-mode');
+ if(scaleLabel)scaleLabel.textContent=scale.label;
+ if(scaleBar)scaleBar.style.width=`${Math.round(scale.pixels/deviceScale())}px`;
+ if(mapMode)mapMode.textContent=scale.mode;
+ const coordinates=hudRoot.querySelector<HTMLElement>('#map-coordinates');if(coordinates)coordinates.textContent=`${Math.abs(focus.lat).toFixed(3)}° ${focus.lat>=0?'N':'S'} · ${Math.abs(focus.lon).toFixed(3)}° ${focus.lon>=0?'L':'O'}`;
+ hudRoot.classList.toggle('world-view',view.camera.zoom<.035);
+ hudRoot.classList.toggle('planet-view',view.camera.zoom<GLOBE_ZOOM);
+};
+let lastHudView:ClientView|null=null;
+const historyKey=(view:ClientView)=>{const h=view.history;return h?`${h.branchId}|${h.status}|${h.message}|${h.entries.length}|${h.entries[0]?.hash}|${h.entries.at(-1)?.hash}`:'';};
+const hudModelChanged=(view:ClientView)=>{
+ const old=lastHudView;if(!old)return true;
+ return old.state!==view.state||old.tool!==view.tool||old.speed!==view.speed||old.place!==view.place||old.notice!==view.notice||old.facts!==view.facts||old.scale!==view.scale||old.map.message!==view.map.message||old.save.status!==view.save.status||old.save.message!==view.save.message||old.save.blocked!==view.save.blocked||old.scenarios!==view.scenarios||historyKey(old)!==historyKey(view)||old.history?.compare?.summary!==view.history?.compare?.summary||old.branches?.selected!==view.branches?.selected||old.branches?.ids.join('|')!==view.branches?.ids.join('|');
+};
 const updateHud = () => {
+ if(disposed)return;
  const handForHud=client.view(),critical=[handForHud.state?.revision,handForHud.speed,handForHud.tool,handForHud.place,handForHud.notice,JSON.stringify(handForHud.save),handForHud.map.message,handForHud.facts?.id,handForHud.preview.affordable,handForHud.preview.cost,handForHud.preview.message,hudModel(handForHud.history),JSON.stringify(handForHud.branches),hudModel(handForHud.scenarios),JSON.stringify(sessions.describe())].join(':');
  const hudKey=[critical,handForHud.camera.x,handForHud.camera.y,handForHud.camera.zoom,handForHud.camera.rotation,handForHud.viewport.width,handForHud.viewport.height,geography?.scene().revision].join(':');
  const hudNow=performance.now();
@@ -559,7 +588,8 @@ const updateHud = () => {
  // durable confirmation is what then speaks for the branch (the client's view already follows that rule).
  sessions.setPersistence(session.getSaveStatus());
  const view = client.view();
- const focus=geographicFocus(view.camera,view.viewport),scale=mapScale(view.camera,view.viewport);
+ lastHudView=view;
+ const focus=geographicFocus(view.camera,view.viewport);
  const nearby=Object.values(PLACES).find(p=>Math.hypot((p.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),p.lat-focus.lat)<.15);
  // A lookup belongs to its requested location. Moving elsewhere hides it until new facts arrive.
  const anchored=view.factsAt && Math.hypot((view.factsAt.lon-focus.lon)*Math.cos(focus.lat*Math.PI/180),view.factsAt.lat-focus.lat)<.01?view.facts:null;
@@ -576,13 +606,8 @@ const updateHud = () => {
  const calibrationText=hudRoot.querySelector<HTMLElement>('#economy-calibration');if(calibrationText)calibrationText.textContent=calibration?`Referência ativa: ${calibration.territoryId} · ${calibration.fiscalYear} · ${calibration.gameUnitsPerCad} unidades/CAD`:'Referência municipal desativada.';
  const calibrationButton=hudRoot.querySelector<HTMLButtonElement>('#economy-calibrate');if(calibrationButton)calibrationButton.disabled=!visibleFacts?.finance||!visibleFacts.population;
  const where=geography?(view.camera.zoom<GLOBE_ZOOM?'Terra':visibleFacts?.label??`${focus.lat.toFixed(3)}°, ${focus.lon.toFixed(3)}°`):view.place;
- const scaleLabel=hudRoot.querySelector<HTMLElement>('#map-scale-label'),scaleBar=hudRoot.querySelector<HTMLElement>('#map-scale-bar'),mapMode=hudRoot.querySelector<HTMLElement>('#map-mode');
- if(scaleLabel)scaleLabel.textContent=scale.label;
- if(scaleBar)scaleBar.style.width=`${Math.round(scale.pixels/deviceScale())}px`;
- if(mapMode)mapMode.textContent=scale.mode;
- const coordinates=hudRoot.querySelector<HTMLElement>('#map-coordinates');if(coordinates)coordinates.textContent=`${Math.abs(focus.lat).toFixed(3)}° ${focus.lat>=0?'N':'S'} · ${Math.abs(focus.lon).toFixed(3)}° ${focus.lon>=0?'L':'O'}`;
- hudRoot.classList.toggle('world-view',view.camera.zoom<.035);
- hudRoot.classList.toggle('planet-view',view.camera.zoom<GLOBE_ZOOM);
+ updateMapHud();
+
  const visual=geography?.scene();
  const mapMessage=geography?(visual?.error?'Parte do mapa não carregou. Tente novamente.':visual?.loading?'Carregando mapa…':''):view.map.message;
  if (costEl) costEl.textContent = view.preview.message;
@@ -614,7 +639,7 @@ const updateHud = () => {
 const saveNow = () => client.saveNow();
 // The buffer is the CSS size times this, and the zoom ladder is built from it: a tile has to be a whole number of
 // device pixels for a one pixel line to stay one pixel wide. The client is given this so it snaps zoom the same way.
-const deviceScale = () => BUFFER_SCALE * renderPixelRatio(window.devicePixelRatio||1,(navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.clientWidth||window.innerWidth,canvas.clientHeight||window.innerHeight);
+const deviceScale = () => BUFFER_SCALE * Math.min(constrained?1:2, renderPixelRatio(window.devicePixelRatio||1,(navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.clientWidth||window.innerWidth,canvas.clientHeight||window.innerHeight));
 // Direct pointer manipulation lands at once and cancels any glide in flight (the hand wins over the animation). The
 // surface already measured the exact camera; the client stores it and loads the regions it uncovered.
 const setCamera = (next: Camera, options: {snap?: boolean} = {}) => {
@@ -721,7 +746,7 @@ const applyLayout = () => {
  // Re-arranging the shell is not free: it toggles classes, re-places every screen and measures the dock and the bar
  // with getBoundingClientRect. A phone fires resize while the address bar slides, and each of those events used to pay
  // for the whole pass. An arrangement that did not change is left alone.
- if(lastLayout&&lastLayout.dock===next.dock&&lastLayout.sheets===next.sheets&&lastLayout.inspector===next.inspector&&lastLayout.floating===next.floating&&lastLayout.touch===next.touch)return;
+ if(lastLayout&&lastLayout.dock===next.dock&&lastLayout.sheets===next.sheets&&lastLayout.inspector===next.inspector&&lastLayout.floating===next.floating&&lastLayout.touch===next.touch){hud.reflow();return;}
  lastLayout=next;
  hud.setMode(next);
 };
@@ -748,11 +773,29 @@ const sceneSurface=createSceneSurface(ctx,()=>invalidateFrame(),(navigator as Na
 const perfSamples=createPerformanceSamples(),framePhases:Record<string,number>={};
 let framePresented=false;
 const phase=(name:string,start:number)=>{if(PERF_DEBUG)framePhases[name]=performance.now()-start;};
+let gestureActive=false,disposed=false;
+const cleanups:Array<()=>void>=[];
+// One teardown for every lifetime: hidden pages keep their state (pagehide with persisted), an unload does not.
+const dispose=()=>{
+ if(disposed)return;disposed=true;active=false;
+ clearTimeout(viewportTimer);
+ if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}
+ if(debugTimer!==undefined)clearInterval(debugTimer);
+ frames.stop();client.stop();detachOffline();
+ for(const cleanup of cleanups.splice(0))cleanup();
+ mobilityStream?.dispose();terrain.dispose();geography?.destroy();if('destroy' in maps)(maps as OsmSource).destroy();
+ regionalMobility.dispose();regionalActivity.dispose();sceneSurface.dispose();sceneRasterCache.clear();
+ hud.destroy();multiplayer.destroy();history.destroy();scenarios.destroy();sourcePanel?.destroy();
+ window.removeEventListener('resize',viewportSettled);
+ window.visualViewport?.removeEventListener('resize',viewportSettled);
+ window.visualViewport?.removeEventListener('scroll',viewportSettled);
+ window.screen?.orientation?.removeEventListener?.('change',viewportSettled);
+};
 // The card the player opened describes one cell. The moment the city slides under it, it is answering about a place
 // that is no longer where it was, so any camera move — drag, wheel, keyboard or a glide to another city — takes it away.
 let hudCameraStamp='';
 let cardCamera: {x: number; y: number; zoom: number} | null = null;
-const draw = (now: number, seconds: number) => {
+ const draw = (now: number, seconds: number) => {
  framePresented=false;for(const key of Object.keys(framePhases))delete framePhases[key];
  // Nothing to draw until the city exists: a plain haze instead of a frame over a session that has not opened.
  if (!client.view().state) {
@@ -763,7 +806,7 @@ const draw = (now: number, seconds: number) => {
  }
  perfMark('first-frame');
  // One frame of any camera glide happens inside the client; the browser only reads where it ended up.
- const moving = client.step(seconds);
+ const moving = client.step(seconds)||gestureActive;
  const hand = client.view();
  const camera = hand.camera;
 
@@ -798,7 +841,8 @@ const draw = (now: number, seconds: number) => {
  if (cardCamera && (cardCamera.x !== camera.x || cardCamera.y !== camera.y || cardCamera.zoom !== camera.zoom))
   inspector.show(null);
  cardCamera = {x: camera.x, y: camera.y, zoom: camera.zoom};
- if (hand.speed !== 0&&mobilityEnabled&&staticReady) motion += seconds * hand.speed;
+ const decorative=!resources.preferences().reducedMotion;
+ if (hand.speed !== 0&&decorative&&mobilityEnabled&&staticReady) motion += seconds * hand.speed;
  const snapshotStart=performance.now();
  const view: WorldView = {
   light:cityLight,
@@ -833,11 +877,12 @@ const draw = (now: number, seconds: number) => {
  const visualScene=geography?.scene(),surfaceStatus=sceneSurface.status();
  sceneLoading.update({sessionReady:true,pictureReady:surfaceStatus.pictureReady,mapLoading:visualScene?.loading??false,preparing:!staticReady,error:startupFailed||(visualScene?.error??false)||regionalMobility.status().error||(regionalWanted&&regionalActivity.status().error)});
  if(surfaceStatus.pictureReady){perfMark('first-scene');if(!firstPicture){firstPicture=true;syncMobilityCity(containsLocalArea(vancouverLocalAreas.areas,civilFocus));regionalActivity.update(regionalWanted,staticReady);}}
- return {moving:moving||sceneSurface.pending(), ambient: hand.speed !== 0&&staticReady,presented:framePresented};
+ return {moving:moving||sceneSurface.pending(), ambient: hand.speed !== 0&&decorative&&staticReady,presented:framePresented,drawn:framePresented};
 };
 let lastView: WorldView | null = null;
 const sameFrame=sameSceneFrame;
-const frames = createFrameScheduler({draw,ambientFps:renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.width,canvas.height).dynamicFps,onSample:sample=>{if(PERF_DEBUG)perfSamples.record({...sample,phases:framePhases});}});
+const frames = createFrameScheduler({draw,request:callback=>requestAnimationFrame(callback),cancel:id=>cancelAnimationFrame(id),delay:(callback,ms)=>setTimeout(callback,ms),clearDelay:id=>clearTimeout(id as ReturnType<typeof setTimeout>),visible:()=>!document.hidden,now:()=>performance.now(),ambientFps:constrained?15:renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.width,canvas.height).dynamicFps,onSample:sample=>{if(PERF_DEBUG)perfSamples.record({...sample,phases:framePhases});}});
+cleanups.push(resources.subscribe(()=>{const v=client.view();if(resources.preferences().reducedMotion)tell({do:'camera',camera:v.glide??v.camera,settle:true});invalidateFrame();}));
 invalidateFrame = frames.invalidate;
 let debugTimer:number|undefined;
 if (PERF_DEBUG) {
@@ -853,6 +898,7 @@ if (PERF_DEBUG) {
   const chunks = client.view().chunks;
   return {
    marks: {...PERF_MARKS},
+   resources: resources.preferences(),
    frames: frames.stats(),
    map: 'decodeStats' in maps ? (maps as OsmSource).decodeStats() : null,
    visible: {requested: chunks.size, ready: [...chunks.values()].filter(status => status.status === 'ready').length},
@@ -863,12 +909,14 @@ if (PERF_DEBUG) {
  };
 }
 async function start() {
+ if(disposed)return;
  startupFailed=false;
  resize();
  try {
   // The client opens the personal session and restores the player's hand: tool, speed, place, the saved camera and
   // the bundled facts; it also centres a fresh game on its starting region.
   await client.start();
+  if(disposed)return;
   if(geography&&!session.restoredView){const v=client.view();tell({do:'camera',camera:centerOn(START_CELL,{...v.camera,zoom:.35,rotation:Math.PI/4},v.viewport),settle:true});}
  } catch {
   startupFailed=true;sceneLoading.update({sessionReady:false,pictureReady:false,mapLoading:false,preparing:false,error:true});
@@ -880,22 +928,27 @@ async function start() {
  client.setHidden(document.hidden);
  sessions.setHostVisible(!document.hidden);
  // The client already saves on every new revision; the browser only has to redraw, at most once per frame.
- let uiPending = false;
+ let uiPending = false,sessionDirty=false;
  const redraw = () => {
+  if(disposed)return;
   invalidateFrame();
   if (uiPending) return;
   uiPending = true;
   requestAnimationFrame(() => {
    uiPending = false;
-   updateHud();
+   if(disposed)return;
+   const view=client.view(),old=lastHudView;
+   const cameraChanged=!old||old.camera.x!==view.camera.x||old.camera.y!==view.camera.y||old.camera.zoom!==view.camera.zoom||old.camera.rotation!==view.camera.rotation;
+   if(sessionDirty||hudModelChanged(view)||(cameraChanged&&!gestureActive))updateHud();
+   else{updateMapHud();if(costEl)costEl.textContent=view.preview.message;}
+   sessionDirty=false;
   });
  };
- session.subscribe(redraw);
- client.subscribe(redraw);
- new ResizeObserver(viewportSettled).observe(canvas);
+ cleanups.push(session.subscribe(()=>{sessionDirty=true;redraw();}),client.subscribe(redraw));
+ const observer=new ResizeObserver(viewportSettled);observer.observe(canvas);cleanups.push(()=>observer.disconnect());
  window.addEventListener('resize', () => resize());
  // The canvas surface: a gesture becomes the same intentions a typed command or a playthrough produces.
- attachInput(
+ cleanups.push(attachInput(
   canvas,
   {
    geographic: !!geography,
@@ -906,6 +959,7 @@ async function start() {
    strokeShape: () => strokeShapeOf(client.view().tool),
   },
   {
+   onGesture(active){gestureActive=active;if(!active)updateHud();invalidateFrame();},
    onHover(cell) {
     if(client.view().camera.zoom<.035)cell=null;
     tell({do: 'hover', cell});
@@ -922,6 +976,7 @@ async function start() {
     if(geography&&client.view().camera.zoom<.035){const v=client.view();tell({do:'camera',camera:centerOn(cell,{...v.camera,zoom:.35},v.viewport),settle:true});return;}
     // What the player touched, described by the core through the client so the card cannot disagree with the city.
     void client.do({do: 'inspect', cell}).then(() => {
+     if(disposed)return;
      const view = client.view();
      if (!view.card) {
       inspector.show(null);
@@ -936,7 +991,7 @@ async function start() {
     tell({do: 'cancel'});
    },
   },
- );
+ ));
  placeForm?.addEventListener('submit', event => {
   event.preventDefault();
   const raw = {lat: placeLat?.value.trim() ?? '', lon: placeLon?.value.trim() ?? ''},
@@ -950,22 +1005,26 @@ async function start() {
    }
   });
  });
- document.addEventListener('visibilitychange', () => {
+ const onVisibility=() => {
   // Hiding stops the clock and saves; showing resumes without replaying the hidden time.
   client.setHidden(document.hidden);
   // A browser in a background tab is not a promise: while the host is hidden the session reports itself as paused.
   sessions.setHostVisible(!document.hidden);
   updateHud();
   if(document.hidden)frames.stop();else invalidateFrame();
- });
- window.addEventListener('pagehide', event => {saveNow();frames.stop();if(viewportTimer!==undefined){clearTimeout(viewportTimer);viewportTimer=undefined;}if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}if(!event.persisted){if(debugTimer!==undefined)clearInterval(debugTimer);mobilityStream?.dispose();terrain.dispose();geography?.dispose();if('destroy' in maps)(maps as OsmSource).destroy();regionalMobility.dispose();regionalActivity.dispose();sceneSurface.dispose();sceneRasterCache.clear();}});
+ };
+ document.addEventListener('visibilitychange',onVisibility);
+ const onPageHide=(event:PageTransitionEvent)=>{saveNow();if(event.persisted){frames.stop();if(viewportTimer!==undefined){clearTimeout(viewportTimer);viewportTimer=undefined;}}else dispose();};
+ window.addEventListener('pagehide',onPageHide);
  window.addEventListener('pageshow',()=>{if(!document.hidden)invalidateFrame();});
+ cleanups.push(()=>document.removeEventListener('visibilitychange',onVisibility),()=>window.removeEventListener('pagehide',onPageHide));
  // First paint is the restored local state. Merely queueing network/storage work in the same task can still delay the
  // browser's actual paint on a phone, so background work starts only after one rendered frame has returned to the UA.
  updateHud();
  invalidateFrame();
  requestAnimationFrame(() => {
   setTimeout(() => {
+   if(disposed)return;
    perfMark('background-start');
    // Refresh demographic facts for the place the camera restored to, and make the visible region ready. Both run
    // inside the client now; the browser only asks for them and marks when they are done.
@@ -981,7 +1040,8 @@ async function start() {
    // History/version materialization is useful but never gameplay-critical. Give input and map restoration first use
    // of idle time; the timeout guarantees the panel eventually becomes ready even on a continuously busy tab. The
    // client owns the version graph now; the browser only asks it to open and marks when the panel is ready.
-   const materialize = () =>
+   const materialize = () => {
+    if(disposed)return;
     void client
      .do({do: 'openWorld'})
      .then(() => {
@@ -989,6 +1049,7 @@ async function start() {
       updateHud();
      })
      .catch(() => updateHud());
+   };
    const idle = (window as Window & {requestIdleCallback?: (cb: () => void, options?: {timeout: number}) => number})
     .requestIdleCallback;
    if (idle) idle(materialize, {timeout: 2500});
@@ -1008,16 +1069,11 @@ if (testPorts)
   sessions,
   ready: started,
   availableBases,
+  dispose,
  };
 void started;
 
 // The installed game opens without a network: the service worker keeps the shell and the assets this page loaded.
 if(import.meta.env.PROD&&'serviceWorker' in navigator){
- void navigator.serviceWorker.register(new URL('sw.js',document.baseURI).href).then(async registration=>{
-  await navigator.serviceWorker.ready;
-  const urls=[...document.querySelectorAll<HTMLScriptElement>('script[src]')].map(node=>node.src);
-  urls.push(...[...document.querySelectorAll<HTMLLinkElement>('link[href]')].map(node=>node.href));
-  urls.push(...performance.getEntriesByType('resource').map(entry=>entry.name));
-  (registration.active??navigator.serviceWorker.controller)?.postMessage({type:'cache-shell',urls});
- }).catch(()=>{});
+ cleanups.push(installShell());
 }
