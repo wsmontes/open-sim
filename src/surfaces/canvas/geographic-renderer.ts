@@ -165,7 +165,7 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
   polygon(ctx,view,feature,shift,fill);ctx.globalAlpha=1;
   if(layer==='street_polygons')drawPaving(ctx,view,feature,shift);
   if(layer==='water_polygons'||layer==='ocean'){path(ctx,feature.geometry.map(r=>projectRing(view,r,shift,feature)));ctx.strokeStyle=PALETTE.shore;ctx.lineWidth=Math.min(1.3,scale*.12);ctx.stroke();}
-  if(PARKS.has(feature.kind))drawParkPlanting(ctx,view,feature,shift,box);
+  if(PARKS.has(feature.kind)&&view.moving!==true)drawParkPlanting(ctx,view,feature,shift,box);
  }
  }
  for(const {feature,shift} of features){
@@ -182,8 +182,11 @@ export function renderGeographicWorld(ctx:CanvasRenderingContext2D,view:WorldVie
  drawRoads(ctx,view,roads,'surface');
  for(const {coord,cell} of edits)if(cell.road)drawPlayerRoad(ctx,view,coord,cell,lookup,'surface');
  drawRoads(ctx,view,roads,'marking');
- drawStreetDetails(ctx,view,roads,centre.x);
- drawPlanting(ctx,view,roads,box);
+ // While the camera is moving, the furniture is left out: it is the part of the frame that costs the most to rebuild.
+ if(view.moving!==true){
+  drawStreetDetails(ctx,view,roads,centre.x);
+  drawPlanting(ctx,view,roads,box);
+ }
  }
  for(const {coord,cell} of edits)if(!cachedGround&&cell.building==='park'&&scale>=4)drawTree(ctx,projectSurface(view,coord),scale,(coord.x^coord.y)>>>0);
  ctx=mainContext;

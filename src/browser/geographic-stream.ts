@@ -6,7 +6,9 @@ export function createGeographicStream(load:(z:number,x:number,y:number)=>Promis
  const cache=new Map<string,GeographicTile>(),pending=new Set<string>(),failed=new Set<string>();
  const sizes=new Map<string,number>();let bytes=0;
  const discard=(key:string)=>{bytes-=sizes.get(key)??0;sizes.delete(key);cache.delete(key);};
- const trim=()=>{const protectedKeys=new Set(demand.map(tileKey));for(const key of cache.keys()){if(cache.size<=64&&bytes<=(budget?.().cacheBytes??32*1024*1024))break;if(!protectedKeys.has(key))discard(key);}};
+ // The nearest cached ancestor is what stands in for a region while its own tiles arrive, so eviction must not take it.
+ const placeholder=(tile:GeographicTileId)=>{for(let z=tile.z-1;z>=0;z--){const factor=2**(tile.z-z),key=tileKey({z,x:Math.floor(tile.x/factor),y:Math.floor(tile.y/factor)}),cached=cache.get(key);if(cached)return{key,cached};}return null;};
+ const trim=()=>{const protectedKeys=new Set(demand.map(tileKey));for(const tile of demand){const stand=placeholder(tile);if(stand)protectedKeys.add(stand.key);}for(const key of cache.keys()){if(cache.size<=64&&bytes<=(budget?.().cacheBytes??32*1024*1024))break;if(!protectedKeys.has(key))discard(key);}};
  let demand:GeographicTileId[]=[],signature='',revision=0,destroyed=false;
  const waiters:Array<()=>void>=[];
  let snapshot:GeographicScene|null=null;
@@ -37,8 +39,9 @@ export function createGeographicStream(load:(z:number,x:number,y:number)=>Promis
    for(const tile of demand){
     const key=tileKey(tile),direct=cache.get(key);
     if(direct){visible.set(key,direct);continue;}
-    // A parent of exactly this location is a safe placeholder while detail arrives.
-    for(let z=tile.z-1;z>=0;z--){const factor=2**(tile.z-z),parentKey=tileKey({z,x:Math.floor(tile.x/factor),y:Math.floor(tile.y/factor)}),parent=cache.get(parentKey);if(parent){visible.set(key,clipGeographicTile(parent,tile));break;}}
+    // A clipped ancestor of exactly this location is a safe placeholder while detail arrives.
+    const stand=placeholder(tile);
+    if(stand)visible.set(key,clipGeographicTile(stand.cached,tile));
    }
    const tiles=[...visible.values()];
    return snapshot={tiles,revision,loading:demand.some(t=>!cache.has(tileKey(t))&&!failed.has(tileKey(t))),error:demand.some(t=>failed.has(tileKey(t)))};

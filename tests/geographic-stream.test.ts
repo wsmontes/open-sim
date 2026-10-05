@@ -1,6 +1,6 @@
 import {expect,test} from 'vitest';
 import {createGeographicStream} from '../src/browser/geographic-stream';
-import {centerOn} from '../src/presentation/camera';
+import {centerOn,zoomTo} from '../src/presentation/camera';
 import {toCell} from '../src/core/coordinates';
 import type {GeographicTile} from '../src/presentation/geographic-map';
 const viewport={width:800,height:600};
@@ -35,7 +35,7 @@ test('cached parent placeholders cannot overlap ready detail tiles after a parti
  const v={width:1280,height:800},at=centerOn(toCell(49.2827,-123.1207),{x:0,y:0,zoom:.025,rotation:Math.PI/4},v);
  const stream=createGeographicStream(async(z,x,y)=>{if(z===14&&x===2589)throw new Error('offline');return{z,x,y,features:[]};},()=>{});
  stream.update(at,v);await stream.idle();
- const {zoomTo}=await import('../src/presentation/camera');stream.update(zoomTo(at,v,.05),v);await stream.idle();
+ stream.update(zoomTo(at,v,.05),v);await stream.idle();
  const tiles=stream.scene().tiles;expect(stream.scene().error).toBe(true);
  expect(tiles.some(tile=>tile.fallback===true)).toBe(true);
  for(const a of tiles)for(const b of tiles)if(a!==b)expect(`${a.z}:${a.x}:${a.y}`).not.toBe(`${b.z}:${b.x}:${b.y}`);
@@ -59,4 +59,15 @@ test('byte pressure evicts unneeded cached regions instead of relying on tile co
  const stream=createGeographicStream(async(z,x,y)=>({z,x,y,features:[],encoded:new Uint8Array(2048)}),()=>{},()=>({zoomBias:0,maxTiles:4,concurrency:1,cacheBytes:1000}));
  stream.update(camera,viewport);await stream.idle();expect(stream.status().bytes).toBeGreaterThan(1000);
  stream.update({...camera,zoom:.000003},viewport);await stream.idle();expect(stream.status().bytes).toBe(0);
+});
+test('a byte-exhausted cache keeps the ancestor that still stands in for a region',async()=>{
+ const v={width:1280,height:800},at=centerOn(toCell(49.2827,-123.1207),{x:0,y:0,zoom:.025,rotation:0},v);
+ let failAbove=99;
+ const stream=createGeographicStream(async(z,x,y)=>{if(z>failAbove)throw new Error('offline');return{z,x,y,features:[],encoded:new Uint8Array(2048)};},()=>{},()=>({zoomBias:0,maxTiles:40,concurrency:1,cacheBytes:1}));
+ stream.update(at,v);await stream.idle();
+ failAbove=Math.max(...stream.scene().tiles.map(t=>t.z));
+ stream.update(zoomTo(at,v,.05),v);await stream.idle();
+ const tiles=stream.scene().tiles;
+ expect(tiles.length).toBeGreaterThan(0);
+ expect(tiles.every(t=>t.fallback===true)).toBe(true);
 });

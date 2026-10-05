@@ -576,12 +576,12 @@ const hudModelChanged=(view:ClientView)=>{
  const old=lastHudView;if(!old)return true;
  return old.state!==view.state||old.tool!==view.tool||old.speed!==view.speed||old.place!==view.place||old.notice!==view.notice||old.facts!==view.facts||old.scale!==view.scale||old.map.message!==view.map.message||old.save.status!==view.save.status||old.save.message!==view.save.message||old.save.blocked!==view.save.blocked||old.scenarios!==view.scenarios||historyKey(old)!==historyKey(view)||old.history?.compare?.summary!==view.history?.compare?.summary||old.branches?.selected!==view.branches?.selected||old.branches?.ids.join('|')!==view.branches?.ids.join('|');
 };
-const updateHud = () => {
+const rebuildHud = (forced:boolean) => {
  if(disposed)return;
  const handForHud=client.view(),critical=[handForHud.state?.revision,handForHud.speed,handForHud.tool,handForHud.place,handForHud.notice,JSON.stringify(handForHud.save),handForHud.map.message,handForHud.facts?.id,handForHud.preview.affordable,handForHud.preview.cost,handForHud.preview.message,hudModel(handForHud.history),JSON.stringify(handForHud.branches),hudModel(handForHud.scenarios),JSON.stringify(sessions.describe())].join(':');
  const hudKey=[critical,handForHud.camera.x,handForHud.camera.y,handForHud.camera.zoom,handForHud.camera.rotation,handForHud.viewport.width,handForHud.viewport.height,geography?.scene().revision].join(':');
  const hudNow=performance.now();
- if(!hudUpdateGate.shouldUpdate(hudKey,hudNow,critical!==hudCriticalStamp)){const retry=hudUpdateGate.retryAfter(hudKey,hudNow);if(retry!==null&&hudTrailingTimer===undefined)hudTrailingTimer=setTimeout(()=>{hudTrailingTimer=undefined;updateHud();},retry);return;}
+ if(!forced&&!hudUpdateGate.shouldUpdate(hudKey,hudNow,critical!==hudCriticalStamp)){const retry=hudUpdateGate.retryAfter(hudKey,hudNow);if(retry!==null&&hudTrailingTimer===undefined)hudTrailingTimer=setTimeout(()=>{hudTrailingTimer=undefined;updateHud();},retry);return;}
  if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}hudCriticalStamp=critical;
  const hudStart=performance.now();
  // The device's own save report is the personal session's; the session view reads it, and a live session's own
@@ -636,6 +636,7 @@ const updateHud = () => {
  if (view.scenarios) scenarios.update(view.scenarios);
  if(PERF_DEBUG)framePhases.hud=performance.now()-hudStart;
 };
+const updateHud = () => rebuildHud(false);
 const saveNow = () => client.saveNow();
 // The buffer is the CSS size times this, and the zoom ladder is built from it: a tile has to be a whole number of
 // device pixels for a one pixel line to stay one pixel wide. The client is given this so it snaps zoom the same way.
@@ -785,7 +786,7 @@ const dispose=()=>{
  for(const cleanup of cleanups.splice(0))cleanup();
  mobilityStream?.dispose();terrain.dispose();geography?.destroy();if('destroy' in maps)(maps as OsmSource).destroy();
  regionalMobility.dispose();regionalActivity.dispose();sceneSurface.dispose();sceneRasterCache.clear();
- hud.destroy();multiplayer.destroy();history.destroy();scenarios.destroy();sourcePanel?.destroy();
+ hud.destroy();mobilityPanel?.destroy();inspector.destroy();multiplayer.destroy();history.destroy();scenarios.destroy();sourcePanel?.destroy();
  window.removeEventListener('resize',viewportSettled);
  window.visualViewport?.removeEventListener('resize',viewportSettled);
  window.visualViewport?.removeEventListener('scroll',viewportSettled);
@@ -836,7 +837,8 @@ let cardCamera: {x: number; y: number; zoom: number} | null = null;
  phase('simulation',simulationStart);
  if(geography){
   const stamp=[camera.x,camera.y,camera.zoom,camera.rotation,geography.scene().revision].join(':');
-  if(stamp!==hudCameraStamp){hudCameraStamp=stamp;updateHud();}
+  // While the camera moves only the map chrome changes; the panels wait for the settle or for a model change.
+  if(stamp!==hudCameraStamp){hudCameraStamp=stamp;if(moving)updateMapHud();else updateHud();}
  }
  if (cardCamera && (cardCamera.x !== camera.x || cardCamera.y !== camera.y || cardCamera.zoom !== camera.zoom))
   inspector.show(null);
@@ -864,6 +866,7 @@ let cardCamera: {x: number; y: number; zoom: number} | null = null;
   previewAffordable: hand.preview.affordable,
   seed: SEED,
   motion,
+  moving:moving||sceneSurface.pending(),
  };
  // While the city runs, the ambient clock asks for a frame thirty times a second, but the picture only changes when
  // something it is drawn from changes: the moving traffic, where streets show it, or a tick, a tile or the camera. An
@@ -937,16 +940,16 @@ async function start() {
   requestAnimationFrame(() => {
    uiPending = false;
    if(disposed)return;
-   const view=client.view(),old=lastHudView;
-   const cameraChanged=!old||old.camera.x!==view.camera.x||old.camera.y!==view.camera.y||old.camera.zoom!==view.camera.zoom||old.camera.rotation!==view.camera.rotation;
-   if(sessionDirty||hudModelChanged(view)||(cameraChanged&&!gestureActive))updateHud();
+   const view=client.view();
+   // A model change forces the rebuild; anything else only moves the map chrome, and the draw loop settles the rest.
+   if(sessionDirty||hudModelChanged(view))rebuildHud(true);
    else{updateMapHud();if(costEl)costEl.textContent=view.preview.message;}
    sessionDirty=false;
   });
  };
  cleanups.push(session.subscribe(()=>{sessionDirty=true;redraw();}),client.subscribe(redraw));
  const observer=new ResizeObserver(viewportSettled);observer.observe(canvas);cleanups.push(()=>observer.disconnect());
- window.addEventListener('resize', () => resize());
+ const onWindowResize=()=>resize();window.addEventListener('resize',onWindowResize);cleanups.push(()=>window.removeEventListener('resize',onWindowResize));
  // The canvas surface: a gesture becomes the same intentions a typed command or a playthrough produces.
  cleanups.push(attachInput(
   canvas,
@@ -1014,10 +1017,10 @@ async function start() {
   if(document.hidden)frames.stop();else invalidateFrame();
  };
  document.addEventListener('visibilitychange',onVisibility);
- const onPageHide=(event:PageTransitionEvent)=>{saveNow();if(event.persisted){frames.stop();if(viewportTimer!==undefined){clearTimeout(viewportTimer);viewportTimer=undefined;}}else dispose();};
+ const onPageHide=(event:PageTransitionEvent)=>{saveNow();if(event.persisted){frames.stop();if(viewportTimer!==undefined){clearTimeout(viewportTimer);viewportTimer=undefined;}if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}}else dispose();};
  window.addEventListener('pagehide',onPageHide);
- window.addEventListener('pageshow',()=>{if(!document.hidden)invalidateFrame();});
- cleanups.push(()=>document.removeEventListener('visibilitychange',onVisibility),()=>window.removeEventListener('pagehide',onPageHide));
+ const onPageShow=()=>{if(!document.hidden)invalidateFrame();};window.addEventListener('pageshow',onPageShow);
+ cleanups.push(()=>document.removeEventListener('visibilitychange',onVisibility),()=>window.removeEventListener('pagehide',onPageHide),()=>window.removeEventListener('pageshow',onPageShow));
  // First paint is the restored local state. Merely queueing network/storage work in the same task can still delay the
  // browser's actual paint on a phone, so background work starts only after one rendered frame has returned to the UA.
  updateHud();

@@ -1,5 +1,6 @@
 import type {AircraftFrame} from '../../presentation/aviation';
 import type {VesselFrame} from '../../presentation/maritime-engine';
+import type {RenderPolicy} from '../../presentation/render-policy';
 import {lightContext} from './city-light';
 import {drawCellMobility,drawVisibleMobility} from './mobility-draw';
 import type {MobilityFrameAgent,TrafficSignalFrame} from '../../presentation/mobility-model';
@@ -17,7 +18,7 @@ import type {ChunkStatus} from '../../session/ports';
 import type {SelectedTool} from '../../presentation/tools';
 import type {Camera,Viewport} from '../../presentation/camera';
 import {TILE_H,TILE_W,cellSpace,isCoarse} from '../../presentation/camera';
-export type WorldView = {quality?:import('../../presentation/render-policy').RenderPolicy;
+export type WorldView = {quality?:RenderPolicy;
  playerPower?:ReadonlyMap<string,boolean>;
  light?:'day'|'night';
  geography?:GeographicScene;
@@ -39,6 +40,8 @@ export type WorldView = {quality?:import('../../presentation/render-policy').Ren
  // The animation clock, in seconds of wall time scaled by the game speed: it advances while the city runs and stops
  // when the city is paused, which is the whole of the traffic's motion. Nothing about it is stored or shared.
  motion:number;
+ // True while a gesture or a glide is moving the camera: the decorative layers are left out of that frame.
+ moving?:boolean;
 };
 const BLOCK=4,BLOCKS=CHUNK/BLOCK;
 const CLASS_RGB:Record<string,[number,number,number]>={water:[62,128,196],road:[139,145,153],green:[105,170,74],land:[127,190,88],
