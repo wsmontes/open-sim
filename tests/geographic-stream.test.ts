@@ -32,3 +32,22 @@ test('cached parent placeholders cannot overlap ready detail tiles after a parti
  for(const a of tiles)for(const b of tiles)if(a.z<b.z){const factor=2**(b.z-a.z);expect(a.x===Math.floor(b.x/factor)&&a.y===Math.floor(b.y/factor)).toBe(false);}
 });
 test('disposal releases retained tiles and ignores delayed loader publications',async()=>{let resolve!:(value:GeographicTile)=>void,changes=0;const stream=createGeographicStream(()=>new Promise(r=>resolve=r),()=>changes++);stream.update({x:0,y:0,zoom:.0001,rotation:0},{width:100,height:100});const before=changes;stream.dispose();resolve({z:0,x:0,y:0,features:[]});await new Promise(r=>setTimeout(r,0));expect(changes).toBe(before);expect(stream.scene().tiles).toHaveLength(0);});
+
+test('adaptive detail updates without camera motion and bounded network demand',async()=>{
+ let bias=0,active=0,peak=0;
+ const stream=createGeographicStream(async(z,x,y)=>{active++;peak=Math.max(peak,active);await Promise.resolve();active--;return{z,x,y,features:[]};},()=>{},()=>({zoomBias:bias,maxTiles:8,concurrency:1,cacheBytes:1024}));
+ stream.update(camera,viewport);await stream.idle();const initial=stream.scene().tiles[0].z;
+ bias=2;stream.update(camera,viewport);await stream.idle();
+ expect(peak).toBe(1);expect(stream.scene().tiles.every(t=>t.z<initial)).toBe(true);expect(stream.scene().tiles.length).toBeLessThanOrEqual(8);
+});
+
+test('obsolete in-flight map responses do not refill the owned cache',async()=>{
+ const finish:Array<()=>void>=[];const stream=createGeographicStream((z,x,y)=>new Promise(resolve=>finish.push(()=>resolve({z,x,y,features:[],encoded:new Uint8Array(2048)}))),()=>{});
+ stream.update(camera,viewport);stream.update({...camera,zoom:.000003},viewport);for(const done of finish)done();await stream.idle();
+ expect(stream.status().bytes).toBe(0);expect(stream.status().entries).toBe(0);
+});
+test('byte pressure evicts unneeded cached regions instead of relying on tile count',async()=>{
+ const stream=createGeographicStream(async(z,x,y)=>({z,x,y,features:[],encoded:new Uint8Array(2048)}),()=>{},()=>({zoomBias:0,maxTiles:4,concurrency:1,cacheBytes:1000}));
+ stream.update(camera,viewport);await stream.idle();expect(stream.status().bytes).toBeGreaterThan(1000);
+ stream.update({...camera,zoom:.000003},viewport);await stream.idle();expect(stream.status().bytes).toBe(0);
+});

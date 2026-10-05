@@ -10,13 +10,13 @@ import {createGpuPresenter} from '../surfaces/canvas/gpu-presenter';
 import {renderPolicy} from '../presentation/render-policy';
 import {GLOBE_ZOOM} from '../presentation/geographic-map';
 import {sceneRasterCache} from '../surfaces/canvas/scene-cache';
-export function createSceneSurface(ctx:CanvasRenderingContext2D,changed:()=>void,memoryGb?:number){
+export function createSceneSurface(ctx:CanvasRenderingContext2D,changed:()=>void,memoryGb?:number,observed?:(view:WorldView,workMs:number,ownedBytes:number)=>void){
  const decoder=createVisualTileDecoder();
  const canvas=ctx.canvas as HTMLCanvasElement,fallback=createNavigationRenderer(render,resetGeographicComposition);
  let displayed:{result:SceneWorkerResult;view:WorldView}|undefined,incoming:typeof displayed,lastSubmitted:WorldView|undefined,gpu:ReturnType<typeof createGpuPresenter>,gpuCanvas:HTMLCanvasElement|undefined,disposed=false,forcePresent=false,lastSubmitAt=-Infinity,lastPresented:WorldView|undefined,fallbackPicture=false;
  const release=()=>{incoming?.result.bitmap.close();incoming=undefined;displayed?.result.bitmap.close();displayed=undefined;};
  const removeGpu=()=>{gpu?.dispose();gpu=undefined;gpuCanvas?.remove();gpuCanvas=undefined;canvas.style.background='';forcePresent=true;lastPresented=undefined;};
- const client=createSceneWorkerClient(undefined,()=>{removeGpu();release();lastSubmitted=undefined;changed();},(result,view)=>{incoming?.result.bitmap.close();incoming={result,view};changed();});
+ const client=createSceneWorkerClient(undefined,()=>{removeGpu();release();lastSubmitted=undefined;changed();},(result,view)=>{observed?.(view,result.workMs,(result.geometryBytes??0)+(result.cache?.bytes??0));incoming?.result.bitmap.close();incoming={result,view};changed();});
  if(client.available()){
   gpuCanvas=canvas.ownerDocument.createElement('canvas');gpuCanvas.setAttribute('aria-hidden','true');gpuCanvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none';canvas.before(gpuCanvas);
   gpu=createGpuPresenter(gpuCanvas,()=>{removeGpu();changed();},memoryGb!==undefined&&memoryGb<=4);

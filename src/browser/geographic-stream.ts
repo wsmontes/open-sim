@@ -1,8 +1,12 @@
+import type {DetailDemand} from '../presentation/adaptive-detail';
 import type {Camera,Viewport} from '../presentation/camera';
 import {geographicTiles,tileKey,GLOBE_ZOOM,type GeographicTile,type GeographicTileId,type GeographicScene} from '../presentation/geographic-map';
 
-export function createGeographicStream(load:(z:number,x:number,y:number)=>Promise<GeographicTile>,changed:()=>void){
+export function createGeographicStream(load:(z:number,x:number,y:number)=>Promise<GeographicTile>,changed:()=>void,budget?:()=>DetailDemand,observed?:(ms:number,ok:boolean)=>void){
  const cache=new Map<string,GeographicTile>(),pending=new Set<string>(),failed=new Set<string>();
+ const sizes=new Map<string,number>();let bytes=0;
+ const discard=(key:string)=>{bytes-=sizes.get(key)??0;sizes.delete(key);cache.delete(key);};
+ const trim=()=>{const protectedKeys=new Set(demand.map(tileKey));for(const key of cache.keys()){if(cache.size<=64&&bytes<=(budget?.().cacheBytes??32*1024*1024))break;if(!protectedKeys.has(key))discard(key);}};
  let demand:GeographicTileId[]=[],signature='',revision=0,disposed=false;
  const waiters:Array<()=>void>=[];
  let snapshot:GeographicScene|null=null;
@@ -10,20 +14,20 @@ export function createGeographicStream(load:(z:number,x:number,y:number)=>Promis
  const announce=()=>{if(disposed)return;revision++;changed();};
  const pump=()=>{if(disposed)return;
   for(const tile of wanted()){
-   if(pending.size>=4)break;
-   const key=tileKey(tile);pending.add(key);
+   if(pending.size>=(budget?.().concurrency??4))break;
+   const key=tileKey(tile),start=performance.now();pending.add(key);
    void load(tile.z,tile.x,tile.y).then(value=>{
-    if(disposed)return;cache.set(key,value);
-    const protectedKeys=new Set(demand.map(tileKey));
-    for(const kept of cache.keys()){if(cache.size<=64)break;if(!protectedKeys.has(kept))cache.delete(kept);}
-   },()=>{if(!disposed)failed.add(key);}).finally(()=>{pending.delete(key);announce();pump();});
+    if(disposed)return;observed?.(performance.now()-start,true);
+    if(!demand.some(t=>tileKey(t)===key))return;
+    discard(key);cache.set(key,value);const size=value.encoded?.byteLength??value.features.reduce((n,f)=>n+224+f.geometry.reduce((sum,r)=>sum+r.length*32,0),0);sizes.set(key,size);bytes+=size;trim();
+   },()=>{if(!disposed){observed?.(performance.now()-start,false);if(demand.some(t=>tileKey(t)===key))failed.add(key);}}).finally(()=>{pending.delete(key);announce();pump();});
   }
   if(pending.size===0&&wanted().length===0)for(const resolve of waiters.splice(0))resolve();
  };
  return{
   update(camera:Camera,viewport:Viewport){if(disposed)return;
-   const next=camera.zoom<GLOBE_ZOOM?[]:geographicTiles(camera,viewport),key=next.map(tileKey).join('|');
-   if(key===signature)return;signature=key;demand=next;announce();pump();
+   const next=camera.zoom<GLOBE_ZOOM?[]:geographicTiles(camera,viewport,budget?.()),key=next.map(tileKey).join('|');
+   if(key===signature)return;signature=key;demand=next;trim();announce();pump();
   },
   retry(){failed.clear();announce();pump();},
   scene():GeographicScene{
@@ -41,7 +45,8 @@ export function createGeographicStream(load:(z:number,x:number,y:number)=>Promis
    }));
    return snapshot={tiles,revision,loading:demand.some(t=>!cache.has(tileKey(t))&&!failed.has(tileKey(t))),error:demand.some(t=>failed.has(tileKey(t)))};
   },
-  dispose(){disposed=true;demand=[];cache.clear();failed.clear();snapshot=null;revision++;for(const resolve of waiters.splice(0))resolve();},
+  status:()=>({bytes,entries:cache.size,pending:pending.size,demand:demand.length}),
+  dispose(){disposed=true;demand=[];cache.clear();sizes.clear();bytes=0;failed.clear();snapshot=null;revision++;for(const resolve of waiters.splice(0))resolve();},
   idle():Promise<void>{if(pending.size===0&&wanted().length===0)return Promise.resolve();return new Promise(resolve=>waiters.push(resolve));},
  };
 }

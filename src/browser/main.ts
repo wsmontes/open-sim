@@ -3,6 +3,7 @@ import {createSceneLoading} from './scene-loading';
 import {createRegionalMobility,createRegionalResource} from './regional-mobility';
 import {createSceneSurface} from './scene-surface';
 import {sameSceneFrame} from '../surfaces/canvas/scene-frame';
+import {createAdaptiveDetail} from '../presentation/adaptive-detail';
 import {renderPolicy,renderPixelRatio} from '../presentation/render-policy';
 import {sceneRasterCache} from '../surfaces/canvas/scene-cache';
 import {createSemanticUpdateGate} from '../presentation/semantic-update-gate';
@@ -383,7 +384,9 @@ const hud = createHud(hudRoot, {
 let active = false;
 let invalidateFrame = () => {};
 const loadSceneTile=(z:number,x:number,y:number)=>typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined'&&'loadEncodedTile' in maps?(maps as OsmSource).loadEncodedTile(z,x,y):(maps as OsmSource).loadVisualTile(z,x,y);
-const geography = 'loadVisualTile' in maps ? createGeographicStream(loadSceneTile,()=>invalidateFrame()) : null;
+const adaptiveDetail=createAdaptiveDetail((navigator as Navigator&{deviceMemory?:number}).deviceMemory);
+let detailZoom=.01,detailRevision=-1;
+const geography = 'loadVisualTile' in maps ? createGeographicStream(loadSceneTile,()=>invalidateFrame(),()=>adaptiveDetail.demand(detailZoom),(ms,ok)=>adaptiveDetail.load(ms,ok)) : null;
 const terrainSource=createTerrainSource(async(url,signal)=>{const response=await fetch(url,{signal});if(!response.ok)throw new Error('Terrain unavailable');return new Uint8Array(await response.arrayBuffer());},terrainManifest as TerrainManifest);
 const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame());
 const devicePolicy=renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.width,canvas.height);
@@ -741,7 +744,7 @@ window.screen?.orientation?.addEventListener?.('change', viewportSettled);
 let motion = 0;
 let motionMs=0,renderMs=0;
 const cameraUpdates=createCameraUpdateGate();
-const sceneSurface=createSceneSurface(ctx,()=>invalidateFrame(),(navigator as Navigator&{deviceMemory?:number}).deviceMemory);
+const sceneSurface=createSceneSurface(ctx,()=>invalidateFrame(),(navigator as Navigator&{deviceMemory?:number}).deviceMemory,(view,workMs,ownedBytes)=>adaptiveDetail.render(view.camera.zoom,workMs,ownedBytes,performance.now()));
 const perfSamples=createPerformanceSamples(),framePhases:Record<string,number>={};
 let framePresented=false;
 const phase=(name:string,start:number)=>{if(PERF_DEBUG)framePhases[name]=performance.now()-start;};
@@ -766,7 +769,11 @@ const draw = (now: number, seconds: number) => {
 
  const {width, height} = hand.viewport;
  const streamStart=performance.now();
- if(cameraUpdates.changed(camera,hand.viewport)){if(geography)syncMobilityCity(containsLocalArea(vancouverLocalAreas.areas,geographicFocus(camera,hand.viewport)));geography?.update(camera,hand.viewport);terrain.update(camera,hand.viewport);mobilityStream?.update(camera,hand.viewport);}
+ const cameraMoved=cameraUpdates.changed(camera,hand.viewport);
+ detailZoom=camera.zoom;
+ // Adaptive detail may change the demand with the camera still; the revision is what makes that visible here.
+ if(cameraMoved||adaptiveDetail.revision!==detailRevision){detailRevision=adaptiveDetail.revision;geography?.update(camera,hand.viewport);}
+ if(cameraMoved){if(geography)syncMobilityCity(containsLocalArea(vancouverLocalAreas.areas,geographicFocus(camera,hand.viewport)));terrain.update(camera,hand.viewport);mobilityStream?.update(camera,hand.viewport);}
  phase('streams',streamStart);
  if(!geography){
   const cells=[...hand.chunks].flatMap(([id,status])=>{const managed=hand.state?.chunks[id],base=status.status==='ready'?status.base:null;const available=managed?effectiveCells(managed):base?.cells;return available?available.flatMap((cell,i)=>cell.road?[{coord:coordAt(id,i),cell}]:[]):[];});
@@ -835,7 +842,7 @@ invalidateFrame = frames.invalidate;
 let debugTimer:number|undefined;
 if (PERF_DEBUG) {
  const diagnostics=document.createElement('pre');diagnostics.id='open-sim-frame-stats';diagnostics.hidden=true;document.body.append(diagnostics);
- debugTimer=window.setInterval(()=>{if(document.hidden)return;const agents=lastView?.mobility??[];diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),samples:perfSamples.snapshot(),buildings:buildingCacheStats(),renderer:sceneSurface.status(),terrain:terrain.status(),mobility:{agents:agents.length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,agents.filter(agent=>agent.kind===kind).length])),networkJob:mobilityStream?.status(),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size}});},1000);
+ debugTimer=window.setInterval(()=>{if(document.hidden)return;const agents=lastView?.mobility??[];diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),samples:perfSamples.snapshot(),buildings:buildingCacheStats(),renderer:sceneSurface.status(),detail:adaptiveDetail.status(detailZoom),geography:geography?.status(),terrain:terrain.status(),mobility:{agents:agents.length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,agents.filter(agent=>agent.kind===kind).length])),networkJob:mobilityStream?.status(),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size}});},1000);
  const debugWindow = window as unknown as {
   openSimFrames?: () => ReturnType<typeof frames.stats>;
   openSimDebug?: () => unknown;

@@ -9,15 +9,16 @@ export type GeographicScene={tiles:readonly GeographicTile[];revision:number;loa
 export const GLOBE_ZOOM=.000014;
 export const CITY_ZOOM=.035;
 export const SIMULATION_ZOOM=.035;
-export function geographicTiles(camera:Camera,viewport:Viewport):GeographicTileId[]{
+export function geographicTiles(camera:Camera,viewport:Viewport,limits?:{zoomBias:number;maxTiles:number}):GeographicTileId[]{
  let z=Math.max(0,Math.min(14,Math.floor(Math.log2(WORLD*TILE_W*camera.zoom/384))));
+ z=Math.max(0,z-Math.max(0,limits?.zoomBias??0));
  const bounds=[[0,0],[viewport.width,0],[0,viewport.height],[viewport.width,viewport.height]].map(([x,y])=>cellSpace({x,y},camera));
  let n:number,side:number,x0:number,x1:number,y0:number,y1:number;
  do{
   n=2**z;side=WORLD/n;
   x0=Math.floor(Math.min(...bounds.map(p=>p.x))/side);x1=Math.floor(Math.max(...bounds.map(p=>p.x))/side);
   y0=Math.max(0,Math.floor(Math.min(...bounds.map(p=>p.y))/side));y1=Math.min(n-1,Math.floor(Math.max(...bounds.map(p=>p.y))/side));
-  if((x1-x0+1)*(y1-y0+1)<=40||z===0)break;
+  if((x1-x0+1)*(y1-y0+1)<=Math.max(1,limits?.maxTiles??40)||z===0)break;
   z--;
  }while(true);
  const out:GeographicTileId[]=[];
