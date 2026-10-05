@@ -27,14 +27,15 @@ function connect(a:Segment,b:Segment){
  for(const p of [a.a,a.b]){const t=project(p,b.a,s);if(t>=0&&t<=1){b.cuts.push(t);added++;}}
  return added;
 }
-export type NetworkConstructionBudget={maxSegments:number;maxEdges:number;maxComparisons:number};
+export type NetworkConstructionBudget={maxSegments:number;maxEdges:number;maxComparisons:number;maxBucketEntries?:number};
 export class NetworkBudgetExceeded extends Error {constructor(){super('Mobility construction budget exceeded');}}
 function* geographicNetworkSteps(features:readonly GeographicFeature[],revision:string,budget?:NetworkConstructionBudget):Generator<void,MobilityNetwork>{
  let operations=0;
  const segments:Segment[]=[],seen=new Set<string>();
  const groundEndpoints=new Set<string>(),portals=new Set<string>();
+ let endpoints=0;
  for(const feature of features){if(++operations%128===0)yield;if(feature.layer!=='streets'||feature.type!==2||!ROADS.has(feature.kind))continue;
-  for(const path of feature.geometry){if(!path.length)continue;for(const p of [path[0],path[path.length-1]]){if(feature.bridge||feature.tunnel)portals.add(pointKey(p));else if((feature.level??0)===0)groundEndpoints.add(pointKey(p));}}
+  for(const path of feature.geometry){if(++operations%128===0)yield;if(!path.length)continue;for(const p of [path[0],path[path.length-1]]){if(budget&&endpoints>=budget.maxSegments*4)throw new NetworkBudgetExceeded();endpoints++;if(feature.bridge||feature.tunnel)portals.add(pointKey(p));else if((feature.level??0)===0)groundEndpoints.add(pointKey(p));}}
  }
  for(const feature of features){if(++operations%128===0)yield;if(feature.layer!=='streets'||feature.type!==2||!ROADS.has(feature.kind))continue;
   const level=feature.level??(feature.bridge?1:feature.tunnel?-1:0);
@@ -47,13 +48,13 @@ function* geographicNetworkSteps(features:readonly GeographicFeature[],revision:
  }
  // Segment bounding buckets limit intersection comparisons to nearby geometry.
  const buckets=new Map<string,number[]>();
- let comparisons=0,cuts=segments.length*2;
+ let comparisons=0,bucketEntries=0,cuts=segments.length*2;
  const compare=(a:number,b:number)=>{if(a!==b){if(budget&&comparisons>=budget.maxComparisons)throw new NetworkBudgetExceeded();comparisons++;const added=connect(segments[a],segments[b]);if(added){cuts+=added;if(budget&&cuts>budget.maxEdges*4)throw new NetworkBudgetExceeded();}}};
  const wide:number[]=[];
  for(let i=0;i<segments.length;i++){
   const s=segments[i],x0=Math.floor(Math.min(s.a.x,s.b.x)/32),x1=Math.floor(Math.max(s.a.x,s.b.x)/32),y0=Math.floor(Math.min(s.a.y,s.b.y)/32),y1=Math.floor(Math.max(s.a.y,s.b.y)/32),checked=new Set<number>();
   if((x1-x0+1)*(y1-y0+1)>4096){wide.push(i);continue;}
-  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const key=`${x}:${y}:${s.level}`,list=buckets.get(key)??[];for(const j of list)if(!checked.has(j)){checked.add(j);compare(i,j);if(++operations%512===0)yield;}list.push(i);buckets.set(key,list);}
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){if(budget&&bucketEntries>=(budget.maxBucketEntries??budget.maxEdges*8))throw new NetworkBudgetExceeded();bucketEntries++;if(++operations%128===0)yield;const key=`${x}:${y}:${s.level}`,list=buckets.get(key)??[];for(const j of list)if(!checked.has(j)){checked.add(j);compare(i,j);if(++operations%512===0)yield;}list.push(i);buckets.set(key,list);}
  }
  for(const i of wide)for(let j=0;j<segments.length;j++){compare(i,j);if(++operations%512===0)yield;}
  const nodes=new Map<string,MobilityNode>(),edges=new Map<string,MobilityEdge>(),outgoing=new Map<string,string[]>();

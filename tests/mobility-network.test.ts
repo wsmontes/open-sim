@@ -25,3 +25,11 @@ it('stops topology expansion at the segment, edge and intersection work budgets'
  const expected=buildGeographicNetwork(roads,'same');
  expect(buildGeographicNetwork(roads,'same',{maxSegments:100,maxEdges:100,maxComparisons:1000})).toEqual(expected);
 });
+it('bounds bucket allocation even for disjoint long roads',()=>{
+ const disjoint=Array.from({length:30},(_,i)=>road([[{x:i*4096,y:100000},{x:i*4096+2016,y:102016}]]));
+ expect(()=>buildGeographicNetwork(disjoint,'bucket-budget',{maxSegments:60,maxEdges:60,maxComparisons:4096})).toThrow(/budget/i);
+});
+it('bounds endpoint preparation before segment expansion',()=>{
+ const endpoints=road(Array.from({length:100},(_,i)=>[{x:i,y:i}]));
+ expect(()=>buildGeographicNetwork([endpoints],'endpoint-budget',{maxSegments:5,maxEdges:20,maxComparisons:100})).toThrow(/budget/i);
+});

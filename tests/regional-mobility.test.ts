@@ -15,3 +15,7 @@ it('handles load failure without a retry loop and supports explicit retry',async
  let fail=true;const load=vi.fn(async()=>{if(fail)throw new Error('offline');return ()=>({dispose(){}});}),resource=createRegionalResource(load,()=>{});
  resource.update(true,true);await new Promise(r=>setTimeout(r,0));expect(resource.status().error).toBe(true);resource.update(true,true);expect(load).toHaveBeenCalledOnce();fail=false;resource.retry();await new Promise(r=>setTimeout(r,0));expect(load).toHaveBeenCalledTimes(2);expect(resource.value()).toBeDefined();resource.dispose();
 });
+it('reports factory failure and retries without an unhandled rejection',async()=>{
+ let fail=true;const resource=createRegionalResource(async()=>()=>{if(fail)throw new Error('init');return {dispose(){}};},()=>{});
+ resource.update(true);await new Promise(r=>setTimeout(r,0));expect(resource.status().error).toBe(true);expect(resource.value()).toBeUndefined();fail=false;resource.retry();expect(resource.value()).toBeDefined();expect(resource.status().error).toBe(false);resource.dispose();
+});

@@ -824,7 +824,7 @@ const draw = (now: number, seconds: number) => {
   lastView = view;
  }
  const visualScene=geography?.scene(),surfaceStatus=sceneSurface.status();
- sceneLoading.update({sessionReady:true,pictureReady:surfaceStatus.pictureReady,mapLoading:visualScene?.loading??false,preparing:!staticReady,error:startupFailed||(visualScene?.error??false)});
+ sceneLoading.update({sessionReady:true,pictureReady:surfaceStatus.pictureReady,mapLoading:visualScene?.loading??false,preparing:!staticReady,error:startupFailed||(visualScene?.error??false)||regionalMobility.status().error||(regionalWanted&&regionalActivity.status().error)});
  if(surfaceStatus.pictureReady){perfMark('first-scene');if(!firstPicture){firstPicture=true;syncMobilityCity(containsLocalArea(vancouverLocalAreas.areas,civilFocus));regionalActivity.update(regionalWanted,staticReady);}}
  return {moving:moving||sceneSurface.pending(), ambient: hand.speed !== 0&&staticReady,presented:framePresented};
 };
