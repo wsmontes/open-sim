@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import {createSceneLoading} from './scene-loading';
 import {createFrameMerge} from '../presentation/frame-merge';
 import type {VesselFrame} from '../presentation/maritime-engine';
 import {createSceneSurface} from './scene-surface';
@@ -267,6 +268,8 @@ const element = <T extends HTMLElement>(selector: string): T => {
 };
 const canvas = element<HTMLCanvasElement>('#game');
 const hudRoot = element<HTMLElement>('#hud');
+const sceneLoading=createSceneLoading(element<HTMLElement>('#scene-loading'),onRetryMap);
+let startupFailed=false;
 let cityLight:'day'|'night'='day';
 try{if(localStorage.getItem('open-sim.visual-light')==='night')cityLight='night';}catch{}
 const lightButton=hudRoot.querySelector<HTMLButtonElement>('#hud-light');
@@ -789,6 +792,7 @@ const draw = (now: number, seconds: number) => {
  framePresented=false;for(const key of Object.keys(framePhases))delete framePhases[key];
  // Nothing to draw until the city exists: a plain haze instead of a frame over a session that has not opened.
  if (!client.view().state) {
+  sceneLoading.update({sessionReady:false,pictureReady:false,mapLoading:false,preparing:false,error:startupFailed});
   ctx.fillStyle = '#7c8794';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   return {moving: false, ambient: false};
@@ -859,6 +863,9 @@ const draw = (now: number, seconds: number) => {
   phase('render',renderStart);
   lastView = view;
  }
+ const visualScene=geography?.scene(),surfaceStatus=sceneSurface.status();
+ sceneLoading.update({sessionReady:true,pictureReady:surfaceStatus.pictureReady,mapLoading:visualScene?.loading??false,preparing:!staticReady,error:startupFailed||(visualScene?.error??false)});
+ if(surfaceStatus.pictureReady)perfMark('first-scene');
  return {moving:moving||sceneSurface.pending(), ambient: hand.speed !== 0&&staticReady,presented:framePresented};
 };
 let lastView: WorldView | null = null;
@@ -889,6 +896,7 @@ if (PERF_DEBUG) {
  };
 }
 async function start() {
+ startupFailed=false;
  resize();
  try {
   // The client opens the personal session and restores the player's hand: tool, speed, place, the saved camera and
@@ -896,6 +904,7 @@ async function start() {
   await client.start();
   if(geography&&!session.restoredView){const v=client.view();tell({do:'camera',camera:centerOn(START_CELL,{...v.camera,zoom:.35,rotation:Math.PI/4},v.viewport),settle:true});}
  } catch {
+  startupFailed=true;sceneLoading.update({sessionReady:false,pictureReady:false,mapLoading:false,preparing:false,error:true});
   updateHud();
   return;
  }

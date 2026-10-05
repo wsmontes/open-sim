@@ -1,10 +1,13 @@
+import {tileKey,type GeographicTile} from '../presentation/geographic-map';
 import {compactSceneState,sceneChunkKey,sceneIdentity} from './scene-state';
 import type {WorldView} from '../surfaces/canvas/canvas-renderer';
 import {playerSceneKey} from '../surfaces/canvas/prepared-scene';
 import {renderPolicy,type RenderPolicy} from '../presentation/render-policy';
 import type {ScenePatch,SceneWorkerRequest,SceneWorkerResult} from './scene-worker-protocol';
 const stateSceneKey=(view:WorldView)=>{const edits=playerSceneKey(view);return view.geography?edits+(edits==='[]:'?'':':'+sceneChunkKey(view)):`${sceneIdentity(view.state.chunks)}:${sceneChunkKey(view)}`;};
-export const staticSceneKey=(view:WorldView)=>[view.camera.x,view.camera.y,view.camera.zoom,view.camera.rotation,view.viewport.width,view.viewport.height,view.pixelRatio,view.light,view.geography?.revision,view.terrain?.revision,view.seed,stateSceneKey(view)].join(':');
+const geographicKeys=new WeakMap<object,string>();
+const geographicKey=(tiles:readonly GeographicTile[]|undefined)=>{if(!tiles)return '';let key=geographicKeys.get(tiles);if(key===undefined){key=tiles.map(t=>`${tileKey(t)}:${t.encodedRevision??sceneIdentity(t)}`).join('|');geographicKeys.set(tiles,key);}return key;};
+export const staticSceneKey=(view:WorldView)=>[view.camera.x,view.camera.y,view.camera.zoom,view.camera.rotation,view.viewport.width,view.viewport.height,view.pixelRatio,view.light,geographicKey(view.geography?.tiles),view.terrain?.revision,view.seed,stateSceneKey(view)].join(':');
 export function createSceneWorkerClient(factory:()=>Worker=()=>new Worker(new URL('./scene-worker.ts',import.meta.url),{type:'module'}),failed:()=>void=()=>{},publish:(result:SceneWorkerResult,view:WorldView)=>void=()=>{}){
  let worker:Worker|undefined,disposed=false,active=false,pending:{view:WorldView;policy:RenderPolicy}|undefined,lastSent:WorldView|undefined,lastStateKey='',lastPolicy:RenderPolicy|undefined,latestKey='',readyKey='',ticket=0;
  let deadline:ReturnType<typeof setTimeout>|undefined;
@@ -13,7 +16,7 @@ export function createSceneWorkerClient(factory:()=>Worker=()=>new Worker(new UR
  const fail=()=>{clearDeadline();worker?.terminate();worker=undefined;active=false;pending=undefined;readyKey='';if(!disposed)failed();};
  const dispatch=(view:WorldView,policy:RenderPolicy)=>{
   const key=staticSceneKey(view),stateKey=stateSceneKey(view);let scene:ScenePatch|undefined;
-  if(!lastSent||lastStateKey!==stateKey||lastSent.geography!==view.geography||lastSent.terrain?.revision!==view.terrain?.revision){scene={seed:view.seed};if(!lastSent||lastStateKey!==stateKey)if(view.geography){const compact=compactSceneState(view);scene.state=compact.state;scene.playerPower=compact.playerPower;}else {scene.state=view.state;scene.chunks=view.chunks;}if(!lastSent||lastSent.geography!==view.geography)scene.geography=view.geography??null;if(!lastSent||lastSent.terrain?.revision!==view.terrain?.revision)scene.terrain=view.terrain?{tiles:view.terrain.tiles,revision:view.terrain.revision}:{tiles:[],revision:0};}
+  if(!lastSent||lastStateKey!==stateKey||lastSent.geography!==view.geography||lastSent.terrain?.revision!==view.terrain?.revision){scene={seed:view.seed};if(!lastSent||lastStateKey!==stateKey)if(view.geography){const compact=compactSceneState(view);scene.state=compact.state;scene.playerPower=compact.playerPower;}else {scene.state=view.state;scene.chunks=view.chunks;}if(!lastSent||lastSent.geography!==view.geography){if(view.geography){const known=new Map(lastSent?.geography?.tiles.map(t=>[tileKey(t),t])??[]);scene.geography={...view.geography,keys:view.geography.tiles.map(tileKey),tiles:view.geography.tiles.filter(t=>{const old=known.get(tileKey(t));return !old||old!==t&&(t.encodedRevision===undefined||old.encodedRevision!==t.encodedRevision);})};}else scene.geography=null;}if(!lastSent||lastSent.terrain?.revision!==view.terrain?.revision)scene.terrain=view.terrain?{tiles:view.terrain.tiles,revision:view.terrain.revision}:{tiles:[],revision:0};}
   const request:SceneWorkerRequest={ticket:++ticket,key,scene,camera:view.camera,viewport:view.viewport,pixelRatio:view.pixelRatio,light:view.light,motion:view.motion,mobility:view.mobility,signals:view.signals,vessels:view.vessels,aircraft:view.aircraft,policy};
   lastPolicy=policy;active=true;clearDeadline();deadline=setTimeout(fail,15000);lastSent=view;lastStateKey=stateKey;
   try{worker!.postMessage(request);}catch{fail();}

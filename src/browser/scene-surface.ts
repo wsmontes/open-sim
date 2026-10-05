@@ -8,11 +8,12 @@ import {createNavigationRenderer,cameraReprojection} from '../surfaces/canvas/na
 import {drawInteractionOverlay,resetGeographicComposition} from '../surfaces/canvas/geographic-renderer';
 import {createGpuPresenter} from '../surfaces/canvas/gpu-presenter';
 import {renderPolicy} from '../presentation/render-policy';
+import {GLOBE_ZOOM} from '../presentation/geographic-map';
 import {sceneRasterCache} from '../surfaces/canvas/scene-cache';
 export function createSceneSurface(ctx:CanvasRenderingContext2D,changed:()=>void,memoryGb?:number){
  const decoder=createVisualTileDecoder();
  const canvas=ctx.canvas as HTMLCanvasElement,fallback=createNavigationRenderer(render,resetGeographicComposition);
- let displayed:{result:SceneWorkerResult;view:WorldView}|undefined,incoming:typeof displayed,lastSubmitted:WorldView|undefined,gpu:ReturnType<typeof createGpuPresenter>,gpuCanvas:HTMLCanvasElement|undefined,disposed=false,forcePresent=false,lastSubmitAt=-Infinity,lastPresented:WorldView|undefined;
+ let displayed:{result:SceneWorkerResult;view:WorldView}|undefined,incoming:typeof displayed,lastSubmitted:WorldView|undefined,gpu:ReturnType<typeof createGpuPresenter>,gpuCanvas:HTMLCanvasElement|undefined,disposed=false,forcePresent=false,lastSubmitAt=-Infinity,lastPresented:WorldView|undefined,fallbackPicture=false;
  const release=()=>{incoming?.result.bitmap.close();incoming=undefined;displayed?.result.bitmap.close();displayed=undefined;};
  const removeGpu=()=>{gpu?.dispose();gpu=undefined;gpuCanvas?.remove();gpuCanvas=undefined;canvas.style.background='';forcePresent=true;lastPresented=undefined;};
  const client=createSceneWorkerClient(undefined,()=>{removeGpu();release();lastSubmitted=undefined;changed();},(result,view)=>{incoming?.result.bitmap.close();incoming={result,view};changed();});
@@ -27,7 +28,7 @@ export function createSceneSurface(ctx:CanvasRenderingContext2D,changed:()=>void
   available:client.available,
   draw(view:WorldView,now:number):boolean{
    if(disposed)return false;forcePresent=false;
-   if(!client.available()){sceneRasterCache.setLimit(renderPolicy(memoryGb,view.viewport.width,view.viewport.height).workerRasterBytes);fallback.draw(ctx,view.geography?{...view,geography:{...view.geography,tiles:view.geography.tiles.map(t=>decoder.decode(t))}}:view,now);return true;}
+   if(!client.available()){sceneRasterCache.setLimit(renderPolicy(memoryGb,view.viewport.width,view.viewport.height).workerRasterBytes);fallbackPicture=!view.geography||view.geography.tiles.length>0||view.camera.zoom<GLOBE_ZOOM;fallback.draw(ctx,view.geography?{...view,geography:{...view.geography,tiles:view.geography.tiles.map(t=>decoder.decode(t))}}:view,now);return true;}
    const policy=renderPolicy(memoryGb,view.viewport.width,view.viewport.height);
    const urgent=!lastSubmitted||staticSceneKey(lastSubmitted)!==staticSceneKey(view);
    if(!sameSceneFrame(lastSubmitted,view)&&(urgent||now-lastSubmitAt>=1000/policy.dynamicFps)){client.submit(view,policy);lastSubmitted=view;lastSubmitAt=now;}
@@ -42,7 +43,7 @@ export function createSceneSurface(ctx:CanvasRenderingContext2D,changed:()=>void
    drawInteractionOverlay(ctx,view);
    return true;
   },
-  status:()=>({...client.status(),backend:gpu?'webgl2':client.available()?'worker-canvas2d':'canvas2d',displayBytes:(displayed?displayed.result.bitmap.width*displayed.result.bitmap.height*4:0)+(gpu?.bytes()??0)}),
+  status:()=>({...client.status(),pictureReady:displayed?(!displayed.view.geography||displayed.view.geography.tiles.length>0||displayed.view.camera.zoom<GLOBE_ZOOM):fallbackPicture,backend:gpu?'webgl2':client.available()?'worker-canvas2d':'canvas2d',displayBytes:(displayed?displayed.result.bitmap.width*displayed.result.bitmap.height*4:0)+(gpu?.bytes()??0)}),
   dispose(){disposed=true;client.dispose();release();removeGpu();fallback.dispose();decoder.clear();sceneRasterCache.clear();},
  };
 }
