@@ -16,3 +16,12 @@ it('joins a bridge to surface roads only at matching approach endpoints',()=>{co
 it('wraps a cell road across the dateline with a short physical edge',()=>{const n=buildCellNetwork([{coord:{x:WORLD-1,y:WORLD/2},cell:{terrain:'land',road:true}},{coord:{x:0,y:WORLD/2},cell:{terrain:'land',road:true}}],'test');expect(n.edges.size).toBe(2);expect([...n.edges.values()][0].lengthM).toBeLessThan(20);});
 it('deduplicates overlapping clipped tile geometry after splitting',()=>{const n=buildGeographicNetwork([road([[{x:0,y:0},{x:10,y:0}]]),road([[{x:5,y:0},{x:15,y:0}]])],'test');expect(n.edges.size).toBe(6);expect(findMobilityRoute(n,node(n,0,0),node(n,15,0),'car')).toHaveLength(3);});
 it('airport runways are not part of road traffic',()=>{const n=buildGeographicNetwork([road([[{x:0,y:0},{x:10,y:0}]],{kind:'runway'})],'test');expect(n.edges.size).toBe(0);});
+it('stops topology expansion at the segment, edge and intersection work budgets',()=>{
+ const roads=Array.from({length:20},(_,i)=>road([[{x:i,y:0},{x:i,y:20}]]));
+ expect(()=>buildGeographicNetwork(roads,'bounded',{maxSegments:5,maxEdges:100,maxComparisons:100})).toThrow(/budget/i);
+ expect(()=>buildGeographicNetwork(roads,'bounded',{maxSegments:100,maxEdges:5,maxComparisons:1000})).toThrow(/budget/i);
+ const crossing=[...roads,...Array.from({length:20},(_,i)=>road([[{x:0,y:i},{x:20,y:i}]]))];
+ expect(()=>buildGeographicNetwork(crossing,'bounded',{maxSegments:100,maxEdges:10000,maxComparisons:5})).toThrow(/budget/i);
+ const expected=buildGeographicNetwork(roads,'same');
+ expect(buildGeographicNetwork(roads,'same',{maxSegments:100,maxEdges:100,maxComparisons:1000})).toEqual(expected);
+});
