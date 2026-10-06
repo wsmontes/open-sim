@@ -1,0 +1,126 @@
+{
+  "buildings": {
+    "bytes": 0,
+    "entries": 0,
+    "evictions": 0,
+    "hits": 0,
+    "misses": 0
+  },
+  "detail": {
+    "bias": 0,
+    "cacheBytes": 16777216,
+    "changedAt": 24905.5,
+    "concurrency": 4,
+    "estimated": true,
+    "healthy": 137,
+    "loadMs": 9.800000190734863,
+    "maxTiles": 40,
+    "maximumZoom": 14,
+    "minimumZoom": 14,
+    "observedAt": 32440.799999952316,
+    "ownedBytes": 56896828,
+    "sourceBias": 0,
+    "trial": false,
+    "trialAt": 24905.5,
+    "workMs": 4.099999904632568,
+    "zoomBias": 0
+  },
+  "frames": {
+    "drawing": true,
+    "drawn": 547,
+    "fps": 18,
+    "frameMs": 1.469016360869252,
+    "frames": 1375,
+    "p50": 1.1000001430511477,
+    "p95": 3.299999952316284
+  },
+  "geography": {
+    "bytes": 726130,
+    "demand": 4,
+    "entries": 4,
+    "limitBytes": 16777216,
+    "pending": 0,
+    "rejected": 0,
+    "selectionLimited": false
+  },
+  "mobility": {
+    "agents": 231,
+    "edges": 16288,
+    "kinds": {
+      "bus": 0,
+      "car": 143,
+      "pedestrian": 81,
+      "police": 0,
+      "school-bus": 0,
+      "truck": 7
+    },
+    "networkJob": {
+      "acceptedTiles": 2,
+      "active": 0,
+      "bytes": 880123,
+      "entries": 6,
+      "fallback": false,
+      "limited": true,
+      "pending": 0,
+      "rejected": 0
+    },
+    "nodes": 7307
+  },
+  "motionMs": 1.1999998092651367,
+  "renderMs": 0.4000000953674317,
+  "renderer": {
+    "active": 0,
+    "available": true,
+    "backend": "webgl2",
+    "bytes": 50920860,
+    "displayBytes": 32204896,
+    "entries": 1100,
+    "geometryBytes": 5975968,
+    "geometryPressure": false,
+    "pending": 0,
+    "pictureReady": true,
+    "rasterContexts": 1,
+    "recovering": false,
+    "recoveryAttempts": 0,
+    "recoveryNeeded": false,
+    "staticReady": true,
+    "workMs": 4.099999904632568
+  },
+  "resources": {
+    "geographicEncodedBytes": 16777216,
+    "headroomBytes": 33554432,
+    "maxTileBytes": 4186112,
+    "mobilityEncodedBytes": 8388608,
+    "mobilityGeometryBytes": 8388608,
+    "mobilityInputBytes": 16777216,
+    "mobilityMaxEdges": 16384,
+    "mobilityNetworkBytes": 33554432,
+    "mobilityNetworkCopyBytes": 33554432,
+    "networkConcurrency": 4,
+    "networkTransientBytes": 33554432,
+    "normalizationBytes": 16777216,
+    "providerEncodedBytes": 8388608,
+    "rasterBytes": 134217728,
+    "sceneGeometryBytes": 33554432,
+    "terrainSceneBytes": 8388608,
+    "terrainSourceBytes": 8388608,
+    "terrainWorkerBytes": 8388608,
+    "totalBytes": 402653184
+  },
+  "terrain": {
+    "available": false,
+    "bytes": 0,
+    "limited": false,
+    "limitedSurface": false,
+    "loading": false
+  },
+  "terrainSource": {
+    "active": 0,
+    "bytes": 0,
+    "entries": 0,
+    "evictions": 0,
+    "hits": 0,
+    "misses": 0,
+    "queued": 0
+  }
+}

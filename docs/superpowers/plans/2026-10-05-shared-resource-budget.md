@@ -49,7 +49,7 @@ Files: browser/mobility-stream.ts, browser/mobility-worker.ts, browser/mobility-
 ### Task5: Integration/review/native/deploy
 - [x] Full check/build, policy diagnostics and independent review.
 - [x] Foreground Chrome zoom/rotation/simulation/navigation when available; save honest evidence.
-- [ ] Commit/push/deploy via repository gate and verify canonical assets; report material remaining estimates/limitations.
+- [x] Commit/push/deploy via repository gate and verify canonical assets; report material remaining estimates/limitations.
 
 Ruling: include normalized map decoding before final validation. Exploration found another count-only32-tile cache and a worker-failure fallback that decodes/buckets complete tiles synchronously. These are directly inside the managed map allocation path; leaving them outside the policy would undermine the shared budget. Reserve a normalization partition, retain bounded feature arrays instead of all-chunk buckets, reject incomplete normalization, and cap/yield the workerless path. Costs: oversized normalization can remain unavailable rather than creating partial imported world data.
 
