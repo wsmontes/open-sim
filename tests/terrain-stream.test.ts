@@ -1,0 +1,10 @@
+import {expect,test} from 'vitest';
+import {createTerrainStream} from '../src/browser/terrain-stream';
+import {centerOn} from '../src/presentation/camera';
+import {toCell} from '../src/core/coordinates';
+import type {TerrainManifest,TerrainTile} from '../src/presentation/terrain-model';
+const bounds={west:-124,east:-122,south:48,north:50},manifest:TerrainManifest={version:1,sources:[],tiles:Array.from({length:8},(_,i)=>({id:String(i),url:'',bytes:22000,spacingM:30,bounds}))};
+const tile=(id:string):TerrainTile=>({id,bounds,size:65,spacingM:30,heightsM:new Float32Array(4225),valid:new Uint8Array(4225),kind:'dtm',verticalDatum:'CGVD2013',sourceId:'test'});
+const viewport={width:800,height:600},camera=centerOn(toCell(49,-123),{x:0,y:0,zoom:.03,rotation:0},viewport);
+test('bounds selected terrain bytes/concurrency and ignores obsolete region completion',async()=>{const pending:{id:string;signal:AbortSignal;resolve:(t:TerrainTile)=>void}[]=[];let active=0,peak=0;const stream=createTerrainStream(manifest,(id,signal)=>new Promise(resolve=>{active++;peak=Math.max(peak,active);pending.push({id,signal,resolve:t=>{active--;resolve(t);}});}),()=>{},{maxBytes:42250,concurrency:1});stream.update(camera,viewport);expect(pending).toHaveLength(1);pending[0].resolve(tile(pending[0].id));await new Promise(r=>setTimeout(r,0));expect(pending).toHaveLength(2);stream.update({...camera,zoom:.000003},viewport);expect(pending[1].signal.aborted).toBe(true);pending[1].resolve(tile(pending[1].id));await new Promise(r=>setTimeout(r,0));expect(stream.scene().tiles).toHaveLength(0);expect(peak).toBe(1);stream.dispose();});
+test('bounded complete terrain publication exposes selection limitation',async()=>{const stream=createTerrainStream(manifest,async id=>tile(id),()=>{},{maxBytes:21125,concurrency:1});stream.update(camera,viewport);await new Promise(r=>setTimeout(r,0));expect(stream.scene().tiles).toHaveLength(1);expect(stream.status().bytes).toBeLessThanOrEqual(21125);expect(stream.status().limited).toBe(true);stream.dispose();});

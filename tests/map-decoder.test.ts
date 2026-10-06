@@ -1,4 +1,4 @@
-import {expect,test} from 'vitest';
+import {expect,test,vi} from 'vitest';
 import {createWorkerMapDecoder,type MapWorkerLike} from '../src/adapters/osm/map-decoder';
 import type {BaseChunk} from '../src/core/model';
 
@@ -56,3 +56,7 @@ test('a map request failure is not duplicated and does not permanently disable a
  expect(reads).toBe(2);
  expect(decoder.stats().path).toBe('worker');
 });
+test('destroyed decoder never falls back and repopulates decoded state',async()=>{const decoder=createWorkerMapDecoder(()=>null);decoder.destroy!();await expect(decoder.decode(request('0:0',async()=>new Uint8Array()))).rejects.toThrow('disposed');});
+
+test('normalizer worker jobs across different tiles are serialized before byte transfer',async()=>{const worker=new FakeWorker();worker.postMessage=function(message){this.messages.push(message);};const decoder=createWorkerMapDecoder(()=>worker);const first=decoder.decode(request('0:0',async()=>new Uint8Array())),second=decoder.decode({...request('1:0',async()=>new Uint8Array()),tileX:1});await new Promise(r=>setTimeout(r,0));expect(worker.messages).toHaveLength(1);worker.onmessage!({data:{id:worker.messages[0].id,chunk:blank('0:0')}} as MessageEvent);await first;await new Promise(r=>setTimeout(r,0));expect(worker.messages).toHaveLength(2);worker.onmessage!({data:{id:worker.messages[1].id,chunk:blank('1:0')}} as MessageEvent);await second;decoder.destroy!();});
+test('a silent normalization worker times out into the bounded fallback',async()=>{vi.useFakeTimers();try{const worker=new FakeWorker();worker.postMessage=()=>{};const decoder=createWorkerMapDecoder(()=>worker,{timeoutMs:20});const result=decoder.decode(request('0:0',async()=>new Uint8Array()));await vi.advanceTimersByTimeAsync(25);await vi.runAllTimersAsync();expect((await result).id).toBe('0:0');expect(decoder.stats().path).toBe('main');decoder.destroy!();}finally{vi.useRealTimers();}});

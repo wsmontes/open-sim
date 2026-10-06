@@ -1,0 +1,4455 @@
+{
+  "buildings": {
+    "bytes": 0,
+    "entries": 0,
+    "evictions": 0,
+    "hits": 0,
+    "misses": 0
+  },
+  "detail": {
+    "bias": 2,
+    "cacheBytes": 16777216,
+    "changedAt": 39676.699999809265,
+    "concurrency": 4,
+    "estimated": true,
+    "healthy": 1,
+    "loadMs": 11.199999809265137,
+    "maxTiles": 10,
+    "maximumZoom": 14,
+    "minimumZoom": 14,
+    "observedAt": 39892.199999809265,
+    "ownedBytes": 58814128,
+    "sourceBias": 0,
+    "trial": false,
+    "trialAt": null,
+    "workMs": 13.199999809265137,
+    "zoomBias": 2
+  },
+  "frames": {
+    "drawing": false,
+    "drawn": 315,
+    "fps": 0,
+    "frameMs": 0.5145347740891715,
+    "frames": 360,
+    "p50": 0.5,
+    "p95": 3
+  },
+  "geography": {
+    "bytes": 10492966,
+    "demand": 4,
+    "entries": 64,
+    "limitBytes": 16777216,
+    "pending": 0,
+    "rejected": 0,
+    "selectionLimited": false
+  },
+  "mobility": {
+    "agents": 2,
+    "edges": 13978,
+    "kinds": {
+      "bus": 0,
+      "car": 0,
+      "pedestrian": 0,
+      "police": 2,
+      "school-bus": 0,
+      "truck": 0
+    },
+    "networkJob": {
+      "acceptedTiles": 2,
+      "active": 0,
+      "bytes": 965088,
+      "entries": 6,
+      "fallback": false,
+      "limited": true,
+      "pending": 0,
+      "rejected": 0
+    },
+    "nodes": 5925
+  },
+  "motionMs": 0,
+  "renderMs": 0,
+  "renderer": {
+    "active": 0,
+    "available": true,
+    "backend": "webgl2",
+    "bytes": 53699984,
+    "displayBytes": 32204896,
+    "entries": 215,
+    "geometryBytes": 5114144,
+    "geometryPressure": false,
+    "pending": 0,
+    "pictureReady": true,
+    "rasterContexts": 1,
+    "recovering": false,
+    "recoveryAttempts": 0,
+    "recoveryNeeded": false,
+    "staticReady": true,
+    "workMs": 13.199999809265137
+  },
+  "resources": {
+    "geographicEncodedBytes": 16777216,
+    "headroomBytes": 33554432,
+    "maxTileBytes": 4186112,
+    "mobilityEncodedBytes": 8388608,
+    "mobilityGeometryBytes": 8388608,
+    "mobilityInputBytes": 16777216,
+    "mobilityMaxEdges": 16384,
+    "mobilityNetworkBytes": 33554432,
+    "mobilityNetworkCopyBytes": 33554432,
+    "networkConcurrency": 4,
+    "networkTransientBytes": 33554432,
+    "normalizationBytes": 16777216,
+    "providerEncodedBytes": 8388608,
+    "rasterBytes": 134217728,
+    "sceneGeometryBytes": 33554432,
+    "terrainSceneBytes": 8388608,
+    "terrainSourceBytes": 8388608,
+    "terrainWorkerBytes": 8388608,
+    "totalBytes": 402653184
+  },
+  "samples": [
+    {
+      "at": 132.132,
+      "intervalMs": 0,
+      "phases": {},
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 148.8,
+      "intervalMs": 16.668000000000006,
+      "phases": {
+        "hud": 0.5,
+        "render": 0.5,
+        "simulation": 0.5,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.7000000476837158
+      },
+      "presented": true,
+      "workMs": 2.700000047683716
+    },
+    {
+      "at": 165.4,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.10000014305114746
+    },
+    {
+      "at": 182.1,
+      "intervalMs": 33.29999999999998,
+      "phases": {
+        "hud": 0.5999999046325684,
+        "render": 0.09999990463256836,
+        "simulation": 0,
+        "snapshots": 0.20000004768371585,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1.3999998569488523
+    },
+    {
+      "at": 198.8,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.09999990463256836
+      },
+      "presented": false,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 215.4,
+      "intervalMs": 33.30000000000001,
+      "phases": {
+        "render": 10.900000095367432,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 11.300000190734863
+    },
+    {
+      "at": 265.4,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 282.1,
+      "intervalMs": 66.70000000000002,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 332.1,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.10000014305114746,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 348.8,
+      "intervalMs": 66.69999999999999,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 1497.8,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 1532.1,
+      "intervalMs": 1183.3,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 1548.8,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 1565.4,
+      "intervalMs": 33.30000000000018,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.19999980926513672
+    },
+    {
+      "at": 8181.9,
+      "intervalMs": 6616.5,
+      "phases": {
+        "hud": 2.799999952316284,
+        "render": 0.2999999523162842,
+        "simulation": 0.4000000953674317,
+        "snapshots": 2,
+        "streams": 5.3999998569488525
+      },
+      "presented": true,
+      "workMs": 11.200000047683716
+    },
+    {
+      "at": 8198.6,
+      "intervalMs": 0,
+      "phases": {
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 8215.2,
+      "intervalMs": 33.30000000000109,
+      "phases": {
+        "render": 0.2999999523162842,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.10000014305114746,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 8265.2,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.09999990463256836
+    },
+    {
+      "at": 8381.9,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.4000000953674317,
+        "snapshots": 0.19999980926513672,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 8398.6,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.39999985694885254,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 8415.2,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.5,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 8431.3,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.4000000953674317,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 8447.5,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.39999985694885254,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.5
+    },
+    {
+      "at": 8465.2,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 8481.9,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.5,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.6999998092651367
+    },
+    {
+      "at": 8498.6,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.39999985694885254
+    },
+    {
+      "at": 8514.2,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.39999985694885254,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 8530.9,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.5
+    },
+    {
+      "at": 8548.6,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 8581.9,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.19999980926513672
+    },
+    {
+      "at": 8598.6,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 8831.9,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.7000000476837158,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 1
+    },
+    {
+      "at": 8898.5,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.39999985694885254,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 8981.9,
+      "intervalMs": 766.6999999999989,
+      "phases": {
+        "hud": 1.7999999523162842,
+        "render": 0.09999990463256836,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.9000000953674316,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 3.5
+    },
+    {
+      "at": 8998.6,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.1000001430511477
+    },
+    {
+      "at": 9015.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.2999999523162842,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.2999999523162842
+    },
+    {
+      "at": 9031.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.5,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 9048.5,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 9065.2,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 9081.1,
+      "intervalMs": 15.899999999999636,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.20000004768371585,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.6999998092651367
+    },
+    {
+      "at": 9098.6,
+      "intervalMs": 17.5,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.1000001430511477
+    },
+    {
+      "at": 9115.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 9131.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 9148.5,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 1.2999999523162842
+    },
+    {
+      "at": 9164.2,
+      "intervalMs": 15.700000000000728,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 9181.9,
+      "intervalMs": 17.69999999999891,
+      "phases": {
+        "hud": 1.9000000953674316,
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.7999999523162842,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 3.0999999046325684
+    },
+    {
+      "at": 9198.6,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "hud": 1.5999999046325684,
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.9000000953674316,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 3
+    },
+    {
+      "at": 9215.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.4000000953674317,
+        "snapshots": 0.7000000476837158,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.9000000953674316
+    },
+    {
+      "at": 9230.9,
+      "intervalMs": 15.699999999998909,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.5,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.6000001430511477
+    },
+    {
+      "at": 9248.6,
+      "intervalMs": 17.700000000000728,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 1.2999999523162842
+    },
+    {
+      "at": 9265.3,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.4000000953674317,
+        "snapshots": 0.6000001430511475,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.5999999046325684
+    },
+    {
+      "at": 9281.9,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 9298.6,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1.1000001430511477
+    },
+    {
+      "at": 9315.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0,
+        "simulation": 0.39999985694885254,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 9331.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 9348.6,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 9365.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 9381.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.5,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 9398.6,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "hud": 1.5999999046325684,
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.7000000476837158,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 3.200000047683716
+    },
+    {
+      "at": 9415.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.5,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 9431.8,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 9448.5,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0.20000004768371585,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.2999999523162842
+    },
+    {
+      "at": 9464.3,
+      "intervalMs": 15.799999999999272,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 9481.9,
+      "intervalMs": 17.600000000000364,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.39999985694885254,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 9515.3,
+      "intervalMs": 33.399999999999636,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.5,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 9531.9,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 9565.2,
+      "intervalMs": 33.30000000000109,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 9598.6,
+      "intervalMs": 33.399999999999636,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 9631.8,
+      "intervalMs": 33.19999999999891,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.5,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 9647.6,
+      "intervalMs": 15.800000000001091,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 9665.2,
+      "intervalMs": 17.600000000000364,
+      "phases": {
+        "render": 0,
+        "simulation": 0.4000000953674317,
+        "snapshots": 0.5,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.5
+    },
+    {
+      "at": 9681.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1.3999998569488523
+    },
+    {
+      "at": 9698.5,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 9715.1,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 9731.9,
+      "intervalMs": 16.799999999999272,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 9748.5,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.19999980926513672,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.1999998092651367
+    },
+    {
+      "at": 9765.2,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 9781.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.8000001907348633
+    },
+    {
+      "at": 9798.6,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0.20000004768371585,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 9815.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 9831.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 9848.6,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 9865.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 9898.5,
+      "intervalMs": 33.29999999999927,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 9915.2,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.5,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 0.8000001907348633
+    },
+    {
+      "at": 9948.5,
+      "intervalMs": 33.29999999999927,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.5,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 9981.9,
+      "intervalMs": 33.399999999999636,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.5,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1.1000001430511477
+    },
+    {
+      "at": 10031.8,
+      "intervalMs": 49.89999999999963,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.1000001430511477
+    },
+    {
+      "at": 10065.2,
+      "intervalMs": 33.400000000001455,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.4000000953674317,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 10081.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.19999980926513672,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 10098.5,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.3000001907348633,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 10115.2,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.5,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.1000001430511477
+    },
+    {
+      "at": 10131.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 10148.6,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 10165.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 10181.8,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.3000001907348633,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 10198.6,
+      "intervalMs": 16.80000000000109,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.20000004768371585,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 10215.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 10231.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 10248.6,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 10265.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 10281.8,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.5,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 10315.2,
+      "intervalMs": 33.400000000001455,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.5,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 10331.8,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 10365.2,
+      "intervalMs": 33.400000000001455,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.3000001907348633,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 10415.2,
+      "intervalMs": 50,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.6999998092651367
+    },
+    {
+      "at": 10448.6,
+      "intervalMs": 33.399999999999636,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 10465.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 10481.9,
+      "intervalMs": 16.69999999999891,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 10498.6,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.5,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.5
+    },
+    {
+      "at": 10515.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 10531.6,
+      "intervalMs": 16.399999999999636,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 10548.5,
+      "intervalMs": 16.899999999999636,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.20000004768371585,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 10565.2,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.3000001907348633,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 10581.8,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 10598.5,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.2999999523162842,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 10615.2,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.20000004768371585,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 10648.2,
+      "intervalMs": 33,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 10665.2,
+      "intervalMs": 17,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0.39999985694885254,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 10698.5,
+      "intervalMs": 33.29999999999927,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 1.2000000476837158
+    },
+    {
+      "at": 10731.8,
+      "intervalMs": 33.29999999999927,
+      "phases": {
+        "render": 0,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0.5,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 1.3999998569488523
+    },
+    {
+      "at": 10765.2,
+      "intervalMs": 0,
+      "phases": {
+        "simulation": 0.3000001907348633,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.5
+    },
+    {
+      "at": 10881.9,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.39999985694885254
+    },
+    {
+      "at": 11381.8,
+      "intervalMs": 650,
+      "phases": {
+        "render": 0.20000004768371585,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0.09999990463256836,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 11398.6,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 1,
+        "snapshots": 0.2999999523162842,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 1.2999999523162842
+    },
+    {
+      "at": 11598.6,
+      "intervalMs": 216.8000000000011,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 11615.2,
+      "intervalMs": 16.600000000000364,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 32264,
+      "intervalMs": 20648.8,
+      "phases": {
+        "hud": 2.799999952316284,
+        "render": 0.2999999523162842,
+        "simulation": 0.5,
+        "snapshots": 6.200000047683716,
+        "streams": 7.5
+      },
+      "presented": true,
+      "workMs": 17.600000143051147
+    },
+    {
+      "at": 32280.6,
+      "intervalMs": 0,
+      "phases": {
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 32298.3,
+      "intervalMs": 34.29999999999927,
+      "phases": {
+        "render": 0.2999999523162842,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 32315,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 32465,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.3000001907348633
+    },
+    {
+      "at": 32664,
+      "intervalMs": 365.7000000000007,
+      "phases": {
+        "render": 0,
+        "simulation": 0.3000001907348633,
+        "snapshots": 1.5999999046325684,
+        "streams": 1.2999999523162842
+      },
+      "presented": true,
+      "workMs": 3.299999952316284
+    },
+    {
+      "at": 32681.7,
+      "intervalMs": 17.700000000000728,
+      "phases": {
+        "hud": 1.2000000476837158,
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 3,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 4.700000047683716
+    },
+    {
+      "at": 32698.3,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 1.1000001430511477,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.5
+    },
+    {
+      "at": 32714.9,
+      "intervalMs": 16.600000000002183,
+      "phases": {
+        "render": 0.3000001907348633,
+        "simulation": 0.09999990463256836,
+        "snapshots": 1,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.8000001907348633
+    },
+    {
+      "at": 32731.3,
+      "intervalMs": 16.399999999997817,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 1,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.5999999046325684
+    },
+    {
+      "at": 32748,
+      "intervalMs": 16.700000000000728,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.10000014305114746,
+        "snapshots": 1.2000000476837158,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 1.7999999523162842
+    },
+    {
+      "at": 32765,
+      "intervalMs": 17,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 1.2999999523162842,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.7999999523162842
+    },
+    {
+      "at": 32781.7,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 32798.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 32815,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.09999990463256836,
+        "streams": 1.6000001430511477
+      },
+      "presented": true,
+      "workMs": 2.1000001430511475
+    },
+    {
+      "at": 32831.7,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 32848.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 32865,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 32881.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 32898.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.9000000953674316
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 32915,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 32931.7,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 32947.4,
+      "intervalMs": 15.700000000004366,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 32964.9,
+      "intervalMs": 17.5,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 32981.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 32997.3,
+      "intervalMs": 15.700000000004366,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 33014.9,
+      "intervalMs": 17.599999999998545,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.8000001907348633
+    },
+    {
+      "at": 33031.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 33048.1,
+      "intervalMs": 16.5,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.20000004768371585,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 33065,
+      "intervalMs": 16.900000000001455,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.8000001907348633
+    },
+    {
+      "at": 33081.7,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 33097.9,
+      "intervalMs": 16.200000000004366,
+      "phases": {
+        "hud": 2.299999952316284,
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.7999999523162842,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 3.8000001907348633
+    },
+    {
+      "at": 33114.9,
+      "intervalMs": 17,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 33131.7,
+      "intervalMs": 16.799999999995634,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.8000001907348633
+    },
+    {
+      "at": 33148.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 33165,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 33181.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 33198.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.20000004768371585,
+        "simulation": 0.39999985694885254,
+        "snapshots": 0.19999980926513672,
+        "streams": 1.1000001430511477
+      },
+      "presented": true,
+      "workMs": 2.4000000953674316
+    },
+    {
+      "at": 33215,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.39999985694885254
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 33231.7,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 33248.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.20000004768371585,
+        "streams": 0.5
+      },
+      "presented": true,
+      "workMs": 1.2999999523162842
+    },
+    {
+      "at": 33265,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.39999985694885254,
+        "snapshots": 0.20000004768371585,
+        "streams": 0.5
+      },
+      "presented": true,
+      "workMs": 1.1999998092651367
+    },
+    {
+      "at": 33281.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.4000000953674317,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 33298.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "hud": 2.0999999046325684,
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 3.200000047683716
+    },
+    {
+      "at": 33314.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.4000000953674317,
+        "snapshots": 0.20000004768371585,
+        "streams": 0.39999985694885254
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 33331.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 33348.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.39999985694885254
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 33364.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 33381.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 33398.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 33414.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 33430.6,
+      "intervalMs": 15.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.39999985694885254
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 33448.3,
+      "intervalMs": 17.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 33465,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 33481.7,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.39999985694885254
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 33498.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "hud": 1.5999999046325684,
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.2999999523162842,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 2.5
+    },
+    {
+      "at": 33515,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 33531.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 33548.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0,
+        "streams": 0.5
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 33564.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 33581.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 33598.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 33615,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 33631.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.20000004768371585,
+        "streams": 0.5
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 33648.4,
+      "intervalMs": 16.80000000000291,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 33665,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 33681.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 33698.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 33715,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 33731.7,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 33748.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 33765,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 33781.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 33798.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 33815,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 33831.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 33848.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.6999998092651367
+    },
+    {
+      "at": 33865,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 33881.7,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 33898.2,
+      "intervalMs": 16.5,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 33915,
+      "intervalMs": 16.80000000000291,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 33931.4,
+      "intervalMs": 16.400000000001455,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 33948.3,
+      "intervalMs": 16.900000000001455,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 33965,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.8000001907348633
+    },
+    {
+      "at": 33981.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 33998.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 34015,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 34031.7,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 34048.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "render": 0.20000004768371585,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0,
+        "streams": 0.7999999523162842
+      },
+      "presented": true,
+      "workMs": 1.7000000476837158
+    },
+    {
+      "at": 34064.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0,
+        "streams": 0.5
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 34081.7,
+      "intervalMs": 16.799999999995634,
+      "phases": {
+        "render": 0.20000004768371585,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0,
+        "streams": 0.5
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 34098.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "hud": 1.7999999523162842,
+        "render": 0.10000014305114746,
+        "simulation": 0.5999999046325684,
+        "snapshots": 0.5,
+        "streams": 0.5
+      },
+      "presented": true,
+      "workMs": 3.900000095367432
+    },
+    {
+      "at": 34114.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.39999985694885254
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 34131.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 34148.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.19999980926513672,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.39999985694885254
+      },
+      "presented": true,
+      "workMs": 1
+    },
+    {
+      "at": 34165,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.3000001907348633,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.5
+      },
+      "presented": true,
+      "workMs": 0.9000000953674316
+    },
+    {
+      "at": 34181.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 34198.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 34215,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 34231.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 34248.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 34264.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 34281.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 34298.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 34315,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 34331.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 34348.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.6999998092651367
+    },
+    {
+      "at": 34364.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 34381.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.7999999523162842
+    },
+    {
+      "at": 34398.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 34415,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 34431.7,
+      "intervalMs": 0,
+      "phases": {
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 34598.3,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 34798.3,
+      "intervalMs": 383.3000000000029,
+      "phases": {
+        "hud": 1.2999999523162842,
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.7000000476837158,
+        "streams": 1.7999999523162842
+      },
+      "presented": true,
+      "workMs": 4
+    },
+    {
+      "at": 34814.9,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 34998.3,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.19999980926513672
+    },
+    {
+      "at": 35198.3,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.4000000953674317,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 35231.6,
+      "intervalMs": 433.2999999999956,
+      "phases": {
+        "hud": 1.2999999523162842,
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 2.700000047683716,
+        "streams": 1.4000000953674316
+      },
+      "presented": true,
+      "workMs": 5.700000047683716
+    },
+    {
+      "at": 35248.3,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.3000001907348633
+    },
+    {
+      "at": 35264.9,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.10000014305114746
+    },
+    {
+      "at": 35448.3,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 35614.9,
+      "intervalMs": 383.3000000000029,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 1.7999999523162842,
+        "streams": 1.4000000953674316
+      },
+      "presented": true,
+      "workMs": 3.3999998569488525
+    },
+    {
+      "at": 35631.7,
+      "intervalMs": 16.799999999995634,
+      "phases": {
+        "hud": 1.2000000476837158,
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 1.2999999523162842,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 3.0999999046325684
+    },
+    {
+      "at": 35648.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 1,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 1.6000001430511477
+    },
+    {
+      "at": 35665,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 1.0999999046325684,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.5
+    },
+    {
+      "at": 35681.7,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 1.1000001430511477,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.6000001430511477
+    },
+    {
+      "at": 35698.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 1.1000001430511477,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 1.5
+    },
+    {
+      "at": 35714.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 1.2000000476837158,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 1.7999999523162842
+    },
+    {
+      "at": 35731.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.09999990463256836,
+        "snapshots": 2.299999952316284,
+        "streams": 0.5999999046325684
+      },
+      "presented": true,
+      "workMs": 3.3999998569488525
+    },
+    {
+      "at": 35748.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.10000014305114746,
+        "snapshots": 1.5,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 2.0999999046325684
+    },
+    {
+      "at": 35764.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 1.3000001907348633,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 1.9000000953674316
+    },
+    {
+      "at": 35781.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 1.4000000953674316,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 2.0999999046325684
+    },
+    {
+      "at": 35798.2,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 1.5,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 2.1999998092651367
+    },
+    {
+      "at": 35814.9,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 1.1000001430511477,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.7000000476837158
+    },
+    {
+      "at": 35831.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 1.1999998092651367,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.6999998092651367
+    },
+    {
+      "at": 35848.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 1.2000000476837158,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 2
+    },
+    {
+      "at": 35864.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 1.4000000953674316,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 2.0999999046325684
+    },
+    {
+      "at": 35880.7,
+      "intervalMs": 15.799999999995634,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 1.2000000476837158,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 1.7999999523162842
+    },
+    {
+      "at": 35897.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 1.2999999523162842,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 2
+    },
+    {
+      "at": 35914.9,
+      "intervalMs": 17.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 1.7000000476837158,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 2.299999952316284
+    },
+    {
+      "at": 35931.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 2,
+        "streams": 0.39999985694885254
+      },
+      "presented": true,
+      "workMs": 2.9000000953674316
+    },
+    {
+      "at": 35948.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 1.7999999523162842,
+        "streams": 0.5
+      },
+      "presented": true,
+      "workMs": 3
+    },
+    {
+      "at": 35964.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 1.2000000476837158,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 1.7000000476837158
+    },
+    {
+      "at": 35981.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.10000014305114746,
+        "snapshots": 1.2999999523162842,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 1.7999999523162842
+    },
+    {
+      "at": 35998.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 1.2999999523162842,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 2.0999999046325684
+    },
+    {
+      "at": 36014.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 1.7000000476837158,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 2.3000001907348633
+    },
+    {
+      "at": 36031.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 36048.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 36064.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 1.8999998569488523
+      },
+      "presented": true,
+      "workMs": 2.299999952316284
+    },
+    {
+      "at": 36081.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 36098.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 36115,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 36131.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 36148.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36165,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 36181.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36198.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36214.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36231.7,
+      "intervalMs": 16.799999999995634,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.39999985694885254
+    },
+    {
+      "at": 36248.3,
+      "intervalMs": 16.60000000000582,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36265,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36281.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.39999985694885254
+    },
+    {
+      "at": 36298.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36314.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36331.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36348.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36365,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36381.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.39999985694885254
+    },
+    {
+      "at": 36398.2,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 36415,
+      "intervalMs": 16.80000000000291,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36431.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36448.2,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36464.9,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36481.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36498.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36514.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 36531.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 36548.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.09999990463256836
+      },
+      "presented": true,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 36565,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36581.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.3000001907348633
+    },
+    {
+      "at": 36598.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36614.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 36631.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36648.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 36664.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "hud": 1.5,
+        "render": 0.09999990463256836,
+        "simulation": 0,
+        "snapshots": 0.4000000953674317,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 2.5999999046325684
+    },
+    {
+      "at": 36681.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.19999980926513672,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 1.1000001430511477
+    },
+    {
+      "at": 36698.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 36714.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 36731.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36748.2,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.39999985694885254
+    },
+    {
+      "at": 36764.9,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 36781.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 36798.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36815,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 36831.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.39999985694885254
+    },
+    {
+      "at": 36848.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 36864.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36881.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.19999980926513672
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36898.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.7000000476837158
+    },
+    {
+      "at": 36914.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 36931.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.6000001430511475
+    },
+    {
+      "at": 36948.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.39999985694885254
+    },
+    {
+      "at": 36964.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 36981.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.39999985694885254
+    },
+    {
+      "at": 36998.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 37015,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 37031.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 37048.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 37064.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.10000014305114746
+      },
+      "presented": true,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 37081.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.39999985694885254
+    },
+    {
+      "at": 37098.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.5999999046325684
+      },
+      "presented": true,
+      "workMs": 0.8999998569488525
+    },
+    {
+      "at": 37115,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 37131.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 37148.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 37165,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 37181.6,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5
+    },
+    {
+      "at": 37198.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.10000014305114746,
+        "streams": 0.2999999523162842
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 37214.9,
+      "intervalMs": 16.599999999998545,
+      "phases": {
+        "render": 0.09999990463256836,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.4000000953674317
+      },
+      "presented": true,
+      "workMs": 0.6999998092651367
+    },
+    {
+      "at": 37231.6,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.09999990463256836,
+        "streams": 0.3000001907348633
+      },
+      "presented": true,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 37248.3,
+      "intervalMs": 16.700000000004366,
+      "phases": {
+        "render": 0.10000014305114746,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.3000001907348633
+    },
+    {
+      "at": 37265,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0.20000004768371585,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0.20000004768371585
+      },
+      "presented": true,
+      "workMs": 0.5999999046325684
+    },
+    {
+      "at": 37281.6,
+      "intervalMs": 0,
+      "phases": {
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.09999990463256836
+    },
+    {
+      "at": 37331.6,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.3000001907348633
+    },
+    {
+      "at": 37631.6,
+      "intervalMs": 366.59999999999854,
+      "phases": {
+        "hud": 1.5999999046325684,
+        "render": 0.09999990463256836,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.6000001430511475,
+        "streams": 1.5
+      },
+      "presented": true,
+      "workMs": 4.099999904632568
+    },
+    {
+      "at": 37648.3,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 37665,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.10000014305114746,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.10000014305114746
+    },
+    {
+      "at": 37831.6,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.2999999523162842,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 38064.9,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0.4000000953674317,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.4000000953674317
+    },
+    {
+      "at": 38097.3,
+      "intervalMs": 0,
+      "phases": {
+        "render": 0,
+        "simulation": 0.20000004768371585,
+        "snapshots": 0.09999990463256836,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.2999999523162842
+    },
+    {
+      "at": 39681.6,
+      "intervalMs": 2050,
+      "phases": {
+        "render": 0,
+        "simulation": 1,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 1.0999999046325684
+    },
+    {
+      "at": 39698.2,
+      "intervalMs": 0,
+      "phases": {
+        "simulation": 0.09999990463256836,
+        "snapshots": 0.10000014305114746,
+        "streams": 0
+      },
+      "presented": false,
+      "workMs": 0.20000004768371585
+    },
+    {
+      "at": 39881.5,
+      "intervalMs": 199.90000000000143,
+      "phases": {
+        "render": 0,
+        "simulation": 0,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.3000001907348633
+    },
+    {
+      "at": 39898.2,
+      "intervalMs": 16.69999999999709,
+      "phases": {
+        "render": 0,
+        "simulation": 0.09999990463256836,
+        "snapshots": 0,
+        "streams": 0
+      },
+      "presented": true,
+      "workMs": 0.09999990463256836
+    }
+  ],
+  "terrain": {
+    "available": true,
+    "bytes": 253500,
+    "limited": false,
+    "limitedSurface": false,
+    "loading": false
+  },
+  "terrainSource": {
+    "active": 0,
+    "bytes": 5112250,
+    "entries": 242,
+    "evictions": 0,
+    "hits": 278,
+    "misses": 242,
+    "queued": 0
+  }
+}

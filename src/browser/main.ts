@@ -1,4 +1,6 @@
 /// <reference types="vite/client" />
+import {resourcePolicy} from '../presentation/resource-policy';
+import {boundedResponseBytes} from '../adapters/http/bounded-body';
 import {loadBrowserTile} from './visual-tile-loader';
 import {createSceneLoading} from './scene-loading';
 import {createRegionalMobility,createRegionalResource} from './regional-mobility';
@@ -285,7 +287,8 @@ const placeLon = hudRoot.querySelector<HTMLInputElement>('#place-lon');
 // map, so no tile cache is built: the fixture has no bytes to keep.
 const tileCache = testPorts ? null : createIndexedDbTileCache({maxBytes: 256 * 1024 * 1024}),
  chunkCache = testPorts ? null : createIndexedDbChunkCache();
-const maps = testPorts?.maps ?? createOsmSource({cache: tileCache!, chunks: chunkCache!});
+const resources=resourcePolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory);
+const maps = testPorts?.maps ?? createOsmSource({cache:tileCache!,chunks:chunkCache!,visualCacheBytes:resources.providerEncodedBytes,maxTileBytes:resources.maxTileBytes,concurrency:resources.networkConcurrency,normalizationBytes:resources.normalizationBytes});
 // Saving a region for offline play is a browser act (a download with progress and a stop button); where it is centred
 // is the client's camera. The fixture map has no `prepareRegion`, so the offline control simply is not wired in tests.
 if ('prepareRegion' in maps)
@@ -388,10 +391,10 @@ const loadSceneTile=(z:number,x:number,y:number)=>loadBrowserTile(maps as OsmSou
 const adaptiveDetail=createAdaptiveDetail((navigator as Navigator&{deviceMemory?:number}).deviceMemory);
 let detailZoom=.01,detailRevision=-1;
 const geography = 'loadVisualTile' in maps ? createGeographicStream(loadSceneTile,()=>invalidateFrame(),()=>adaptiveDetail.demand(detailZoom),(ms,ok)=>adaptiveDetail.load(ms,ok),()=>adaptiveDetail.pressure(detailZoom,performance.now())) : null;
-const terrainSource=createTerrainSource(async(url,signal)=>{const response=await fetch(url,{signal});if(!response.ok)throw new Error('Terrain unavailable');return new Uint8Array(await response.arrayBuffer());},terrainManifest as TerrainManifest);
-const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame());
+const terrainSource=createTerrainSource(async(url,signal)=>{const response=await fetch(url,{signal});if(!response.ok)throw new Error('Terrain unavailable');return boundedResponseBytes(response,32768,signal);},terrainManifest as TerrainManifest,{cacheBytes:resources.terrainSourceBytes,concurrency:2});
+const terrain=createTerrainStream(terrainManifest as TerrainManifest,terrainSource.load,()=>invalidateFrame(),{maxBytes:Math.min(resources.terrainSceneBytes,resources.terrainWorkerBytes),concurrency:2});
 const devicePolicy=renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.width,canvas.height);
-const mobilityStream=geography?createMobilityStream(loadSceneTile,SEED,()=>invalidateFrame(),devicePolicy.dynamicAgents):null;
+const mobilityStream=geography?createMobilityStream(loadSceneTile,SEED,()=>invalidateFrame(),devicePolicy.dynamicAgents,{encodedBytes:resources.mobilityEncodedBytes,geometryBytes:resources.mobilityGeometryBytes,maxEdges:resources.mobilityMaxEdges,concurrency:resources.networkConcurrency}):null;
 const mobility=mobilityStream?.controller??createMobilityController({seed:SEED,now:()=>new Date().toISOString(),onChange:()=>{},capacity:devicePolicy.dynamicAgents});
 let mobilityEnabled=true;
 const ferryClock=createFerryClock(()=>new Date().toISOString());
@@ -833,18 +836,19 @@ const draw = (now: number, seconds: number) => {
   lastView = view;
  }
  const visualScene=geography?.scene(),surfaceStatus=sceneSurface.status();
- sceneLoading.update({sessionReady:true,pictureReady:surfaceStatus.pictureReady,mapLoading:visualScene?.loading??false,preparing:!staticReady,limited:(visualScene?.limited??false)||surfaceStatus.geometryPressure,recovering:surfaceStatus.recovering,error:!!geography&&surfaceStatus.recoveryNeeded||startupFailed||(visualScene?.error??false)||regionalMobility.status().error||(regionalWanted&&regionalActivity.status().error)});
+ sceneLoading.update({sessionReady:true,pictureReady:surfaceStatus.pictureReady,mapLoading:visualScene?.loading??false,preparing:!staticReady,limited:(visualScene?.limited??false)||surfaceStatus.geometryPressure||terrain.status().limited,recovering:surfaceStatus.recovering,error:!!geography&&surfaceStatus.recoveryNeeded||startupFailed||(visualScene?.error??false)||regionalMobility.status().error||(regionalWanted&&regionalActivity.status().error)});
  if(surfaceStatus.pictureReady){perfMark('first-scene');if(!firstPicture){firstPicture=true;syncMobilityCity(containsLocalArea(vancouverLocalAreas.areas,civilFocus));regionalActivity.update(regionalWanted,staticReady);}}
  return {moving:moving||sceneSurface.pending(), ambient: hand.speed !== 0&&staticReady,presented:framePresented};
 };
 let lastView: WorldView | null = null;
 const sameFrame=sameSceneFrame;
+const detailProbeTimer=window.setInterval(()=>{if(document.hidden||!active)return;const before=adaptiveDetail.revision;adaptiveDetail.probe(detailZoom,performance.now());if(adaptiveDetail.revision!==before)invalidateFrame();},5000);
 const frames = createFrameScheduler({draw,ambientFps:renderPolicy((navigator as Navigator&{deviceMemory?:number}).deviceMemory,canvas.width,canvas.height).dynamicFps,onSample:sample=>{if(PERF_DEBUG)perfSamples.record({...sample,phases:framePhases});}});
 invalidateFrame = frames.invalidate;
 let debugTimer:number|undefined;
 if (PERF_DEBUG) {
  const diagnostics=document.createElement('pre');diagnostics.id='open-sim-frame-stats';diagnostics.hidden=true;document.body.append(diagnostics);
- debugTimer=window.setInterval(()=>{if(document.hidden)return;const agents=lastView?.mobility??[];diagnostics.textContent=JSON.stringify({motionMs,renderMs,frames:frames.stats(),samples:perfSamples.snapshot(),buildings:buildingCacheStats(),renderer:sceneSurface.status(),detail:adaptiveDetail.status(detailZoom),geography:geography?.status(),terrain:terrain.status(),mobility:{agents:agents.length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,agents.filter(agent=>agent.kind===kind).length])),networkJob:mobilityStream?.status(),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size}});},1000);
+ debugTimer=window.setInterval(()=>{if(document.hidden)return;const agents=lastView?.mobility??[];diagnostics.textContent=JSON.stringify({motionMs,renderMs,resources,terrainSource:terrainSource.status(),frames:frames.stats(),samples:perfSamples.snapshot(),buildings:buildingCacheStats(),renderer:sceneSurface.status(),detail:adaptiveDetail.status(detailZoom),geography:geography?.status(),terrain:terrain.status(),mobility:{agents:agents.length,kinds:Object.fromEntries(['car','truck','pedestrian','bus','police','school-bus'].map(kind=>[kind,agents.filter(agent=>agent.kind===kind).length])),networkJob:mobilityStream?.status(),nodes:mobility.network().nodes.size,edges:mobility.network().edges.size}});},1000);
  const debugWindow = window as unknown as {
   openSimFrames?: () => ReturnType<typeof frames.stats>;
   openSimDebug?: () => unknown;
@@ -960,7 +964,7 @@ async function start() {
   updateHud();
   if(document.hidden)frames.stop();else invalidateFrame();
  });
- window.addEventListener('pagehide', event => {saveNow();frames.stop();if(viewportTimer!==undefined){clearTimeout(viewportTimer);viewportTimer=undefined;}if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}if(!event.persisted){if(debugTimer!==undefined)clearInterval(debugTimer);mobilityStream?.dispose();terrain.dispose();geography?.dispose();if('destroy' in maps)(maps as OsmSource).destroy();regionalMobility.dispose();regionalActivity.dispose();sceneSurface.dispose();sceneRasterCache.clear();}});
+ window.addEventListener('pagehide', event => {saveNow();frames.stop();if(viewportTimer!==undefined){clearTimeout(viewportTimer);viewportTimer=undefined;}if(hudTrailingTimer!==undefined){clearTimeout(hudTrailingTimer);hudTrailingTimer=undefined;}if(!event.persisted){if(debugTimer!==undefined)clearInterval(debugTimer);clearInterval(detailProbeTimer);mobilityStream?.dispose();terrain.dispose();terrainSource.dispose();geography?.dispose();if('destroy' in maps)(maps as OsmSource).destroy();regionalMobility.dispose();regionalActivity.dispose();sceneSurface.dispose();sceneRasterCache.clear();}});
  window.addEventListener('pageshow',()=>{if(!document.hidden)invalidateFrame();});
  // First paint is the restored local state. Merely queueing network/storage work in the same task can still delay the
  // browser's actual paint on a phone, so background work starts only after one rendered frame has returned to the UA.

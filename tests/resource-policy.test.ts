@@ -1,0 +1,3 @@
+import {expect,test} from 'vitest';
+import {resourcePolicy} from '../src/presentation/resource-policy';
+test.each([2,4,8,undefined])('partitions one managed envelope with decode headroom on %s GB',memory=>{const p=resourcePolicy(memory),{totalBytes,networkConcurrency,maxTileBytes,mobilityMaxEdges,...partitions}=p;expect(Object.values(partitions).reduce((a,b)=>a+b,0)).toBe(totalBytes);expect(p.networkTransientBytes).toBeGreaterThanOrEqual(maxTileBytes*2*networkConcurrency+65536);expect(mobilityMaxEdges*1024*2).toBeLessThanOrEqual(p.mobilityNetworkBytes);expect(p.geographicEncodedBytes).toBeLessThan(p.rasterBytes);expect(p.headroomBytes).toBeGreaterThan(0);});

@@ -1,7 +1,7 @@
 import {expect,test} from 'vitest';
 import {WORLD,toCell} from '../src/core/coordinates';
 import {MIN_ZOOM,zoomLadder,centerOn,visibleChunks,cellSpace} from '../src/presentation/camera';
-import {geographicTiles,globePoint,globeCoord} from '../src/presentation/geographic-map';
+import {geographicTiles,geographicSelection,globePoint,globeCoord} from '../src/presentation/geographic-map';
 import {decodeVisualTile} from '../src/adapters/osm/decode';
 
 test('zoom can encompass Earth and still has reachable intermediate steps',()=>{
@@ -56,4 +56,11 @@ test('a retina viewport keeps every visible corner in the bounded tile demand',(
   expect(tiles.some(t=>t.x===x&&t.y===y)).toBe(true);
  }
  expect(tiles.length).toBeLessThanOrEqual(40);
+});
+
+test.each([4,10,20,40])('pressure keeps complete disjoint coverage within %s tiles',maxTiles=>{
+ const viewport={width:1772,height:1568},camera=centerOn(toCell(49.283,-123.121),{x:0,y:0,zoom:.06,rotation:Math.PI/4},viewport);
+ const selection=geographicSelection(camera,viewport,{zoomBias:4,minimumZoom:14,maxTiles});expect(selection.tiles.length).toBeLessThanOrEqual(maxTiles);
+ for(let y=0;y<=viewport.height;y+=196)for(let x=0;x<=viewport.width;x+=221){const p=cellSpace({x,y},camera);expect(selection.tiles.filter(t=>{const side=WORLD/2**t.z;return p.x>=t.worldX*side&&p.x<(t.worldX+1)*side&&p.y>=t.y*side&&p.y<(t.y+1)*side;}).length).toBe(1);}
+ expect(selection.limited).toBe(selection.tiles.some(t=>t.z<14));
 });

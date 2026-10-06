@@ -1,3 +1,5 @@
+import {boundedResponseBytes,ResourcePressure} from '../http/bounded-body';
+import {resourcePolicy} from '../../presentation/resource-policy';
 import {createResourceCache} from '../../core/resource-cache';
 import {decodeVisualTile} from './decode';
 import type {GeographicTile} from '../../presentation/geographic-map';
@@ -9,7 +11,7 @@ import type {TileCache} from './tile-cache';
 import type {ChunkCache} from './chunk-cache';
 import {createWorkerMapDecoder,type MapDecoder,type MapDecodeStats} from './map-decoder';
 
-export type OsmConfig={visualCacheBytes?:number;tileUrl?:string;fetcher?:typeof fetch;timeoutMs?:number;overviewZoom?:number;
+export type OsmConfig={visualCacheBytes?:number;maxTileBytes?:number;concurrency?:number;normalizationBytes?:number;tileUrl?:string;fetcher?:typeof fetch;timeoutMs?:number;overviewZoom?:number;
  // Raw service bytes survive visits; normalized chunks make a warm reopen skip PBF decode and geometry normalization.
  cache?:TileCache;chunks?:ChunkCache;
  // Decoding is a port so tests/non-browser runtimes use the same main implementation while the browser defaults to
@@ -34,12 +36,12 @@ const tileOf=(cell:number,side:number)=>Math.floor(cell/side);
 
 export function createOsmSource(config:OsmConfig={}):OsmSource{
  const template=config.tileUrl??DEFAULT_TILE_URL,fetcher=config.fetcher??fetch,overviewZoom=config.overviewZoom??DEFAULT_OVERVIEW_ZOOM;
- const kept=config.cache,normalized=config.chunks,decoder=config.decoder??createWorkerMapDecoder();
+ const kept=config.cache,normalized=config.chunks,decoder=config.decoder??createWorkerMapDecoder(undefined,{cacheBytes:Math.max(0,((config.normalizationBytes??resourcePolicy().normalizationBytes)-(config.maxTileBytes??resourcePolicy().maxTileBytes))/2),inputBytes:config.maxTileBytes});
  const encodedTiles=createResourceCache<GeographicTile>(config.visualCacheBytes??8*1024*1024,()=>{},64),encodedPending=new Map<string,Promise<GeographicTile>>(),controllers=new Set<AbortController>();let visualRevision=0,disposed=false;
  const pending=new Map<string,Promise<Uint8Array>>(),queue:Array<()=>void>=[];let active=0;
 
  async function limited<T>(job:()=>Promise<T>):Promise<T>{
-  if(active>=4)await new Promise<void>(resolve=>queue.push(resolve));else active+=1;
+  if(active>=(config.concurrency??4))await new Promise<void>(resolve=>queue.push(resolve));else active+=1;
   try{if(disposed)throw new Error('Map source disposed');return await job();}
   finally{const next=queue.shift();if(next)next();else active-=1;}
  }
@@ -51,11 +53,12 @@ export function createOsmSource(config:OsmConfig={}):OsmSource{
    try{
     const cached=kept?await kept.get(key).catch(()=>null):null;
     if(disposed)throw new Error('Map source disposed');
-    if(cached&&cached.byteLength)return cached;
+    if(cached&&cached.byteLength){if(cached.byteLength>(config.maxTileBytes??4*1024*1024))throw new ResourcePressure();return cached;}
     const url=template.replace('{z}',String(zoom)).replace('{x}',String(tileX)).replace('{y}',String(tileY));
     const response=await fetcher(url,{signal:abort.signal});
+    if(disposed)throw new Error('Map source disposed');
     if(!response.ok)throw new Error(`Mapa indisponível (${response.status}). Tente novamente.`);
-    const result=new Uint8Array(await response.arrayBuffer());
+    const result=await boundedResponseBytes(response,config.maxTileBytes??4*1024*1024,abort.signal);
     if(disposed)throw new Error('Map source disposed');
     // IndexedDB persistence is a copy for a later visit, never a prerequisite for this frame.
     if(kept&&persist)void kept.put(key,result).catch(()=>{});

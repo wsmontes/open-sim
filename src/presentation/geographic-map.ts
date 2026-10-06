@@ -9,25 +9,32 @@ export type GeographicScene={tiles:readonly GeographicTile[];revision:number;loa
 export const GLOBE_ZOOM=.000014;
 export const CITY_ZOOM=.035;
 export const SIMULATION_ZOOM=.035;
-type GeographicLimits={zoomBias:number;maxTiles:number;minimumZoom?:number};
+type GeographicLimits={zoomBias:number;maxTiles:number;minimumZoom?:number;maximumZoom?:number};
 export function geographicTiles(camera:Camera,viewport:Viewport,limits?:GeographicLimits):GeographicTileId[]{return geographicSelection(camera,viewport,limits).tiles;}
 export function geographicSelection(camera:Camera,viewport:Viewport,limits?:GeographicLimits):{tiles:GeographicTileId[];limited:boolean}{
  let z=Math.max(0,Math.min(14,Math.floor(Math.log2(WORLD*TILE_W*camera.zoom/384))));
  const minimum=Math.max(0,Math.min(14,limits?.minimumZoom??0));
- z=Math.max(minimum,z-Math.max(0,limits?.zoomBias??0));
+ z=Math.min(limits?.maximumZoom??14,Math.max(minimum,z-Math.max(0,limits?.zoomBias??0)));
  const bounds=[[0,0],[viewport.width,0],[0,viewport.height],[viewport.width,viewport.height]].map(([x,y])=>cellSpace({x,y},camera));
  let n:number,side:number,x0:number,x1:number,y0:number,y1:number;
  do{
   n=2**z;side=WORLD/n;
   x0=Math.floor(Math.min(...bounds.map(p=>p.x))/side);x1=Math.floor(Math.max(...bounds.map(p=>p.x))/side);
   y0=Math.max(0,Math.floor(Math.min(...bounds.map(p=>p.y))/side));y1=Math.min(n-1,Math.floor(Math.max(...bounds.map(p=>p.y))/side));
-  if((x1-x0+1)*(y1-y0+1)<=Math.max(1,limits?.maxTiles??40)||z===minimum)break;
+  if((x1-x0+1)*(y1-y0+1)<=Math.max(1,limits?.maxTiles??40)||z===0)break;
   z--;
  }while(true);
  const out:GeographicTileId[]=[];
  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)out.push({z,x:((x%n)+n)%n,y,worldX:x});
- const c=cellSpace({x:viewport.width/2,y:viewport.height/2},camera);
- return {limited:out.length>(limits?.maxTiles??Infinity),tiles:out.sort((a,b)=>Math.hypot((a.worldX+.5)*side-c.x,(a.y+.5)*side-c.y)-Math.hypot((b.worldX+.5)*side-c.x,(b.y+.5)*side-c.y)).slice(0,limits?.maxTiles??Infinity)};
+ const c=cellSpace({x:viewport.width/2,y:viewport.height/2},camera),cap=Math.max(1,limits?.maxTiles??40);
+ const distance=(t:GeographicTileId)=>{const side=WORLD/2**t.z;return Math.hypot((t.worldX+.5)*side-c.x,(t.y+.5)*side-c.y);};
+ // Replace a whole coarse tile by four disjoint children. Coverage is never sacrificed for the near detail target.
+ while(out.length+3<=cap){
+  const candidates=out.filter(t=>t.z<minimum).sort((a,b)=>distance(a)-distance(b)),parent=candidates[0];if(!parent)break;
+  out.splice(out.indexOf(parent),1);const childN=2**(parent.z+1);
+  for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++){const worldX=parent.worldX*2+dx;out.push({z:parent.z+1,x:((worldX%childN)+childN)%childN,y:parent.y*2+dy,worldX});}
+ }
+ return {limited:out.some(t=>t.z<minimum),tiles:out.sort((a,b)=>distance(a)-distance(b))};
 }
 
 export const tileKey=(t:{z:number;x:number;y:number})=>`${t.z}:${t.x}:${t.y}`;

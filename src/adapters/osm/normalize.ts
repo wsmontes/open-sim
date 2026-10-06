@@ -43,7 +43,7 @@ function sortedByLayer(features:readonly MapFeature[]):MapFeature[] {
  sortedOnce.set(features,sorted);
  return sorted;
 }
-export function normalizeChunk(id:string,features:readonly MapFeature[],source='OpenStreetMap · Shortbread v1'):BaseChunk {
+function* normalizationSteps(id:string,features:readonly MapFeature[],source:string):Generator<void,BaseChunk>{
  const origin=chunkOrigin(id),cells=Array.from({length:CHUNK*CHUNK},()=>({terrain:'land'} as Cell));
  const landUse=new Map<number,Building>();
  // Scratch buffers reused for every feature: a parity bit per cell and the list of cells a feature touched.
@@ -59,20 +59,28 @@ export function normalizeChunk(id:string,features:readonly MapFeature[],source='
    for(const p of ring){if(p.x<minX)minX=p.x;if(p.x>maxX)maxX=p.x;if(p.y<minY)minY=p.y;if(p.y>maxY)maxY=p.y;}
    const x0=Math.max(0,Math.floor(minX-origin.x-width)),x1=Math.min(CHUNK-1,Math.ceil(maxX-origin.x+width));
    const y0=Math.max(0,Math.floor(minY-origin.y-width)),y1=Math.min(CHUNK-1,Math.ceil(maxY-origin.y+width));
-   for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+   for(let y=y0;y<=y1;y++){for(let x=x0;x<=x1;x++){
     const p={x:origin.x+x+.5,y:origin.y+y+.5};
     if(polygon?ringHits(p,ring):ringNear(p,ring,width)){
      const i=y*CHUNK+x;
      if(polygon){if(parity[i]===0)touched.push(i);parity[i]^=1;}
      else paint(cells,landUse,f,i,origin,x,y);
     }
-   }
+   }yield;}
   }
   if(!polygon)continue;
   for(const i of touched){if(parity[i]===1)paint(cells,landUse,f,i,origin,i%CHUNK,Math.floor(i/CHUNK));parity[i]=0;}
  }
  return{id,source,normalizerVersion:1,cells};
 }
+export function normalizeChunk(id:string,features:readonly MapFeature[],source='OpenStreetMap · Shortbread v1'):BaseChunk{
+ const work=normalizationSteps(id,features,source);for(;;){const step=work.next();if(step.done)return step.value;}
+}
+export async function normalizeChunkAsync(id:string,features:readonly MapFeature[],source='OpenStreetMap · Shortbread v1',cancelled:()=>boolean=()=>false):Promise<BaseChunk>{
+ const work=normalizationSteps(id,features,source);await new Promise<void>(resolve=>setTimeout(resolve,0));let started=performance.now();
+ for(;;){if(cancelled())throw new Error('Map decoder disposed');const step=work.next();if(step.done)return step.value;if(performance.now()-started>=4){await new Promise<void>(resolve=>setTimeout(resolve,0));started=performance.now();}}
+}
+
 function paint(cells:Cell[],landUse:Map<number,Building>,f:MapFeature,i:number,origin:CellCoord,x:number,y:number):void {
  const c=cells[i]!;
  if(f.layer==='land'||f.layer==='sites'){

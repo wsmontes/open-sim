@@ -68,3 +68,4 @@ test('same-camera budget shrink reconciles demanded retained tiles',async()=>{
  stream.update(at,v);await stream.idle();expect(stream.scene().tiles).toHaveLength(4);expect(stream.scene().loading).toBe(false);expect(stream.scene().limited).toBe(true);expect(stream.scene().error).toBe(false);
  maxTiles=40;stream.update(at,v);await stream.idle();expect(stream.scene().limited).toBe(false);expect(stream.scene().tiles.length).toBeGreaterThan(4);
  });
+test('oversized transport bodies are resource pressure rather than failed network retries',async()=>{const {ResourcePressure}=await import('../src/core/resource-pressure');let pressures=0;const stream=createGeographicStream(async()=>{throw new ResourcePressure();},()=>{},undefined,undefined,()=>pressures++);stream.update(camera,viewport);await stream.idle();expect(stream.scene().limited).toBe(true);expect(stream.scene().error).toBe(false);expect(pressures).toBeGreaterThan(0);stream.dispose();});

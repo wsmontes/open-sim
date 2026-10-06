@@ -1,3 +1,4 @@
+import {ResourcePressure} from '../core/resource-pressure';
 import type {DetailDemand} from '../presentation/adaptive-detail';
 import type {Camera,Viewport} from '../presentation/camera';
 import {geographicSelection,tileKey,GLOBE_ZOOM,type GeographicTile,type GeographicTileId,type GeographicScene} from '../presentation/geographic-map';
@@ -26,7 +27,7 @@ export function createGeographicStream(load:(z:number,x:number,y:number)=>Promis
     if(disposed)return;observed?.(performance.now()-start,true);
     if(!demand.some(t=>tileKey(t)===key))return;
     const size=value.encoded?.byteLength??value.features.reduce((n,f)=>n+224+f.geometry.reduce((sum,r)=>sum+r.length*32,0),0);trim(size);if(size>limit()||bytes+size>limit()){rejected.add(key);pressure?.();return;}discard(key);cache.set(key,value);sizes.set(key,size);bytes+=size;
-   },()=>{if(!disposed){observed?.(performance.now()-start,false);if(demand.some(t=>tileKey(t)===key))failed.add(key);}}).finally(()=>{pending.delete(key);announce();pump();});
+   },error=>{if(!disposed){if(error instanceof ResourcePressure){if(demand.some(t=>tileKey(t)===key)){rejected.add(key);pressure?.();}}else{observed?.(performance.now()-start,false);if(demand.some(t=>tileKey(t)===key))failed.add(key);}}}).finally(()=>{pending.delete(key);announce();pump();});
   }
   if(pending.size===0&&wanted().length===0)for(const resolve of waiters.splice(0))resolve();
  };

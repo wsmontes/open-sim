@@ -1,3 +1,4 @@
+import {createResourceCache} from '../../core/resource-cache';
 import type {TerrainManifest,TerrainTile} from '../../presentation/terrain-model';
 export function encodeTerrainTile(tile:TerrainTile):Uint8Array{
  const {heightsM,valid,...header}=tile;const json=new TextEncoder().encode(JSON.stringify(header));const n=tile.size*tile.size;
@@ -18,22 +19,25 @@ export function decodeTerrainTile(bytes:Uint8Array,manifest:TerrainManifest):Ter
  for(let i=0;i<n;i++){heightsM[i]=view.getFloat32(8+length+i*4,true);if(valid[i]>1||valid[i]===1&&!Number.isFinite(heightsM[i]))throw new Error('Corrupt terrain samples');if(!valid[i])heightsM[i]=NaN;}
  return {...h,sourceResolutionM:source.resolutionM,heightsM,valid};
 }
-export function createTerrainSource(fetchBytes:(url:string,signal:AbortSignal)=>Promise<Uint8Array>,manifest:TerrainManifest){
- const cache=new Map<string,TerrainTile>();let cacheBytes=0,active=0;const waiting:(()=>void)[]=[];
- const release=()=>{const next=waiting.shift();if(next)next();else active--;};
+export function createTerrainSource(fetchBytes:(url:string,signal:AbortSignal)=>Promise<Uint8Array>,manifest:TerrainManifest,options:{cacheBytes?:number;concurrency?:number}={}){
+ const cache=createResourceCache<TerrainTile>(options.cacheBytes??32*1024*1024);let active=0,disposed=false;
+ const controllers=new Set<AbortController>(),waiting:Array<{wake:()=>void;reject:(error:Error)=>void}>=[];
+ const release=()=>{const next=waiting.shift();if(next)next.wake();else active--;};
  return {async load(id:string,signal:AbortSignal):Promise<TerrainTile>{
-  if(signal.aborted)throw new DOMException('Aborted','AbortError');
+  if(disposed)throw new Error('Terrain source disposed');if(signal.aborted)throw new DOMException('Aborted','AbortError');
   const entry=manifest.tiles.find(t=>t.id===id);if(!entry)throw new Error('No terrain capture');
-  const known=cache.get(id);if(known){cache.delete(id);cache.set(id,known);return known;}
-  if(active>=8)await new Promise<void>(resolve=>waiting.push(resolve));else active++;
+  const known=cache.get(id);if(known)return known;
+  if(active>=(options.concurrency??8))await new Promise<void>((resolve,reject)=>{
+   const queued={wake:()=>{signal.removeEventListener('abort',cancel);resolve();},reject:(error:Error)=>{signal.removeEventListener('abort',cancel);reject(error);}};
+   const cancel=()=>{const index=waiting.indexOf(queued);if(index>=0)waiting.splice(index,1);queued.reject(new DOMException('Aborted','AbortError'));};waiting.push(queued);signal.addEventListener('abort',cancel,{once:true});
+  });else active++;
+  const abort=new AbortController(),cancel=()=>abort.abort();controllers.add(abort);signal.addEventListener('abort',cancel,{once:true});
   try{
-   if(signal.aborted)throw new DOMException('Aborted','AbortError');
-   const bytes=await fetchBytes(entry.url,signal);if(signal.aborted)throw new DOMException('Aborted','AbortError');
+   if(disposed)throw new Error('Terrain source disposed');if(signal.aborted)throw new DOMException('Aborted','AbortError');
+   const bytes=await fetchBytes(entry.url,abort.signal);if(disposed)throw new Error('Terrain source disposed');if(abort.signal.aborted)throw new DOMException('Aborted','AbortError');
    if(bytes.length!==entry.bytes)throw new Error('Terrain download length mismatch');
    const tile=decodeTerrainTile(bytes,manifest);if(tile.id!==id)throw new Error('Wrong terrain tile');
-   const cost=tile.heightsM.byteLength+tile.valid.byteLength;
-   if(!cache.has(id)){while(cacheBytes+cost>32*1024*1024&&cache.size){const key=cache.keys().next().value!;const old=cache.get(key)!;cacheBytes-=old.heightsM.byteLength+old.valid.byteLength;cache.delete(key);}cache.set(id,tile);cacheBytes+=cost;}
-   return tile;
-  }finally{release();}
- }};
+   cache.set(id,tile,tile.heightsM.byteLength+tile.valid.byteLength);return tile;
+  }finally{signal.removeEventListener('abort',cancel);controllers.delete(abort);release();}
+ },status:()=>({...cache.stats(),active,queued:waiting.length}),dispose(){disposed=true;cache.clear();for(const abort of controllers)abort.abort();for(const entry of waiting.splice(0))entry.reject(new Error('Terrain source disposed'));}};
 }
